@@ -1,38 +1,45 @@
 import type { ActorRdfJoin, IActionRdfJoin } from '@comunica/bus-rdf-join';
 import { KeysQueryOperation } from '@comunica/context-entries';
-import type { IActorReply, IMediatorArgs } from '@comunica/core';
+import type { IActorReply, IMediatorArgs, Logger } from '@comunica/core';
 import { Actor, Mediator } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
 import type { IQueryOperationResult } from '@comunica/types';
+import { ActorRdfJoinInnerMultiReinforcementLearning } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning';
+import { StateSpaceTree } from './StateSpaceTree';
+import { expressionTypes } from 'sparqlalgebrajs/lib/algebra';
+import { episodeLogger } from './episodeLogger';
 
 /**
- * A mediator that mediates over actors implementing the Join Coefficients mediator type and assigns fixed weights
- * to calculate an overall score and pick the actor with the lowest score.
+ * A comunica mediator that mediates for the reinforcement learning-based multi join actor
  */
-export class MediatorJoinCoefficientsFixed
+// Note to self: Get logger to make timings from the ActorInitQueryBase.ts and use the join logger from this one (or use another 'official' logger).
+// Combine results by writing to the same file
+export class MediatorJoinReinforcementLearning
   extends Mediator<ActorRdfJoin, IActionRdfJoin, IMediatorTypeJoinCoefficients, IQueryOperationResult> {
+  public joinState: StateSpaceTree;
   public readonly cpuWeight: number;
   public readonly memoryWeight: number;
   public readonly timeWeight: number;
   public readonly ioWeight: number;
 
+  public episodeLogger: episodeLogger;
+
   public constructor(args: IMediatorJoinCoefficientsFixedArgs) {
     super(args);
+    this.episodeLogger = new episodeLogger();
   }
 
-  protected async mediateWith(
-    action: IActionRdfJoin,
-    testResults: IActorReply<ActorRdfJoin, IActionRdfJoin, IMediatorTypeJoinCoefficients, IQueryOperationResult>[],
-  ): Promise<ActorRdfJoin> {
-    // Obtain test results
-    console.log("Executing Mediator Join Coefficients Fixed");
+  protected async mediateWith(action: IActionRdfJoin, testResults: IActorReply<ActorRdfJoin, IActionRdfJoin, IMediatorTypeJoinCoefficients, IQueryOperationResult>[],
+    ): Promise<ActorRdfJoin> {
     const errors: Error[] = [];
+
     const promises = testResults
       .map(({ reply }) => reply)
       .map(promise => promise.catch(error => {
         errors.push(error);
       }));
     const coefficients = await Promise.all(promises);
+
 
     // Calculate costs
     let costs: (number | undefined)[] = coefficients
@@ -96,8 +103,24 @@ export class MediatorJoinCoefficientsFixed
       });
     }
 
+    if (bestActor instanceof ActorRdfJoinInnerMultiReinforcementLearning){
+      // Still need to check if we even have a state
+      this.joinState = bestActor.joinState;
+      const numNodes: number = this.joinState.nodesArray.length
+      this.episodeLogger.logSelectedJoin(this.joinState.nodesArray[numNodes-1].children.map(x => x.id));
+    }
+    if (bestActor !instanceof ActorRdfJoinInnerMultiReinforcementLearning){
+      /*  We time only the multi joins, don't know a way to properly time the whole execution */
+      this.episodeLogger.updateFinalTime();
+      this.episodeLogger.writeJoinOrderToFile();
+    }
     return bestActor;
   }
+  protected updateState(newState: StateSpaceTree){
+    this.joinState = newState
+  }
+
+  
 }
 
 export interface IMediatorJoinCoefficientsFixedArgs
@@ -118,4 +141,7 @@ export interface IMediatorJoinCoefficientsFixedArgs
    * Weight for the I/O cost
    */
   ioWeight: number;
+  /**
+   * Current join state tree representation
+   */
 }

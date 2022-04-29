@@ -151,6 +151,7 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin {
 
   public async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
     // Order the entries so we can pick the first one (usually the one with the lowest cardinality)
+    console.log("Execute multi bind join");
     const entriesUnsorted = await ActorRdfJoin.getEntriesWithMetadatas(action.entries);
     const entries = await this.sortJoinEntries(entriesUnsorted, action.context);
 

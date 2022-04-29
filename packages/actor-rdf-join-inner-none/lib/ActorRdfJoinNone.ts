@@ -27,6 +27,7 @@ export class ActorRdfJoinNone extends ActorRdfJoin {
   }
 
   protected async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
+    console.log("Executed inner none join");
     return {
       result: {
         bindingsStream: new ArrayIterator([ BF.bindings() ], { autoStart: false }),

@@ -13,6 +13,7 @@ import type {
 import type * as RDF from '@rdfjs/types';
 import { DataFactory } from 'rdf-data-factory';
 import { termToString } from 'rdf-string';
+import { StateSpaceTree } from '../../mediator-join-reinforcement-learning/lib/StateSpaceTree';
 const DF = new DataFactory();
 
 /**
@@ -26,7 +27,7 @@ const DF = new DataFactory();
  * @see IActionRdfJoin
  * @see IActorQueryOperationOutput
  */
-export abstract class ActorRdfJoin
+export abstract class ActorRdfJoinState
   extends Actor<IActionRdfJoin, IMediatorTypeJoinCoefficients, IQueryOperationResultBindings> {
   public readonly mediatorJoinSelectivity: MediatorRdfJoinSelectivity;
 
@@ -149,7 +150,7 @@ export abstract class ActorRdfJoin
    * @param entries Join entries.
    */
   public static async getEntriesWithMetadatas(entries: IJoinEntry[]): Promise<IJoinEntryWithMetadata[]> {
-    const metadatas = await ActorRdfJoin.getMetadatas(entries);
+    const metadatas = await ActorRdfJoinState.getMetadatas(entries);
     return entries.map((entry, i) => ({ ...entry, metadata: metadatas[i] }));
   }
 
@@ -190,7 +191,7 @@ export abstract class ActorRdfJoin
     } else {
       cardinalityJoined = metadatas
         .reduce((acc: RDF.QueryResultCardinality, metadata) => {
-          const cardinalityThis = ActorRdfJoin.getCardinality(metadata);
+          const cardinalityThis = ActorRdfJoinState.getCardinality(metadata);
           return {
             type: cardinalityThis.type === 'estimate' ? 'estimate' : acc.type,
             value: acc.value * cardinalityThis.value,
@@ -206,7 +207,7 @@ export abstract class ActorRdfJoin
         value: cardinalityJoined.value,
       },
       canContainUndefs: partialMetadata.canContainUndefs ?? metadatas.some(metadata => metadata.canContainUndefs),
-      variables: ActorRdfJoin.joinVariables(metadatas),
+      variables: ActorRdfJoinState.joinVariables(metadatas),
     };
   }
 
@@ -242,7 +243,7 @@ export abstract class ActorRdfJoin
       }
     }
 
-    const metadatas = await ActorRdfJoin.getMetadatas(action.entries);
+    const metadatas = await ActorRdfJoinState.getMetadatas(action.entries);
 
     // Check if this actor can handle undefs
     if (!this.canHandleUndefs) {
@@ -252,6 +253,7 @@ export abstract class ActorRdfJoin
         }
       }
     }
+
     return await this.getJoinCoefficients(action, metadatas);
   }
 
@@ -270,7 +272,7 @@ export abstract class ActorRdfJoin
     }
 
     const { result, physicalPlanMetadata } = await this.getOutput(action);
-    const metadatas = await ActorRdfJoin.getMetadatas(action.entries);
+    const metadatas = await ActorRdfJoinState.getMetadatas(action.entries);
 
     // Log to physical plan
     const physicalQueryPlanLogger: IPhysicalQueryPlanLogger | undefined = action.context.get(KeysInitQuery
@@ -284,7 +286,7 @@ export abstract class ActorRdfJoin
         this.name,
         {
           ...physicalPlanMetadata,
-          cardinalities: metadatas.map(ActorRdfJoin.getCardinality),
+          cardinalities: metadatas.map(ActorRdfJoinState.getCardinality),
           joinCoefficients: await this.getJoinCoefficients(action, metadatas),
         },
       );
@@ -302,8 +304,7 @@ export abstract class ActorRdfJoin
    * @param {IActionRdfJoin} action
    * @returns {Promise<IActorRdfJoinOutputInner>}
    */
-
-  protected abstract getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner>;
+  protected abstract getOutput(action: IActionRdfJoin, state?: IRdfJoinState): Promise<IActorRdfJoinOutputInner>;
 
   /**
    * Calculate the join coefficients.
@@ -365,6 +366,12 @@ export interface IActionRdfJoin extends IAction {
    * The array of streams to join.
    */
   entries: IJoinEntry[];
+}
+export interface IRdfJoinState {
+  /**
+   * The tree datastructure representing the current joins
+   */
+  joinTree: StateSpaceTree;
 }
 
 export interface IActorRdfJoinOutputInner {
