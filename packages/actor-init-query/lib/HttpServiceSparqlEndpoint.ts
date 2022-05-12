@@ -446,7 +446,7 @@ export class HttpServiceSparqlEndpoint {
     let eventEmitter: EventEmitter;
     try {
       // Append result formats
-      const formats = await engine.getResultMediaTypeFormats(new ActionContext(this.context));
+      const formats = await engine.getResultMediaTypeFormats(new ActionContext(this.context, this.context.episode));
       for (const format in formats) {
         quads.push(quad(s, `${sd}resultFormat`, formats[format]));
       }

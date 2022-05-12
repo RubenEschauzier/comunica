@@ -13,13 +13,12 @@ export class ObserverTimer extends ActionObserver<IActionInit, IActorOutputInit>
   public modelDirectory: string;
 
     /**
-   * @param args - @defaultNested {<npmd:@comunica/bus-init/^2.0.0/components/ActorInit.jsonld#ActorInit_default_bus>} bus
+   * @param args - @defaultNested {<npmd:@comunica/bus-query-operation/^2.0.0/components/ActorQueryOperation.jsonld#ActorQueryOperationTyped_default_bus>} bus
    */
 
   constructor(args: IActionObserverArgs<IActionInit, IActorOutputInit>) {
     super(args);
     // Get start time at creation of this observer (start of engine)
-    console.log("Creation!!");
     const hrTime = process.hrtime();
     this.startTime = hrTime[0] * 1000000 + hrTime[1] / 1000;
 
@@ -27,12 +26,15 @@ export class ObserverTimer extends ActionObserver<IActionInit, IActorOutputInit>
     // this.modelDirectory = this.getModelDirectory();
     // Subscribe this observer to the init bus
     this.bus.subscribeObserver(this);
+
   }
 
   public onRun(actor: Actor<IActionInit, IActorTest, IActorOutputInit>, // The actor that executes the dereference action
                action: IActionInit, // The dereference action
                output: Promise<IActorOutputInit>, // The promise to a dereference action output, as executed by the actor
   ): void {
+    console.log("Running this query operator");
+    console.log(action);
     // Wait for the query to finish and get elapsed time
     output.then( () => {
         const hrTimeEnd = process.hrtime();

@@ -1,14 +1,19 @@
+import { StateSpaceTree } from '@comunica/mediator-join-reinforcement-learning';
 import type { IActionContext, IActionContextKey } from '@comunica/types';
 import { Map } from 'immutable';
+import { EpisodeLogger } from '../../model-trainer/lib';
 
 /**
  * Implementation of {@link IActionContext} using Immutable.js.
  */
 export class ActionContext implements IActionContext {
+  /* Ruben E: I removed the readonly due to it making passing the join operators as reference impossible */
   private readonly map: Map<string, any>;
+  private episode: EpisodeLogger;
 
-  public constructor(data: Record<string, any> = {}) {
+  public constructor(data: Record<string, any> = {}, episodeLogged: EpisodeLogger = new EpisodeLogger()) {
     this.map = Map<string, any>(data);
+    this.episode = episodeLogged;
   }
 
   /**
@@ -23,11 +28,34 @@ export class ActionContext implements IActionContext {
   }
 
   public setRaw(key: string, value: any): IActionContext {
-    return new ActionContext(this.map.set(key, value));
+    return new ActionContext(this.map.set(key, value), this.episode);
   }
 
+  public setEpisodeTime(time: number): void{
+    this.episode.setTime(time);
+  }
+
+  public setEpisodeState(state: StateSpaceTree): void{
+    this.episode.setState(state);
+  }
+
+  public getEpisodeState(): StateSpaceTree{
+    return this.episode.stateTree
+  }
+
+  public getEpisodeTime(): number {
+    return this.episode.executionTime
+  }
+  // public setInPlace<V>(key: IActionContextKey<V>, value: V): void{
+  //   this.setInPlaceRaw(key.name, value);
+  // }
+
+  // public setInPlaceRaw(key:string, value:any): void {
+  //   this.map.set(key,value);
+  // }
+
   public delete<V>(key: IActionContextKey<V>): IActionContext {
-    return new ActionContext(this.map.delete(key.name));
+    return new ActionContext(this.map.delete(key.name), this.episode);
   }
 
   public get<V>(key: IActionContextKey<V>): V | undefined {
@@ -88,9 +116,10 @@ export class ActionContext implements IActionContext {
    * @return {ActionContext} An action context object.
    */
   public static ensureActionContext(maybeActionContext?: IActionContext | Record<string, any>): IActionContext {
+    // I create a new EpisodeLogger for this function not sure if ok
     return maybeActionContext instanceof ActionContext ?
       maybeActionContext :
-      new ActionContext(Map(maybeActionContext || {}));
+      new ActionContext(Map(maybeActionContext || {}), new EpisodeLogger());
   }
 }
 

@@ -58,6 +58,7 @@ export class StateSpaceTree{
     numNodes: number;
     nodesArray: NodeStateSpace[];
     adjacencyMatrix: number[][];
+    numLeaveNodes: number;
     constructor() {
         this.numNodes = 0;
         this.nodesArray = [];
@@ -158,6 +159,9 @@ export class StateSpaceTree{
         // Set root node to deepest node in the tree
         this.setRoot(rootNode)
     }
+    public setNumLeaveNodes(leaves: number){
+        this.numLeaveNodes = leaves;
+    }
     private setRoot(rootNode: NodeStateSpace){
         this.root = rootNode;
     }
@@ -167,6 +171,7 @@ export class StateSpaceTree{
     private decrementNumNodes(){
         this.numNodes += -1;
     }
+
 }
 // // Some test code making a tree and joining it
 // let joinTree: StateSpaceTree = new StateSpaceTree()

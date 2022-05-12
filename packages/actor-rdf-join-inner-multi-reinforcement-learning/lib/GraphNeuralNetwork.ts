@@ -14,32 +14,27 @@ export class graphConvolutionLayer extends tf.layers.Layer{
     mAdjacency: tf.Tensor2D;
     mIdentity: tf.Tensor2D;
     mAdjacencyHat: tf.Tensor2D;
-    mVariable: tf.Tensor2D;
+    // mVariable: tf.Tensor2D;
     mWeights: tf.Variable;
 
+    fs: any;
+    path: any;
+    modelDirectory: string;
+
+    public static className: string = 'graphConvolutionLayer'; 
 
     constructor(inputSize: number, outputSize: number, activationName: string, layerName?: string) {
         super({});
+        this.path = require('path');
+        this.fs = require('fs');
+        this.modelDirectory = this.getModelDirectory();
+
         // Define the activation layer used in this layer
         this.activationLayer = tf.layers.activation(<any>{activation: activationName});
         // Define input feature size
         this.inputSize = inputSize;
         // Define output feature size, which is size of node representations
         this.outputSize = outputSize;
-        // Graph adjacency matrix used to regulate signal travel
-        // this.mAdjacency = adjacencyMatrix;
-
-        // Add self-loops to adjacency matrix to ensure own node features are used to create node representation
-        // this.mIdentity = tf.eye(this.mAdjacency.shape[0], this.mAdjacency.shape[1])
-        // this.mAdjacencyHat = tf.add(this.mAdjacency,this.mIdentity);
-
-        // Diagonal matrix that normalises the adjacency matrix in convolution
-        // this.mD = tf.sum(this.mAdjacencyHat, 0);
-        // this.mDInv = tf.diag(tf.rsqrt(this.mD));
-
-        // // Normalised adjecency matrix, we perform this is initialisation to not compute it in the call
-        // this.mAdjacencyHat = tf.matMul(tf.matMul(this.mDInv, this.mAdjacencyHat), this.mDInv);
-        // // Trainable convolution weight matrix
         if (layerName){
             this.mWeights = tf.variable(tf.randomNormal([this.inputSize, this.outputSize]), true,
             layerName);
@@ -47,22 +42,49 @@ export class graphConvolutionLayer extends tf.layers.Layer{
         else{
             this.mWeights = tf.variable(tf.randomNormal([this.inputSize, this.outputSize]), true);
         }
+    }
+    public async loadWeights(loadPath: string): Promise<void>{
+        const fileLocation = this.path.join(this.modelDirectory, loadPath);
+        const weights = await this.readWeightFile(fileLocation);
+        this.mWeights.assign(weights);
+    }
 
+    private readWeightFile(fileLocationWeights: string){
+        const readWeights = new Promise<tf.Tensor>( (resolve, reject) => {
+            fs.readFile(fileLocationWeights, 'utf8', async function (err, data) {
+                if (err) throw err;
+                const weightArray: number[][] = JSON.parse(data);
+                // const weights: tf.Tensor[] = weightArray.map((x: number[]) => tf.tensor(x));
+                const weights: tf.Tensor = tf.tensor(weightArray);
+                resolve(weights);
+              });
+        })
+        return readWeights;
 
+    }
+
+    public async saveWeights(savePath: string): Promise<void> {
+        const weights = await this.mWeights.array();
+        const fileLocation = this.path.join(this.modelDirectory, savePath);
+        console.log(fileLocation);
+        fs.writeFile(fileLocation, JSON.stringify(weights), function(err: any) {
+            if(err) {
+                return console.log(err);
+            }
+        }); 
     }
 
     
     // I should call build function for flexibility, not sure if I need it yet, but might become needed
     call(input: tf.Tensor2D,  mAdjacency: tf.Tensor2D, kwargs?: any) {
-        /*  Get inverted square of node degree diagonal matrix */
-        const mD: tf.Tensor2D = tf.sum(mAdjacency, 1);
-
-        const mDInv: tf.Tensor = tf.diag(tf.rsqrt(mD));
-
-        // Normalised adjecency matrix, we perform this is initialisation to not compute it in the call
-        const mAdjacencyHat: tf.Tensor2D = tf.matMul(tf.matMul(mDInv, mAdjacency), mDInv);
-        // Trainable convolution weight matrix
         return tf.tidy(() => {
+            /*  Get inverted square of node degree diagonal matrix */
+            const mD: tf.Tensor2D = tf.sum(mAdjacency, 1);
+            const mDInv: tf.Tensor = tf.diag(tf.rsqrt(mD));
+
+            // Normalised adjecency matrix, we perform this is initialisation to not compute it in the call
+            const mAdjacencyHat: tf.Tensor2D = tf.matMul(tf.matMul(mDInv, mAdjacency), mDInv);
+
             // Tensor that denotes the signal travel in convolution
             const mSignalTravel: tf.Tensor = tf.matMul(mAdjacencyHat, input);
             // Output of convolution, by multiplying with weight matrix and applying non-linear activation function
@@ -77,117 +99,195 @@ export class graphConvolutionLayer extends tf.layers.Layer{
         return 'Graph Convolution';
     }
 
+    private getModelDirectory(){          
+        const modelDir: string = this.path.join(__dirname, '../../actor-rdf-join-inner-multi-reinforcement-learning/model');
+        return modelDir;
+    }
+
+
 }
 
-export class graphConvolutionLayerTest extends tf.layers.Layer{
+// export class graphConvolutionLayerTest extends tf.layers.Layer{
 
-    // Disgusting any, should look up what a tf.layers.activation is
-    activationLayer: any;
-    inputSize: number;
-    outputSize: number;
-    mWeights: tf.LayerVariable;
-    activationName: string;
-    name: string;
+//     // Disgusting any, should look up what a tf.layers.activation is
+//     activationLayer: any;
+//     inputSize: number;
+//     outputSize: number;
+//     mWeights: tf.LayerVariable;
+//     activationName: string;
+//     name: string;
 
 
 
-    constructor(inputSize: number, outputSize: number, activationName: string, name: string, config: Object) {
-        super(config);
-        // Define the activation layer used in this layer
-        this.activationName;
-        this.activationLayer = tf.layers.activation(<any>{activation: activationName});
-        // Define input feature size
-        this.inputSize = inputSize;
-        // Define output feature size, which is size of node representations
-        this.outputSize = outputSize;
-        this.name = name;
-
-    
-    }
-    build(inputShape: number[]){
-        console.log("Building it!");
-        console.log(inputShape);
-        this.mWeights = this.addWeight(this.name, [inputShape[1], inputShape[2]], 'float32', tf.initializers.randomNormal({}))
-    }
+//     constructor(inputSize: number, outputSize: number, activationName: string, name: string, config: Object) {
+//         super(config);
+//         // Define the activation layer used in this layer
+//         this.activationName;
+//         this.activationLayer = tf.layers.activation(<any>{activation: activationName});
+//         // Define input feature size
+//         this.inputSize = inputSize;
+//         // Define output feature size, which is size of node representations
+//         this.outputSize = outputSize;
+//         this.name = name;
 
     
-    // I should call build function for flexibility, not sure if I need it yet, but might become needed
-    call(input: tf.Tensor,  mAdjacency: tf.Tensor2D, kwargs?: any) {
-        // Trainable convolution weight matrix
-        return tf.tidy(() => {
-            /*  Get inverted square of node degree diagonal matrix */
-            const mD: tf.Tensor2D = tf.sum(mAdjacency, 1);
-            const mDInv: tf.Tensor = tf.diag(tf.rsqrt(mD));
+//     }
+//     build(inputShape: number[]){
+//         console.log("Building it!");
+//         console.log(inputShape);
+//         this.mWeights = this.addWeight(this.name, [inputShape[1], inputShape[2]], 'float32', tf.initializers.randomNormal({}))
+//     }
 
-            // Normalised adjecency matrix, we perform this is initialisation to not compute it in the call
-            const mAdjacencyHat: tf.Tensor2D = tf.matMul(tf.matMul(mDInv, mAdjacency), mDInv);
-            // Tensor that denotes the signal travel in convolution
-            const mSignalTravel: tf.Tensor = tf.matMul(mAdjacencyHat, input);
-            // Output of convolution, by multiplying with weight matrix and applying non-linear activation function
-            // Check if activation function is ok
-            const mWeightedSignal: tf.Tensor = this.activationLayer.apply(tf.matMul(mSignalTravel, this.mWeights.read()));
-            return mWeightedSignal;
-            }
-        )
-    }
+    
+//     // I should call build function for flexibility, not sure if I need it yet, but might become needed
+//     call(input: tf.Tensor,  mAdjacency: tf.Tensor2D, kwargs?: any) {
+//         // Trainable convolution weight matrix
+//         return tf.tidy(() => {
+//             /*  Get inverted square of node degree diagonal matrix */
+//             const mD: tf.Tensor2D = tf.sum(mAdjacency, 1);
+//             const mDInv: tf.Tensor = tf.diag(tf.rsqrt(mD));
 
-    getConfig(){
-        const config = super.getConfig();
-        Object.assign(config, {activationName: this.activationName, inputSize: this.inputSize, outputSize: this.outputSize});
-        return config;
-    }
+//             // Normalised adjecency matrix, we perform this is initialisation to not compute it in the call
+//             const mAdjacencyHat: tf.Tensor2D = tf.matMul(tf.matMul(mDInv, mAdjacency), mDInv);
+//             // Tensor that denotes the signal travel in convolution
+//             const mSignalTravel: tf.Tensor = tf.matMul(mAdjacencyHat, input);
+//             // Output of convolution, by multiplying with weight matrix and applying non-linear activation function
+//             // Check if activation function is ok
+//             const mWeightedSignal: tf.Tensor = this.activationLayer.apply(tf.matMul(mSignalTravel, this.mWeights.read()));
+//             return mWeightedSignal;
+//             }
+//         )
+//     }
 
-    getClassName() {
-        return 'Graph_Convolution';
-    }
+//     getConfig(){
+//         const config = super.getConfig();
+//         Object.assign(config, {activationName: this.activationName, inputSize: this.inputSize, outputSize: this.outputSize});
+//         return config;
+//     }
 
-}
+//     getClassName() {
+//         return 'Graph_Convolution';
+//     }
+
+// }
+
+// export class graphConvolutionModel{
+//     /* For now a simple constructor, should prob use a json config file and with pretrained layers*/
+//     /* For saving new_model = tf.keras.models.load_model('model.h5', custom_objects={'CustomLayer': CustomLayer}) */
+//     layer1: graphConvolutionLayer;
+//     layer2: graphConvolutionLayer;
+//     layer3: tf.layers.Layer
+
+//     constructor(){
+//         this.layer1 = new graphConvolutionLayer(1, 6, "relu");
+//         this.layer2 = new graphConvolutionLayer(6, 6, "relu");
+//         this.layer3 = tf.layers.dense({inputShape: [6], units: 1, activation: 'linear'});
+//     }
+//     forwardPass(input: tf.Tensor2D,  mAdjacency: tf.Tensor2D, kwargs?: any){
+//         const hiddenState: tf.Tensor = this.layer1.call(input, mAdjacency);
+//         const nodeRepresentations: tf.Tensor = this.layer2.call(tf.reshape(hiddenState, [mAdjacency.shape[0],6]), mAdjacency);
+//         const output = this.layer3.apply(nodeRepresentations); 
+//         return output;
+//     }
+// }
 
 export class graphConvolutionModel{
     /* For now a simple constructor, should prob use a json config file and with pretrained layers*/
     /* For saving new_model = tf.keras.models.load_model('model.h5', custom_objects={'CustomLayer': CustomLayer}) */
     layer1: graphConvolutionLayer;
     layer2: graphConvolutionLayer;
-    layer3: tf.layers.Layer
+    layer3: tf.layers.Layer;
+    model: tf.Sequential;
 
-    constructor(){
+    fs: any;
+    path: any;
+    modelDirectory: string;
+
+    public constructor(loss?: any, optimizer?: any){
+        this.fs = require('fs');
+        this.path = require('path')
+        this.modelDirectory = this.getModelDirectory();
+    
         this.layer1 = new graphConvolutionLayer(1, 6, "relu");
         this.layer2 = new graphConvolutionLayer(6, 6, "relu");
         this.layer3 = tf.layers.dense({inputShape: [6], units: 1, activation: 'linear'});
+    
     }
-    forwardPass(input: tf.Tensor2D,  mAdjacency: tf.Tensor2D, kwargs?: any){
-        const hiddenState: tf.Tensor = this.layer1.call(input, mAdjacency);
-        const nodeRepresentations: tf.Tensor = this.layer2.call(tf.reshape(hiddenState, [mAdjacency.shape[0],6]), mAdjacency);
-        const output = this.layer3.apply(nodeRepresentations); 
-        return output;
-    }
-}
 
-export class graphConvolutionModel2{
-    /* For now a simple constructor, should prob use a json config file and with pretrained layers*/
-    /* For saving new_model = tf.keras.models.load_model('model.h5', custom_objects={'CustomLayer': CustomLayer}) */
-    layer1: graphConvolutionLayer;
-    layer2: graphConvolutionLayer;
-    layer3: tf.layers.Layer
-
-    constructor(){
-        this.layer1 = new graphConvolutionLayer(1, 6, "relu");
-        this.layer2 = new graphConvolutionLayer(6, 6, "relu");
-        this.layer3 = tf.layers.dense({inputShape: [6], units: 1, activation: 'sigmoid'});
-
-
-
-    }
-    model(inputFeatures: tf.Tensor2D, mAdjacency: tf.Tensor2D){
+    public forwardPass(inputFeatures: tf.Tensor2D, mAdjacency: tf.Tensor2D){
         const hiddenState: tf.Tensor = this.layer1.call(inputFeatures, mAdjacency);
         const nodeRepresentations: tf.Tensor = this.layer2.call(tf.reshape(hiddenState, [mAdjacency.shape[0], 6]), mAdjacency);
         const output = this.layer3.apply(nodeRepresentations); 
-
         return output
     }
+
+    public saveModel(){
+        tf.serialization.registerClass(graphConvolutionLayer);
+        
+        // Hardcoded, should be config when we are happy with performance
+        this.layer1.saveWeights('gcnLayer1');
+        this.layer2.saveWeights('gcnLayer2');
+        this.saveDenseLayer();
+
+    }
+
+    public async loadModel(){
+        const layer1 = new graphConvolutionLayer(1, 6, 'relu');
+        layer1.loadWeights('gcnLayer1');
+
+        const layer2 = new graphConvolutionLayer(6, 6, 'relu');
+        layer2.loadWeights('gcnLayer2');
+
+        const layer3 = await this.loadDenseLayer();
+        this.layer1 = layer1; this.layer2 = layer2; this.layer3 = layer3;
+    }
+
+    public async saveDenseLayer(){
+        const denseConfig: tf.serialization.ConfigDict = this.layer3.getConfig();
+        const fileLocationConfig: string = this.path.join(this.modelDirectory, 'denseLayerConfig');
+        const fileLocationWeights: string = this.path.join(this.modelDirectory, 'denseLayerWeights');
+
+        fs.writeFile(fileLocationConfig, JSON.stringify(denseConfig), function(err: any) {
+            if(err) {
+                return console.log(err);
+            }
+        }); 
+        const weightsLayer: tf.Tensor[] = this.layer3.getWeights();
+
+        let weightsLayerArray: any = await Promise.all(weightsLayer.map(async x => await x.array()));
+
+        fs.writeFile(fileLocationWeights, JSON.stringify(weightsLayerArray), function(err: any) {
+            if(err) {
+                return console.log(err);
+            }
+        }); 
+
+
+    }
+
+    public async loadDenseLayer(){
+        const fileLocationWeights = this.path.join(this.modelDirectory, 'denseLayerWeights');
+        const initialisedDenseLayer = new Promise<tf.layers.Layer>( (resolve, reject) => {
+
+            fs.readFile(fileLocationWeights, 'utf8', async function (err, data) {
+                if (err) throw err;
+                const weightArray: number[][] = JSON.parse(data);
+                const weights: tf.Tensor[] = weightArray.map((x: number[]) => tf.tensor(x));
+                const finalDenseLayer: tf.layers.Layer = tf.layers.dense({inputShape: [6], units: 1, activation: 'linear', weights: weights});
+                resolve(finalDenseLayer);
+              });
+        })
+
+        return initialisedDenseLayer        
+    }
+
+    private getModelDirectory(){          
+        const modelDir: string = this.path.join(__dirname, '../../actor-rdf-join-inner-multi-reinforcement-learning/model');
+        return modelDir;
+    }
+
 }
 
-let test: graphConvolutionModel2 = new graphConvolutionModel2();
 
 // // Test functions:
 // const file = fs.readFileSync('Reinforcement-Learning-Join-Mediator/data/soc-karate.mtx','utf8');

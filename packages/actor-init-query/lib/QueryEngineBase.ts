@@ -1,17 +1,21 @@
 import { materializeOperation } from '@comunica/bus-query-operation';
 import type { IActionSparqlSerialize, IActorQueryResultSerializeOutput } from '@comunica/bus-query-result-serialize';
-import { KeysCore, KeysInitQuery, KeysRdfResolveQuadPattern } from '@comunica/context-entries';
+import { KeysCore, KeysInitQuery, KeysRdfResolveQuadPattern, KeysRdfJoinReinforcementLearning } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
+import { episodeLogger } from '@comunica/mediator-join-reinforcement-learning/lib/episodeLogger';
+import { Timer } from '@comunica/observer-timer';
 import type { IActionContext, IPhysicalQueryPlanLogger,
   IQueryOperationResult,
   IQueryEngine, IQueryExplained,
   QueryFormatType,
   QueryType, QueryExplainMode, BindingsStream,
   QueryAlgebraContext, QueryStringContext, IQueryBindingsEnhanced,
-  IQueryQuadsEnhanced, QueryEnhanced } from '@comunica/types';
+  IQueryQuadsEnhanced, QueryEnhanced, IActionContextKey } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import type { Algebra } from 'sparqlalgebrajs';
+import { EpisodeLogger } from '../../model-trainer/lib';
+import { ModelTrainer } from '../../model-trainer/lib/ModelTrainerOnline';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
 
@@ -20,9 +24,11 @@ import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
  */
 export class QueryEngineBase implements IQueryEngine {
   private readonly actorInitQuery: ActorInitQueryBase;
+  private readonly timer: Timer;
 
   public constructor(actorInitQuery: ActorInitQueryBase) {
     this.actorInitQuery = actorInitQuery;
+    this.timer = new Timer();
   }
 
   public async queryBindings<QueryFormatTypeInner extends QueryFormatType>(
@@ -79,6 +85,7 @@ export class QueryEngineBase implements IQueryEngine {
     if ('explain' in output) {
       throw new Error(`Tried to explain a query when in query-only mode`);
     }
+
     return output;
   }
 
@@ -121,8 +128,9 @@ export class QueryEngineBase implements IQueryEngine {
       }
     }
 
-    // Prepare context
-    let actionContext: IActionContext = new ActionContext(context);
+    // Prepare episodeLogger and context
+    let queryEpisode: EpisodeLogger = new EpisodeLogger();
+    let actionContext: IActionContext = new ActionContext(context, queryEpisode);
     let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };
     if (actionContext.has(KeysInitQuery.queryFormat)) {
       queryFormat = actionContext.get(KeysInitQuery.queryFormat)!;
@@ -138,7 +146,6 @@ export class QueryEngineBase implements IQueryEngine {
       .setDefault(KeysRdfResolveQuadPattern.sourceIds, new Map())
       // Set the default logger if none is provided
       .setDefault(KeysCore.log, this.actorInitQuery.logger);
-
     // Pre-processing the context
     actionContext = (await this.actorInitQuery.mediatorContextPreprocess.mediate({ context: actionContext })).context;
 
@@ -161,6 +168,7 @@ export class QueryEngineBase implements IQueryEngine {
     } else {
       operation = query;
     }
+
 
     // Print parsed query
     if (explainMode === 'parsed') {
@@ -205,14 +213,13 @@ export class QueryEngineBase implements IQueryEngine {
     }
 
     // Execute query
-    const output = await this.actorInitQuery.mediatorQueryOperation.mediate({
+    const output: IQueryOperationResult = await this.actorInitQuery.mediatorQueryOperation.mediate({
       context: actionContext,
       operation,
     });
     output.context = actionContext;
 
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
-
     // Output physical query plan after query exec if needed
     if (physicalQueryPlanLogger) {
       // Make sure the whole result is produced
@@ -230,13 +237,22 @@ export class QueryEngineBase implements IQueryEngine {
           await finalOutput.execute();
           break;
       }
-
       return {
         explain: true,
         type: explainMode,
         data: physicalQueryPlanLogger.toJson(),
       };
     }
+
+    /**
+     * For our reinforcement learning actor we include the timing always, but this should be configurable
+     */
+    const queryExectionTime: number = this.timer.updateEndTime();
+    const queryExecutionTiming: IActionContextKey<string> = {name: 'queryExecutionTime'};
+
+    const episodeTrainer: ModelTrainer = new ModelTrainer(actionContext.getEpisodeState(), queryExectionTime)
+    episodeTrainer.trainModel();
+    episodeTrainer.saveModel();
 
     return finalOutput;
   }

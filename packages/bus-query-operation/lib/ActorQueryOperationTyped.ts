@@ -48,12 +48,14 @@ export abstract class ActorQueryOperationTyped<O extends Algebra.Operation> exte
         this.name,
         {},
       );
+      // Again we change to inplace
       action.context = action.context.set(KeysInitQuery.physicalQueryPlanNode, action.operation);
     }
 
     const operation: O = <O> action.operation;
-    const subContext = action.context.set(KeysQueryOperation.operation, operation);
-    const output: IQueryOperationResult = await this.runOperation(operation, subContext);
+    action.context = action.context.set(KeysQueryOperation.operation, operation);
+    // const subContext = action.context.set(KeysQueryOperation.operation, operation);
+    const output: IQueryOperationResult = await this.runOperation(operation, action.context);
     if ('metadata' in output) {
       output.metadata = <any> ActorQueryOperation
         .cachifyMetadata<IMetadata<RDF.QuadTermName | RDF.Variable>, RDF.QuadTermName | RDF.Variable>(output.metadata);

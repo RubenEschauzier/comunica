@@ -1,4 +1,5 @@
 import { ActionContextKey, CONTEXT_KEY_LOGGER } from '@comunica/core';
+import { StateSpaceTree } from '@comunica/mediator-join-reinforcement-learning';
 import type { Bindings,
   IPhysicalQueryPlanLogger,
   QueryExplainMode,
@@ -216,4 +217,13 @@ export const KeysRdfUpdateQuads = {
    * A data destination.
    */
   destination: new ActionContextKey<IDataDestination>('@comunica/bus-rdf-update-quads:destination'),
+};
+
+/* Have not yet added shortcuts!!*/
+export const KeysRdfJoinReinforcementLearning = {
+  /**
+   * Keys for the reinforcement learning episode that is passed to context
+   */
+   queryExectionTime: new ActionContextKey<number>('@comunica/bus-rdf-join:executionTime'),
+   queryJoinPlan: new ActionContextKey<StateSpaceTree>('@comunica/bus-rdf-join:joinPlan')
 };

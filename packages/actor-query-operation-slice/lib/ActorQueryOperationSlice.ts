@@ -29,14 +29,14 @@ export class ActorQueryOperationSlice extends ActorQueryOperationTypedMediated<A
   Promise<IQueryOperationResult> {
     // Add limit indicator to the context, which can be used for query planning
     // eslint-disable-next-line unicorn/explicit-length-check
+
+    // Changed to inplace to keep pass by reference behavior
     if (operation.length) {
       context = context.set(KeysQueryOperation.limitIndicator, operation.length);
     }
-
     // Resolve the input
     const output: IQueryOperationResult = await this.mediatorQueryOperation
       .mediate({ operation: operation.input, context });
-
     if (output.type === 'bindings') {
       const bindingsStream = this.sliceStream(output.bindingsStream, operation);
       return <IQueryOperationResultBindings> {

@@ -1,3 +1,5 @@
+import { StateSpaceTree } from "@comunica/mediator-join-reinforcement-learning";
+
 /**
  * An immutable key-value mapped context that can be passed to any (@link IAction}.
  * All actors that receive a context must forward this context to any actor, mediator or bus that it calls.
@@ -15,10 +17,15 @@
  * For instance, this context can contain a list of datasources over which operators should query.
  */
 export interface IActionContext {
+  setEpisodeTime: (time: number) => void;
+  setEpisodeState: (state: StateSpaceTree) => void;
+  getEpisodeTime: () => number;
+  getEpisodeState: () => StateSpaceTree;
   set: <V>(key: IActionContextKey<V>, value: V) => IActionContext;
   /**
    * Will only set the value if the key is not already set.
    */
+  // setInPlace: <V>(key: IActionContextKey<V>, value: V) => void
   setDefault: <V>(key: IActionContextKey<V>, value: V) => IActionContext;
   delete: <V>(key: IActionContextKey<V>) => IActionContext;
   get: <V>(key: IActionContextKey<V>) => V | undefined;

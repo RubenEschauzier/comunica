@@ -13,10 +13,10 @@ import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-
 import type { MetadataBindings, IJoinEntry, IActionContext, IJoinEntryWithMetadata } from '@comunica/types';
 import { Factory } from 'sparqlalgebrajs';
 import { StateSpaceTree, NodeStateSpace } from '@comunica/mediator-join-reinforcement-learning';
-import { graphConvolutionModel2 } from './GraphNeuralNetwork';
+import { graphConvolutionModel } from './GraphNeuralNetwork';
 import * as tf from '@tensorflow/tfjs';
-import { ObserverTimer } from '../../observer-timer/lib';
-
+import {KeysRdfJoinReinforcementLearning} from '@comunica/context-entries'
+import { ActionContextKey } from '@comunica/core';
 
 /**
  * A Multi Smallest RDF Join Actor.
@@ -29,7 +29,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
   
   private train: boolean;
   public joinState: StateSpaceTree;
-  private model: graphConvolutionModel2;
+  private model: graphConvolutionModel;
   numCalls: number;
   test: any;
 
@@ -45,9 +45,9 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       limitEntriesMin: true,
     });
     this.train = args['trainingMode'];
-    this.model = new graphConvolutionModel2();
+    this.model = new graphConvolutionModel();
+    this.model.loadModel();
     this.nodeid_mapping = new Map<number, number>()
-    
   }
 
   /**
@@ -76,10 +76,10 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
   
 
   protected async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
-    
     /*Create initial mapping between entries and nodes in the state tree. We need this mapping due to the indices of nodes increasing as more joins are made, while the
       number of streams decreases with more joins. 
     */
+    
     if (this.nodeid_mapping.size == 0){
       for(let i:number=0;i<action.entries.length;i++){
         this.nodeid_mapping.set(i,i);
@@ -127,12 +127,12 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     /* Add the joined entry to the index mapping, here we assume the joined streams are added at the end of the array, need to check this assumption*/
     const join_id: number = this.joinState.nodesArray[this.joinState.numNodes-1].id;
     this.nodeid_mapping.set(join_id, action.entries.length-1);
-    
+    if(this.train){
+      const joinPlanKey: ActionContextKey<number[]> = KeysRdfJoinReinforcementLearning.queryJoinPlan;
+      // const previousJoins: number[][] = action.context.get(joinPlanKey)!;
 
-    console.log(this.nodeid_mapping);
-    const metadataTest: MetadataBindings[]  = await ActorRdfJoinInnerMultiReinforcementLearning.getMetadatas(entries);
-    console.log(metadataTest.map(a => a.cardinality));
-    /*  Join the two selected streams, and then join the result with the remaining streams */
+      action.context.setEpisodeState(this.joinState);
+    }
     return {
       result: await this.mediatorJoin.mediate({
         type: action.type,
@@ -165,8 +165,11 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
         let newNode: NodeStateSpace = new NodeStateSpace(i, metadata.cardinality.value);
         newNode.setDepth(0);
         this.joinState.addLeave(newNode);
-      } 
+      }
+      /* Set the number of leave nodes in the tree, this will not change during execution */
+      this.joinState.setNumLeaveNodes(this.joinState.numNodes); 
     }
+
     let nodeIndexes: number[] = [... Array(this.joinState.numNodes).keys()];
 
     /*  Remove already joined nodes from consideration by traversing the node indices in reverse order 
@@ -189,19 +192,18 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       this.joinState.addParent(joinCombination, newParent);
       const adjTensor = tf.tensor2d(this.joinState.adjacencyMatrix);
 
-      /*  Note that this for loop (disgusting) seems to be faster than map  */
       let featureMatrix = [];
       for(var i=0;i<this.joinState.nodesArray.length;i++){
         featureMatrix.push(this.joinState.nodesArray[i].cardinality);
       }
 
       /*  Scale features using Min-Max scaling  */
-      const maxCardinality: number = Math.max(...featureMatrix);
-      const minCardinality: number = Math.min(...featureMatrix);
-      featureMatrix = featureMatrix.map((vM, iM) => (vM - minCardinality) / (maxCardinality - minCardinality));
+      // const maxCardinality: number = Math.max(...featureMatrix);
+      // const minCardinality: number = Math.min(...featureMatrix);
+      // featureMatrix = featureMatrix.map((vM, iM) => (vM - minCardinality) / (maxCardinality - minCardinality));
 
-      /*  Execute forward pass  */
-      const forwardPassOutput = this.model.model(tf.tensor2d(featureMatrix, [this.joinState.numNodes,1]), adjTensor);
+      /* Execute forward pass */
+      const forwardPassOutput = this.model.forwardPass(tf.tensor2d(featureMatrix, [this.joinState.numNodes,1]), adjTensor);
       // Casten naar tensor <tf.Tensor> en miss <any>
       if (forwardPassOutput instanceof tf.Tensor){
         const outputArray= await forwardPassOutput.data();

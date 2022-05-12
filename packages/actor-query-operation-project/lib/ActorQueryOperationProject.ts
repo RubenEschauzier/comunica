@@ -32,7 +32,6 @@ export class ActorQueryOperationProject extends ActorQueryOperationTypedMediated
     const output: IQueryOperationResultBindings = ActorQueryOperation.getSafeBindings(
       await this.mediatorQueryOperation.mediate({ operation: operation.input, context }),
     );
-
     // Find all variables that should be deleted from the input stream.
     const outputMetadata = await output.metadata();
     const variables = operation.variables;

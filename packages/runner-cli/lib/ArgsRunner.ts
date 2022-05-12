@@ -4,6 +4,7 @@ import { ActionContext } from '@comunica/core';
 import type { ISetupProperties } from '@comunica/runner';
 import { run } from '@comunica/runner';
 import type { IActionContext } from '@comunica/types';
+import { EpisodeLogger } from '../../model-trainer/lib';
 
 export function runArgs(configResourceUrl: string, argv: string[], stdin: NodeJS.ReadStream,
   stdout: NodeJS.WriteStream, stderr: NodeJS.WriteStream, exit: (code?: number) => void, env: NodeJS.ProcessEnv,

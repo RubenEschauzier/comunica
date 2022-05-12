@@ -40,9 +40,3 @@ export class episodeLogger{
         return modelDir;
     }
 }
-
-let test = new episodeLogger();
-test.logSelectedJoin([0,5]);
-test.logSelectedJoin([1,3]);
-test.updateFinalTime();
-test.writeJoinOrderToFile();

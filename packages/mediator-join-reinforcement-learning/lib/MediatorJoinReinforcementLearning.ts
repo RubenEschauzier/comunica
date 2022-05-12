@@ -14,6 +14,7 @@ import { episodeLogger } from './episodeLogger';
  */
 // Note to self: Get logger to make timings from the ActorInitQueryBase.ts and use the join logger from this one (or use another 'official' logger).
 // Combine results by writing to the same file
+// Ruben E: Changed to inplace at: Bus query operation, reinforcement learning actor and either slice or project actor.
 export class MediatorJoinReinforcementLearning
   extends Mediator<ActorRdfJoin, IActionRdfJoin, IMediatorTypeJoinCoefficients, IQueryOperationResult> {
   public joinState: StateSpaceTree;
