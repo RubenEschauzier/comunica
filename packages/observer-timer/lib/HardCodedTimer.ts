@@ -16,7 +16,6 @@ export class Timer {
     const hrTimeEnd = process.hrtime();
     const endTime = hrTimeEnd[0] + hrTimeEnd[1] / 1000000000 ;
     this.elapsedTime = endTime - this.startTime;
-    console.log(this.elapsedTime)
     return this.elapsedTime
   }
 }

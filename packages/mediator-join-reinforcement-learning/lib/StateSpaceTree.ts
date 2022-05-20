@@ -91,6 +91,7 @@ export class StateSpaceTree{
         const node2: NodeStateSpace = this.nodesArray[leaveIndexes[1]];
 
         // Set child and parent relations
+        
         node1.setParent(parent); node2.setParent(parent);
         parent.setChild(node1); parent.setChild(node2);
         // Set joined status to true for each of the two child nodes

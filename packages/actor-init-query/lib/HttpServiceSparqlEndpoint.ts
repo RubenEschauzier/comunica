@@ -331,14 +331,17 @@ export class HttpServiceSparqlEndpoint {
     }
 
     let result: QueryType;
+
     try {
       result = await engine.query(queryBody.value, context);
+      
 
       // For update queries, also await the result
       if (result.resultType === 'void') {
         await result.execute();
       }
     } catch (error: unknown) {
+      console.log(error);
       stdout.write('[400] Bad request\n');
       response.writeHead(400,
         { 'content-type': HttpServiceSparqlEndpoint.MIME_PLAIN, 'Access-Control-Allow-Origin': '*' });
@@ -405,8 +408,8 @@ export class HttpServiceSparqlEndpoint {
       process.removeListener('message', messageListener);
       process.send!('end');
     });
-
     this.stopResponse(response, eventEmitter);
+
   }
 
   public async writeServiceDescription(

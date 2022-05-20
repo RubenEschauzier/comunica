@@ -47,7 +47,7 @@ export class ModelTrainer{
             const predTensor: tf.Tensor = this.finalForwardPass();
             const y: tf.Tensor = tf.fill([predTensor.shape[0], 1], this.executionTime);
             const loss = tf.losses.meanSquaredError(y, predTensor);
-            loss.data().then(l => console.log('Loss', l));
+            loss.data().then(l => console.log('Loss', l[0]));
             return loss;
         });
     }

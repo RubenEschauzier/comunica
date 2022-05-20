@@ -47,7 +47,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     this.train = args['trainingMode'];
     this.model = new graphConvolutionModel();
     this.model.loadModel();
-    this.nodeid_mapping = new Map<number, number>()
+    this.nodeid_mapping = new Map<number, number>();
   }
 
   /**
@@ -79,7 +79,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     /*Create initial mapping between entries and nodes in the state tree. We need this mapping due to the indices of nodes increasing as more joins are made, while the
       number of streams decreases with more joins. 
     */
-    
     if (this.nodeid_mapping.size == 0){
       for(let i:number=0;i<action.entries.length;i++){
         this.nodeid_mapping.set(i,i);
@@ -91,7 +90,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     /* Find node ids from to be joined streams*/
     const joined_nodes: NodeStateSpace[] = this.joinState.nodesArray[this.joinState.numNodes-1].children;
     const ids: number[] = joined_nodes.map(a => a.id).sort();
-    const indexJoins: number[] = ids.map(a => this.nodeid_mapping.get(a)!);
+    const indexJoins: number[] = ids.map(a => this.nodeid_mapping.get(a)!).sort();
 
     const toBeJoined1 = entries[indexJoins[0]];
     const toBeJoined2 = entries[indexJoins[1]];
@@ -104,6 +103,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
         .createJoin([ toBeJoined1.operation, toBeJoined2.operation ], false),
     };
     entries.push(firstEntry);
+
 
 
     /* Update the mapping to reflect the newly executed join*/
@@ -156,7 +156,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
      * @param {MetadataBindings[]} metadatas An array with all  metadatas of the bindingstreams
      * @returns {Promise<IMediatorTypeJoinCoefficients>} Interface with estimated cost of the best join
     */
-
+    console.log("Getting joincoefficients");
     if (!this.joinState){
       const metadatas: MetadataBindings[] = await ActorRdfJoinInnerMultiReinforcementLearning.getMetadatas(action.entries);
       this.joinState = new StateSpaceTree();
@@ -217,8 +217,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     
     /*  Update the actors joinstate, which will be used by the RL medaitor to update its joinstate too  */
     const newParent: NodeStateSpace = new NodeStateSpace(this.joinState.numNodes, bestJoinCost);
-    this.joinState.addParent(bestJoin, newParent);  
-    
+    this.joinState.addParent(bestJoin, newParent);    
     this.prevEstimatedCost = bestJoinCost;
 
     return {

@@ -250,9 +250,12 @@ export class QueryEngineBase implements IQueryEngine {
     const queryExectionTime: number = this.timer.updateEndTime();
     const queryExecutionTiming: IActionContextKey<string> = {name: 'queryExecutionTime'};
 
-    const episodeTrainer: ModelTrainer = new ModelTrainer(actionContext.getEpisodeState(), queryExectionTime)
-    episodeTrainer.trainModel();
-    episodeTrainer.saveModel();
+    /* This can be undefined when there is no joins) */
+    if (actionContext.getEpisodeState()){
+      const episodeTrainer: ModelTrainer = new ModelTrainer(actionContext.getEpisodeState(), queryExectionTime)
+      episodeTrainer.trainModel();
+      episodeTrainer.saveModel();  
+    }
 
     return finalOutput;
   }

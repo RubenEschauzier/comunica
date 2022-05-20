@@ -66,7 +66,6 @@ export class graphConvolutionLayer extends tf.layers.Layer{
     public async saveWeights(savePath: string): Promise<void> {
         const weights = await this.mWeights.array();
         const fileLocation = this.path.join(this.modelDirectory, savePath);
-        console.log(fileLocation);
         fs.writeFile(fileLocation, JSON.stringify(weights), function(err: any) {
             if(err) {
                 return console.log(err);
