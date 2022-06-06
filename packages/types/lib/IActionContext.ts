@@ -18,7 +18,7 @@ import { StateSpaceTree } from "@comunica/mediator-join-reinforcement-learning";
  */
 export interface IActionContext {
   setEpisodeTime: (time: number) => void;
-  setEpisodeState: (state: StateSpaceTree) => void;
+  setEpisodeState: (joinState: StateSpaceTree) => void;
   getEpisodeTime: () => number;
   getEpisodeState: () => StateSpaceTree;
   set: <V>(key: IActionContextKey<V>, value: V) => IActionContext;

@@ -35,12 +35,12 @@ export class ActionContext implements IActionContext {
     this.episode.setTime(time);
   }
 
-  public setEpisodeState(state: StateSpaceTree): void{
-    this.episode.setState(state);
+  public setEpisodeState(joinState: StateSpaceTree): void{
+    this.episode.setState(joinState);
   }
 
   public getEpisodeState(): StateSpaceTree{
-    return this.episode.stateTree
+    return this.episode.joinState
   }
 
   public getEpisodeTime(): number {

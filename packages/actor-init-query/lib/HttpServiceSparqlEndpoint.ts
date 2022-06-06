@@ -71,7 +71,8 @@ export class HttpServiceSparqlEndpoint {
   ): Promise<void> {
     const options = await HttpServiceSparqlEndpoint
       .generateConstructorArguments(argv, moduleRootPath, env, defaultConfigPath, stderr, exit, cliArgsHandlers);
-
+    console.log("Options Created");
+    console.log(options);
     return new Promise<void>(resolve => {
       new HttpServiceSparqlEndpoint(options || {}).run(stdout, stderr)
         .then(resolve)
@@ -201,6 +202,7 @@ export class HttpServiceSparqlEndpoint {
     process.once('SIGINT', () => {
       cluster.disconnect();
     });
+
   }
 
   /**
@@ -221,6 +223,7 @@ export class HttpServiceSparqlEndpoint {
     // Start the server
     const server = http.createServer(this.handleRequest.bind(this, engine, variants, stdout, stderr));
     server.listen(this.port);
+    
     stderr.write(`Server worker (${process.pid}) running on http://localhost:${this.port}/sparql\n`);
   }
 

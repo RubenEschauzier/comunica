@@ -7,6 +7,7 @@ import { PassThrough } from "stream";
 export class ModelTrainer{
     joinState: StateSpaceTree
     adjMatrix: number[][];
+    features: number[];
     executionTime: number;
     model: graphConvolutionModel;
     optimizer;
@@ -14,7 +15,8 @@ export class ModelTrainer{
 
     public constructor(episode: StateSpaceTree, executionTime: number, optimizer?:any){
         this.path = require('path');
-        this.adjMatrix = episode.adjacencyMatrix;
+        // this.adjMatrix = adjMatrix;
+        // this.features = features
         this.joinState = episode;
         this.executionTime = executionTime;
 

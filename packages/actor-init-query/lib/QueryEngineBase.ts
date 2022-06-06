@@ -252,10 +252,13 @@ export class QueryEngineBase implements IQueryEngine {
 
     /* This can be undefined when there is no joins) */
     if (actionContext.getEpisodeState()){
+
+      
       const episodeTrainer: ModelTrainer = new ModelTrainer(actionContext.getEpisodeState(), queryExectionTime)
       episodeTrainer.trainModel();
       episodeTrainer.saveModel();  
     }
+    console.log("We finished our query!");
 
     return finalOutput;
   }

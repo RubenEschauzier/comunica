@@ -130,7 +130,10 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     if(this.train){
       const joinPlanKey: ActionContextKey<number[]> = KeysRdfJoinReinforcementLearning.queryJoinPlan;
       // const previousJoins: number[][] = action.context.get(joinPlanKey)!;
-
+      let featureMatrix = [];
+      for(var i=0;i<this.joinState.nodesArray.length;i++){
+        featureMatrix.push(this.joinState.nodesArray[i].cardinality);
+      }
       action.context.setEpisodeState(this.joinState);
     }
     return {
@@ -156,7 +159,8 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
      * @param {MetadataBindings[]} metadatas An array with all  metadatas of the bindingstreams
      * @returns {Promise<IMediatorTypeJoinCoefficients>} Interface with estimated cost of the best join
     */
-    console.log("Getting joincoefficients");
+    console.log("Getting join coefficients");
+    
     if (!this.joinState){
       const metadatas: MetadataBindings[] = await ActorRdfJoinInnerMultiReinforcementLearning.getMetadatas(action.entries);
       this.joinState = new StateSpaceTree();
@@ -169,22 +173,28 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       /* Set the number of leave nodes in the tree, this will not change during execution */
       this.joinState.setNumLeaveNodes(this.joinState.numNodes); 
     }
-
+    
     let nodeIndexes: number[] = [... Array(this.joinState.numNodes).keys()];
 
     /*  Remove already joined nodes from consideration by traversing the node indices in reverse order 
         which does not disturb the indexing of the array  */
+    console.log("Splice nodeIndexes")
     for (let i:number=this.joinState.numNodes-1;i>=0;i--){
       if (this.joinState.nodesArray[i].joined==true){
         nodeIndexes.splice(i,1);
       }
     }
     /*  Generate possible joinState combinations  */
+    console.log("Generate Joins");
     const possibleJoins: number[][] = this.getPossibleJoins(nodeIndexes);
+    console.log("Possible Joins:");
+    console.log(nodeIndexes)
+    console.log(possibleJoins)
     let bestJoinCost: number = Infinity;
     let bestJoin: number[] = [-1, -1];
 
     for (const joinCombination of possibleJoins){
+      console.log("Test at For loop")
       /*  We generate the join trees associated with the possible join combinations, note the tradeoff between memory usage (create new trees) 
           and cpu usage (delete the new node)
       */
@@ -218,8 +228,10 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     /*  Update the actors joinstate, which will be used by the RL medaitor to update its joinstate too  */
     const newParent: NodeStateSpace = new NodeStateSpace(this.joinState.numNodes, bestJoinCost);
     this.joinState.addParent(bestJoin, newParent);    
+    console.log(this.joinState);
     this.prevEstimatedCost = bestJoinCost;
 
+    console.log("We're Done!");
     return {
       iterations: bestJoinCost,
       persistedItems: 0,

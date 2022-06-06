@@ -2,8 +2,12 @@ export class NodeStateSpace {
     /** Node denoting either a join (parent node) or a binding stream (leaf)
      */
     public featureArray: Array<number>;
-    public parent: NodeStateSpace;
+    // public parent: NodeStateSpace;
+    public parentId: number;
     public children: NodeStateSpace[];
+    /* Debug Only */
+    public childrenId:  number[]
+    public childrenIdString: string;
     /** Node identifier */ 
     public id: number;
     public depth: number;
@@ -16,6 +20,7 @@ export class NodeStateSpace {
         // Temporary cardinality
         this.cardinality = cardinality;
         this.children = [];
+        this.childrenId = [];
         this.id = idNode;
         this.joined = false;
     }
@@ -24,10 +29,13 @@ export class NodeStateSpace {
         console.assert(this.children.length < 2, {numberChildren: this.children.length,
             errorMsg: "Cannot add more than 2 children"})
         this.children.push(childNode);
+        this.childrenId.push(childNode.id);
+        this.childrenIdString = JSON.stringify(this.childrenId);
     }
 
     public setParent(parentNode: NodeStateSpace){
-        this.parent = parentNode;
+        // this.parent = parentNode;
+        this.parentId = parentNode.id;
     }
 
     public setJoined(value: boolean){
