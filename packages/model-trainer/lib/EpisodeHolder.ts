@@ -1,7 +1,7 @@
 import { StateSpaceTree } from "@comunica/mediator-join-reinforcement-learning";
 
 export class EpisodeLogger{
-    joinState: StateSpaceTree
+    joinState?: StateSpaceTree
     adjMatrix: number[][];
     features: number[]
     executionTime: number;
@@ -11,10 +11,11 @@ export class EpisodeLogger{
     public setState(joinState: StateSpaceTree){
         // this.adjMatrix = adjMatrix;
         // this.features = features
-        joinState = joinState
+        this.joinState = joinState
     }
 
     public setTime(executionTime: number){
         this.executionTime = executionTime;
     }
+
 }

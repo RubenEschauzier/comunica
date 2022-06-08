@@ -96,6 +96,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     const toBeJoined2 = entries[indexJoins[1]];
 
     entries.splice(indexJoins[1],1); entries.splice(indexJoins[0],1);
+
     const firstEntry: IJoinEntry = {
       output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
         .mediate({ type: action.type, entries: [ toBeJoined1, toBeJoined2 ], context: action.context })),
@@ -103,7 +104,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
         .createJoin([ toBeJoined1.operation, toBeJoined2.operation ], false),
     };
     entries.push(firstEntry);
-
 
 
     /* Update the mapping to reflect the newly executed join*/
@@ -136,6 +136,10 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       }
       action.context.setEpisodeState(this.joinState);
     }
+    /* If we're at the last time this is executed*/
+    if (this.joinState.numUnjoined == 2){
+      this.nodeid_mapping = new Map<number, number>();
+    }
     return {
       result: await this.mediatorJoin.mediate({
         type: action.type,
@@ -159,9 +163,20 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
      * @param {MetadataBindings[]} metadatas An array with all  metadatas of the bindingstreams
      * @returns {Promise<IMediatorTypeJoinCoefficients>} Interface with estimated cost of the best join
     */
-    console.log("Getting join coefficients");
-    
+    /* Check if either we have no join state or the join state is empty*/
     if (!this.joinState){
+      const metadatas: MetadataBindings[] = await ActorRdfJoinInnerMultiReinforcementLearning.getMetadatas(action.entries);
+      this.joinState = new StateSpaceTree();
+      for (const [i, metadata] of metadatas.entries()){
+        // Create nodes with estimated cardinality as feature
+        let newNode: NodeStateSpace = new NodeStateSpace(i, metadata.cardinality.value);
+        newNode.setDepth(0);
+        this.joinState.addLeave(newNode);
+      }
+      /* Set the number of leave nodes in the tree, this will not change during execution */
+      this.joinState.setNumLeaveNodes(this.joinState.numNodes); 
+    }
+    else if (this.joinState.isEmpty()){
       const metadatas: MetadataBindings[] = await ActorRdfJoinInnerMultiReinforcementLearning.getMetadatas(action.entries);
       this.joinState = new StateSpaceTree();
       for (const [i, metadata] of metadatas.entries()){
@@ -178,23 +193,17 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
 
     /*  Remove already joined nodes from consideration by traversing the node indices in reverse order 
         which does not disturb the indexing of the array  */
-    console.log("Splice nodeIndexes")
     for (let i:number=this.joinState.numNodes-1;i>=0;i--){
       if (this.joinState.nodesArray[i].joined==true){
         nodeIndexes.splice(i,1);
       }
     }
     /*  Generate possible joinState combinations  */
-    console.log("Generate Joins");
     const possibleJoins: number[][] = this.getPossibleJoins(nodeIndexes);
-    console.log("Possible Joins:");
-    console.log(nodeIndexes)
-    console.log(possibleJoins)
     let bestJoinCost: number = Infinity;
     let bestJoin: number[] = [-1, -1];
 
     for (const joinCombination of possibleJoins){
-      console.log("Test at For loop")
       /*  We generate the join trees associated with the possible join combinations, note the tradeoff between memory usage (create new trees) 
           and cpu usage (delete the new node)
       */
@@ -228,10 +237,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     /*  Update the actors joinstate, which will be used by the RL medaitor to update its joinstate too  */
     const newParent: NodeStateSpace = new NodeStateSpace(this.joinState.numNodes, bestJoinCost);
     this.joinState.addParent(bestJoin, newParent);    
-    console.log(this.joinState);
     this.prevEstimatedCost = bestJoinCost;
-
-    console.log("We're Done!");
     return {
       iterations: bestJoinCost,
       persistedItems: 0,

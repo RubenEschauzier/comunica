@@ -71,8 +71,6 @@ export class HttpServiceSparqlEndpoint {
   ): Promise<void> {
     const options = await HttpServiceSparqlEndpoint
       .generateConstructorArguments(argv, moduleRootPath, env, defaultConfigPath, stderr, exit, cliArgsHandlers);
-    console.log("Options Created");
-    console.log(options);
     return new Promise<void>(resolve => {
       new HttpServiceSparqlEndpoint(options || {}).run(stdout, stderr)
         .then(resolve)
@@ -278,10 +276,12 @@ export class HttpServiceSparqlEndpoint {
 
     // Parse the query, depending on the HTTP method
     let queryBody: IQueryBody | undefined;
+    console.log("Were here");
     switch (request.method) {
       case 'POST':
         queryBody = await this.parseBody(request);
         await this.writeQueryResult(engine, stdout, stderr, request, response, queryBody, mediaType, false, false);
+        console.log("Post finished");
         break;
       case 'HEAD':
       case 'GET':
@@ -291,6 +291,7 @@ export class HttpServiceSparqlEndpoint {
         // eslint-disable-next-line no-case-declarations
         const headOnly = request.method === 'HEAD';
         await this.writeQueryResult(engine, stdout, stderr, request, response, queryBody, mediaType, headOnly, true);
+        console.log("Get finished")
         break;
       default:
         stdout.write(`[405] ${request.method} to ${request.url}\n`);

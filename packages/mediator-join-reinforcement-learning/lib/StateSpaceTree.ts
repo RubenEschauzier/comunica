@@ -67,14 +67,18 @@ export class StateSpaceTree{
     nodesArray: NodeStateSpace[];
     adjacencyMatrix: number[][];
     numLeaveNodes: number;
+    numUnjoined: number;
     constructor() {
         this.numNodes = 0;
+        this.numUnjoined = 0;
+        this.numLeaveNodes = 0;
         this.nodesArray = [];
         this.adjacencyMatrix = [[]];
     }
     public addLeave(leave: NodeStateSpace){
         this.nodesArray.push(leave);
         this.incrementNumNodes();
+        this.numUnjoined += 1;
         /* Expand the adjacency matrix by adding column and row with zeros */
         if (this.numNodes>1){
             this.adjacencyMatrix.push(Array(this.numNodes-1).fill(0));
@@ -104,6 +108,7 @@ export class StateSpaceTree{
         parent.setChild(node1); parent.setChild(node2);
         // Set joined status to true for each of the two child nodes
         node1.setJoined(true); node2.setJoined(true);
+        this.numUnjoined += -1;
 
         // The depth of the parent node is the deepest of the two nodes joined + 1
         // To represent the shape of the join tree
@@ -144,6 +149,7 @@ export class StateSpaceTree{
                 this.adjacencyMatrix[i].pop();
             }
             this.decrementNumNodes();
+            this.numUnjoined += 1;
         }
         else{
             throw new Error(`This tree is empty`);
@@ -167,6 +173,17 @@ export class StateSpaceTree{
         }
         // Set root node to deepest node in the tree
         this.setRoot(rootNode)
+    }
+    public emptyStateSpace(){
+        this.numNodes = 0;
+        this.numUnjoined = 0;
+        this.numLeaveNodes = 0;
+        this.nodesArray = [];
+        this.adjacencyMatrix = [[]];
+    }
+
+    public isEmpty(){
+        return (this.numNodes==0 && this.nodesArray.length==0);
     }
     public setNumLeaveNodes(leaves: number){
         this.numLeaveNodes = leaves;

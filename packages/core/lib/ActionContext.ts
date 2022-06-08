@@ -40,7 +40,15 @@ export class ActionContext implements IActionContext {
   }
 
   public getEpisodeState(): StateSpaceTree{
-    return this.episode.joinState
+    if (this.episode.joinState){
+      return this.episode.joinState
+    }
+    else {
+      throw new Error("Episode Joinstate is undefined");
+    }
+  }
+  public deleteEpisodeState(): void{
+    delete this.episode.joinState;
   }
 
   public getEpisodeTime(): number {
