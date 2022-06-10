@@ -20,7 +20,7 @@ export interface IActionContext {
   setEpisodeTime: (time: number) => void;
   setEpisodeState: (joinState: StateSpaceTree) => void;
   getEpisodeTime: () => number;
-  getEpisodeState: () => StateSpaceTree;
+  getEpisodeState: () => StateSpaceTree|undefined;
   deleteEpisodeState: () => void;
   set: <V>(key: IActionContextKey<V>, value: V) => IActionContext;
   /**

@@ -4,6 +4,7 @@ import { ActionContext } from '@comunica/core';
 import type { ISetupProperties } from '@comunica/runner';
 import { run } from '@comunica/runner';
 import type { IActionContext } from '@comunica/types';
+import { stdout } from 'process';
 import { EpisodeLogger } from '../../model-trainer/lib';
 
 export function runArgs(configResourceUrl: string, argv: string[], stdin: NodeJS.ReadStream,
@@ -44,6 +45,7 @@ export function runArgsInProcess(
   defaultConfigPath: string,
   options?: { context: IActionContext; onDone?: () => void },
 ): void {
+  console.trace();
   const argv = process.argv.slice(2);
   runArgs(
     process.env.COMUNICA_CONFIG ? `${process.cwd()}/${process.env.COMUNICA_CONFIG}` : defaultConfigPath,
@@ -72,6 +74,7 @@ export function runArgsInProcessStatic(actor: any, options?: { context: IActionC
   const argv = process.argv.slice(2);
   actor.run({ argv, env: process.env, stdin: process.stdin, context: options?.context })
     .then((result: IActorOutputInit) => {
+      console.log("Were at runargs then thing");
       if (result.stdout) {
         result.stdout.on('error', error => {
           process.stderr.write(errorToString(error, argv));
@@ -111,6 +114,7 @@ export function runArgsInProcessStatic(actor: any, options?: { context: IActionC
       }
       process.exit(1);
     });
+
 }
 
 function errorToString(error: Error, argv: string[]): string {

@@ -41,7 +41,6 @@ export class MediatorJoinReinforcementLearning
       }));
     const coefficients = await Promise.all(promises);
 
-
     // Calculate costs
     let costs: (number | undefined)[] = coefficients
       // eslint-disable-next-line array-callback-return
@@ -54,7 +53,6 @@ export class MediatorJoinReinforcementLearning
         }
       });
     const maxCost = Math.max(...(<number[]> costs.filter(cost => cost !== undefined)));
-
     // If we have a limit indicator in the context,
     // increase cost of entries that have a number of iterations that is higher than the limit AND persist items.
     // In these cases, join operators that produce results early on will be preferred.
@@ -116,6 +114,7 @@ export class MediatorJoinReinforcementLearning
       this.episodeLogger.writeJoinOrderToFile();
     }
     return bestActor;
+    
   }
   protected updateState(newState: StateSpaceTree){
     this.joinState = newState

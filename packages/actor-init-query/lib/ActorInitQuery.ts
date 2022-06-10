@@ -80,7 +80,6 @@ export class ActorInitQuery extends ActorInitQueryBase {
 
     // Evaluate query
     const queryResult = await queryEngine.queryOrExplain(query!, <any> context);
-
     // Output query explanations in a different way
     if ('explain' in queryResult) {
       return {
@@ -94,7 +93,7 @@ export class ActorInitQuery extends ActorInitQueryBase {
       args.outputType,
       queryResult.context,
     )).data;
-
+    console.log("End of Init query");
     return { stdout };
   }
 }
