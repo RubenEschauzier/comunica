@@ -74,7 +74,6 @@ export function runArgsInProcessStatic(actor: any, options?: { context: IActionC
   const argv = process.argv.slice(2);
   actor.run({ argv, env: process.env, stdin: process.stdin, context: options?.context })
     .then((result: IActorOutputInit) => {
-      console.log("Were at runargs then thing");
       if (result.stdout) {
         result.stdout.on('error', error => {
           process.stderr.write(errorToString(error, argv));

@@ -93,7 +93,6 @@ export class ActorInitQuery extends ActorInitQueryBase {
       args.outputType,
       queryResult.context,
     )).data;
-    console.log("End of Init query");
     return { stdout };
   }
 }

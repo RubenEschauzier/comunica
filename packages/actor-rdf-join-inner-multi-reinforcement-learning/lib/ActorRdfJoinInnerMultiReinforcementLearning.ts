@@ -79,6 +79,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     /*Create initial mapping between entries and nodes in the state tree. We need this mapping due to the indices of nodes increasing as more joins are made, while the
       number of streams decreases with more joins. 
     */
+  
     if (this.nodeid_mapping.size == 0){
       for(let i:number=0;i<action.entries.length;i++){
         this.nodeid_mapping.set(i,i);
@@ -99,6 +100,10 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     const toBeJoined2 = entries[indexJoins[1]];
 
     entries.splice(indexJoins[1],1); entries.splice(indexJoins[0],1);
+    console.log(`Node ids to be joined: ${ids}`);
+    if (ids[0] == 12){
+      console.log(toBeJoined2)
+    }
     const firstEntry: IJoinEntry = {
       output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
         .mediate({ type: action.type, entries: [ toBeJoined1, toBeJoined2 ], context: action.context })),
@@ -157,7 +162,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     action: IActionRdfJoin,
     metadatas: MetadataBindings[],
   ): Promise<IMediatorTypeJoinCoefficients> {
-
     /**
      * Execute the RL agent on all possible joins from the current join state and return the best join state.
      * @param {IActionRdfJoin} action An array containing information on the joins

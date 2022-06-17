@@ -109,7 +109,13 @@ export class Bindings implements RDF.Bindings {
       const value = left || right;
       entries.push([ key, value ]);
     }
-
+    /* OWN CODE HERE*/
+    try{
+      new Bindings(this.dataFactory, Map(entries))
+    } catch(err){
+      console.log(entries.length);
+      console.error(err);
+    }
     return new Bindings(this.dataFactory, Map(entries));
   }
 

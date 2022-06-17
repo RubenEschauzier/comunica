@@ -50,6 +50,8 @@ export class ActorRdfJoinMinusHash extends ActorRdfJoin {
         },
       };
     }
+    
+
     return {
       result: output,
     };

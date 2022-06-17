@@ -25,7 +25,6 @@ export class MediatorJoinCoefficientsFixed
     testResults: IActorReply<ActorRdfJoin, IActionRdfJoin, IMediatorTypeJoinCoefficients, IQueryOperationResult>[],
   ): Promise<ActorRdfJoin> {
     // Obtain test results
-    console.log("Executing Mediator Join Coefficients Fixed");
     const errors: Error[] = [];
     const promises = testResults
       .map(({ reply }) => reply)

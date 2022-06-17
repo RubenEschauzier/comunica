@@ -276,7 +276,6 @@ export class HttpServiceSparqlEndpoint {
 
     // Parse the query, depending on the HTTP method
     let queryBody: IQueryBody | undefined;
-    console.log("Were here");
     switch (request.method) {
       case 'POST':
         queryBody = await this.parseBody(request);

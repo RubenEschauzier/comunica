@@ -3,9 +3,9 @@ import { KeysQueryOperation } from '@comunica/context-entries';
 import type { IActorReply, IMediatorArgs, Logger } from '@comunica/core';
 import { Actor, Mediator } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
-import type { IQueryOperationResult } from '@comunica/types';
+import type { IQueryOperationResult, MetadataBindings } from '@comunica/types';
 import { ActorRdfJoinInnerMultiReinforcementLearning } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning';
-import { StateSpaceTree } from './StateSpaceTree';
+import { NodeStateSpace, StateSpaceTree } from './StateSpaceTree';
 import { expressionTypes } from 'sparqlalgebrajs/lib/algebra';
 import { episodeLogger } from './episodeLogger';
 
@@ -33,7 +33,6 @@ export class MediatorJoinReinforcementLearning
   protected async mediateWith(action: IActionRdfJoin, testResults: IActorReply<ActorRdfJoin, IActionRdfJoin, IMediatorTypeJoinCoefficients, IQueryOperationResult>[],
     ): Promise<ActorRdfJoin> {
     const errors: Error[] = [];
-
     const promises = testResults
       .map(({ reply }) => reply)
       .map(promise => promise.catch(error => {
@@ -84,7 +83,6 @@ export class MediatorJoinReinforcementLearning
 
     // Return actor with lowest cost
     const bestActor = testResults[minIndex].actor;
-
     // Emit calculations in logger
     if (bestActor.includeInLogs) {
       Actor.getContextLogger(action.context)?.debug(`Determined physical join operator '${bestActor.logicalType}-${bestActor.physicalName}'`, {

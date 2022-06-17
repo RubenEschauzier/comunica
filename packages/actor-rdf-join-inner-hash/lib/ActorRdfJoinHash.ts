@@ -20,12 +20,31 @@ export class ActorRdfJoinHash extends ActorRdfJoin {
   public async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
     const metadatas = await ActorRdfJoin.getMetadatas(action.entries);
     const variables = ActorRdfJoin.overlappingVariables(metadatas);
+    console.log(action.entries[0].output.metadata);
     const join = new HashJoin<Bindings, string, Bindings>(
       action.entries[0].output.bindingsStream,
       action.entries[1].output.bindingsStream,
       entry => ActorRdfJoin.hash(entry, variables),
       <any> ActorRdfJoin.joinBindings,
     );
+    // console.log("Cardinality in join Hash:");
+    // console.log(metadatas[0].cardinality);
+    // console.log(metadatas[1].cardinality);
+
+    // console.log(join)
+    // for (const entry of action.entries){
+    //   let finalString = ""
+    //   entry.output.bindingsStream.on('data', (binding: any) => {
+    //     finalString = binding.toString();
+    //     });
+    //   console.log(finalString);
+    // }
+    // for (const entry of action.entries){
+    //   entry.output.bindingsStream.on('data', (binding: any) => {
+    //     console.log(binding.toString()); // Quick way to print bindings for testing
+    //     });
+    // }
+
     return {
       result: {
         type: 'bindings',

@@ -91,5 +91,7 @@
   "resolutions": {
     "@rdfjs/types": "1.1.0"
   },
-  "dependencies": {}
+  "dependencies": {
+    "stacktrace-js": "^2.0.2"
+  }
 }

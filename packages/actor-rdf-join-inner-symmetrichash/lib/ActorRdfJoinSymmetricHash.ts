@@ -25,6 +25,18 @@ export class ActorRdfJoinSymmetricHash extends ActorRdfJoin {
       entry => ActorRdfJoinSymmetricHash.hash(entry, variables),
       <any> ActorRdfJoin.joinBindings,
     );
+    // console.log("Cardinality in join Hash:");
+    // console.log(metadatas[0].cardinality);
+    // console.log(metadatas[1].cardinality);
+    // console.log("Symmetric Hash join:")
+    // console.log(join)
+
+    // for (const entry of action.entries){
+    //   entry.output.bindingsStream.on('data', (binding: any) => {
+    //     console.log(binding.toString().split("{")[1]); // Quick way to print bindings for testing
+    //     });
+    // }
+  
     return {
       result: {
         type: 'bindings',
