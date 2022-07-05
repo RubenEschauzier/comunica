@@ -9,7 +9,6 @@ import type { MediatorQueryResultSerializeHandle,
   MediatorQueryResultSerializeMediaTypes,
   MediatorQueryResultSerializeMediaTypeFormats } from '@comunica/bus-query-result-serialize';
 import type { IActorTest, Logger } from '@comunica/core';
-import { ObserverTimer } from '@comunica/observer-timer';
 
 /**
  * A browser-safe comunica Query Init Actor.

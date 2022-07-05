@@ -1,8 +1,7 @@
 import { materializeOperation } from '@comunica/bus-query-operation';
 import type { IActionSparqlSerialize, IActorQueryResultSerializeOutput } from '@comunica/bus-query-result-serialize';
-import { KeysCore, KeysInitQuery, KeysRdfResolveQuadPattern, KeysRdfJoinReinforcementLearning } from '@comunica/context-entries';
+import { KeysCore, KeysInitQuery, KeysRdfResolveQuadPattern} from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
-import { episodeLogger } from '@comunica/mediator-join-reinforcement-learning/lib/episodeLogger';
 import { Timer } from '@comunica/observer-timer';
 import type { IActionContext, IPhysicalQueryPlanLogger,
   IQueryOperationResult,
@@ -248,17 +247,15 @@ export class QueryEngineBase implements IQueryEngine {
      * For our reinforcement learning actor we include the timing always, but this should be configurable
      */
     const queryExectionTime: number = this.timer.updateEndTime();
-    const queryExecutionTiming: IActionContextKey<string> = {name: 'queryExecutionTime'};
-
+    
     /* This can be undefined when there is no joins) */
     if (actionContext.getEpisodeState()){
-
-      
-      const episodeTrainer: ModelTrainer = new ModelTrainer(actionContext.getEpisodeState(), queryExectionTime)
+      let episodeTrainer: ModelTrainer|null = new ModelTrainer(actionContext.getEpisodeState()!, queryExectionTime)
       episodeTrainer.trainModel();
       episodeTrainer.saveModel();  
-    }
-    console.log("We finished our query!");
+      actionContext.getEpisodeState()!.emptyStateSpace();
+      /* Remove episode state from memory to ensure that we can query multiple times in a row */
+    }    
 
     return finalOutput;
   }
