@@ -11,10 +11,14 @@ export class EpisodeLogger{
     public setState(joinState: StateSpaceTree){
         // this.adjMatrix = adjMatrix;
         // this.features = features
-        joinState = joinState
+        this.joinState = joinState
     }
 
     public setTime(executionTime: number){
         this.executionTime = executionTime;
+    }
+
+    public getState(){
+        return this.joinState
     }
 }

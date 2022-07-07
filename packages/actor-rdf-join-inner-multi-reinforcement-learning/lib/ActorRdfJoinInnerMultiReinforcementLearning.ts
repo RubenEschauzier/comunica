@@ -15,8 +15,11 @@ import { Factory } from 'sparqlalgebrajs';
 import { StateSpaceTree, NodeStateSpace } from '@comunica/mediator-join-reinforcement-learning';
 import { graphConvolutionModel } from './GraphNeuralNetwork';
 import * as tf from '@tensorflow/tfjs';
-import {KeysRdfJoinReinforcementLearning} from '@comunica/context-entries'
-import { ActionContextKey } from '@comunica/core';
+
+
+/* Debugging info : https://stackoverflow.com/questions/20936486/node-js-maximum-call-stack-size-exceeded
+* https://blog.jcoglan.com/2010/08/30/the-potentially-asynchronous-loop/
+*/
 
 /**
  * A Multi Smallest RDF Join Actor.
@@ -79,7 +82,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     /*Create initial mapping between entries and nodes in the state tree. We need this mapping due to the indices of nodes increasing as more joins are made, while the
       number of streams decreases with more joins. 
     */
-  
     if (this.nodeid_mapping.size == 0){
       for(let i:number=0;i<action.entries.length;i++){
         this.nodeid_mapping.set(i,i);
@@ -100,10 +102,10 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     const toBeJoined2 = entries[indexJoins[1]];
 
     entries.splice(indexJoins[1],1); entries.splice(indexJoins[0],1);
-    console.log(`Node ids to be joined: ${ids}`);
-    if (ids[0] == 12){
-      console.log(toBeJoined2)
-    }
+    // console.log(`Node ids to be joined: ${ids}`);
+    // console.log(`Length of entries: ${entries.length}`);
+    // console.log(this.nodeid_mapping);
+    // console.log(indexJoins);
     const firstEntry: IJoinEntry = {
       output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
         .mediate({ type: action.type, entries: [ toBeJoined1, toBeJoined2 ], context: action.context })),
@@ -133,8 +135,9 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     /* Add the joined entry to the index mapping, here we assume the joined streams are added at the end of the array, need to check this assumption*/
     const join_id: number = this.joinState.nodesArray[this.joinState.numNodes-1].id;
     this.nodeid_mapping.set(join_id, action.entries.length-1);
-    if(this.train){
-      const joinPlanKey: ActionContextKey<number[]> = KeysRdfJoinReinforcementLearning.queryJoinPlan;
+    
+    if (this.train){
+      // const joinPlanKey: ActionContextKey<number[]> = KeysRdfJoinReinforcementLearning.queryJoinPlan;
       // const previousJoins: number[][] = action.context.get(joinPlanKey)!;
       let featureMatrix = [];
       for(var i=0;i<this.joinState.nodesArray.length;i++){
@@ -142,7 +145,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       }
       action.context.setEpisodeState(this.joinState);
     }
-    /* If we're at the last time this is executed*/
+    /* If we're at the last time this is executed */
     if (this.joinState.numUnjoined == 2){
       this.nodeid_mapping = new Map<number, number>();
     }

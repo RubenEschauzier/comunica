@@ -40,7 +40,7 @@ export class ActionContext implements IActionContext {
   }
 
   public getEpisodeState(): StateSpaceTree{
-    return this.episode.joinState
+    return this.episode.getState();
   }
 
   public getEpisodeTime(): number {

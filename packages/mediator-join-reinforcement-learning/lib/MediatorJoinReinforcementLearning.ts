@@ -23,15 +23,14 @@ export class MediatorJoinReinforcementLearning
   public readonly timeWeight: number;
   public readonly ioWeight: number;
 
-  public episodeLogger: episodeLogger;
 
   public constructor(args: IMediatorJoinCoefficientsFixedArgs) {
     super(args);
-    this.episodeLogger = new episodeLogger();
   }
 
   protected async mediateWith(action: IActionRdfJoin, testResults: IActorReply<ActorRdfJoin, IActionRdfJoin, IMediatorTypeJoinCoefficients, IQueryOperationResult>[],
     ): Promise<ActorRdfJoin> {
+    // console.log(action.entries);
     const errors: Error[] = [];
 
     const promises = testResults
@@ -104,17 +103,12 @@ export class MediatorJoinReinforcementLearning
       });
     }
 
-    if (bestActor instanceof ActorRdfJoinInnerMultiReinforcementLearning){
-      // Still need to check if we even have a state
-      this.joinState = bestActor.joinState;
-      const numNodes: number = this.joinState.nodesArray.length
-      this.episodeLogger.logSelectedJoin(this.joinState.nodesArray[numNodes-1].children.map(x => x.id));
-    }
-    if (bestActor !instanceof ActorRdfJoinInnerMultiReinforcementLearning){
-      /*  We time only the multi joins, don't know a way to properly time the whole execution */
-      this.episodeLogger.updateFinalTime();
-      this.episodeLogger.writeJoinOrderToFile();
-    }
+    // if (bestActor instanceof ActorRdfJoinInnerMultiReinforcementLearning){
+    //   // Still need to check if we even have a state
+    //   this.joinState = bestActor.joinState;
+    //   const numNodes: number = this.joinState.nodesArray.length
+    //   this.episodeLogger.logSelectedJoin(this.joinState.nodesArray[numNodes-1].children.map(x => x.id));
+    // }
     return bestActor;
   }
   protected updateState(newState: StateSpaceTree){
