@@ -89,8 +89,6 @@ export abstract class ActorDereferenceParse<
       ...action,
       mediaTypes: async() => (await this.mediatorParseMediatypes?.mediate({ context, mediaTypes: true }))?.mediaTypes,
     });
-    console.log(`Here is dereference result: `)
-    console.log(`${JSON.stringify(dereference)}`);
 
     let result: IActorParseOutput<S, M>;
     try {
