@@ -33,7 +33,6 @@
       "mediatorJoin": { "@id": "urn:comunica:default:rdf-join/mediators#main" },
       "trainingMode": true 
     },
-
     {
       "@id": "urn:comunica:default:rdf-join/actors#inner-multi-empty",
       "@type": "ActorRdfJoinMultiEmpty",

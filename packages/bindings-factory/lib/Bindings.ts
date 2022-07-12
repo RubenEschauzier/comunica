@@ -110,12 +110,11 @@ export class Bindings implements RDF.Bindings {
       entries.push([ key, value ]);
     }
     /* OWN CODE HERE*/
-    try{
-      new Bindings(this.dataFactory, Map(entries))
-    } catch(err){
-      console.log(entries.length);
-      console.error(err);
-    }
+    // try{
+    //   new Bindings(this.dataFactory, Map(entries))
+    // } catch(err){
+    //   console.error(err);
+    // }
     return new Bindings(this.dataFactory, Map(entries));
   }
 

@@ -20,7 +20,6 @@ export class ActorRdfJoinHash extends ActorRdfJoin {
   public async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
     const metadatas = await ActorRdfJoin.getMetadatas(action.entries);
     const variables = ActorRdfJoin.overlappingVariables(metadatas);
-    console.log(action.entries[0].output.metadata);
     const join = new HashJoin<Bindings, string, Bindings>(
       action.entries[0].output.bindingsStream,
       action.entries[1].output.bindingsStream,

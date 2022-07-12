@@ -36,6 +36,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
   prevEstimatedCost: number;
   /* Node id to entries index mapping*/
   nodeid_mapping: Map<number,number>;
+  nodeid_mapping_test: Map<number,number>;
 
   public constructor(args: IActorRdfJoinInnerMultiReinforcementLearningArgs) {
     super(args, {
@@ -68,7 +69,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     let orders: number[][] = [];
     for (const [arrIndex, nodeIndex] of nodesJoinable.entries()){
       for(const secondNodeIndex of nodesJoinable.slice(arrIndex+1)){
-        orders.push([nodeIndex, secondNodeIndex]);
+        orders.push([nodeIndex, secondNodeIndex]); 
       }
     }
     return orders;
@@ -100,10 +101,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     const toBeJoined2 = entries[indexJoins[1]];
 
     entries.splice(indexJoins[1],1); entries.splice(indexJoins[0],1);
-    console.log(`Node ids to be joined: ${ids}`);
-    if (ids[0] == 12){
-      console.log(toBeJoined2)
-    }
+    // console.log(`Node ids to be joined: ${ids}`);
     const firstEntry: IJoinEntry = {
       output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
         .mediate({ type: action.type, entries: [ toBeJoined1, toBeJoined2 ], context: action.context })),
@@ -111,6 +109,19 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
         .createJoin([ toBeJoined1.operation, toBeJoined2.operation ], false),
     };
     entries.push(firstEntry);
+    // if (entries.length == 2){
+    //   // for (const entry of action.entries){
+    //   //   let finalString = ""
+    //   //   let totalBindings = 0
+    //   //   entry.output.bindingsStream.on('data', (binding: any) => {
+    //   //     finalString = binding.toString();
+    //   //     totalBindings += 1;
+    //   //     console.log(totalBindings);
+    //   //     console.log(finalString);
+    //   //     });
+    //   //   setTimeout(() => { console.log(`Total bindings in first entry ${totalBindings}`); }, 10);
+    //   // }
+    // }
 
     /* Update the mapping to reflect the newly executed join*/
     /* Find maximum and minimum index in the join entries array to update the mapping */
