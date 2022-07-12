@@ -42,6 +42,15 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
     this.iteratorsPendingCreation = 0;
   }
 
+  protected _end(destroy?: boolean): void {
+    // Close all running iterators
+    for (const it of this.currentIterators) {
+      it.destroy();
+    }
+
+    super._end(destroy);
+  }
+
   /**
    * Get the internal link queue.
    * The returned instance must always be the same.
@@ -176,6 +185,7 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
     let receivedMetadata = false;
 
     // Attach readers to the newly created iterator
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     (<any> iterator)._destination = this;
     iterator.on('error', (error: Error) => this.destroy(error));
     iterator.on('readable', () => this._fillBuffer());

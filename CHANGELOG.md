@@ -1,6 +1,50 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+<a name="v2.3.0"></a>
+## [v2.3.0](https://github.com/comunica/comunica/compare/v2.2.1...v2.3.0) - 2022-06-29
+
+### Added
+* [Add httpTimeout option to timeout on HTTP requests](https://github.com/comunica/comunica/commit/05b170b8c58cb13f81caecb02a1415473b2c19bc)
+* [Add httpTimeoutOnBody option](https://github.com/comunica/comunica/commit/c686ae4a246446246454b30d939082f33f65fd02)
+* [Add options to run using union default graph semantics](https://github.com/comunica/comunica/commit/b122c1ac9a3382a65812c843727d752ad21d4846)
+* [Add freshWorker option to HTTP service](https://github.com/comunica/comunica/commit/35aee16d47d1cded212f4df9d725b6d13f21c54a)
+
+### Changed
+* [Improve warning messages in extend actor](https://github.com/comunica/comunica/commit/7db371de8d9f0f4c67836af18c0304f51dbd5199)
+* [Properly sort named nodes, blank nodes and unbounded values](https://github.com/comunica/comunica/commit/9ea0b18df152f03fea33f84a12524fd04aa11101)
+
+### Fixed
+* [Fix race conditions when timing out in HTTP server](https://github.com/comunica/comunica/commit/3564d288bc76bf51ef0268da6aeecaba1b474bd8)
+* [Fix responses not always being sent after HTTP server timeout](https://github.com/comunica/comunica/commit/2b613e5a60a3d7edff541863482646b5f6013a52)
+* [Fix closing of streams not always propagating](https://github.com/comunica/comunica/commit/f3a79b04bcf5f96767847cc335145491ccba68ff)
+* [Fix N3.js parser not receiving parsing media type](https://github.com/comunica/comunica/commit/6619fdcd3e894c3ee0a8e2907f60ba3153f6674e)
+* [Fix physical query plan crash when multi-smallest inner join is used](https://github.com/comunica/comunica/commit/84c3d695d235a53f402dff50c73c878028344b1a)
+
+<a name="v2.2.1"></a>
+## [v2.2.1](https://github.com/comunica/comunica/compare/v2.2.0...v2.2.1) - 2022-04-13
+
+### Fixed
+* [Fix request with body in browser not working](https://github.com/comunica/comunica/commit/976f1e0206898d28210f5437f0bbfd300ed6dfde)
+
+<a name="v2.2.0"></a>
+## [v2.2.0](https://github.com/comunica/comunica/compare/v2.1.0...v2.2.0) - 2022-04-12
+
+### Added
+* [Add getSafe to ActionContext and bus convenience interfaces](https://github.com/comunica/comunica/commit/731cde8060796d7430dea339e638a5cf0c9d7e5c)
+* [Export deskolimisation functions (#974)](https://github.com/comunica/comunica/commit/fbd6d287a835348558dda1aacf3f8b859b08f08e)
+
+### Changed
+* [Require minimum @rdfjs/types version (#948)](https://github.com/comunica/comunica/commit/e7d69320649d0ee42f557c1a2780f6e998ebd93c)
+* [Update to arrayify-stream 2](https://github.com/comunica/comunica/commit/276408c6002de53b0af4e66ed724084860a96c83)
+* [Update to immutable.js 4](https://github.com/comunica/comunica/commit/6199e753efbe4d5658b5ef9ef500012525f093e3)
+* [Add missing deps in bus-dereference](https://github.com/comunica/comunica/commit/448bfbadd805dcad95841789cd12b0d33a672585)
+
+### Fixed
+* [Fix invalid JSON in a config file](https://github.com/comunica/comunica/commit/38760ab84898ebcc32e7129a237d95c127c9381d)
+* [Fix hash joins not working on queries with limits](https://github.com/comunica/comunica/commit/431233c0f887abe4987482ea4d8c96fdbbf9fb0e)
+* [Fix crash for requests with string body, Closes #969](https://github.com/comunica/comunica/commit/6667d669544289f6b48e1bcaedb46163ae469af6)
+
 <a name="v2.1.0"></a>
 ## [v2.1.0](https://github.com/comunica/comunica/compare/v2.0.6...v2.1.0) - 2022-03-09
 
