@@ -1,16 +1,7 @@
 SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
 	?v0 <http://schema.org/contentRating> ?v1 .
 	?v0 <http://schema.org/contentSize> ?v2 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre80> .
-	?v4 <http://db.uwaterloo.ca/~galuc/wsdbm/makesPurchase> ?v5 .
-	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseDate> ?v6 .
-	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseFor> ?v0 .
-}
-
-SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
-	?v0 <http://schema.org/contentRating> ?v1 .
-	?v0 <http://schema.org/contentSize> ?v2 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre80> .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre112> .
 	?v4 <http://db.uwaterloo.ca/~galuc/wsdbm/makesPurchase> ?v5 .
 	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseDate> ?v6 .
 	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseFor> ?v0 .
@@ -28,16 +19,7 @@ SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
 SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
 	?v0 <http://schema.org/contentRating> ?v1 .
 	?v0 <http://schema.org/contentSize> ?v2 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre116> .
-	?v4 <http://db.uwaterloo.ca/~galuc/wsdbm/makesPurchase> ?v5 .
-	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseDate> ?v6 .
-	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseFor> ?v0 .
-}
-
-SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
-	?v0 <http://schema.org/contentRating> ?v1 .
-	?v0 <http://schema.org/contentSize> ?v2 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre123> .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre143> .
 	?v4 <http://db.uwaterloo.ca/~galuc/wsdbm/makesPurchase> ?v5 .
 	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseDate> ?v6 .
 	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseFor> ?v0 .
@@ -55,7 +37,7 @@ SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
 SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
 	?v0 <http://schema.org/contentRating> ?v1 .
 	?v0 <http://schema.org/contentSize> ?v2 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre121> .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre70> .
 	?v4 <http://db.uwaterloo.ca/~galuc/wsdbm/makesPurchase> ?v5 .
 	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseDate> ?v6 .
 	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseFor> ?v0 .
@@ -64,7 +46,7 @@ SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
 SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
 	?v0 <http://schema.org/contentRating> ?v1 .
 	?v0 <http://schema.org/contentSize> ?v2 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre100> .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre143> .
 	?v4 <http://db.uwaterloo.ca/~galuc/wsdbm/makesPurchase> ?v5 .
 	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseDate> ?v6 .
 	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseFor> ?v0 .
@@ -73,7 +55,7 @@ SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
 SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
 	?v0 <http://schema.org/contentRating> ?v1 .
 	?v0 <http://schema.org/contentSize> ?v2 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre27> .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre112> .
 	?v4 <http://db.uwaterloo.ca/~galuc/wsdbm/makesPurchase> ?v5 .
 	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseDate> ?v6 .
 	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseFor> ?v0 .
@@ -82,7 +64,25 @@ SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
 SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
 	?v0 <http://schema.org/contentRating> ?v1 .
 	?v0 <http://schema.org/contentSize> ?v2 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre50> .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre112> .
+	?v4 <http://db.uwaterloo.ca/~galuc/wsdbm/makesPurchase> ?v5 .
+	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseDate> ?v6 .
+	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseFor> ?v0 .
+}
+
+SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
+	?v0 <http://schema.org/contentRating> ?v1 .
+	?v0 <http://schema.org/contentSize> ?v2 .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre70> .
+	?v4 <http://db.uwaterloo.ca/~galuc/wsdbm/makesPurchase> ?v5 .
+	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseDate> ?v6 .
+	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseFor> ?v0 .
+}
+
+SELECT ?v0 ?v1 ?v2 ?v4 ?v5 ?v6 WHERE {
+	?v0 <http://schema.org/contentRating> ?v1 .
+	?v0 <http://schema.org/contentSize> ?v2 .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/hasGenre> <http://db.uwaterloo.ca/~galuc/wsdbm/SubGenre143> .
 	?v4 <http://db.uwaterloo.ca/~galuc/wsdbm/makesPurchase> ?v5 .
 	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseDate> ?v6 .
 	?v5 <http://db.uwaterloo.ca/~galuc/wsdbm/purchaseFor> ?v0 .

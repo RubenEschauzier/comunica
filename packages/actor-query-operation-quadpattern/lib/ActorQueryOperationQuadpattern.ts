@@ -31,6 +31,7 @@ export class ActorQueryOperationQuadpattern extends ActorQueryOperationTyped<Alg
 
   public constructor(args: IActorQueryOperationQuadpatternArgs) {
     super(args, 'pattern');
+
   }
 
   /**

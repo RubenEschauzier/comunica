@@ -214,10 +214,13 @@ export class graphConvolutionModel{
     }
 
     public forwardPass(inputFeatures: tf.Tensor2D, mAdjacency: tf.Tensor2D){
+        return tf.tidy(() => {
         const hiddenState: tf.Tensor = this.layer1.call(inputFeatures, mAdjacency);
         const nodeRepresentations: tf.Tensor = this.layer2.call(tf.reshape(hiddenState, [mAdjacency.shape[0], 6]), mAdjacency);
         const output = this.layer3.apply(nodeRepresentations); 
-        return output
+        return output as tf.Tensor
+        }
+        )
     }
 
     public saveModel(){

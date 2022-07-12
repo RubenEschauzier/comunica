@@ -30,6 +30,7 @@ export class MediatedQuadSource implements IQuadSource {
     this.forceSourceType = forceSourceType;
     this.maxIterators = maxIterators;
     this.mediators = mediators;
+    // console.log(this.mediators);
   }
 
   public match(subject: RDF.Term, predicate: RDF.Term, object: RDF.Term, graph: RDF.Term): AsyncIterator<RDF.Quad> {

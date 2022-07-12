@@ -1,6 +1,6 @@
 SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
 	?v0 <http://purl.org/goodrelations/includes> ?v1 .
-	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer7> <http://purl.org/goodrelations/offers> ?v0 .
+	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer2> <http://purl.org/goodrelations/offers> ?v0 .
 	?v0 <http://purl.org/goodrelations/price> ?v3 .
 	?v0 <http://purl.org/goodrelations/validThrough> ?v4 .
 	?v1 <http://ogp.me/ns#title> ?v5 .
@@ -9,7 +9,16 @@ SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
 
 SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
 	?v0 <http://purl.org/goodrelations/includes> ?v1 .
-	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer7> <http://purl.org/goodrelations/offers> ?v0 .
+	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer10> <http://purl.org/goodrelations/offers> ?v0 .
+	?v0 <http://purl.org/goodrelations/price> ?v3 .
+	?v0 <http://purl.org/goodrelations/validThrough> ?v4 .
+	?v1 <http://ogp.me/ns#title> ?v5 .
+	?v1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?v6 .
+}
+
+SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
+	?v0 <http://purl.org/goodrelations/includes> ?v1 .
+	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer1> <http://purl.org/goodrelations/offers> ?v0 .
 	?v0 <http://purl.org/goodrelations/price> ?v3 .
 	?v0 <http://purl.org/goodrelations/validThrough> ?v4 .
 	?v1 <http://ogp.me/ns#title> ?v5 .
@@ -36,7 +45,7 @@ SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
 
 SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
 	?v0 <http://purl.org/goodrelations/includes> ?v1 .
-	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer10> <http://purl.org/goodrelations/offers> ?v0 .
+	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer3> <http://purl.org/goodrelations/offers> ?v0 .
 	?v0 <http://purl.org/goodrelations/price> ?v3 .
 	?v0 <http://purl.org/goodrelations/validThrough> ?v4 .
 	?v1 <http://ogp.me/ns#title> ?v5 .
@@ -45,7 +54,7 @@ SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
 
 SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
 	?v0 <http://purl.org/goodrelations/includes> ?v1 .
-	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer10> <http://purl.org/goodrelations/offers> ?v0 .
+	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer1> <http://purl.org/goodrelations/offers> ?v0 .
 	?v0 <http://purl.org/goodrelations/price> ?v3 .
 	?v0 <http://purl.org/goodrelations/validThrough> ?v4 .
 	?v1 <http://ogp.me/ns#title> ?v5 .
@@ -54,7 +63,7 @@ SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
 
 SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
 	?v0 <http://purl.org/goodrelations/includes> ?v1 .
-	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer10> <http://purl.org/goodrelations/offers> ?v0 .
+	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer6> <http://purl.org/goodrelations/offers> ?v0 .
 	?v0 <http://purl.org/goodrelations/price> ?v3 .
 	?v0 <http://purl.org/goodrelations/validThrough> ?v4 .
 	?v1 <http://ogp.me/ns#title> ?v5 .
@@ -63,7 +72,7 @@ SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
 
 SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
 	?v0 <http://purl.org/goodrelations/includes> ?v1 .
-	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer8> <http://purl.org/goodrelations/offers> ?v0 .
+	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer6> <http://purl.org/goodrelations/offers> ?v0 .
 	?v0 <http://purl.org/goodrelations/price> ?v3 .
 	?v0 <http://purl.org/goodrelations/validThrough> ?v4 .
 	?v1 <http://ogp.me/ns#title> ?v5 .
@@ -72,16 +81,7 @@ SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
 
 SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
 	?v0 <http://purl.org/goodrelations/includes> ?v1 .
-	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer2> <http://purl.org/goodrelations/offers> ?v0 .
-	?v0 <http://purl.org/goodrelations/price> ?v3 .
-	?v0 <http://purl.org/goodrelations/validThrough> ?v4 .
-	?v1 <http://ogp.me/ns#title> ?v5 .
-	?v1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?v6 .
-}
-
-SELECT ?v0 ?v1 ?v3 ?v4 ?v5 ?v6 WHERE {
-	?v0 <http://purl.org/goodrelations/includes> ?v1 .
-	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer4> <http://purl.org/goodrelations/offers> ?v0 .
+	<http://db.uwaterloo.ca/~galuc/wsdbm/Retailer5> <http://purl.org/goodrelations/offers> ?v0 .
 	?v0 <http://purl.org/goodrelations/price> ?v3 .
 	?v0 <http://purl.org/goodrelations/validThrough> ?v4 .
 	?v1 <http://ogp.me/ns#title> ?v5 .

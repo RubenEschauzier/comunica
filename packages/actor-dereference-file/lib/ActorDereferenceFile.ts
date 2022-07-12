@@ -24,6 +24,7 @@ export class ActorDereferenceFile extends ActorDereference {
   public async run({ url }: IActionDereference): Promise<IActorDereferenceOutput> {
     const requestTimeStart = Date.now();
     return {
+      
       data: createReadStream(getPath(url)),
       // This should always be after the creation of the read stream
       requestTime: Date.now() - requestTimeStart,

@@ -1,6 +1,11 @@
 SELECT ?v0 ?v1 WHERE {
 	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website27> .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website10> .
+}
+
+SELECT ?v0 ?v1 WHERE {
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website24> .
 }
 
 SELECT ?v0 ?v1 WHERE {
@@ -10,41 +15,36 @@ SELECT ?v0 ?v1 WHERE {
 
 SELECT ?v0 ?v1 WHERE {
 	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website23> .
+}
+
+SELECT ?v0 ?v1 WHERE {
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website23> .
+}
+
+SELECT ?v0 ?v1 WHERE {
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website4> .
+}
+
+SELECT ?v0 ?v1 WHERE {
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website23> .
+}
+
+SELECT ?v0 ?v1 WHERE {
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website10> .
+}
+
+SELECT ?v0 ?v1 WHERE {
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website24> .
+}
+
+SELECT ?v0 ?v1 WHERE {
+	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
 	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website42> .
-}
-
-SELECT ?v0 ?v1 WHERE {
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website43> .
-}
-
-SELECT ?v0 ?v1 WHERE {
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website42> .
-}
-
-SELECT ?v0 ?v1 WHERE {
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website40> .
-}
-
-SELECT ?v0 ?v1 WHERE {
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website43> .
-}
-
-SELECT ?v0 ?v1 WHERE {
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website17> .
-}
-
-SELECT ?v0 ?v1 WHERE {
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website42> .
-}
-
-SELECT ?v0 ?v1 WHERE {
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/likes> ?v1 .
-	?v0 <http://db.uwaterloo.ca/~galuc/wsdbm/subscribes> <http://db.uwaterloo.ca/~galuc/wsdbm/Website9> .
 }
 

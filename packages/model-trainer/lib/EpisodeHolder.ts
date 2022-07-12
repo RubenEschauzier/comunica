@@ -18,4 +18,7 @@ export class EpisodeLogger{
         this.executionTime = executionTime;
     }
 
+    public getState(){
+        return this.joinState
+    }
 }

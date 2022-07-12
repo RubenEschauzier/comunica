@@ -15,8 +15,11 @@ import { Factory } from 'sparqlalgebrajs';
 import { StateSpaceTree, NodeStateSpace } from '@comunica/mediator-join-reinforcement-learning';
 import { graphConvolutionModel } from './GraphNeuralNetwork';
 import * as tf from '@tensorflow/tfjs';
-import {KeysRdfJoinReinforcementLearning} from '@comunica/context-entries'
-import { ActionContextKey } from '@comunica/core';
+
+
+/* Debugging info : https://stackoverflow.com/questions/20936486/node-js-maximum-call-stack-size-exceeded
+* https://blog.jcoglan.com/2010/08/30/the-potentially-asynchronous-loop/
+*/
 
 /**
  * A Multi Smallest RDF Join Actor.
@@ -86,11 +89,24 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
         this.nodeid_mapping.set(i,i);
       }
     }
-    // const entries: IJoinEntry[] = await this.sortJoinEntries(
-    //   await ActorRdfJoin.getEntriesWithMetadatas([ ...action.entries ]),
-    //   action.context,
-    // ); 
-    const entries: IJoinEntry[] = action.entries
+    // const entries: IJoinEntry[] = action.entries
+    const entries: IJoinEntry[] = await this.sortJoinEntries(
+      await ActorRdfJoin.getEntriesWithMetadatas([ ...action.entries ]),
+      action.context,
+    );
+    const smallestEntry1 = entries[0];
+    const smallestEntry2 = entries[1];
+    entries.splice(0, 2);
+
+    const firstEntry: IJoinEntry = {
+      output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
+        .mediate({ type: action.type, entries: [ smallestEntry1, smallestEntry2 ], context: action.context })),
+      operation: ActorRdfJoinInnerMultiReinforcementLearning.FACTORY
+        .createJoin([ smallestEntry1.operation, smallestEntry2.operation ], false),
+    };
+    entries.push(firstEntry);
+
+
 
     /* Find node ids from to be joined streams*/
     const joined_nodes: NodeStateSpace[] = this.joinState.nodesArray[this.joinState.numNodes-1].children;
@@ -100,28 +116,19 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     const toBeJoined1 = entries[indexJoins[0]];
     const toBeJoined2 = entries[indexJoins[1]];
 
-    entries.splice(indexJoins[1],1); entries.splice(indexJoins[0],1);
-    // console.log(`Node ids to be joined: ${ids}`);
-    const firstEntry: IJoinEntry = {
-      output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
-        .mediate({ type: action.type, entries: [ toBeJoined1, toBeJoined2 ], context: action.context })),
-      operation: ActorRdfJoinInnerMultiReinforcementLearning.FACTORY
-        .createJoin([ toBeJoined1.operation, toBeJoined2.operation ], false),
-    };
-    entries.push(firstEntry);
-    // if (entries.length == 2){
-    //   // for (const entry of action.entries){
-    //   //   let finalString = ""
-    //   //   let totalBindings = 0
-    //   //   entry.output.bindingsStream.on('data', (binding: any) => {
-    //   //     finalString = binding.toString();
-    //   //     totalBindings += 1;
-    //   //     console.log(totalBindings);
-    //   //     console.log(finalString);
-    //   //     });
-    //   //   setTimeout(() => { console.log(`Total bindings in first entry ${totalBindings}`); }, 10);
-    //   // }
-    // }
+    // entries.splice(indexJoins[1],1); entries.splice(indexJoins[0],1);
+
+    // const firstEntry: IJoinEntry = {
+    //   output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
+    //     .mediate({ type: action.type, entries: [ toBeJoined1, toBeJoined2 ], context: action.context })),
+    //   operation: ActorRdfJoinInnerMultiReinforcementLearning.FACTORY
+    //     .createJoin([ toBeJoined1.operation, toBeJoined2.operation ], false),
+    // };
+    // entries.push(firstEntry);
+
+    /* Test code for stack call out of range bug */
+
+
 
     /* Update the mapping to reflect the newly executed join*/
     /* Find maximum and minimum index in the join entries array to update the mapping */
@@ -144,19 +151,32 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     /* Add the joined entry to the index mapping, here we assume the joined streams are added at the end of the array, need to check this assumption*/
     const join_id: number = this.joinState.nodesArray[this.joinState.numNodes-1].id;
     this.nodeid_mapping.set(join_id, action.entries.length-1);
-    if(this.train){
-      const joinPlanKey: ActionContextKey<number[]> = KeysRdfJoinReinforcementLearning.queryJoinPlan;
+    
+    if (this.train){
+      // const joinPlanKey: ActionContextKey<number[]> = KeysRdfJoinReinforcementLearning.queryJoinPlan;
       // const previousJoins: number[][] = action.context.get(joinPlanKey)!;
-      let featureMatrix = [];
-      for(var i=0;i<this.joinState.nodesArray.length;i++){
-        featureMatrix.push(this.joinState.nodesArray[i].cardinality);
-      }
+      // let featureMatrix = [];
+      // for(var i=0;i<this.joinState.nodesArray.length;i++){
+      //   featureMatrix.push(this.joinState.nodesArray[i].cardinality);
+      // }
       action.context.setEpisodeState(this.joinState);
     }
-    /* If we're at the last time this is executed*/
+    /* If we're at the last time this is executed */
     if (this.joinState.numUnjoined == 2){
       this.nodeid_mapping = new Map<number, number>();
     }
+
+    // return {
+    //   result: await this.mediatorJoin.mediate({
+    //     type: action.type,
+    //     entries,
+    //     context: action.context,
+    //   }),
+    //   physicalPlanMetadata: {
+    //     smallest: [ smallestEntry1, smallestEntry2 ],
+    //   },
+    // };
+
     return {
       result: await this.mediatorJoin.mediate({
         type: action.type,
@@ -180,7 +200,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
      * @returns {Promise<IMediatorTypeJoinCoefficients>} Interface with estimated cost of the best join
     */
     /* Check if either we have no join state or the join state is empty*/
-    if (!this.joinState){
+    if (!this.joinState || this.joinState.isEmpty()){
       const metadatas: MetadataBindings[] = await ActorRdfJoinInnerMultiReinforcementLearning.getMetadatas(action.entries);
       this.joinState = new StateSpaceTree();
       for (const [i, metadata] of metadatas.entries()){
@@ -192,18 +212,18 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       /* Set the number of leave nodes in the tree, this will not change during execution */
       this.joinState.setNumLeaveNodes(this.joinState.numNodes); 
     }
-    else if (this.joinState.isEmpty()){
-      const metadatas: MetadataBindings[] = await ActorRdfJoinInnerMultiReinforcementLearning.getMetadatas(action.entries);
-      this.joinState = new StateSpaceTree();
-      for (const [i, metadata] of metadatas.entries()){
-        // Create nodes with estimated cardinality as feature
-        let newNode: NodeStateSpace = new NodeStateSpace(i, metadata.cardinality.value);
-        newNode.setDepth(0);
-        this.joinState.addLeave(newNode);
-      }
-      /* Set the number of leave nodes in the tree, this will not change during execution */
-      this.joinState.setNumLeaveNodes(this.joinState.numNodes); 
-    }
+    // else if (this.joinState.isEmpty()){
+    //   const metadatas: MetadataBindings[] = await ActorRdfJoinInnerMultiReinforcementLearning.getMetadatas(action.entries);
+    //   this.joinState = new StateSpaceTree();
+    //   for (const [i, metadata] of metadatas.entries()){
+    //     // Create nodes with estimated cardinality as feature
+    //     let newNode: NodeStateSpace = new NodeStateSpace(i, metadata.cardinality.value);
+    //     newNode.setDepth(0);
+    //     this.joinState.addLeave(newNode);
+    //   }
+    //   /* Set the number of leave nodes in the tree, this will not change during execution */
+    //   this.joinState.setNumLeaveNodes(this.joinState.numNodes); 
+    // }
     
     let nodeIndexes: number[] = [... Array(this.joinState.numNodes).keys()];
 

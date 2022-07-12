@@ -1,30 +1,35 @@
 SELECT ?v0 ?v2 WHERE {
-	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic171> .
+	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic50> .
 	?v0 <http://schema.org/caption> ?v2 .
 }
 
 SELECT ?v0 ?v2 WHERE {
-	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic70> .
+	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic122> .
 	?v0 <http://schema.org/caption> ?v2 .
 }
 
 SELECT ?v0 ?v2 WHERE {
-	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic2> .
+	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic212> .
 	?v0 <http://schema.org/caption> ?v2 .
 }
 
 SELECT ?v0 ?v2 WHERE {
-	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic171> .
+	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic116> .
 	?v0 <http://schema.org/caption> ?v2 .
 }
 
 SELECT ?v0 ?v2 WHERE {
-	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic102> .
+	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic113> .
 	?v0 <http://schema.org/caption> ?v2 .
 }
 
 SELECT ?v0 ?v2 WHERE {
-	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic70> .
+	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic21> .
+	?v0 <http://schema.org/caption> ?v2 .
+}
+
+SELECT ?v0 ?v2 WHERE {
+	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic113> .
 	?v0 <http://schema.org/caption> ?v2 .
 }
 
@@ -34,17 +39,12 @@ SELECT ?v0 ?v2 WHERE {
 }
 
 SELECT ?v0 ?v2 WHERE {
-	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic2> .
+	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic122> .
 	?v0 <http://schema.org/caption> ?v2 .
 }
 
 SELECT ?v0 ?v2 WHERE {
-	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic173> .
-	?v0 <http://schema.org/caption> ?v2 .
-}
-
-SELECT ?v0 ?v2 WHERE {
-	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic70> .
+	?v0 <http://ogp.me/ns#tag> <http://db.uwaterloo.ca/~galuc/wsdbm/Topic212> .
 	?v0 <http://schema.org/caption> ?v2 .
 }
 
