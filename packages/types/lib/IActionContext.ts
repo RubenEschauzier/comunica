@@ -20,8 +20,7 @@ export interface IActionContext {
   setEpisodeTime: (time: number) => void;
   setEpisodeState: (joinState: StateSpaceTree) => void;
   getEpisodeTime: () => number;
-  getEpisodeState: () => StateSpaceTree|undefined;
-  deleteEpisodeState: () => void;
+  getEpisodeState: () => StateSpaceTree;
   set: <V>(key: IActionContextKey<V>, value: V) => IActionContext;
   /**
    * Will only set the value if the key is not already set.

@@ -7,7 +7,6 @@ import { EpisodeLogger } from '../../model-trainer/lib';
  * Implementation of {@link IActionContext} using Immutable.js.
  */
 export class ActionContext implements IActionContext {
-  /* Ruben E: I removed the readonly due to it making passing the join operators as reference impossible */
   private readonly map: Map<string, any>;
   private episode: EpisodeLogger;
 

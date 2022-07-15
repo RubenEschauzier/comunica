@@ -83,29 +83,32 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     /*Create initial mapping between entries and nodes in the state tree. We need this mapping due to the indices of nodes increasing as more joins are made, while the
       number of streams decreases with more joins. 
     */
+
+    /* Test code for stack call out of range bug */
+    // const entries: IJoinEntry[] = await this.sortJoinEntries(
+    //   await ActorRdfJoin.getEntriesWithMetadatas([ ...action.entries ]),
+    //   action.context,
+    // );
+    // const smallestEntry1 = entries[0];
+    // const smallestEntry2 = entries[1];
+    // entries.splice(0, 2);
+
+    // const firstEntry: IJoinEntry = {
+    //   output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
+    //     .mediate({ type: action.type, entries: [ smallestEntry1, smallestEntry2 ], context: action.context })),
+    //   operation: ActorRdfJoinInnerMultiReinforcementLearning.FACTORY
+    //     .createJoin([ smallestEntry1.operation, smallestEntry2.operation ], false),
+    // };
+    // entries.push(firstEntry);
   
+
+
     if (this.nodeid_mapping.size == 0){
       for(let i:number=0;i<action.entries.length;i++){
         this.nodeid_mapping.set(i,i);
       }
     }
-    // const entries: IJoinEntry[] = action.entries
-    const entries: IJoinEntry[] = await this.sortJoinEntries(
-      await ActorRdfJoin.getEntriesWithMetadatas([ ...action.entries ]),
-      action.context,
-    );
-    const smallestEntry1 = entries[0];
-    const smallestEntry2 = entries[1];
-    entries.splice(0, 2);
-
-    const firstEntry: IJoinEntry = {
-      output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
-        .mediate({ type: action.type, entries: [ smallestEntry1, smallestEntry2 ], context: action.context })),
-      operation: ActorRdfJoinInnerMultiReinforcementLearning.FACTORY
-        .createJoin([ smallestEntry1.operation, smallestEntry2.operation ], false),
-    };
-    entries.push(firstEntry);
-
+    const entries: IJoinEntry[] = action.entries
 
 
     /* Find node ids from to be joined streams*/
@@ -116,18 +119,15 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     const toBeJoined1 = entries[indexJoins[0]];
     const toBeJoined2 = entries[indexJoins[1]];
 
-    // entries.splice(indexJoins[1],1); entries.splice(indexJoins[0],1);
+    entries.splice(indexJoins[1],1); entries.splice(indexJoins[0],1);
 
-    // const firstEntry: IJoinEntry = {
-    //   output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
-    //     .mediate({ type: action.type, entries: [ toBeJoined1, toBeJoined2 ], context: action.context })),
-    //   operation: ActorRdfJoinInnerMultiReinforcementLearning.FACTORY
-    //     .createJoin([ toBeJoined1.operation, toBeJoined2.operation ], false),
-    // };
-    // entries.push(firstEntry);
-
-    /* Test code for stack call out of range bug */
-
+    const firstEntry: IJoinEntry = {
+      output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
+        .mediate({ type: action.type, entries: [ toBeJoined1, toBeJoined2 ], context: action.context })),
+      operation: ActorRdfJoinInnerMultiReinforcementLearning.FACTORY
+        .createJoin([ toBeJoined1.operation, toBeJoined2.operation ], false),
+    };
+    entries.push(firstEntry);
 
 
     /* Update the mapping to reflect the newly executed join*/

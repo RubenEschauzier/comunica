@@ -46,13 +46,11 @@ export class ActorRdfJoinMultiSmallest extends ActorRdfJoin {
   }
 
   protected async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
-    console.log("Going once!");
     // Determine the two smallest streams by sorting (e.g. via cardinality)
     const entries: IJoinEntry[] = await this.sortJoinEntries(
       await ActorRdfJoin.getEntriesWithMetadatas([ ...action.entries ]),
       action.context,
     );
-    console.log(`Number of entries ${entries.length}`);
     const smallestEntry1 = entries[0];
     const smallestEntry2 = entries[1];
     entries.splice(0, 2);

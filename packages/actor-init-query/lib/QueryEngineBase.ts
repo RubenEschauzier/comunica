@@ -248,11 +248,11 @@ export class QueryEngineBase implements IQueryEngine {
      */
     const queryExectionTime: number = this.timer.updateEndTime();
     
-    /* This can be undefined when there is no joins) */
+    /* This can be undefined when there is no joins */
     if (actionContext.getEpisodeState()){
-      let episodeTrainer: ModelTrainer|null = new ModelTrainer(actionContext.getEpisodeState()!, queryExectionTime)
-      episodeTrainer.trainModel();
-      episodeTrainer.saveModel();  
+      let episodeTrainer: ModelTrainer = new ModelTrainer(actionContext.getEpisodeState()!, queryExectionTime)
+      // episodeTrainer.trainModel();
+      // episodeTrainer.saveModel();  
       actionContext.getEpisodeState()!.emptyStateSpace();
       /* Remove episode state from memory to ensure that we can query multiple times in a row */
     }    
