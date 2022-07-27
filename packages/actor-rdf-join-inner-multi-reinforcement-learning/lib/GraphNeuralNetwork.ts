@@ -193,9 +193,15 @@ export class graphConvolutionLayer extends tf.layers.Layer{
 export class graphConvolutionModel{
     /* For now a simple constructor, should prob use a json config file and with pretrained layers*/
     /* For saving new_model = tf.keras.models.load_model('model.h5', custom_objects={'CustomLayer': CustomLayer}) */
-    layer1: graphConvolutionLayer;
-    layer2: graphConvolutionLayer;
-    layer3: tf.layers.Layer;
+    graphConvolutionalLayer1: graphConvolutionLayer;
+    graphConvolutionalLayer2: graphConvolutionLayer;
+
+    denseLayerValue: tf.layers.Layer;
+    denseLayerPolicy: tf.layers.Layer;
+
+    denseLayerValueFileName: string;
+    denseLayerPolicyFileName: string;
+
     model: tf.Sequential;
 
     fs: any;
@@ -205,20 +211,27 @@ export class graphConvolutionModel{
     public constructor(loss?: any, optimizer?: any){
         this.fs = require('fs');
         this.path = require('path')
+
         this.modelDirectory = this.getModelDirectory();
+        this.denseLayerValueFileName = 'denseLayerValue';
+        this.denseLayerPolicyFileName = 'denseLayerValue';
     
-        this.layer1 = new graphConvolutionLayer(1, 6, "relu");
-        this.layer2 = new graphConvolutionLayer(6, 6, "relu");
-        this.layer3 = tf.layers.dense({inputShape: [6], units: 1, activation: 'linear'});
+        this.graphConvolutionalLayer1 = new graphConvolutionLayer(1, 6, "relu");
+        this.graphConvolutionalLayer2 = new graphConvolutionLayer(6, 6, "relu");
+        this.denseLayerValue = tf.layers.dense({inputShape: [6], units: 1, activation: 'linear'});
+        this.denseLayerPolicy = tf.layers.dense({inputShape: [6], units: 1, activation: 'sigmoid'});
     
     }
 
     public forwardPass(inputFeatures: tf.Tensor2D, mAdjacency: tf.Tensor2D){
         return tf.tidy(() => {
-        const hiddenState: tf.Tensor = this.layer1.call(inputFeatures, mAdjacency);
-        const nodeRepresentations: tf.Tensor = this.layer2.call(tf.reshape(hiddenState, [mAdjacency.shape[0], 6]), mAdjacency);
-        const output = this.layer3.apply(nodeRepresentations); 
-        return output as tf.Tensor
+            const hiddenState: tf.Tensor = this.graphConvolutionalLayer1.call(inputFeatures, mAdjacency);
+            const nodeRepresentations: tf.Tensor = this.graphConvolutionalLayer2.call(tf.reshape(hiddenState, [mAdjacency.shape[0], 6]), mAdjacency);
+
+            const outputValue = this.denseLayerValue.apply(nodeRepresentations); 
+            const outputPolicy = this.denseLayerPolicy.apply(nodeRepresentations);
+            
+            return [outputValue, outputPolicy] as tf.Tensor[]
         }
         )
     }
@@ -227,9 +240,11 @@ export class graphConvolutionModel{
         tf.serialization.registerClass(graphConvolutionLayer);
         
         // Hardcoded, should be config when we are happy with performance
-        this.layer1.saveWeights('gcnLayer1');
-        this.layer2.saveWeights('gcnLayer2');
-        this.saveDenseLayer();
+        this.graphConvolutionalLayer1.saveWeights('gcnLayer1');
+        this.graphConvolutionalLayer2.saveWeights('gcnLayer2');
+        this.saveDenseLayer(this.denseLayerValue, this.denseLayerValueFileName);
+        this.saveDenseLayer(this.denseLayerPolicy, this.denseLayerPolicyFileName);
+
 
     }
 
@@ -240,21 +255,23 @@ export class graphConvolutionModel{
         const layer2 = new graphConvolutionLayer(6, 6, 'relu');
         layer2.loadWeights('gcnLayer2');
 
-        const layer3 = await this.loadDenseLayer();
-        this.layer1 = layer1; this.layer2 = layer2; this.layer3 = layer3;
+        const denseLayerValue = await this.loadDenseLayer(this.denseLayerValueFileName);
+        const denseLayerPolicy = await this.loadDenseLayer(this.denseLayerPolicyFileName);
+
+        this.graphConvolutionalLayer1 = layer1; this.graphConvolutionalLayer2 = layer2; this.denseLayerValue = denseLayerValue; this.denseLayerPolicy = denseLayerPolicy
     }
 
-    public async saveDenseLayer(){
-        const denseConfig: tf.serialization.ConfigDict = this.layer3.getConfig();
-        const fileLocationConfig: string = this.path.join(this.modelDirectory, 'denseLayerConfig');
-        const fileLocationWeights: string = this.path.join(this.modelDirectory, 'denseLayerWeights');
+    public async saveDenseLayer(layer: tf.layers.Layer, fileName: string){
+        const denseConfig: tf.serialization.ConfigDict = layer.getConfig();
+        const fileLocationConfig: string = this.path.join(this.modelDirectory, fileName+'Config');
+        const fileLocationWeights: string = this.path.join(this.modelDirectory, fileName+'Weights');
 
         fs.writeFile(fileLocationConfig, JSON.stringify(denseConfig), function(err: any) {
             if(err) {
                 return console.log(err);
             }
         }); 
-        const weightsLayer: tf.Tensor[] = this.layer3.getWeights();
+        const weightsLayer: tf.Tensor[] = layer.getWeights();
 
         let weightsLayerArray: any = await Promise.all(weightsLayer.map(async x => await x.array()));
 
@@ -267,8 +284,8 @@ export class graphConvolutionModel{
 
     }
 
-    public async loadDenseLayer(){
-        const fileLocationWeights = this.path.join(this.modelDirectory, 'denseLayerWeights');
+    public async loadDenseLayer(fileName: string){
+        const fileLocationWeights = this.path.join(this.modelDirectory, fileName + 'Weights');
         const initialisedDenseLayer = new Promise<tf.layers.Layer>( (resolve, reject) => {
 
             fs.readFile(fileLocationWeights, 'utf8', async function (err, data) {

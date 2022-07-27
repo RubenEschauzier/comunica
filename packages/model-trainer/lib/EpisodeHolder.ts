@@ -1,11 +1,16 @@
 import { StateSpaceTree } from "@comunica/mediator-join-reinforcement-learning";
+import { MCTSMasterTree } from "./MCTSMasterTree";
 
 export class EpisodeLogger{
     joinState: StateSpaceTree
     adjMatrix: number[][];
     features: number[];
     executionTime: number;
+    testMap: Map<number[][], number>;
+
+
     public constructor(){
+        new MCTSMasterTree();
     }
 
     public setState(joinState: StateSpaceTree): void{

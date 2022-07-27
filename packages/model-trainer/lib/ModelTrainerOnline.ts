@@ -72,8 +72,8 @@ export class ModelTrainer{
         }
     
         /* Execute forward pass */
-        const forwardPassOutput = this.model.forwardPass(tf.tensor2d(featureMatrix, [this.joinState.numNodes,1]), adjTensor) as tf.Tensor;
-        const predArray = forwardPassOutput.slice(this.joinState.numLeaveNodes, this.joinState.numNodes - this.joinState.numLeaveNodes);  
+        const forwardPassOutput = this.model.forwardPass(tf.tensor2d(featureMatrix, [this.joinState.numNodes,1]), adjTensor) as tf.Tensor[];
+        const predArray = forwardPassOutput[0].slice(this.joinState.numLeaveNodes, this.joinState.numNodes - this.joinState.numLeaveNodes);  
         return predArray
     }
 }
