@@ -9,5 +9,6 @@
   "memoryWeight": 1,
   "timeWeight": 10,
   "ioWeight": 100,
+  "offlineTrain": true,
   "bus": { "@id": "ActorRdfJoin:_default_bus"}
 }

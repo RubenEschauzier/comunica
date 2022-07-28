@@ -87,26 +87,26 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
   }
 
   public softMax(logits: tf.Tensor): tf.Tensor{
-    console.log(tf.exp(logits));
-    console.log(tf.sum(tf.exp(logits), undefined, false));
-    console.log(tf.div(tf.exp(logits), tf.sum(tf.exp(logits), undefined, false)));
     return tf.div(tf.exp(logits), tf.sum(tf.exp(logits), undefined, false));
   }
 
-  /**
-   * Order the given join entries using the join-entries-sort bus.
-   * @param {IJoinEntryWithMetadata[]} entries An array of join entries.
-   * @param context The action context.
-   * @return {IJoinEntryWithMetadata[]} The sorted join entries.
-   */
+  public chooseUsingProbability(probArray: Float32Array): number{
+    const cumsum = (arr: Float32Array) => arr.map((sum => value => sum += value)(0));
 
-  public async sortJoinEntries(
-    entries: IJoinEntryWithMetadata[],
-    context: IActionContext,
-  ): Promise<IJoinEntryWithMetadata[]> {
-    return (await this.mediatorJoinEntriesSort.mediate({ entries, context })).entries;
+    const cumProb: Float32Array = cumsum(probArray);
+    const pick: number = Math.random();
+
+    for (let i=0;i<cumProb.length;i++){
+      /* If we land at our draw, we return the index of the draw*/
+      if(pick > cumProb[i]){
+      }
+      else{
+        return i;
+      }
+    }
+    return cumProb.length;
+
   }
-
 
   public getPossibleJoins(nodesJoinable: number[]){
     let orders: number[][] = [];
@@ -284,12 +284,12 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     */
 
     /* If we have no joinState or nodeid_mapping due to resets we initialise empty ones */
-    if (!this.joinState || this.joinState.isEmpty() || this.nodeid_mapping.size == 0){
-    this.initialiseStates(action, metadatas);
-    }
 
-   if (!this.offlineTrain){
+  if (!this.offlineTrain){
     /* Check if we need to initialise the joinstate / nodeidmapping */
+    if (!this.joinState || this.joinState.isEmpty() || this.nodeid_mapping.size == 0){
+      this.initialiseStates(action, metadatas);
+    }
 
     let nodeIndexes: number[] = [... Array(this.joinState.numNodes).keys()];
 
@@ -361,10 +361,10 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     metadatas: MetadataBindings[],
   ): Promise<IMediatorTypeJoinCoefficients>
   {
+    console.log(`BEFORE: NumNodes: ${action.context.getEpisodeState().numNodes}, Context ID: ${action.context.getEpisodeState().testId}`);
     /**
      * Execute the exploration phase of the offline training algorithm. We find
      */
-    console.log(action.context.getEpisodeState);
     let nodeIndexes: number[] = [... Array(action.context.getEpisodeState().numNodes).keys()];
 
     /*  Remove already joined nodes from consideration by traversing the node indices in reverse order 
@@ -384,9 +384,9 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       */
       const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, 0);
       action.context.getEpisodeState().addParent(joinCombination, newParent);
-      const adjTensor = tf.tensor2d(action.context.getEpisodeState().adjacencyMatrix);
+      const adjTensor: tf.Tensor2D = tf.tensor2d(action.context.getEpisodeState().adjacencyMatrix);
 
-      let featureMatrix = [];
+      let featureMatrix: number[] = [];
       for(var i=0;i<action.context.getEpisodeState().nodesArray.length;i++){
         featureMatrix.push(action.context.getEpisodeState().nodesArray[i].cardinality);
       }
@@ -397,13 +397,13 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       // featureMatrix = featureMatrix.map((vM, iM) => (vM - minCardinality) / (maxCardinality - minCardinality));
 
       /* Execute forward pass */
-      const forwardPassOutput = this.model.forwardPass(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor[];
+      const forwardPassOutput: tf.Tensor[] = this.model.forwardPass(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor[];
       // const forwardPassOutput = this.model.forwardPass(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor
-      const valueOutput = forwardPassOutput[0];
-      const policyOutput = forwardPassOutput[1];
+      const valueOutput: tf.Tensor = forwardPassOutput[0];
+      const policyOutput: tf.Tensor = forwardPassOutput[1];
 
-      const outputArrayValue = await valueOutput.data();
-      const outputArrayPolicy = await policyOutput.data();
+      const outputArrayValue: Float32Array | Int32Array | Uint8Array = await valueOutput.data();
+      const outputArrayPolicy: Float32Array | Int32Array | Uint8Array = await policyOutput.data();
       // const outputArrayValue = await forwardPassOutput.data()
 
       joinValues.push(outputArrayValue[outputArrayValue.length-1])
@@ -412,9 +412,17 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
 
     }
     const predictedValueTensor: tf.Tensor = tf.tensor(joinValues);
-    const probabilities = this.softMax(predictedValueTensor);
-    console.log(await probabilities.data());
+    const predictedValueArray: Float32Array = await predictedValueTensor.data() as Float32Array
+    const probabilities: Float32Array = await tf.softmax(predictedValueTensor).data() as Float32Array;
+    const idx = this.chooseUsingProbability(probabilities);
     
+    /* Add new explored node to the statespace*/
+    const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, predictedValueArray[idx]);
+    action.context.getEpisodeState().addParent(possibleJoins[idx], newParent);
+    this.prevEstimatedCost = predictedValueArray[idx];
+
+    console.log(`AFTER: NumNodes: ${action.context.getEpisodeState().numNodes}, Context ID: ${action.context.getEpisodeState().testId}`);
+
     return {
       iterations: 10,
       persistedItems: 0,

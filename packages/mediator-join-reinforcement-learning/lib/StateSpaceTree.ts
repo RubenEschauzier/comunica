@@ -68,6 +68,8 @@ export class StateSpaceTree{
     adjacencyMatrix: number[][];
     numLeaveNodes: number;
     numUnjoined: number;
+    testId: number;
+    
     constructor() {
         this.numNodes = 0;
         this.numUnjoined = 0;
