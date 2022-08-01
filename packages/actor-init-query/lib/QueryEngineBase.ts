@@ -128,8 +128,14 @@ export class QueryEngineBase implements IQueryEngine {
     }
 
     // Prepare episodeLogger and context
-    let queryEpisode: EpisodeLogger = new EpisodeLogger();
+    /* Create episodeLogger, with master tree if we perform offline training */
+    const queryEpisode: EpisodeLogger = new EpisodeLogger();
+    if (context && context.masterTree){
+      queryEpisode.setMasterTree(context.masterTree);
+    }
+
     let actionContext: IActionContext = new ActionContext(context, queryEpisode);
+
     let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };
     if (actionContext.has(KeysInitQuery.queryFormat)) {
       queryFormat = actionContext.get(KeysInitQuery.queryFormat)!;
@@ -217,7 +223,7 @@ export class QueryEngineBase implements IQueryEngine {
       operation,
     });
     output.context = actionContext;
-
+    
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
     // Output physical query plan after query exec if needed
     if (physicalQueryPlanLogger) {

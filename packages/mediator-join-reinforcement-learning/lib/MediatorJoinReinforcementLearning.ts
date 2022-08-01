@@ -6,6 +6,7 @@ import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-
 import type { IQueryOperationResult, MetadataBindings } from '@comunica/types';
 import { EpisodeLogger } from '../../model-trainer/lib';
 import { NodeStateSpace, StateSpaceTree } from './StateSpaceTree';
+import {cloneDeep} from 'lodash';
 
 /**
  * A comunica mediator that mediates for the reinforcement learning-based multi join actor
@@ -116,67 +117,62 @@ export class MediatorJoinReinforcementLearning
   }
 
   public async mediateActor(action: IActionRdfJoin): Promise<ActorRdfJoin> {
-    // Mediate to one actor and run that actor.
-    if (this.offlineTrain){
+    /* 
+    * Mediate the actor.
+    * If we perform offline training we simulate 'x' join plans according to our current neural network predictions. We do so by calling the mediateWith function 'x'
+    * times from the start of the join execution plan.
+    */
+    /* At first join execution we initialise our StateSpaceTree with just leave nodes */
+    if (!action.context.getEpisodeState()){
       let joinStateTest = new StateSpaceTree();
       for (let i=0; i<action.entries.length;i++){
         // Create nodes with estimated cardinality as feature
-        let newNode: NodeStateSpace = new NodeStateSpace(i, 69);
+        const cardinalityNode: number = (await action.entries[i].output.metadata()).cardinality.value;
+        let newNode: NodeStateSpace = new NodeStateSpace(i, cardinalityNode);
         newNode.setDepth(0);
         joinStateTest.addLeave(newNode);
       }
       /* Set the number of leave nodes in the tree, this will not change during execution */
       joinStateTest.setNumLeaveNodes(joinStateTest.numNodes); 
 
-      /* DEBUG: Ignore this call */
       action.context.setEpisodeState(joinStateTest);
-
-      const numNodesPerSim = 2;
-      const numSimsToExecute = Math.min(numNodesPerSim, action.entries.length);
-      let bestActor = null;
-      for (let i=0; i<numSimsToExecute;i++){
-        const actionToPass: IActionRdfJoin = {...action}
-        const test = 5;
-        // const clone = _.cloneDeep 
-
-        console.log(`NumNodes of Action: ${action.context.getEpisodeState().numNodes}`);
-        console.log(`Before setting ID: ${actionToPass.context.getEpisodeState().testId}`);
-        // console.log(action.context.getEpisodeState());
-        /* Make deep copy of action episode to allow recursive join plan exploration */
-        const copyOfEpisode: EpisodeLogger = new EpisodeLogger();
-        copyOfEpisode.setState(actionToPass.context.getEpisodeState());
-        actionToPass.context = new ActionContext(actionToPass.context, copyOfEpisode);
+    }
+    return await this.mediateWith(action, this.publish(action));
+        // const numNodesPerSim = 2;
+        // const numSimsToExecute = Math.min(numNodesPerSim, action.entries.length);
+        // let bestActor = null;
+        // for (let i=0; i<numSimsToExecute;i++){
+        //   // const actionToPass: IActionRdfJoin = {...action}
+        //   const actionToPass = cloneDeep(action); 
+  
+        //   console.log(`NumNodes of Action: ${action.context.getEpisodeState().numNodes}`);
+        //   console.log(`Before setting ID: ${actionToPass.context.getEpisodeState().testId}`);
+        //   // console.log(action.context.getEpisodeState());
+        //   /* Make deep copy of action episode to allow recursive join plan exploration */
+        //   // const copyOfEpisode: EpisodeLogger = new EpisodeLogger();
+        //   // copyOfEpisode.setState(actionToPass.context.getEpisodeState());
+        //   // actionToPass.context = new ActionContext(actionToPass.context, copyOfEpisode);
+          
+        //   /* Assign ID to each joinState for debugging purposes (SHOULD BE GONE IF PUBLISHED)*/
+        //   actionToPass.context.getEpisodeState().testId = i;
+  
         
-        /* Assign ID to each joinState for debugging purposes (SHOULD BE GONE IF PUBLISHED)*/
-        actionToPass.context.getEpisodeState().testId = i;
-        // clone.context.getEpisodeState().testId = 5;
-        console.log(`Underlying action ID: ${action.context.getEpisodeState().testId}`);
-
-      
-        console.log(`Simulation ${i}.`);
-        console.log("Before mediateWith call");
-        console.log(actionToPass.context.getEpisodeState().numNodes)
-        console.log(actionToPass.context.getEpisodeState().testId);
-
-        bestActor = await this.mediateWith(actionToPass, this.publish(actionToPass));
-        /* Get explored join */
-        const exploredJoin: StateSpaceTree = actionToPass.context.getEpisodeState();
-        console.log("After mediateWith Call:");
-        console.log(exploredJoin.numNodes);
-        console.log(actionToPass.context.getEpisodeState().testId);
-
-        }
-      /* We initialise this bestActor with null, but it will never keep this value */
-      return bestActor!;
+        //   console.log(`Simulation ${i}.`);
+        //   console.log("Before mediateWith call");
+        //   console.log(`Underlying action ID: ${action.context.getEpisodeState().testId}`);
+        //   console.log(actionToPass.context.getEpisodeState().numNodes)
+        //   console.log(actionToPass.context.getEpisodeState().testId);
+  
+        //   bestActor = await this.mediateWith(actionToPass, this.publish(actionToPass));
+        //   /* Get explored join */
+        //   const exploredJoin: StateSpaceTree = actionToPass.context.getEpisodeState();
+        //   console.log("After mediateWith Call:");
+        //   console.log(exploredJoin.numNodes);
+        //   console.log(actionToPass.context.getEpisodeState().testId);
+  
+        // }
+        /* We initialise this bestActor with null, but it will never keep this value */
     }
-    else{
-      /* Normal execution of mediateActor if we do not train our model offline */
-        // Mediate to one actor and run that actor.
-        return await this.mediateWith(action, this.publish(action));
-      }    
-    }
-    
-
   }
 
   // protected mediateWithOfflineTrain(action: IActionRdfJoin, testResults: IActorReply<ActorRdfJoin, IActionRdfJoin, IMediatorTypeJoinCoefficients, IQueryOperationResult>[],

@@ -28,7 +28,9 @@
     "lib/**/*.js"
   ],
   "dependencies": {
-    "@comunica/core": "^2.0.1"
+    "@comunica/core": "^2.0.1",
+    "@types/lodash": "^4.14.182",
+    "lodash": "^4.17.21"
   },
   "scripts": {
     "build": "npm run build:ts && npm run build:components",

@@ -1,17 +1,17 @@
 import { StateSpaceTree } from '@comunica/mediator-join-reinforcement-learning';
 import type { IActionContext, IActionContextKey } from '@comunica/types';
-import { Map } from 'immutable';
-import { EpisodeLogger } from '../../model-trainer/lib';
+import { Map as IMap } from 'immutable';
+import { EpisodeLogger, MCTSJoinInformation, MCTSJoinPredictionOutput } from '@comunica/model-trainer';
 
 /**
  * Implementation of {@link IActionContext} using Immutable.js.
  */
 export class ActionContext implements IActionContext {
-  private readonly map: Map<string, any>;
-  private episode: EpisodeLogger;
+  private readonly map: IMap<string, any>;
+  public episode: EpisodeLogger;
 
   public constructor(data: Record<string, any> = {}, episodeLogged: EpisodeLogger = new EpisodeLogger()) {
-    this.map = Map<string, any>(data);
+    this.map = IMap<string, any>(data);
     this.episode = episodeLogged;
   }
 
@@ -38,12 +38,47 @@ export class ActionContext implements IActionContext {
     this.episode.setState(joinState);
   }
 
+  public setJoinStateMasterTree(joinState: MCTSJoinPredictionOutput){
+    this.episode.setJoinState(joinState);
+  }
+
+  public setNodeIdMapping(key: number, value: number){
+    this.episode.setNodeIdMapping(key, value);
+  }
+
+  public addEpisodeStateJoinIndexes(joinIndexes: number[]): void{
+    this.episode.addJoinIndexes(joinIndexes);
+  }
+
   public getEpisodeState(): StateSpaceTree{
     return this.episode.getState();
   }
 
   public getEpisodeTime(): number {
     return this.episode.executionTime
+  }
+
+  public getJoinStateMasterTree(joinIndexes: number[][]){
+    try{
+      return this.episode.getJoinStateMasterTree(joinIndexes);
+    }
+    catch{
+      const blankJoinState: MCTSJoinInformation = {N: 0, meanValueJoin: 0, totalValueJoin: 0, 
+                                                    priorProbability: 0};
+      return blankJoinState
+    }
+  }
+
+  public getEpisode(){
+    return this.episode
+  }
+
+  public getNodeIdMappingKey(key: number){
+    return this.episode.getNodeIdMappingKey(key);
+  }
+
+  public getNodeIdMapping(): Map<number,number>{
+    return this.episode.getNodeMapping();
   }
   // public setInPlace<V>(key: IActionContextKey<V>, value: V): void{
   //   this.setInPlaceRaw(key.name, value);
@@ -118,7 +153,7 @@ export class ActionContext implements IActionContext {
     // I create a new EpisodeLogger for this function not sure if ok
     return maybeActionContext instanceof ActionContext ?
       maybeActionContext :
-      new ActionContext(Map(maybeActionContext || {}), new EpisodeLogger());
+      new ActionContext(IMap(maybeActionContext || {}), new EpisodeLogger());
   }
 }
 

@@ -68,7 +68,7 @@ export class StateSpaceTree{
     adjacencyMatrix: number[][];
     numLeaveNodes: number;
     numUnjoined: number;
-    testId: number;
+    joinIndexes: number[][];
     
     constructor() {
         this.numNodes = 0;
@@ -76,7 +76,13 @@ export class StateSpaceTree{
         this.numLeaveNodes = 0;
         this.nodesArray = [];
         this.adjacencyMatrix = [[]];
+        this.joinIndexes = []
     }
+
+    public addJoinIndexes(joinToAdd: number[]){
+        this.joinIndexes.push(joinToAdd);
+    }
+
     public addLeave(leave: NodeStateSpace){
         this.nodesArray.push(leave);
         this.incrementNumNodes();

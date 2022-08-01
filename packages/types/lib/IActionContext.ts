@@ -1,4 +1,5 @@
 import { StateSpaceTree } from "@comunica/mediator-join-reinforcement-learning";
+import { EpisodeLogger, MCTSJoinInformation, MCTSJoinPredictionOutput } from "@comunica/model-trainer";
 
 /**
  * An immutable key-value mapped context that can be passed to any (@link IAction}.
@@ -19,8 +20,16 @@ import { StateSpaceTree } from "@comunica/mediator-join-reinforcement-learning";
 export interface IActionContext {
   setEpisodeTime: (time: number) => void;
   setEpisodeState: (joinState: StateSpaceTree) => void;
+  setJoinStateMasterTree: (joinState: MCTSJoinPredictionOutput) => void;
+  setNodeIdMapping: (key: number, value: number) => void;
+
+  addEpisodeStateJoinIndexes: (joinIndexes: number[]) => void
   getEpisodeTime: () => number;
   getEpisodeState: () => StateSpaceTree;
+  getJoinStateMasterTree: (joinIndexes: number[][]) => MCTSJoinInformation;
+  getEpisode: () => EpisodeLogger;
+  getNodeIdMappingKey: (key: number) => number;
+  getNodeIdMapping: () => Map<number,number>;
   set: <V>(key: IActionContextKey<V>, value: V) => IActionContext;
   /**
    * Will only set the value if the key is not already set.
