@@ -5,21 +5,12 @@ import * as tf from '@tensorflow/tfjs';
 import { PassThrough } from "stream";
 
 export class ModelTrainer{
-    joinState: StateSpaceTree
-    adjMatrix: number[][];
-    features: number[];
-    executionTime: number;
     model: graphConvolutionModel;
     optimizer;
     path;
 
-    public constructor(episode: StateSpaceTree, executionTime: number, optimizer?:any){
+    public constructor(optimizer?:any){
         this.path = require('path');
-        // this.adjMatrix = adjMatrix;
-        // this.features = features
-        this.joinState = episode;
-        this.executionTime = executionTime;
-
         this.optimizer = (optimizer) ? optimizer: tf.train.adam(.01);
 
         try{
@@ -45,35 +36,68 @@ export class ModelTrainer{
     }
 
 
-    public async trainModel(){
+    public async trainModel(joinState: StateSpaceTree, executionTime: number){
         const loss = this.optimizer.minimize(() => {
-            const predTensor: tf.Tensor = this.finalForwardPass();
-            const y: tf.Tensor = tf.fill([predTensor.shape[0], 1], this.executionTime);
+            const predTensor: tf.Tensor = this.finalForwardPass(joinState);
+            const y: tf.Tensor = tf.fill([predTensor.shape[0], 1], executionTime);
             const loss = tf.losses.meanSquaredError(y, predTensor);
             // loss.data().then(l => console.log('Loss', l[0]));
             return loss;
         });
     }
 
-    private finalForwardPass(): tf.Tensor<tf.Rank>{
-        const finalJoin: number[] = this.joinState.nodesArray.filter(function(x) {
+    public async trainModeloffline(adjacencyMatrixes: number[][][], featureMatrix: number[][], executionTime: number[], epochLoss: number[]): Promise<void>{
+        /* 
+        * TODO STILL: DO IN LOOP AND DO ALL QUERY EXECUTIONS IN ONE BACKWARD PASS THEN WE'RE DONE!!
+        */
+        const loss = this.optimizer.minimize(() => {
+
+            const y: tf.Tensor = tf.tensor(executionTime, [executionTime.length,1]);
+            // const valuePredictions: tf.Tensor = tf.zeros([executionTime.length,1]);
+            const valuePredictions: tf.Tensor[] = []
+            // console.log(y);
+            // console.log(await y.data());
+            for (let i = 0;i<adjacencyMatrixes.length;i++){
+                const adjTensor = tf.tensor2d(adjacencyMatrixes[i]);
+
+                /* Pretend we don't know the prediction output of our join node for training purposes*/
+                featureMatrix[i][featureMatrix[i].length-1] = 0;
+                const forwardPassOutput: tf.Tensor[] = this.model.forwardPass(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length,1]), adjTensor) as tf.Tensor[];
+
+                const joinValuePrediction: tf.Tensor = forwardPassOutput[0].slice([forwardPassOutput[0].shape[0]-1, 0]);
+                const y: tf.Tensor = tf.fill([joinValuePrediction.shape[0], 1], executionTime[i]);    
+
+                valuePredictions.push(joinValuePrediction)
+            }
+            const predictionTensor: tf.Tensor = tf.concat(valuePredictions);
+            // predictionTensor.print();
+            // y.print();
+
+            const loss = tf.losses.meanSquaredError(y, predictionTensor);
+            loss.data().then(l => epochLoss.push(l[0]));
+            return loss;
+        });
+    }
+
+    private finalForwardPass(joinState: StateSpaceTree): tf.Tensor<tf.Rank>{
+        const finalJoin: number[] = joinState.nodesArray.filter(function(x) {
             if (!x.joined){
                 return x;
             }
         }).map(x => x.id);
-        const newParent: NodeStateSpace = new NodeStateSpace(this.joinState.numNodes, 0);
-        this.joinState.addParent(finalJoin, newParent);
+        const newParent: NodeStateSpace = new NodeStateSpace(joinState.numNodes, 0);
+        joinState.addParent(finalJoin, newParent);
 
-        const adjTensor = tf.tensor2d(this.joinState.adjacencyMatrix);
+        const adjTensor = tf.tensor2d(joinState.adjacencyMatrix);
 
         let featureMatrix = [];
-        for(var i=0;i<this.joinState.nodesArray.length;i++){
-          featureMatrix.push(this.joinState.nodesArray[i].cardinality);
+        for(var i=0;i<joinState.nodesArray.length;i++){
+          featureMatrix.push(joinState.nodesArray[i].cardinality);
         }
     
         /* Execute forward pass */
-        const forwardPassOutput = this.model.forwardPass(tf.tensor2d(featureMatrix, [this.joinState.numNodes,1]), adjTensor) as tf.Tensor[];
-        const predArray = forwardPassOutput[0].slice(this.joinState.numLeaveNodes, this.joinState.numNodes - this.joinState.numLeaveNodes);  
+        const forwardPassOutput = this.model.forwardPass(tf.tensor2d(featureMatrix, [joinState.numNodes,1]), adjTensor) as tf.Tensor[];
+        const predArray = forwardPassOutput[0].slice(joinState.numLeaveNodes, joinState.numNodes - joinState.numLeaveNodes);  
         return predArray
     }
 }

@@ -13,7 +13,7 @@ export class EpisodeLogger{
 
 
     public constructor(){
-        this.node_idmapping = new Map<number, number>;
+        this.node_idmapping = new Map<number, number>();
         
     }
 
@@ -31,8 +31,8 @@ export class EpisodeLogger{
         this.joinState.addJoinIndexes(joinIndexes);
     }
 
-    public setJoinState(joinState: MCTSJoinPredictionOutput){
-        this.masterTree.updateMasterMap(joinState);
+    public setJoinState(joinState: MCTSJoinPredictionOutput, featureMatrix: number[], adjacencyMatrix: number[][]){
+        this.masterTree.updateMasterMap(joinState, featureMatrix, adjacencyMatrix);
     }
 
     public getState(): StateSpaceTree{

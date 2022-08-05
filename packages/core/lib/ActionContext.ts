@@ -38,8 +38,8 @@ export class ActionContext implements IActionContext {
     this.episode.setState(joinState);
   }
 
-  public setJoinStateMasterTree(joinState: MCTSJoinPredictionOutput){
-    this.episode.setJoinState(joinState);
+  public setJoinStateMasterTree(joinState: MCTSJoinPredictionOutput, featureMatrix: number[], adjacencyMatrix: number[][]){
+    this.episode.setJoinState(joinState, featureMatrix, adjacencyMatrix);
   }
 
   public setNodeIdMapping(key: number, value: number){
@@ -64,7 +64,7 @@ export class ActionContext implements IActionContext {
     }
     catch{
       const blankJoinState: MCTSJoinInformation = {N: 0, meanValueJoin: 0, totalValueJoin: 0, 
-                                                    priorProbability: 0};
+                                                    priorProbability: 0, featureMatrix: [], adjencyMatrix: [[]]};
       return blankJoinState
     }
   }

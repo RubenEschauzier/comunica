@@ -1,29 +1,12 @@
-export class MCTSMasterTree{
-    // changeQueue: any;
+export class MCTSMasterTree{    
+    /* Map containing all exploration information of one query iteration */
     masterMap: Map<string, MCTSJoinInformation>;
-    
+    /* Keys of all join states reached in one query execution */
+    joinsExploredOneExecution: string[];
+
     public constructor() {
         this.masterMap = new Map();
-        const async = require('async');
-        // this.changeQueue = async.queue((task: MCTSJoinPredictionOutput, completed:any) => {
-        //     console.log(task.N);
-        //     if (task.N == 0){
-        //         this.addUnexploredJoin({N:task.N, meanValueJoin: task.predictedValueJoin, totalValueJoin: task.predictedValueJoin, 
-        //             priorProbability: task.predictedProbability}, task.state, task.predictedValueJoin, task.predictedProbability)
-        //     }
-        //     if (task.N > 0){
-        //         const joinInformation = this.masterMap.get(task.state);
-        //         if (joinInformation == undefined){
-        //             throw("Join is undefined in masterMap");
-        //         }
-        //         /* Join information should never be undefined*/
-        //         this.updateJoin(joinInformation!, task.predictedValueJoin, task.predictedProbability, task.state);
-        //     }
-        //     if (task.N < 0){
-        //         throw("Passed item with negative N");
-        //     }
-        // }, 1);
-
+        this.joinsExploredOneExecution = [];
     }
 
     public addUnexploredJoin(joinInformation: MCTSJoinInformation, joinIndexes: number[][], estimatedValue: number, estimatedProbability: number){
@@ -33,54 +16,59 @@ export class MCTSMasterTree{
         this.masterMap.set(key, joinInformation);
     }
 
-    public updateJoin(joinInformation: MCTSJoinPredictionOutput){
+    public updateJoin(joinInformation: MCTSJoinPredictionOutput, joinFeatureMatrix: number[], joinAdjacancyMatrix: number[][]){
         /* Get previous information from map */
         const previousStateInformation = this.getJoinInformation(joinInformation.state);
         const key: string = joinInformation.state.flat().toString().replaceAll(',', '');
 
+        /* Calling this function means we explore this join, thus we add it to the explored joins array */
+        this.joinsExploredOneExecution.push(key);
+
         /* Update the join information*/
-        const newStateInformation = {N: previousStateInformation.N += 1, totalValueJoin: previousStateInformation.totalValueJoin += joinInformation.predictedValueJoin,
+        const newStateInformation: MCTSJoinInformation = {N: previousStateInformation.N += 1, totalValueJoin: previousStateInformation.totalValueJoin += joinInformation.predictedValueJoin,
             meanValueJoin: previousStateInformation.meanValueJoin = previousStateInformation.totalValueJoin / (joinInformation.N + 1),
-            priorProbability: previousStateInformation.priorProbability = joinInformation.predictedProbability
+            priorProbability: previousStateInformation.priorProbability = joinInformation.predictedProbability,
+            featureMatrix: joinFeatureMatrix, adjencyMatrix: joinAdjacancyMatrix
+            
         }
 
         this.masterMap.set(key, newStateInformation);
     }
 
-    public updateMasterMap(operationInformation: MCTSJoinPredictionOutput){
-        this.updateJoin(operationInformation);
-        // if (operationInformation.N == 0){
-        //     this.addUnexploredJoin({N:operationInformation.N, meanValueJoin: operationInformation.predictedValueJoin, totalValueJoin: operationInformation.predictedValueJoin, 
-        //         priorProbability: operationInformation.predictedProbability}, operationInformation.state, operationInformation.predictedValueJoin, operationInformation.predictedProbability)
-        // }
-        // if (task.N > 0){
-        //     const joinInformation = this.masterMap.get(task.state);
-        //     if (joinInformation == undefined){
-        //         throw("Join is undefined in masterMap");
-        //     }
-        //     /* Join information should never be undefined*/
-        //     this.updateJoin(joinInformation!, task.predictedValueJoin, task.predictedProbability, task.state);
-        // }
-        // if (task.N < 0){
-        //     throw("Passed item with negative N");
-        // }
+    public updateMasterMap(operationInformation: MCTSJoinPredictionOutput, joinFeatureMatrix: number[], joinAdjacancyMatrix: number[][]){
+        this.updateJoin(operationInformation, joinFeatureMatrix, joinAdjacancyMatrix);
     }
 
-    // public addOperationToQueue(operationInformation: MCTSJoinPredictionOutput){
-    //     this.changeQueue.push(operationInformation);
-    // }
+    public setExecutionTimeJoin(key: string, executionTime: number){
+        /* When we call this function we can be sure the key is in the map */
+        /* Should prob do some error handling here */
+
+        const stateInformation: MCTSJoinInformation = this.masterMap.get(key)!;
+        const updatedInformation: MCTSJoinInformation = {...stateInformation, actualExecutionTime: executionTime};
+        this.masterMap.set(key, updatedInformation);
+        
+    }
 
     public getJoinInformation(joinIndexes: number[][]): MCTSJoinInformation{
         const key: string = joinIndexes.flat().toString().replaceAll(',', '');
         const value: MCTSJoinInformation|undefined = this.masterMap.get(key);
         if (value == undefined || null){
-            const emptyResult: MCTSJoinInformation = {N:0, meanValueJoin: 0, totalValueJoin: 0, priorProbability: 0};
+            const emptyResult: MCTSJoinInformation = {N:0, meanValueJoin: 0, totalValueJoin: 0, priorProbability: 0, 
+                featureMatrix: [], adjencyMatrix: [[]]};
             return emptyResult
         }
         else{
             return value;
         }
          
+    }
+
+    public getExploredJoins(){
+        return this.joinsExploredOneExecution;
+    }
+
+    public resetExploredJoins(){
+        this.joinsExploredOneExecution = [];
     }
 }
 
@@ -101,6 +89,19 @@ export interface MCTSJoinInformation{
     * Predicted probability of choosing this join state
     */
     priorProbability: number;
+    /*
+    * Feature matrix of the current state
+    */
+    featureMatrix: number[];
+    /* 
+    * Adjency matrix of the made joins
+    */
+    adjencyMatrix: number[][];
+    /*
+    * Actual recorded value
+    */
+    actualExecutionTime?: number;
+
 }
 
 export interface MCTSJoinPredictionOutput{

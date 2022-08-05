@@ -61,32 +61,32 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     this.nodeid_mapping = new Map<number, number>();
   }
 
-  private initialiseStates(action: IActionRdfJoin, metadatas: MetadataBindings[]): void {
-    /**
-     * Initialise any internal states that need to be initialised.
-     * @param {IActionRdfJoin} action An array containing information on the joins
-     * @param {MetadataBindings[]} metadatas An array with all  metadatas of the bindingstreams
-     * @returns {Promise<void>} Changes only internal states
-     */
-    if (!this.joinState || this.joinState.isEmpty()){
-      this.joinState = new StateSpaceTree();
-      for (const [i, metadata] of metadatas.entries()){
-        // Create nodes with estimated cardinality as feature
-        let newNode: NodeStateSpace = new NodeStateSpace(i, metadata.cardinality.value);
-        newNode.setDepth(0);
-        this.joinState.addLeave(newNode);
-      }
-      /* Set the number of leave nodes in the tree, this will not change during execution */
-      this.joinState.setNumLeaveNodes(this.joinState.numNodes); 
-      action.context.setEpisodeState(this.joinState);
-    }
+  // private initialiseStates(action: IActionRdfJoin, metadatas: MetadataBindings[]): void {
+  //   /**
+  //    * Initialise any internal states that need to be initialised.
+  //    * @param {IActionRdfJoin} action An array containing information on the joins
+  //    * @param {MetadataBindings[]} metadatas An array with all  metadatas of the bindingstreams
+  //    * @returns {Promise<void>} Changes only internal states
+  //    */
+  //   if (!this.joinState || this.joinState.isEmpty()){
+  //     this.joinState = new StateSpaceTree();
+  //     for (const [i, metadata] of metadatas.entries()){
+  //       // Create nodes with estimated cardinality as feature
+  //       let newNode: NodeStateSpace = new NodeStateSpace(i, metadata.cardinality.value);
+  //       newNode.setDepth(0);
+  //       this.joinState.addLeave(newNode);
+  //     }
+  //     /* Set the number of leave nodes in the tree, this will not change during execution */
+  //     this.joinState.setNumLeaveNodes(this.joinState.numNodes); 
+  //     action.context.setEpisodeState(this.joinState);
+  //   }
 
-    if (this.nodeid_mapping.size == 0){
-        for(let i:number=0;i<action.entries.length;i++){
-          this.nodeid_mapping.set(i,i);
-        }
-    }
-  }
+  //   if (this.nodeid_mapping.size == 0){
+  //       for(let i:number=0;i<action.entries.length;i++){
+  //         this.nodeid_mapping.set(i,i);
+  //       }
+  //   }
+  // }
 
   public softMax(logits: tf.Tensor): tf.Tensor{
     return tf.div(tf.exp(logits), tf.sum(tf.exp(logits), undefined, false));
@@ -126,7 +126,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       number of streams decreases with more joins. 
     */
     const passedNodeIdMapping = action.context.getNodeIdMapping();
-    console.log(passedNodeIdMapping);
     const entries: IJoinEntry[] = action.entries
 
     /* Find node ids from to be joined streams*/
@@ -136,8 +135,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
 
     /* Get the join indexes determined in the exploration phase of the algorithm*/
     const indexJoins: number[] = action.context.getEpisodeState().joinIndexes[action.context.getEpisodeState().joinIndexes.length-1];
-    console.log(action.context.getEpisodeState().joinIndexes);
-    console.log(indexJoins);
 
     const toBeJoined1 = entries[indexJoins[0]];
     const toBeJoined2 = entries[indexJoins[1]];
@@ -368,7 +365,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     const possibleJoins: number[][] = this.getPossibleJoins(nodeIndexes);
     let valueProbabilityJoin: number[] = [];
     let estimatedOnlineValueJoin: number = 0;
-    
+
     if (!this.offlineTrain){
       estimatedOnlineValueJoin = await this.getChosenJoinOnline(action, metadatas, possibleJoins);
     }
@@ -388,8 +385,19 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       const newState: number[][] = action.context.getEpisodeState().joinIndexes
       const prevPrediction: MCTSJoinInformation = action.context.getJoinStateMasterTree(newState);
       const predictionOutput: MCTSJoinPredictionOutput = {N: prevPrediction.N, state: newState, predictedValueJoin: valueProbabilityJoin[0], 
-                                                          predictedProbability: valueProbabilityJoin[1]};
-      action.context.setJoinStateMasterTree(predictionOutput);  
+        predictedProbability: valueProbabilityJoin[1]};
+      
+      let featureMatrix = [];
+      for(var i=0;i<action.context.getEpisodeState().nodesArray.length;i++){
+        featureMatrix.push(action.context.getEpisodeState().nodesArray[i].cardinality);
+      }
+
+      let adjacencyMatrixCopy = []
+      for (let i = 0; i<action.context.getEpisodeState().adjacencyMatrix.length; i++){
+        adjacencyMatrixCopy.push(action.context.getEpisodeState().adjacencyMatrix[i].slice());
+      }
+
+      action.context.setJoinStateMasterTree(predictionOutput, featureMatrix, adjacencyMatrixCopy);  
     }
     return {
       iterations: this.prevEstimatedCost,
@@ -597,138 +605,138 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     return bestJoinCost;
   }
 
-  private async getJoinCoefficientsOffline(action: IActionRdfJoin,
-    metadatas: MetadataBindings[],
-  ): Promise<IMediatorTypeJoinCoefficients>
-  {
-    /**
-     * Execute the exploration phase of the offline training algorithm. 
-     */
-    if (this.nodeid_mapping.size == action.entries.length){
-      for(let i:number=0;i<action.entries.length;i++){
-        this.nodeid_mapping.set(i,i);
-      }
-    }
+  // private async getJoinCoefficientsOffline(action: IActionRdfJoin,
+  //   metadatas: MetadataBindings[],
+  // ): Promise<IMediatorTypeJoinCoefficients>
+  // {
+  //   /**
+  //    * Execute the exploration phase of the offline training algorithm. 
+  //    */
+  //   if (this.nodeid_mapping.size == action.entries.length){
+  //     for(let i:number=0;i<action.entries.length;i++){
+  //       this.nodeid_mapping.set(i,i);
+  //     }
+  //   }
 
-    let nodeIndexes: number[] = [... Array(action.context.getEpisodeState().numNodes).keys()];
+  //   let nodeIndexes: number[] = [... Array(action.context.getEpisodeState().numNodes).keys()];
 
-    /*  Remove already joined nodes from consideration by traversing the node indices in reverse order 
-        which does not disturb the indexing of the array  */
-    for (let i:number=action.context.getEpisodeState().numNodes-1;i>=0;i--){
-      if (action.context.getEpisodeState().nodesArray[i].joined==true){
-        nodeIndexes.splice(i,1);
-      }
-    }
-    /*  Generate possible joinState combinations  */
-    const possibleJoins: number[][] = this.getPossibleJoins(nodeIndexes);
+  //   /*  Remove already joined nodes from consideration by traversing the node indices in reverse order 
+  //       which does not disturb the indexing of the array  */
+  //   for (let i:number=action.context.getEpisodeState().numNodes-1;i>=0;i--){
+  //     if (action.context.getEpisodeState().nodesArray[i].joined==true){
+  //       nodeIndexes.splice(i,1);
+  //     }
+  //   }
+  //   /*  Generate possible joinState combinations  */
+  //   const possibleJoins: number[][] = this.getPossibleJoins(nodeIndexes);
 
-    /* List of all predicted join values and probabilities*/
-    const joinValues: number[] = [];
-    const joinProbabilities: number[] = [];
-    const qValues: number[] = [];
+  //   /* List of all predicted join values and probabilities*/
+  //   const joinValues: number[] = [];
+  //   const joinProbabilities: number[] = [];
+  //   const qValues: number[] = [];
 
-    /* Keeps track of the total visits to any of the possible join states*/
-    let numVisited: number[] = [];
+  //   /* Keeps track of the total visits to any of the possible join states*/
+  //   let numVisited: number[] = [];
 
     
-    for (const joinCombination of possibleJoins){
-      /*  We generate the join trees associated with the possible join combinations, note the tradeoff between memory usage (create new trees) 
-          and cpu usage (delete the new node)
-      */
-      const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, 0);
-      action.context.getEpisodeState().addParent(joinCombination, newParent);
-      const adjTensor: tf.Tensor2D = tf.tensor2d(action.context.getEpisodeState().adjacencyMatrix);
+  //   for (const joinCombination of possibleJoins){
+  //     /*  We generate the join trees associated with the possible join combinations, note the tradeoff between memory usage (create new trees) 
+  //         and cpu usage (delete the new node)
+  //     */
+  //     const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, 0);
+  //     action.context.getEpisodeState().addParent(joinCombination, newParent);
+  //     const adjTensor: tf.Tensor2D = tf.tensor2d(action.context.getEpisodeState().adjacencyMatrix);
 
-      let featureMatrix: number[] = [];
-      for(var i=0;i<action.context.getEpisodeState().nodesArray.length;i++){
-        featureMatrix.push(action.context.getEpisodeState().nodesArray[i].cardinality);
-      }
+  //     let featureMatrix: number[] = [];
+  //     for(var i=0;i<action.context.getEpisodeState().nodesArray.length;i++){
+  //       featureMatrix.push(action.context.getEpisodeState().nodesArray[i].cardinality);
+  //     }
 
-      /* Execute forward pass */
-      const forwardPassOutput: tf.Tensor[] = this.model.forwardPass(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor[];
+  //     /* Execute forward pass */
+  //     const forwardPassOutput: tf.Tensor[] = this.model.forwardPass(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor[];
 
-      const valueOutput: tf.Tensor = forwardPassOutput[0];
-      const policyOutput: tf.Tensor = forwardPassOutput[1];
+  //     const valueOutput: tf.Tensor = forwardPassOutput[0];
+  //     const policyOutput: tf.Tensor = forwardPassOutput[1];
 
-      const joined_nodes: NodeStateSpace[] = action.context.getEpisodeState().nodesArray[action.context.getEpisodeState().numNodes-1].children;
-      const ids: number[] = joined_nodes.map(a => a.id).sort();
-      const indexJoins: number[] = ids.map(a => this.nodeid_mapping.get(a)!).sort();
+  //     const joined_nodes: NodeStateSpace[] = action.context.getEpisodeState().nodesArray[action.context.getEpisodeState().numNodes-1].children;
+  //     const ids: number[] = joined_nodes.map(a => a.id).sort();
+  //     const indexJoins: number[] = ids.map(a => this.nodeid_mapping.get(a)!).sort();
 
-      /* Make copy of joinState to make a temporary key */
-      const currentJoinState: number[][] = JSON.parse(JSON.stringify(action.context.getEpisodeState().joinIndexes));
-      currentJoinState.push(indexJoins);
+  //     /* Make copy of joinState to make a temporary key */
+  //     const currentJoinState: number[][] = JSON.parse(JSON.stringify(action.context.getEpisodeState().joinIndexes));
+  //     currentJoinState.push(indexJoins);
 
-      /* Get any information of the possible join state in masterTree*/
-      const joinStateInformation: MCTSJoinInformation = action.context.getJoinStateMasterTree(currentJoinState);
-      numVisited.push(joinStateInformation.N);
+  //     /* Get any information of the possible join state in masterTree*/
+  //     const joinStateInformation: MCTSJoinInformation = action.context.getJoinStateMasterTree(currentJoinState);
+  //     numVisited.push(joinStateInformation.N);
   
-      const outputArrayValue: Float32Array | Int32Array | Uint8Array = await valueOutput.data();
-      const outputArrayPolicy: Float32Array | Int32Array | Uint8Array = await policyOutput.data();
+  //     const outputArrayValue: Float32Array | Int32Array | Uint8Array = await valueOutput.data();
+  //     const outputArrayPolicy: Float32Array | Int32Array | Uint8Array = await policyOutput.data();
       
-      const qValue: number = (joinStateInformation.totalValueJoin + outputArrayValue[outputArrayValue.length-1])/(joinStateInformation.N+1);
-      qValues.push(qValue);
+  //     const qValue: number = (joinStateInformation.totalValueJoin + outputArrayValue[outputArrayValue.length-1])/(joinStateInformation.N+1);
+  //     qValues.push(qValue);
 
-      // const outputArrayValue = await forwardPassOutput.data()
+  //     // const outputArrayValue = await forwardPassOutput.data()
 
-      joinValues.push(outputArrayValue[outputArrayValue.length-1]);
-      joinProbabilities.push(outputArrayPolicy[outputArrayPolicy.length-1]);
+  //     joinValues.push(outputArrayValue[outputArrayValue.length-1]);
+  //     joinProbabilities.push(outputArrayPolicy[outputArrayPolicy.length-1]);
 
-      action.context.getEpisodeState().removeLastAdded();
+  //     action.context.getEpisodeState().removeLastAdded();
 
-    }
-    const predictedValueTensor: tf.Tensor = tf.tensor(joinValues);
-    const predictedValueArray: Float32Array = await predictedValueTensor.data() as Float32Array;
+  //   }
+  //   const predictedValueTensor: tf.Tensor = tf.tensor(joinValues);
+  //   const predictedValueArray: Float32Array = await predictedValueTensor.data() as Float32Array;
 
-    /* NOTE THESE ARE NOT REAL PROBABILITIES AND ARE PLACEHOLDERS!! */
-    const predictedProbabilityTensor: tf.Tensor = tf.tensor(joinProbabilities);
-    const predictedProbabilityArray: Float32Array = await predictedProbabilityTensor.data() as Float32Array;
+  //   /* NOTE THESE ARE NOT REAL PROBABILITIES AND ARE PLACEHOLDERS!! */
+  //   const predictedProbabilityTensor: tf.Tensor = tf.tensor(joinProbabilities);
+  //   const predictedProbabilityArray: Float32Array = await predictedProbabilityTensor.data() as Float32Array;
 
-    const joinUtility: number[] = []
-    /* Calculate join utility according to q[i] + c * (sqrt(sum_i(visits))/1+visits_i)   */
-    // console.log(`Number of join combinations possible: ${possibleJoins.length} `);
-    // console.log(`Number of action entries: ${action.entries.length}`);
-    // console.log(qValues);
-    // console.log(numVisited);
-    // console.log(sum(numVisited));
-    // console.log(this.explorationDegree);
+  //   const joinUtility: number[] = []
+  //   /* Calculate join utility according to q[i] + c * (sqrt(sum_i(visits))/1+visits_i)   */
+  //   // console.log(`Number of join combinations possible: ${possibleJoins.length} `);
+  //   // console.log(`Number of action entries: ${action.entries.length}`);
+  //   // console.log(qValues);
+  //   // console.log(numVisited);
+  //   // console.log(sum(numVisited));
+  //   // console.log(this.explorationDegree);
 
-    for (let i = 0; i < qValues.length ; i++){
-      joinUtility.push(qValues[i] + this.explorationDegree * (Math.sqrt(sum(numVisited)) / (1 + numVisited[i])))
-    }
-    const probabilities: Float32Array = await tf.softmax(joinUtility).data() as Float32Array;
-    const idx = this.chooseUsingProbability(probabilities);
+  //   for (let i = 0; i < qValues.length ; i++){
+  //     joinUtility.push(qValues[i] + this.explorationDegree * (Math.sqrt(sum(numVisited)) / (1 + numVisited[i])))
+  //   }
+  //   const probabilities: Float32Array = await tf.softmax(joinUtility).data() as Float32Array;
+  //   const idx = this.chooseUsingProbability(probabilities);
     
-    /* Add new explored node to the statespace*/
-    const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, predictedValueArray[idx]);
-    action.context.getEpisodeState().addParent(possibleJoins[idx], newParent);
-    this.prevEstimatedCost = predictedValueArray[idx];
+  //   /* Add new explored node to the statespace*/
+  //   const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, predictedValueArray[idx]);
+  //   action.context.getEpisodeState().addParent(possibleJoins[idx], newParent);
+  //   this.prevEstimatedCost = predictedValueArray[idx];
 
-    if (this.nodeid_mapping.size == 0){
-      for(let i:number=0;i<action.entries.length;i++){
-        this.nodeid_mapping.set(i,i);
-      }
-    }
+  //   if (this.nodeid_mapping.size == 0){
+  //     for(let i:number=0;i<action.entries.length;i++){
+  //       this.nodeid_mapping.set(i,i);
+  //     }
+  //   }
 
-    /* This is double work, should be aggressively optimized in terms of code re-use and readability!!*/
-    const joined_nodes: NodeStateSpace[] = action.context.getEpisodeState().nodesArray[action.context.getEpisodeState().numNodes-1].children;
-    const ids: number[] = joined_nodes.map(a => a.id).sort();
-    const indexJoins: number[] = ids.map(a => this.nodeid_mapping.get(a)!).sort();
+  //   /* This is double work, should be aggressively optimized in terms of code re-use and readability!!*/
+  //   const joined_nodes: NodeStateSpace[] = action.context.getEpisodeState().nodesArray[action.context.getEpisodeState().numNodes-1].children;
+  //   const ids: number[] = joined_nodes.map(a => a.id).sort();
+  //   const indexJoins: number[] = ids.map(a => this.nodeid_mapping.get(a)!).sort();
 
-    /* Add the newly chosen joins to the joinIndexes in the stateSpaceTree */
-    action.context.getEpisodeState().addJoinIndexes(indexJoins);
-    /* Update our master tree with new predictions */
-    const newState: number[][] = action.context.getEpisodeState().joinIndexes
-    const prevPrediction: MCTSJoinInformation = action.context.getJoinStateMasterTree(newState);
-    const predictionOutput: MCTSJoinPredictionOutput = {N: prevPrediction.N, state: newState, predictedValueJoin: predictedValueArray[idx], 
-                                                        predictedProbability: predictedProbabilityArray[idx]};
-    action.context.setJoinStateMasterTree(predictionOutput);
-    return {
-      iterations: this.prevEstimatedCost,
-      persistedItems: 0,
-      blockingItems: 0,
-      requestTime: 0,
-    };
-  } 
+  //   /* Add the newly chosen joins to the joinIndexes in the stateSpaceTree */
+  //   action.context.getEpisodeState().addJoinIndexes(indexJoins);
+  //   /* Update our master tree with new predictions */
+  //   const newState: number[][] = action.context.getEpisodeState().joinIndexes
+  //   const prevPrediction: MCTSJoinInformation = action.context.getJoinStateMasterTree(newState);
+  //   const predictionOutput: MCTSJoinPredictionOutput = {N: prevPrediction.N, state: newState, predictedValueJoin: predictedValueArray[idx], 
+  //                                                       predictedProbability: predictedProbabilityArray[idx]};
+  //   action.context.setJoinStateMasterTree(predictionOutput);
+  //   return {
+  //     iterations: this.prevEstimatedCost,
+  //     persistedItems: 0,
+  //     blockingItems: 0,
+  //     requestTime: 0,
+  //   };
+  // } 
   updateState(newState: StateSpaceTree){
     this.joinState = newState;
   }

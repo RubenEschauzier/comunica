@@ -13,7 +13,7 @@ import type { IActionContext, IPhysicalQueryPlanLogger,
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import type { Algebra } from 'sparqlalgebrajs';
-import { EpisodeLogger } from '../../model-trainer/lib';
+import { EpisodeLogger, MCTSJoinInformation, MCTSMasterTree } from '../../model-trainer/lib';
 import { ModelTrainer } from '../../model-trainer/lib/ModelTrainerOnline';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
@@ -23,11 +23,10 @@ import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
  */
 export class QueryEngineBase implements IQueryEngine {
   private readonly actorInitQuery: ActorInitQueryBase;
-  private readonly timer: Timer;
+  private timer: Timer;
 
   public constructor(actorInitQuery: ActorInitQueryBase) {
     this.actorInitQuery = actorInitQuery;
-    this.timer = new Timer();
   }
 
   public async queryBindings<QueryFormatTypeInner extends QueryFormatType>(
@@ -118,6 +117,7 @@ export class QueryEngineBase implements IQueryEngine {
     context?: QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
   ): Promise<QueryType | IQueryExplained> {
     context = context || <any>{};
+    this.timer = new Timer();
 
     // Expand shortcuts
     for (const key in context) {
@@ -130,6 +130,8 @@ export class QueryEngineBase implements IQueryEngine {
     // Prepare episodeLogger and context
     /* Create episodeLogger, with master tree if we perform offline training */
     const queryEpisode: EpisodeLogger = new EpisodeLogger();
+
+    /* When offline training we require an externally created instance of the master tree to be passed */
     if (context && context.masterTree){
       queryEpisode.setMasterTree(context.masterTree);
     }
@@ -225,6 +227,8 @@ export class QueryEngineBase implements IQueryEngine {
     output.context = actionContext;
     
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
+
+    
     // Output physical query plan after query exec if needed
     if (physicalQueryPlanLogger) {
       // Make sure the whole result is produced
@@ -252,16 +256,24 @@ export class QueryEngineBase implements IQueryEngine {
     /**
      * For our reinforcement learning actor we include the timing always, but this should be configurable
      */
-    const queryExectionTime: number = this.timer.updateEndTime();
+    const queryExecutionTime: number = this.timer.updateEndTime();
     
     /* This can be undefined when there is no joins */
     if (actionContext.getEpisodeState()){
-      let episodeTrainer: ModelTrainer = new ModelTrainer(actionContext.getEpisodeState()!, queryExectionTime)
-      // episodeTrainer.trainModel();
+      let episodeTrainer: ModelTrainer = new ModelTrainer()
+      episodeTrainer.trainModel(actionContext.getEpisodeState()!, queryExecutionTime);
       // episodeTrainer.saveModel();  
       actionContext.getEpisodeState()!.emptyStateSpace();
       /* Remove episode state from memory to ensure that we can query multiple times in a row */
-    }    
+    }
+
+    if (context && context.masterTree){
+      for(let joinKey of context.masterTree.getExploredJoins()){
+        context.masterTree.setExecutionTimeJoin(joinKey, queryExecutionTime);
+      }
+      context.masterTree.resetExploredJoins();
+    }
+    
 
     return finalOutput;
   }
@@ -312,6 +324,26 @@ export class QueryEngineBase implements IQueryEngine {
     const handle: IActionSparqlSerialize = { ...await QueryEngineBase.finalToInternalResult(queryResult), context };
     return (await this.actorInitQuery.mediatorQueryResultSerialize
       .mediate({ context, handle, handleMediaType: mediaType })).handle;
+  }
+
+
+  public trainModel(masterTreeMap: Map<string, MCTSJoinInformation>, lossEpisode: number[]){
+    const modelTrainer = new ModelTrainer();
+
+    const adjacencyMatrixes: number[][][] = [];
+    const featureMatrixes: number[][] = [];
+    const actualExecutionTimes: number[] = [];
+    if (masterTreeMap.size > 0){
+      for (const [key, value] of masterTreeMap.entries()) {
+        adjacencyMatrixes.push(value.adjencyMatrix);
+        featureMatrixes.push(value.featureMatrix);
+        actualExecutionTimes.push(value.actualExecutionTime!);
+      }
+      modelTrainer.trainModeloffline(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, lossEpisode);  
+    }
+    else{
+      console.warn('WARNING: No recorded joins this episode.');
+    }
   }
 
   /**
