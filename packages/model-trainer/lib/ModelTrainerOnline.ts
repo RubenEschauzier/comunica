@@ -11,7 +11,7 @@ export class ModelTrainer{
 
     public constructor(optimizer?:any){
         this.path = require('path');
-        this.optimizer = (optimizer) ? optimizer: tf.train.adam(.01);
+        this.optimizer = (optimizer) ? optimizer: tf.train.adam(.001);
 
         try{
             this.loadModel();
