@@ -6,12 +6,12 @@ import { PassThrough } from "stream";
 
 export class ModelTrainer{
     model: graphConvolutionModel;
-    optimizer;
+    optimizer: tf.AdamOptimizer;
     path;
 
-    public constructor(optimizer?:any){
+    public constructor(){
         this.path = require('path');
-        this.optimizer = (optimizer) ? optimizer: tf.train.adam(.001);
+        this.optimizer = tf.train.adam(.001);
 
         try{
             this.loadModel();
@@ -41,22 +41,21 @@ export class ModelTrainer{
             const predTensor: tf.Tensor = this.finalForwardPass(joinState);
             const y: tf.Tensor = tf.fill([predTensor.shape[0], 1], executionTime);
             const loss = tf.losses.meanSquaredError(y, predTensor);
+            const lossSqueezed: tf.Scalar = tf.squeeze(loss);
             // loss.data().then(l => console.log('Loss', l[0]));
-            return loss;
+            return lossSqueezed;
         });
     }
 
-    public async trainModeloffline(adjacencyMatrixes: number[][][], featureMatrix: number[][], executionTime: number[], epochLoss: number[]): Promise<void>{
-        /* 
-        * TODO STILL: DO IN LOOP AND DO ALL QUERY EXECUTIONS IN ONE BACKWARD PASS THEN WE'RE DONE!!
-        */
-        const loss = this.optimizer.minimize(() => {
+    public async trainModeloffline(adjacencyMatrixes: number[][][], featureMatrix: number[][], executionTime: number[], epochLoss: number[]): Promise<number>{
+        const lossFunction = () => {
 
             const y: tf.Tensor = tf.tensor(executionTime, [executionTime.length,1]);
             // const valuePredictions: tf.Tensor = tf.zeros([executionTime.length,1]);
             const valuePredictions: tf.Tensor[] = []
             // console.log(y);
             // console.log(await y.data());
+            
             for (let i = 0;i<adjacencyMatrixes.length;i++){
                 const adjTensor = tf.tensor2d(adjacencyMatrixes[i]);
 
@@ -67,16 +66,18 @@ export class ModelTrainer{
                 const joinValuePrediction: tf.Tensor = forwardPassOutput[0].slice([forwardPassOutput[0].shape[0]-1, 0]);
                 const y: tf.Tensor = tf.fill([joinValuePrediction.shape[0], 1], executionTime[i]);    
 
-                valuePredictions.push(joinValuePrediction)
+                valuePredictions.push(joinValuePrediction);
             }
             const predictionTensor: tf.Tensor = tf.concat(valuePredictions);
-            // predictionTensor.print();
-            // y.print();
-
             const loss = tf.losses.meanSquaredError(y, predictionTensor);
-            loss.data().then(l => epochLoss.push(l[0]));
-            return loss;
-        });
+            const scalarLoss: tf.Scalar = tf.squeeze(loss);
+            return scalarLoss;
+        }
+        // This should never be null due to returnCost being
+        const loss =  this.optimizer.minimize(lossFunction, true)!;
+        const episodeLoss: number = (await loss.data())[0]
+        console.log(episodeLoss)
+        return episodeLoss;
     }
 
     private finalForwardPass(joinState: StateSpaceTree): tf.Tensor<tf.Rank>{

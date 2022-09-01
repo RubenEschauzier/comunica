@@ -199,6 +199,8 @@ export class graphConvolutionModel{
     denseLayerValue: tf.layers.Layer;
     denseLayerPolicy: tf.layers.Layer;
 
+    reluLayer: tf.layers.Layer;
+
     denseLayerValueFileName: string;
     denseLayerPolicyFileName: string;
 
@@ -220,6 +222,8 @@ export class graphConvolutionModel{
         this.graphConvolutionalLayer2 = new graphConvolutionLayer(6, 6, "relu");
         this.denseLayerValue = tf.layers.dense({inputShape: [6], units: 1, activation: 'linear'});
         this.denseLayerPolicy = tf.layers.dense({inputShape: [6], units: 1, activation: 'sigmoid'});
+
+        this.reluLayer = tf.layers.activation({activation: 'relu', inputShape: [1], 'name': 'finalReluLayer'})
     
     }
 
@@ -231,7 +235,8 @@ export class graphConvolutionModel{
             const outputValue = this.denseLayerValue.apply(nodeRepresentations); 
             const outputPolicy = this.denseLayerPolicy.apply(nodeRepresentations);
             
-            return [outputValue, outputPolicy] as tf.Tensor[]
+            const outputValueRelu = this.reluLayer.apply(outputValue);
+            return [outputValueRelu, outputPolicy] as tf.Tensor[]
         }
         )
     }

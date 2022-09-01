@@ -327,7 +327,7 @@ export class QueryEngineBase implements IQueryEngine {
   }
 
 
-  public trainModel(masterTreeMap: Map<string, MCTSJoinInformation>, lossEpisode: number[]){
+  public async trainModel(masterTreeMap: Map<string, MCTSJoinInformation>, lossEpisode: number[]){
     const modelTrainer = new ModelTrainer();
 
     const adjacencyMatrixes: number[][][] = [];
@@ -339,7 +339,8 @@ export class QueryEngineBase implements IQueryEngine {
         featureMatrixes.push(value.featureMatrix);
         actualExecutionTimes.push(value.actualExecutionTime!);
       }
-      modelTrainer.trainModeloffline(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, lossEpisode);  
+      const trainingLoss: number = await modelTrainer.trainModeloffline(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, lossEpisode);
+      return trainingLoss  
     }
     else{
       console.warn('WARNING: No recorded joins this episode.');
