@@ -6,7 +6,7 @@ import { ActionContext } from '@comunica/core';
 import { LoggerPretty } from '@comunica/logger-pretty';
 import type { IActionContext, ICliArgsHandler } from '@comunica/types';
 import type { Argv } from 'yargs';
-import { EpisodeLogger } from '../../../model-trainer/lib';
+import { EpisodeLogger, modelHolder } from '../../../model-trainer/lib';
 
 /**
  * Basic CLI arguments handler that handles common options.
@@ -52,7 +52,7 @@ export class CliArgsHandlerBase implements ICliArgsHandler {
       const credentials = authMatches[1];
       source.context = new ActionContext({
         [KeysHttp.auth.name]: decodeURIComponent(credentials),
-      }, new EpisodeLogger());
+      }, new EpisodeLogger(), new modelHolder());
       sourceString = sourceString.slice(0, authMatches.index + 2) +
         sourceString.slice(authMatches.index + credentials.length + 3);
     }

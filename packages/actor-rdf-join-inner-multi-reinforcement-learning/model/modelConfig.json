@@ -1,0 +1,25 @@
+{
+    "layers":[
+        {
+            "type": "graph", "inputSize": 1, "output": 32, "activation": "relu"
+        },
+        {
+            "type": "graph", "inputSize": 32, "output": 64, "activation": "relu"
+        },
+        {
+            "type": "graph", "inputSize": 64, "output": 32, "activation": "relu"
+        },
+        {
+            "type": "graph", "inputSize": 32, "output": 8, "activation": "relu"
+        },
+        {
+            "type": "dense", "inputSize": 8, "output": 1, "activation": "linear"
+        },
+        {
+            "type": "dense", "inputSize": 8, "output": 1, "activation": "sigmoid"
+        },
+        {
+            "type": "relu", "inputSize": 1, "output": 1
+        }
+    ]
+}

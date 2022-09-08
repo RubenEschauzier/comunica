@@ -220,21 +220,24 @@ export class graphConvolutionModel{
     
         this.graphConvolutionalLayer1 = new graphConvolutionLayer(1, 6, "relu");
         this.graphConvolutionalLayer2 = new graphConvolutionLayer(6, 6, "relu");
-        this.denseLayerValue = tf.layers.dense({inputShape: [6], units: 1, activation: 'linear'});
-        this.denseLayerPolicy = tf.layers.dense({inputShape: [6], units: 1, activation: 'sigmoid'});
+        this.denseLayerValue = tf.layers.dense({inputShape: [6], units: 1, activation: 'linear', 'trainable': true});
+        this.denseLayerPolicy = tf.layers.dense({inputShape: [6], units: 1, activation: 'sigmoid', 'trainable': true});
 
         this.reluLayer = tf.layers.activation({activation: 'relu', inputShape: [1], 'name': 'finalReluLayer'})
-    
+        this.loadModelConfig();    
     }
 
     public forwardPass(inputFeatures: tf.Tensor2D, mAdjacency: tf.Tensor2D){
         return tf.tidy(() => {
+            // inputFeatures.print();
             const hiddenState: tf.Tensor = this.graphConvolutionalLayer1.call(inputFeatures, mAdjacency);
+            // hiddenState.print();
             const nodeRepresentations: tf.Tensor = this.graphConvolutionalLayer2.call(tf.reshape(hiddenState, [mAdjacency.shape[0], 6]), mAdjacency);
-
+            // nodeRepresentations.print();
             const outputValue = this.denseLayerValue.apply(nodeRepresentations); 
             const outputPolicy = this.denseLayerPolicy.apply(nodeRepresentations);
-            
+            // const test = outputValue as tf.Tensor;
+            // test.print();
             const outputValueRelu = this.reluLayer.apply(outputValue);
             return [outputValueRelu, outputPolicy] as tf.Tensor[]
         }
@@ -254,6 +257,7 @@ export class graphConvolutionModel{
     }
 
     public async loadModel(){
+        console.log("HEEEEEEELOOOOOOOOOO")
         const layer1 = new graphConvolutionLayer(1, 6, 'relu');
         layer1.loadWeights('gcnLayer1');
 
@@ -310,6 +314,47 @@ export class graphConvolutionModel{
         return modelDir;
     }
 
+    private loadModelConfig(){
+        const modelDir = this.getModelDirectory();
+        const modelConfig = new Promise<string[]>( (resolve, reject) => {
+
+            fs.readFile(modelDir + '/modelConfig.json', 'utf8', async function (err, data) {
+                if (err) throw err;
+                const weightArray: string[] = JSON.parse(data)['layers'];
+                console.log(weightArray)
+                resolve(weightArray);
+              });
+        })
+    }
+
+}
+
+export class graphConvolutionModelFunctional{
+    graphConvolutionalLayer1: graphConvolutionLayer;
+    graphConvolutionalLayer2: graphConvolutionLayer;
+
+    denseLayerValue: tf.layers.Layer;
+    denseLayerPolicy: tf.layers.Layer;
+
+    reluLayer: tf.layers.Layer;
+
+    denseLayerValueFileName: string;
+    denseLayerPolicyFileName: string;
+
+    model: tf.Sequential;
+
+    fs: any;
+    path: any;
+    modelDirectory: string;
+
+    public constructor(inputFeatureDim: number, outputFeatureDim: number){
+        const model = tf.sequential()
+        model.add(tf.layers.dense({units: inputFeatureDim, inputShape: [inputFeatureDim]}))
+        model.add(tf.layers.dense({units: 16}))
+        model.add(tf.layers.dense({units: 16}))
+        model.add(tf.layers.dense({units: outputFeatureDim}))
+        model.compile({optimizer: 'sgd', loss: 'meanSquaredError'})
+   }
 }
 
 

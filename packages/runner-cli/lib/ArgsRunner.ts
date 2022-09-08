@@ -5,12 +5,12 @@ import type { ISetupProperties } from '@comunica/runner';
 import { run } from '@comunica/runner';
 import type { IActionContext } from '@comunica/types';
 import { stdout } from 'process';
-import { EpisodeLogger } from '../../model-trainer/lib';
+import { EpisodeLogger, modelHolder } from '../../model-trainer/lib';
 
 export function runArgs(configResourceUrl: string, argv: string[], stdin: NodeJS.ReadStream,
   stdout: NodeJS.WriteStream, stderr: NodeJS.WriteStream, exit: (code?: number) => void, env: NodeJS.ProcessEnv,
   runnerUri?: string, properties?: ISetupProperties, context?: IActionContext): void {
-  run(configResourceUrl, { argv, env, stdin, context: context || new ActionContext() }, runnerUri, properties)
+  run(configResourceUrl, { argv, env, stdin, context: context || new ActionContext(undefined, undefined, new modelHolder()) }, runnerUri, properties)
     .then((results: IActorOutputInit[]) => {
       results.forEach((result: IActorOutputInit) => {
         if (result.stdout) {

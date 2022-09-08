@@ -37,7 +37,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
   /* Offline train indicates if the model is being pretrained, this involves a different method of query execution and episode generation*/
   private offlineTrain: boolean;
   public joinState: StateSpaceTree;
-  private model: graphConvolutionModel;
+  // private model: graphConvolutionModel;
   
 
   prevEstimatedCost: number;
@@ -56,8 +56,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     this.onlineTrain = args['onlineTrain'];
     this.offlineTrain = args['offlineTrain']
     this.explorationDegree = args['explorationDegree'];
-    this.model = new graphConvolutionModel();
-    this.model.loadModel();
     this.nodeid_mapping = new Map<number, number>();
   }
 
@@ -390,14 +388,15 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       let featureMatrix = [];
       for(var i=0;i<action.context.getEpisodeState().nodesArray.length;i++){
         featureMatrix.push(action.context.getEpisodeState().nodesArray[i].cardinality);
-      }
+      }      
 
       let adjacencyMatrixCopy = []
       for (let i = 0; i<action.context.getEpisodeState().adjacencyMatrix.length; i++){
         adjacencyMatrixCopy.push(action.context.getEpisodeState().adjacencyMatrix[i].slice());
       }
 
-      action.context.setJoinStateMasterTree(predictionOutput, featureMatrix, adjacencyMatrixCopy);  
+      action.context.setJoinStateMasterTree(predictionOutput, featureMatrix, adjacencyMatrixCopy);
+      action.context.setPlanHolder(newState.flat().toString().replaceAll(',', ''));
     }
     return {
       iterations: this.prevEstimatedCost,
@@ -503,8 +502,14 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
         featureMatrix.push(action.context.getEpisodeState().nodesArray[i].cardinality);
       }
 
+      /*  Scale features using Min-Max scaling  */
+      const maxCardinality: number = Math.max(...featureMatrix);
+      const minCardinality: number = Math.min(...featureMatrix);
+      featureMatrix = featureMatrix.map((vM, iM) => (vM - minCardinality) / (maxCardinality - minCardinality));
+      
+
       /* Execute forward pass */
-      const forwardPassOutput: tf.Tensor[] = this.model.forwardPass(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor[];
+      const forwardPassOutput: tf.Tensor[] = action.context.getModelHolder().getModel().forwardPass(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor[];
 
       const valueOutput: tf.Tensor = forwardPassOutput[0];
       const policyOutput: tf.Tensor = forwardPassOutput[1];
@@ -526,7 +531,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       
       const qValue: number = (joinStateInformation.totalValueJoin + outputArrayValue[outputArrayValue.length-1])/(joinStateInformation.N+1);
       qValues.push(qValue);
-
       // const outputArrayValue = await forwardPassOutput.data()
 
       joinValues.push(outputArrayValue[outputArrayValue.length-1]);
@@ -578,12 +582,12 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       }
 
       /*  Scale features using Min-Max scaling  */
-      // const maxCardinality: number = Math.max(...featureMatrix);
-      // const minCardinality: number = Math.min(...featureMatrix);
-      // featureMatrix = featureMatrix.map((vM, iM) => (vM - minCardinality) / (maxCardinality - minCardinality));
+      const maxCardinality: number = Math.max(...featureMatrix);
+      const minCardinality: number = Math.min(...featureMatrix);
+      featureMatrix = featureMatrix.map((vM, iM) => (vM - minCardinality) / (maxCardinality - minCardinality));
 
       /* Execute forward pass */
-      const forwardPassOutput = this.model.forwardPass(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor[];
+      const forwardPassOutput = action.context.getModelHolder().getModel().forwardPass(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor[];
 
       /* Add estimated value to the array */
       if (forwardPassOutput instanceof tf.Tensor){

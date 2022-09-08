@@ -1,7 +1,7 @@
 import { StateSpaceTree } from '@comunica/mediator-join-reinforcement-learning';
 import type { IActionContext, IActionContextKey } from '@comunica/types';
 import { Map as IMap } from 'immutable';
-import { EpisodeLogger, MCTSJoinInformation, MCTSJoinPredictionOutput } from '@comunica/model-trainer';
+import { EpisodeLogger, MCTSJoinInformation, MCTSJoinPredictionOutput, modelHolder } from '@comunica/model-trainer';
 
 /**
  * Implementation of {@link IActionContext} using Immutable.js.
@@ -9,10 +9,12 @@ import { EpisodeLogger, MCTSJoinInformation, MCTSJoinPredictionOutput } from '@c
 export class ActionContext implements IActionContext {
   private readonly map: IMap<string, any>;
   public episode: EpisodeLogger;
+  public model: modelHolder;
 
-  public constructor(data: Record<string, any> = {}, episodeLogged: EpisodeLogger = new EpisodeLogger()) {
+  public constructor(data: Record<string, any> = {}, episodeLogged: EpisodeLogger = new EpisodeLogger(), model: modelHolder) {
     this.map = IMap<string, any>(data);
     this.episode = episodeLogged;
+    this.model = model
   }
 
   /**
@@ -27,7 +29,7 @@ export class ActionContext implements IActionContext {
   }
 
   public setRaw(key: string, value: any): IActionContext {
-    return new ActionContext(this.map.set(key, value), this.episode);
+    return new ActionContext(this.map.set(key, value), this.episode, this.model);
   }
 
   public setEpisodeTime(time: number): void{
@@ -44,6 +46,10 @@ export class ActionContext implements IActionContext {
 
   public setNodeIdMapping(key: number, value: number){
     this.episode.setNodeIdMapping(key, value);
+  }
+
+  public setPlanHolder(plan: string){
+    this.episode.setPlan(plan);
   }
 
   public addEpisodeStateJoinIndexes(joinIndexes: number[]): void{
@@ -80,6 +86,10 @@ export class ActionContext implements IActionContext {
   public getNodeIdMapping(): Map<number,number>{
     return this.episode.getNodeMapping();
   }
+
+  public getModelHolder(): modelHolder{
+    return this.model;
+  }
   // public setInPlace<V>(key: IActionContextKey<V>, value: V): void{
   //   this.setInPlaceRaw(key.name, value);
   // }
@@ -89,7 +99,7 @@ export class ActionContext implements IActionContext {
   // }
 
   public delete<V>(key: IActionContextKey<V>): IActionContext {
-    return new ActionContext(this.map.delete(key.name), this.episode);
+    return new ActionContext(this.map.delete(key.name), this.episode, this.model);
   }
 
   public get<V>(key: IActionContextKey<V>): V | undefined {
@@ -151,9 +161,10 @@ export class ActionContext implements IActionContext {
    */
   public static ensureActionContext(maybeActionContext?: IActionContext | Record<string, any>): IActionContext {
     // I create a new EpisodeLogger for this function not sure if ok
+    console.trace();
     return maybeActionContext instanceof ActionContext ?
       maybeActionContext :
-      new ActionContext(IMap(maybeActionContext || {}), new EpisodeLogger());
+      new ActionContext(IMap(maybeActionContext || {}), new EpisodeLogger(), new modelHolder());
   }
 }
 

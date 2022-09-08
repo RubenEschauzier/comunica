@@ -4,6 +4,7 @@ import { MCTSJoinInformation, MCTSJoinPredictionOutput, MCTSMasterTree } from ".
 export class EpisodeLogger{
     joinState: StateSpaceTree;
     masterTree: MCTSMasterTree;
+    planHolder: Map<string, number>;
     node_idmapping: Map<number, number>;
 
     adjMatrix: number[][];
@@ -25,6 +26,14 @@ export class EpisodeLogger{
 
     public setTime(executionTime: number): void{
         this.executionTime = executionTime;
+    }
+
+    public setPlanHolder(planHolder: Map<string, number>){
+        this.planHolder = planHolder;
+    }
+    
+    public setPlan(joinPlan: string){
+        this.planHolder.set(joinPlan, 0);
     }
 
     public addJoinIndexes(joinIndexes: number[]): void{

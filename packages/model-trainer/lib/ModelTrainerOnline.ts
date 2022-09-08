@@ -3,22 +3,19 @@ import { NodeStateSpace, StateSpaceTree } from "@comunica/mediator-join-reinforc
 import * as tf from '@tensorflow/tfjs';
 
 import { PassThrough } from "stream";
+import { modelHolder } from "./modelHolder";
 
 export class ModelTrainer{
     model: graphConvolutionModel;
-    optimizer: tf.AdamOptimizer;
+    // optimizer: tf.AdamOptimizer;
+    optimizer: tf.SGDOptimizer;
+
     path;
 
-    public constructor(){
+    public constructor(modelHolder: modelHolder){
         this.path = require('path');
-        this.optimizer = tf.train.adam(.001);
-
-        try{
-            this.loadModel();
-        } catch (error){
-            console.log(error);
-            console.log("Something went wrong during model loading, check if it exists");
-        }
+        this.optimizer = tf.train.sgd(.05);
+        this.model = modelHolder.getModel();
     }
 
     public loadModel(){
@@ -47,8 +44,9 @@ export class ModelTrainer{
         });
     }
 
-    public async trainModeloffline(adjacencyMatrixes: number[][][], featureMatrix: number[][], executionTime: number[], epochLoss: number[]): Promise<number>{
-        const lossFunction = () => {
+    public async trainModeloffline(adjacencyMatrixes: number[][][], featureMatrix: number[][], executionTime: number[]): Promise<number>{
+                
+        const loss =  this.optimizer.minimize(() => {
 
             const y: tf.Tensor = tf.tensor(executionTime, [executionTime.length,1]);
             // const valuePredictions: tf.Tensor = tf.zeros([executionTime.length,1]);
@@ -71,12 +69,12 @@ export class ModelTrainer{
             const predictionTensor: tf.Tensor = tf.concat(valuePredictions);
             const loss = tf.losses.meanSquaredError(y, predictionTensor);
             const scalarLoss: tf.Scalar = tf.squeeze(loss);
-            return scalarLoss;
-        }
-        // This should never be null due to returnCost being
-        const loss =  this.optimizer.minimize(lossFunction, true)!;
+            return scalarLoss
+            }, true)!;
         const episodeLoss: number = (await loss.data())[0]
         console.log(episodeLoss)
+
+
         return episodeLoss;
     }
 

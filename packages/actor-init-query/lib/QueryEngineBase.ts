@@ -13,7 +13,7 @@ import type { IActionContext, IPhysicalQueryPlanLogger,
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import type { Algebra } from 'sparqlalgebrajs';
-import { EpisodeLogger, MCTSJoinInformation, MCTSMasterTree } from '../../model-trainer/lib';
+import { EpisodeLogger, MCTSJoinInformation, MCTSMasterTree, modelHolder } from '../../model-trainer/lib';
 import { ModelTrainer } from '../../model-trainer/lib/ModelTrainerOnline';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
@@ -24,9 +24,13 @@ import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
 export class QueryEngineBase implements IQueryEngine {
   private readonly actorInitQuery: ActorInitQueryBase;
   private timer: Timer;
+  private modelTrainer: ModelTrainer;
+  private modelHolder: modelHolder;
 
   public constructor(actorInitQuery: ActorInitQueryBase) {
     this.actorInitQuery = actorInitQuery;
+    this.modelHolder = new modelHolder();
+    this.modelTrainer = new ModelTrainer(this.modelHolder);
   }
 
   public async queryBindings<QueryFormatTypeInner extends QueryFormatType>(
@@ -135,8 +139,11 @@ export class QueryEngineBase implements IQueryEngine {
     if (context && context.masterTree){
       queryEpisode.setMasterTree(context.masterTree);
     }
+    if (context && context.planHolder){
+      queryEpisode.setPlanHolder(context.planHolder)
+    }
 
-    let actionContext: IActionContext = new ActionContext(context, queryEpisode);
+    let actionContext: IActionContext = new ActionContext(context, queryEpisode, this.modelHolder);
 
     let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };
     if (actionContext.has(KeysInitQuery.queryFormat)) {
@@ -260,17 +267,16 @@ export class QueryEngineBase implements IQueryEngine {
     
     /* This can be undefined when there is no joins */
     if (actionContext.getEpisodeState()){
-      let episodeTrainer: ModelTrainer = new ModelTrainer()
-      episodeTrainer.trainModel(actionContext.getEpisodeState()!, queryExecutionTime);
+      // this.modelTrainer.trainModel(actionContext.getEpisodeState()!, queryExecutionTime);
       // episodeTrainer.saveModel();  
       actionContext.getEpisodeState()!.emptyStateSpace();
       /* Remove episode state from memory to ensure that we can query multiple times in a row */
     }
 
     if (context && context.masterTree){
-      for(let joinKey of context.masterTree.getExploredJoins()){
-        context.masterTree.setExecutionTimeJoin(joinKey, queryExecutionTime);
-      }
+      // for(let joinKey of context.masterTree.getExploredJoins()){
+      //   context.masterTree.setExecutionTimeJoin(joinKey, queryExecutionTime);
+      // }
       context.masterTree.resetExploredJoins();
     }
     
@@ -327,19 +333,25 @@ export class QueryEngineBase implements IQueryEngine {
   }
 
 
-  public async trainModel(masterTreeMap: Map<string, MCTSJoinInformation>, lossEpisode: number[]){
-    const modelTrainer = new ModelTrainer();
-
+  public async trainModel(masterTreeMap: Map<string, MCTSJoinInformation>){
     const adjacencyMatrixes: number[][][] = [];
     const featureMatrixes: number[][] = [];
     const actualExecutionTimes: number[] = [];
     if (masterTreeMap.size > 0){
       for (const [key, value] of masterTreeMap.entries()) {
         adjacencyMatrixes.push(value.adjencyMatrix);
-        featureMatrixes.push(value.featureMatrix);
+
+        /*  Scale features using Min-Max scaling  */
+        const maxCardinality: number = Math.max(...value.featureMatrix);
+        const minCardinality: number = Math.min(...value.featureMatrix);
+        const scaledFeatureMatrix = value.featureMatrix.map((vM, iM) => (vM - minCardinality) / (maxCardinality - minCardinality));
+        // console.log(scaledFeatureMatrix)
+
+        featureMatrixes.push(scaledFeatureMatrix);
         actualExecutionTimes.push(value.actualExecutionTime!);
       }
-      const trainingLoss: number = await modelTrainer.trainModeloffline(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, lossEpisode);
+      
+      const trainingLoss: number = await this.modelTrainer.trainModeloffline(adjacencyMatrixes, featureMatrixes, actualExecutionTimes);
       return trainingLoss  
     }
     else{
@@ -423,5 +435,8 @@ export class QueryEngineBase implements IQueryEngine {
           execute: () => finalResult.execute(),
         };
     }
+  }
+  public getModelHolder(){
+    return this.modelHolder;
   }
 }

@@ -4,9 +4,7 @@ import { ActionContext, IActorReply, IMediatorArgs, Logger } from '@comunica/cor
 import { Actor, Mediator } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
 import type { IQueryOperationResult, MetadataBindings } from '@comunica/types';
-import { EpisodeLogger } from '../../model-trainer/lib';
 import { NodeStateSpace, StateSpaceTree } from './StateSpaceTree';
-import {cloneDeep} from 'lodash';
 
 /**
  * A comunica mediator that mediates for the reinforcement learning-based multi join actor
