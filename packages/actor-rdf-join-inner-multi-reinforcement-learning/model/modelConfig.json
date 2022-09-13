@@ -1,25 +1,30 @@
 {
-    "layers":[
+    "hiddenStateLayers":[
         {
-            "type": "graph", "inputSize": 1, "output": 32, "activation": "relu"
+            "type": "graph", "inputSize": 1, "outputSize": 32, "activation": "relu"
         },
         {
-            "type": "graph", "inputSize": 32, "output": 64, "activation": "relu"
+            "type": "graph", "inputSize": 32, "outputSize": 64, "activation": "relu"
         },
         {
-            "type": "graph", "inputSize": 64, "output": 32, "activation": "relu"
+            "type": "graph", "inputSize": 64, "outputSize": 32, "activation": "relu"
         },
         {
-            "type": "graph", "inputSize": 32, "output": 8, "activation": "relu"
+            "type": "graph", "inputSize": 32, "outputSize": 8, "activation": "relu"
+        }
+        
+    ],
+    "policyHeadLayers":[
+        {
+            "type": "dense", "inputSize": 8, "outputSize": 1, "activation": "sigmoid"
+        }
+    ],
+    "valueHeadLayers":[
+        {
+            "type": "dense", "inputSize": 8, "outputSize": 1, "activation": "linear"
         },
         {
-            "type": "dense", "inputSize": 8, "output": 1, "activation": "linear"
-        },
-        {
-            "type": "dense", "inputSize": 8, "output": 1, "activation": "sigmoid"
-        },
-        {
-            "type": "relu", "inputSize": 1, "output": 1
+            "type": "activation", "inputSize": 1, "outputSize": 1, "activation": "softplus"
         }
     ]
 }

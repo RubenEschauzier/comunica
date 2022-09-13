@@ -4,6 +4,7 @@ export class modelHolder{
     model: graphConvolutionModel;
     public constructor(){
         this.model = new graphConvolutionModel();
+        this.model.instantiateModel();
     }
 
     public setModel(){

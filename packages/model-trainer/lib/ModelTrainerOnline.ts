@@ -8,13 +8,13 @@ import { modelHolder } from "./modelHolder";
 export class ModelTrainer{
     model: graphConvolutionModel;
     // optimizer: tf.AdamOptimizer;
-    optimizer: tf.SGDOptimizer;
+    optimizer: tf.AdamOptimizer;
 
     path;
 
     public constructor(modelHolder: modelHolder){
         this.path = require('path');
-        this.optimizer = tf.train.sgd(.05);
+        this.optimizer = tf.train.adam(.05);
         this.model = modelHolder.getModel();
     }
 
@@ -45,7 +45,14 @@ export class ModelTrainer{
     }
 
     public async trainModeloffline(adjacencyMatrixes: number[][][], featureMatrix: number[][], executionTime: number[]): Promise<number>{
-                
+        // const yArray = [10, 50, 12, 33];
+        // const featureMatrixPre = [[1,2,3,4,5,6],[7,8,9,10,11,12], [1,2,3,4,5,7], [7,8,9,10,11,12]];
+        // const adjacencyMatrixesPre = [[[1,1,0,0,0,0],[1,1,1,0,0,0], [0,1,1,1,0,0], [0,0,1,1,1,0], [0,0,0,1,1,1], [0,0,0,0,1,1]],
+        // [[1,1,0,0,0,0],[1,1,1,0,0,0], [0,1,1,1,0,0], [0,0,1,1,1,0], [0,0,0,1,1,1], [0,0,0,0,1,1]],
+        // [[1,1,0,0,0,0],[1,1,1,0,0,0], [0,1,1,1,0,0], [0,0,1,1,1,0], [0,0,0,1,1,1], [0,0,0,0,1,1]],
+        // [[1,1,0,0,0,0],[1,1,1,0,0,0], [0,1,1,1,0,0], [0,0,1,1,1,0], [0,0,0,1,1,1], [0,0,0,0,1,1]]];
+        
+        // const yPre = tf.tensor(yArray);
         const loss =  this.optimizer.minimize(() => {
 
             const y: tf.Tensor = tf.tensor(executionTime, [executionTime.length,1]);
@@ -59,22 +66,23 @@ export class ModelTrainer{
 
                 /* Pretend we don't know the prediction output of our join node for training purposes*/
                 featureMatrix[i][featureMatrix[i].length-1] = 0;
-                const forwardPassOutput: tf.Tensor[] = this.model.forwardPass(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length,1]), adjTensor) as tf.Tensor[];
-
+                // const forwardPassOutput: tf.Tensor[] = this.model.forwardPass(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length,1]), adjTensor) as tf.Tensor[];
+                const forwardPassOutput: tf.Tensor[] = this.model.forwardPassTest(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length,1]), adjTensor) as tf.Tensor[];
                 const joinValuePrediction: tf.Tensor = forwardPassOutput[0].slice([forwardPassOutput[0].shape[0]-1, 0]);
-                const y: tf.Tensor = tf.fill([joinValuePrediction.shape[0], 1], executionTime[i]);    
 
                 valuePredictions.push(joinValuePrediction);
             }
+
             const predictionTensor: tf.Tensor = tf.concat(valuePredictions);
+            console.log("Prediction:");
+            predictionTensor.print();
+            console.log("Y:");
+            y.print();
             const loss = tf.losses.meanSquaredError(y, predictionTensor);
             const scalarLoss: tf.Scalar = tf.squeeze(loss);
             return scalarLoss
             }, true)!;
         const episodeLoss: number = (await loss.data())[0]
-        console.log(episodeLoss)
-
-
         return episodeLoss;
     }
 
