@@ -7,9 +7,6 @@
             "type": "graph", "inputSize": 32, "outputSize": 64, "activation": "sigmoid"
         },
         {
-            "type": "dense", "inputSize": 64, "outputSize": 64, "activation": "relu"
-        },
-        {
             "type": "graph", "inputSize": 64, "outputSize": 32, "activation": "sigmoid"
         },
         {

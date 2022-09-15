@@ -123,6 +123,7 @@ export class MediatorJoinReinforcementLearning
     /* At first join execution we initialise our StateSpaceTree with just leave nodes */
     if (!action.context.getEpisodeState()){
       let joinStateTest = new StateSpaceTree();
+      action.context.setTotalEntriesMasterTree(action.entries.length)
       for (let i=0; i<action.entries.length;i++){
         // Create nodes with estimated cardinality as feature
         const cardinalityNode: number = (await action.entries[i].output.metadata()).cardinality.value;

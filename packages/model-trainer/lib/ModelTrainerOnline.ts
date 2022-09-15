@@ -44,7 +44,7 @@ export class ModelTrainer{
         });
     }
 
-    public async trainModeloffline(adjacencyMatrixes: number[][][], featureMatrix: number[][], executionTime: number[]): Promise<number>{
+    public async trainModeloffline(adjacencyMatrixes: number[][][], featureMatrix: number[][], executionTime: number[], numEntries: number): Promise<number>{
         // const yArray = [10, 50, 12, 33];
         // const featureMatrixPre = [[1,2,3,4,5,6],[7,8,9,10,11,12], [1,2,3,4,5,7], [7,8,9,10,11,12]];
         // const adjacencyMatrixesPre = [[[1,1,0,0,0,0],[1,1,1,0,0,0], [0,1,1,1,0,0], [0,0,1,1,1,0], [0,0,0,1,1,1], [0,0,0,0,1,1]],
@@ -53,6 +53,7 @@ export class ModelTrainer{
         // [[1,1,0,0,0,0],[1,1,1,0,0,0], [0,1,1,1,0,0], [0,0,1,1,1,0], [0,0,0,1,1,1], [0,0,0,0,1,1]]];
         
         // const yPre = tf.tensor(yArray);
+        console.log("Training Model!");
         const loss =  this.optimizer.minimize(() => {
 
             const y: tf.Tensor = tf.tensor(executionTime, [executionTime.length,1]);
@@ -60,23 +61,30 @@ export class ModelTrainer{
             const valuePredictions: tf.Tensor[] = []
             // console.log(y);
             // console.log(await y.data());
+            const testOutputs: tf.Tensor[] = []
             
             for (let i = 0;i<adjacencyMatrixes.length;i++){
                 const adjTensor = tf.tensor2d(adjacencyMatrixes[i]);
-
+                const normTensor = tf.pow(adjTensor, numEntries);
                 /* Pretend we don't know the prediction output of our join node for training purposes*/
                 featureMatrix[i][featureMatrix[i].length-1] = 0;
                 // const forwardPassOutput: tf.Tensor[] = this.model.forwardPass(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length,1]), adjTensor) as tf.Tensor[];
                 const forwardPassOutput: tf.Tensor[] = this.model.forwardPassTest(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length,1]), adjTensor) as tf.Tensor[];
+                testOutputs.push(forwardPassOutput[0]);
                 const joinValuePrediction: tf.Tensor = forwardPassOutput[0].slice([forwardPassOutput[0].shape[0]-1, 0]);
 
                 valuePredictions.push(joinValuePrediction);
+                // Here we "normalise" the y by the amount of preceding joins
+            }
+            console.log("Here is the outputs from forwardpass")
+            for (const test of testOutputs){
+                test.print();
             }
 
             const predictionTensor: tf.Tensor = tf.concat(valuePredictions);
             console.log("Prediction:");
             predictionTensor.print();
-            console.log("Y:");
+            console.log("Here is Y:");
             y.print();
             const loss = tf.losses.meanSquaredError(y, predictionTensor);
             const scalarLoss: tf.Scalar = tf.squeeze(loss);

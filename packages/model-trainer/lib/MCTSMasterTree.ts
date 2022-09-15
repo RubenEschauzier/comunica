@@ -3,6 +3,7 @@ export class MCTSMasterTree{
     masterMap: Map<string, MCTSJoinInformation>;
     /* Keys of all join states reached in one query execution */
     joinsExploredOneExecution: string[];
+    totalEntries: number;
 
     public constructor() {
         this.masterMap = new Map();
@@ -70,6 +71,14 @@ export class MCTSMasterTree{
     public resetExploredJoins(){
         this.joinsExploredOneExecution = [];
     }
+
+    public setTotalEntries(totalEntries: number){
+        this.totalEntries = totalEntries;
+    }
+
+    public getTotalEntries(){
+        return this.totalEntries;
+    }
 }
 
 export interface MCTSJoinInformation{
@@ -97,6 +106,10 @@ export interface MCTSJoinInformation{
     * Adjency matrix of the made joins
     */
     adjencyMatrix: number[][];
+    /*
+    * 
+    */
+    
     /*
     * Actual recorded value
     */

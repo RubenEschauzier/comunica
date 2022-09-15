@@ -64,6 +64,13 @@ export class EpisodeLogger{
         return this.masterTree.getJoinInformation(joinIndexes);
     }
 
+    public getTotalEntriesMasterTree(){
+        return this.masterTree.getTotalEntries();
+    }
+
+    public setTotalEntriesMasterTree(totalEntries: number){
+        this.masterTree.setTotalEntries(totalEntries);
+    }
     public setNodeIdMapping(key: number, value: number){
         this.node_idmapping.set(key, value);
     }

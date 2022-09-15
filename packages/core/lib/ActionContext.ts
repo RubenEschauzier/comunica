@@ -64,6 +64,14 @@ export class ActionContext implements IActionContext {
     return this.episode.executionTime
   }
 
+  public getTotalEntriesMasterTree(): number{
+    return this.episode.getTotalEntriesMasterTree();
+  };
+
+  public setTotalEntriesMasterTree(totalEntries: number){
+    this.episode.setTotalEntriesMasterTree(totalEntries);
+  }
+
   public getJoinStateMasterTree(joinIndexes: number[][]){
     try{
       return this.episode.getJoinStateMasterTree(joinIndexes);

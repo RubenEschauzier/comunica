@@ -509,7 +509,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       
 
       /* Execute forward pass */
-      const forwardPassOutput: tf.Tensor[] = action.context.getModelHolder().getModel().forwardPass(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor[];
+      const forwardPassOutput: tf.Tensor[] = action.context.getModelHolder().getModel().forwardPassTest(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor[];
 
       const valueOutput: tf.Tensor = forwardPassOutput[0];
       const policyOutput: tf.Tensor = forwardPassOutput[1];
@@ -587,7 +587,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       featureMatrix = featureMatrix.map((vM, iM) => (vM - minCardinality) / (maxCardinality - minCardinality));
 
       /* Execute forward pass */
-      const forwardPassOutput = action.context.getModelHolder().getModel().forwardPass(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor[];
+      const forwardPassOutput = action.context.getModelHolder().getModel().forwardPassTest(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor[];
 
       /* Add estimated value to the array */
       if (forwardPassOutput instanceof tf.Tensor){

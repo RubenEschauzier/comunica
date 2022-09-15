@@ -333,7 +333,7 @@ export class QueryEngineBase implements IQueryEngine {
   }
 
 
-  public async trainModel(masterTreeMap: Map<string, MCTSJoinInformation>){
+  public async trainModel(masterTreeMap: Map<string, MCTSJoinInformation>, numEntries: number){
     const adjacencyMatrixes: number[][][] = [];
     const featureMatrixes: number[][] = [];
     const actualExecutionTimes: number[] = [];
@@ -351,7 +351,7 @@ export class QueryEngineBase implements IQueryEngine {
         actualExecutionTimes.push(value.actualExecutionTime!);
       }
       
-      const trainingLoss: number = await this.modelTrainer.trainModeloffline(adjacencyMatrixes, featureMatrixes, actualExecutionTimes);
+      const trainingLoss: number = await this.modelTrainer.trainModeloffline(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, numEntries);
       return trainingLoss  
     }
     else{

@@ -37,20 +37,14 @@ export class graphConvolutionLayer extends tf.layers.Layer{
         this.inputSize = inputSize;
         // Define output feature size, which is size of node representations
         this.outputSize = outputSize;
-        if (layerName){
-            // this.mWeights = tf.variable(tf.randomNormal([this.inputSize, this.outputSize]), true,
-            // layerName);
-            this.mWeights = tf.variable(tf.randomUniform([this.inputSize, this.outputSize], 0, .1), true,
-            layerName, );
+        // Trainable weights of convolution
+        // this.mWeights = tf.variable(tf.randomUniform([this.inputSize, this.outputSize], 0, .1), true,
+        //                             layerName);
+        this.mWeights = tf.variable(tf.randomNormal([this.inputSize, this.outputSize]), true,
+        layerName);
 
-        }
-        else{
-            this.mWeights = tf.variable(tf.randomNormal([this.inputSize, this.outputSize]), true);
-        }
-        // this.testWeights = tf.layers.dense({inputDim: this.inputSize, units: this.outputSize, activation: 'linear', useBias: true, 
-        //                                     kernelConstraint: 'nonNeg', biasConstraint: 'nonNeg', 
-        //                                     kernelInitializer: tf.initializers.randomUniform({minval: 0, maxval: .1}),
-        //                                     biasInitializer: tf.initializers.randomUniform({minval: 0, maxval: .1}), trainable: true});
+            
+
     }
     public async loadWeights(loadPath: string): Promise<void>{
         const fileLocation = this.path.join(this.modelDirectory, loadPath);
@@ -86,20 +80,30 @@ export class graphConvolutionLayer extends tf.layers.Layer{
     // I should call build function for flexibility, not sure if I need it yet, but might become needed
     call(input: tf.Tensor2D,  mAdjacency: tf.Tensor2D, kwargs?: any): tf.Tensor {
         return tf.tidy(() => {
+            // console.log("Input:");
+            // input.print();
+            // console.log("Adjecency In Call:");
+            // mAdjacency.print();
             /*  Get inverted square of node degree diagonal matrix */
             const mD: tf.Tensor2D = tf.sum(mAdjacency, 1);
             const mDInv: tf.Tensor = tf.diag(tf.rsqrt(mD));
 
             // Normalised adjecency matrix, we perform this is initialisation to not compute it in the call
             const mAdjacencyHat: tf.Tensor2D = tf.matMul(tf.matMul(mDInv, mAdjacency), mDInv);
-
+            // console.log("Adjacancy Hat");
+            // mAdjacencyHat.print();
+            
             // Tensor that denotes the signal travel in convolution
             const mSignalTravel: tf.Tensor = tf.matMul(mAdjacencyHat, input);
+            // console.log("Here is signal travel");
+            // mSignalTravel.print()
+
+            // console.log(`Weights, inputSize ${this.inputSize}`);
+            // this.mWeights.print();
+
             // Output of convolution, by multiplying with weight matrix and applying non-linear activation function
             // Check if activation function is ok
             const mWeightedSignal: tf.Tensor = this.activationLayer.apply(tf.matMul(mSignalTravel, this.mWeights));
-            // const mWeightedSignal: tf.Tensor = this.activationLayer.apply(this.testWeights.apply(mSignalTravel));
-
             return mWeightedSignal;
             }
         )
@@ -120,22 +124,20 @@ export class graphConvolutionLayer extends tf.layers.Layer{
 export class denseOwnImplementation extends tf.layers.Layer{
     mWeights: tf.Variable;
     mBias: tf.Variable;
+    inputDim: number;
+    outputDim: number;
 
-    public constructor(inputDim: number, outputDim: number, ){
+    public constructor(inputDim: number, outputDim: number){
         super({});
+        this.inputDim = inputDim;
+        this.outputDim = outputDim
         this.mWeights = tf.variable(tf.randomUniform([inputDim, outputDim], 0, .2), true);
-        this.mBias = tf.variable(tf.randomUniform([outputDim, 1], 0, .2), true);
-        
+        this.mBias = tf.variable(tf.randomUniform([1, outputDim], 0, .2), true);
     }
+
     call(inputs: tf.Tensor2D){
         return tf.tidy(() => {
-            console.log("Weights");
-            this.mWeights.print();
-            console.log("Bias");
-            this.mBias.print();
-            console.log("Output");
-            tf.add(tf.matMul(inputs, this.mWeights), this.mBias).print();
-            return tf.add(tf.matMul(inputs, this.mWeights), this.mBias);
+            return tf.add(tf.matMul(inputs, this.mWeights), this.mBias.broadcastTo([inputs.shape[0], this.outputDim]));
         });
     }
     getClassName() {
@@ -430,21 +432,32 @@ export class graphConvolutionModel{
     }
 
     public forwardPassTest(inputFeatures: tf.Tensor2D, mAdjacency: tf.Tensor2D){
+        // console.log("Adj in forwardPassTest");
+        // mAdjacency.print();
         return tf.tidy(() => {
             let x: tf.Tensor2D = this.layersHidden[0][0].call(inputFeatures, mAdjacency) as tf.Tensor2D;
+            // console.log("First")
+            // x.print();
             for (let i=1; i<this.layersHidden.length;i++){
                 const layerI = this.layersHidden[i];
+                // console.log(x.shape)
                 if (layerI[1] == 'graph'){
                     x = layerI[0].call(x, mAdjacency) as tf.Tensor2D;
+                    // console.log("Within for loop");
+                    // x.print();
                 }
                 else{
+                    // console.log(x.shape);
                     x = layerI[0].apply(x) as tf.Tensor2D;
                 }
             }
             let outputValue: tf.Tensor = this.layersValue[0][0].apply(x) as tf.Tensor;
+            // console.log(outputValue.shape)
             for (let j=1; j<this.layersValue.length;j++){
                 const layerI = this.layersValue[j];
                 outputValue = layerI[0].apply(outputValue) as tf.Tensor;
+                // console.log("Here outputValue");
+                // outputValue.print();
             }
 
             let outputPolicy: tf.Tensor = this.layersPolicy[0][0].apply(x) as tf.Tensor;
