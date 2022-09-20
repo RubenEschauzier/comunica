@@ -53,62 +53,77 @@ export class ModelTrainer{
         // [[1,1,0,0,0,0],[1,1,1,0,0,0], [0,1,1,1,0,0], [0,0,1,1,1,0], [0,0,0,1,1,1], [0,0,0,0,1,1]]];
         
         // const yPre = tf.tensor(yArray);
-        console.log("Training Model!");
-
-        // Hardcoded for ease of use, denotes the value to clip "normalization" by
-        const numGraphLayers = 4;
-        const loss =  this.optimizer.minimize(() => {
-
-            const y: tf.Tensor = tf.tensor(executionTime, [executionTime.length,1]);
-            const nodeDegreeArray: tf.Tensor[] = [];
-            // const valuePredictions: tf.Tensor = tf.zeros([executionTime.length,1]);
-            const valuePredictions: tf.Tensor[] = []
-            // console.log(y);
-            // console.log(await y.data());
-            const testOutputs: tf.Tensor[] = []
-            
-            for (let i = 0;i<adjacencyMatrixes.length;i++){
-                const adjTensor = tf.tensor2d(adjacencyMatrixes[i]);
-                let connectionTensor = tf.matMul(adjTensor, adjTensor)
-                for (let j = 1; j<numEntries; j++){
-                    connectionTensor = tf.matMul(connectionTensor, adjTensor).clipByValue(0,1);
+        return tf.tidy(() => {
+            const yPre: tf.Tensor = tf.fill([adjacencyMatrixes.length, 1], 40);
+            // Hardcoded for ease of use, denotes the value to clip "normalization" by
+            const numGraphLayers = 4;
+            const loss =  this.optimizer.minimize(() => {
+    
+                const y: tf.Tensor = tf.tensor(executionTime, [executionTime.length,1]);
+                const nodeDegreeArray: tf.Tensor[] = [];
+                // const valuePredictions: tf.Tensor = tf.zeros([executionTime.length,1]);
+                const valuePredictions: tf.Tensor[] = []
+                const policyPredictions: tf.Tensor[] = []
+                
+                for (let i = 0;i<adjacencyMatrixes.length;i++){
+                    const adjTensor = tf.tensor2d(adjacencyMatrixes[i]);
+                    let connectionTensor = tf.matMul(adjTensor, adjTensor)
+                    for (let j = 1; j<numEntries; j++){
+                        connectionTensor = tf.matMul(connectionTensor, adjTensor).clipByValue(0,1);
+                    }
+                    // console.log("Adjacency Tensor");
+                    // adjTensor.print();
+                    // console.log("Connection Tensor");
+                    // connectionTensor.print();
+                    const nodeDegree: tf.Tensor = connectionTensor.sum(1);
+                    // console.log("Here is node degree ");
+                    // nodeDegree.print();
+    
+                    const degreeLastNode = nodeDegree.slice([nodeDegree.shape[0]-1]);
+                    // console.log("Here is the degree of last node");
+                    // degreeLastNode.print()
+                    nodeDegreeArray.push(degreeLastNode)  
+                    /* Pretend we don't know the prediction output of our join node for training purposes*/
+                    
+                    // const forwardPassOutput: tf.Tensor[] = this.model.forwardPass(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length,1]), adjTensor) as tf.Tensor[];
+                    const forwardPassOutput: tf.Tensor[] = this.model.forwardPassTest(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length,1]), adjTensor) as tf.Tensor[];
+                    const joinValuePrediction: tf.Tensor = forwardPassOutput[0].slice([forwardPassOutput[0].shape[0]-1, 0]);
+                    const joinPolicyPrediction: tf.Tensor = forwardPassOutput[1].slice([forwardPassOutput[0].shape[0]-1, 0]);
+    
+    
+                    valuePredictions.push(joinValuePrediction);
+                    policyPredictions.push(joinPolicyPrediction);
+                    
+                    // Here we "normalise" the y by the amount of preceding joins
                 }
-                console.log("Connection Tensor");
-                connectionTensor.print();
-                const nodeDegree: tf.Tensor = connectionTensor.sum(1);
-                console.log("Here is node degree ");
-                nodeDegree.print();
-
-                const degreeLastNode = nodeDegree.slice([nodeDegree.shape[0]-1]);
-                console.log("Here is the degree of last node");
-                degreeLastNode.print()
-                nodeDegreeArray.push(degreeLastNode)  
-                /* Pretend we don't know the prediction output of our join node for training purposes*/
+                const nodeDegreeTensor = tf.sub(tf.stack(nodeDegreeArray),1).clipByValue(0, (numEntries-1)*2);
+                // nodeDegreeTensor.print();
+                const predictionTensor: tf.Tensor = tf.concat(valuePredictions);
+                const policyTensor: tf.Tensor = tf.concat(policyPredictions);
+                // console.log("Prediction:");
+                // predictionTensor.print();
+                console.log("Y:");
+                y.print();
+                // console.log("Norm factor");
+                // tf.div(tf.sub(numGraphLayers*3, nodeDegreeTensor),3).print()
+                const normY = tf.div(y, tf.sub((numEntries-1)*2, nodeDegreeTensor));
+                console.log("Prediction:")
+                predictionTensor.print()
+                // console.log("Policy prediction");
+                // policyTensor.print()
+                // console.log("Division constant:");
+                // tf.div(tf.sub(numGraphLayers*3, nodeDegreeTensor),3).print()
+                // console.log("Norm y");
+                // normY.print();
                 
-                // const forwardPassOutput: tf.Tensor[] = this.model.forwardPass(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length,1]), adjTensor) as tf.Tensor[];
-                const forwardPassOutput: tf.Tensor[] = this.model.forwardPassTest(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length,1]), adjTensor) as tf.Tensor[];
-                testOutputs.push(forwardPassOutput[0]);
-                const joinValuePrediction: tf.Tensor = forwardPassOutput[0].slice([forwardPassOutput[0].shape[0]-1, 0]);
-
-                valuePredictions.push(joinValuePrediction);
-                
-                // Here we "normalise" the y by the amount of preceding joins
-            }
-            const nodeDegreeTensor = tf.stack(nodeDegreeArray).clipByValue(0, numGraphLayers+1);
-            nodeDegreeTensor.print();
-            const predictionTensor: tf.Tensor = tf.concat(valuePredictions);
-            console.log("Prediction:");
-            predictionTensor.print();
-            console.log("Here is Y:");
-            y.print();
-            const normY = tf.div(y, nodeDegreeTensor);
-            normY.print();
-            const loss = tf.losses.meanSquaredError(y, predictionTensor);
-            const scalarLoss: tf.Scalar = tf.squeeze(loss);
-            return scalarLoss
-            }, true)!;
-        const episodeLoss: number = (await loss.data())[0]
-        return episodeLoss;
+                const loss = tf.losses.meanSquaredError(y, predictionTensor);
+                const scalarLoss: tf.Scalar = tf.squeeze(loss);
+    
+                return scalarLoss
+                }, true)!;
+            const episodeLoss: number = (loss.dataSync())[0]
+            return episodeLoss;
+        });
     }
 
     private finalForwardPass(joinState: StateSpaceTree): tf.Tensor<tf.Rank>{

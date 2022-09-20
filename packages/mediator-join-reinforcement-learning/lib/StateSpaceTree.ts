@@ -137,6 +137,11 @@ export class StateSpaceTree{
         this.adjacencyMatrix[this.numNodes][leaveIndexes[0]] = 1;
         this.adjacencyMatrix[this.numNodes][leaveIndexes[1]] = 1;
 
+        // This makes undirected graph
+        this.adjacencyMatrix[leaveIndexes[0]][this.numNodes] = 1;
+        this.adjacencyMatrix[leaveIndexes[1]][this.numNodes] = 1;
+
+
         this.incrementNumNodes();
     }
     public removeLastAdded(){

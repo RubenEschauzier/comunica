@@ -1,4 +1,5 @@
 import { TypeofTypeAnnotation } from '@babel/types';
+import { hasContextSingleSourceOfType } from '@comunica/bus-rdf-resolve-quad-pattern';
 import * as tf from '@tensorflow/tfjs';
 import * as fs from 'fs';
 
@@ -459,11 +460,10 @@ export class graphConvolutionModel{
                 // console.log("Here outputValue");
                 // outputValue.print();
             }
-
             let outputPolicy: tf.Tensor = this.layersPolicy[0][0].apply(x) as tf.Tensor;
             for (let k=1; k<this.layersPolicy.length;k++){
-                const layerI = this.layersPolicy[k];
-                outputPolicy = layerI[0].apply(outputPolicy) as tf.Tensor;
+                const layerK = this.layersPolicy[k];
+                outputPolicy = layerK[0].apply(outputPolicy) as tf.Tensor;
             }
             return [outputValue, outputPolicy] as tf.Tensor[];
         })

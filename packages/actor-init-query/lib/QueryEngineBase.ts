@@ -274,9 +274,9 @@ export class QueryEngineBase implements IQueryEngine {
     }
 
     if (context && context.masterTree){
-      for(let joinKey of context.masterTree.getExploredJoins()){
-        context.masterTree.setExecutionTimeJoin(joinKey, queryExecutionTime);
-      }
+      // for(let joinKey of context.masterTree.getExploredJoins()){
+      //   context.masterTree.setExecutionTimeJoin(joinKey, queryExecutionTime);
+      // }
       context.masterTree.resetExploredJoins();
     }
     
