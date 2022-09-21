@@ -15,7 +15,9 @@ export class NodeStateSpace {
     public joined: boolean;
     /** Temporary cardinality figure, it should be an array */
     public cardinality: number;
+    public features: number[];
 
+    //  variable: number[], literal: number[]
     constructor(idNode: number, cardinality: number) {
         // Temporary cardinality
         this.cardinality = cardinality;

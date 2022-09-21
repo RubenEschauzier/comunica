@@ -171,7 +171,6 @@ export class QueryEngineBase implements IQueryEngine {
     if (typeof query === 'string') {
       // Save the original query string in the context
       actionContext = actionContext.set(KeysInitQuery.queryString, query);
-
       const queryParseOutput = await this.actorInitQuery.mediatorQueryParse
         .mediate({ context: actionContext, query, queryFormat, baseIRI });
       operation = queryParseOutput.operation;

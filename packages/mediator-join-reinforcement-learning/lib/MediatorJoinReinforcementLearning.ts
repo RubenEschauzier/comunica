@@ -5,6 +5,7 @@ import { Actor, Mediator } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
 import type { IQueryOperationResult, MetadataBindings } from '@comunica/types';
 import { NodeStateSpace, StateSpaceTree } from './StateSpaceTree';
+import * as RdfJs from 'rdf-js'
 
 /**
  * A comunica mediator that mediates for the reinforcement learning-based multi join actor
@@ -124,9 +125,20 @@ export class MediatorJoinReinforcementLearning
     if (!action.context.getEpisodeState()){
       let joinStateTest = new StateSpaceTree();
       action.context.setTotalEntriesMasterTree(action.entries.length)
+      const operations: tempContextEntries = action.context.get(KeysQueryOperation.operation)!;
+      const Quads: RdfJs.Quad[] = operations.input;
+
       for (let i=0; i<action.entries.length;i++){
         // Create nodes with estimated cardinality as feature
+        const triple = [Quads[i].subject, Quads[i].predicate, Quads[i].object];
+
+        const isVariable: number[] = triple.map(x => x.termType=='Variable' ? 1 : 0);
+        const isLiteral: number[] = triple.map(x=> x.termType=='Literal' ? 1 : 0);
         const cardinalityNode: number = (await action.entries[i].output.metadata()).cardinality.value;
+        const cardinalityNodeTemp: number[] = [cardinalityNode]
+        
+        // Features here indicate [cardinality, subjectIsVariable, predicateIsVariable, objectIsVariable, subjectIsLiteral, predicateIsLiteral, objectIsLiteral, resultOfJoin];
+        const featureNode = cardinalityNodeTemp.concat(isVariable, isLiteral, [0]);
         let newNode: NodeStateSpace = new NodeStateSpace(i, cardinalityNode);
         newNode.setDepth(0);
         joinStateTest.addLeave(newNode);
@@ -205,4 +217,9 @@ export interface IMediatorJoinCoefficientsFixedArgs
    * If we are offline training the model
    */
   offlineTrain: boolean;
+}
+
+interface tempContextEntries{
+  type: string;
+  input: RdfJs.Quad[];
 }

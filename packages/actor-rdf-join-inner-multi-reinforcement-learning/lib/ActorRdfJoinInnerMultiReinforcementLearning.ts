@@ -13,7 +13,10 @@ import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-
 import type { MetadataBindings, IJoinEntry, IActionContext, IJoinEntryWithMetadata } from '@comunica/types';
 import { Factory } from 'sparqlalgebrajs';
 import { StateSpaceTree, NodeStateSpace } from '@comunica/mediator-join-reinforcement-learning';
-import { graphConvolutionModel } from './GraphNeuralNetwork';
+import {ActionContextKey} from '@comunica/core'
+import {KeysQueryOperation} from '@comunica/context-entries'
+import * as RdfJs from 'rdf-js'
+// import { graphConvolutionModel } from './GraphNeuralNetwork';
 import * as tf from '@tensorflow/tfjs';
 import { MCTSJoinInformation, MCTSJoinPredictionOutput } from '@comunica/model-trainer';
 
@@ -123,6 +126,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     /*Create initial mapping between entries and nodes in the state tree. We need this mapping due to the indices of nodes increasing as more joins are made, while the
       number of streams decreases with more joins. 
     */
+    // console.log(action);
     const passedNodeIdMapping = action.context.getNodeIdMapping();
     const entries: IJoinEntry[] = action.entries
 
@@ -386,7 +390,22 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
         predictedProbability: valueProbabilityJoin[1]};
       
       let featureMatrix = [];
+      // console.log(action.entries);
+      const operations: tempContextEntries = action.context.get(KeysQueryOperation.operation)!;
+      const Quads: RdfJs.Quad[] = operations.input;
+      // console.log(Quads);
+      // for (const operation of Quads){
+      //   console.log("Here is an operation:")
+      //   console.log(operation);
+      //   break;
+      // }
+      // const mapping = action.context.getNodeIdMapping()
+      // for (const operation of operations);
       for(var i=0;i<action.context.getEpisodeState().nodesArray.length;i++){
+        // const quad: RdfJs.Quad = Quads[i];
+        // console.log(action.context.getNodeIdMapping());
+        // console.log(quad)
+        // const triple = [quad.subject, quad.predicate, quad.object];
         featureMatrix.push(action.context.getEpisodeState().nodesArray[i].cardinality);
       }      
 
@@ -493,6 +512,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       /*  We generate the join trees associated with the possible join combinations, note the tradeoff between memory usage (create new trees) 
           and cpu usage (delete the new node)
       */
+      const featureNode: number[] = [0,0,0,0,0,0,0,1];
       const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, 0);
       action.context.getEpisodeState().addParent(joinCombination, newParent);
       const adjTensor: tf.Tensor2D = tf.tensor2d(action.context.getEpisodeState().adjacencyMatrix);
@@ -556,6 +576,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     const idx = this.chooseUsingProbability(probabilities);
     
     /* Add new explored node to the stateSpace*/
+    const featureNode: number[] = [predictedValueArray[idx], 0,0,0,0,0,0,1];
     const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, predictedValueArray[idx]);
     action.context.getEpisodeState().addParent(possibleJoins[idx], newParent);
 
@@ -572,6 +593,8 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       /*  We generate the join trees associated with the possible join combinations, note the tradeoff between memory usage (create new trees) 
           and cpu usage (delete the new node)
       */
+      // Feature array indicating that this is a join
+      const featureArray: number[] = [0,0,0,0,0,0,0,1]
       const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, 0);
       action.context.getEpisodeState().addParent(joinCombination, newParent);
       const adjTensor = tf.tensor2d(action.context.getEpisodeState().adjacencyMatrix);
@@ -602,6 +625,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     }
     /* Select join to explore based on probabilty obtained by softmax of the estimated join values*/
     /*  Update the actors joinstate, which will be used by the RL medaitor to update its joinstate too  */
+    const featureArray: number[] = [bestJoinCost, 0,0,0,0,0,0,1]
     const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, bestJoinCost);
     action.context.getEpisodeState().addParent(bestJoin, newParent);
     this.prevEstimatedCost = bestJoinCost;
@@ -768,6 +792,25 @@ export interface IActorRdfJoinInnerMultiReinforcementLearningArgs extends IActor
    */
   explorationDegree: number;
 }
+
+interface tempContextEntries{
+  type: string;
+  input: RdfJs.Quad[];
+}
+
+// interface tempQuad{
+//   termType: string;
+//   value: string;
+//   subject: Variable { termType: 'Variable', value: 'v0' },
+//   predicate: NamedNode {
+//     termType: 'NamedNode',
+//     value: 'http://schema.org/caption'
+//   },
+//   object: Variable { termType: 'Variable', value: 'v1' },
+//   graph: DefaultGraph { termType: 'DefaultGraph', value: '' },
+//   type: 'pattern'
+
+// }
 
 function sum(arr: number[]) {
   var result = 0, n = arr.length || 0; //may use >>> 0 to ensure length is Uint32
