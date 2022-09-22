@@ -339,6 +339,7 @@ export class QueryEngineBase implements IQueryEngine {
     if (masterTreeMap.size > 0){
       for (const [key, value] of masterTreeMap.entries()) {
         adjacencyMatrixes.push(value.adjencyMatrix);
+        // console.log(value.featureMatrix.map(x => x[0]));
 
         /*  Scale features using Min-Max scaling  */
 
@@ -346,9 +347,9 @@ export class QueryEngineBase implements IQueryEngine {
         const maxCardinality: number = Math.max(...cardinalities);
         const minCardinality: number = Math.min(...cardinalities);
   
-        for (let i=0; i<value.featureMatrix.length;i++){
-          value.featureMatrix[i][0] = (value.featureMatrix[i][0]-minCardinality) / (maxCardinality - minCardinality)
-        }
+        // for (let i=0; i<value.featureMatrix.length;i++){
+        //   value.featureMatrix[i][0] = (value.featureMatrix[i][0]-minCardinality) / (maxCardinality - minCardinality)
+        // }
   
         // const maxCardinality: number = Math.max(...value.featureMatrix);
         // const minCardinality: number = Math.min(...value.featureMatrix);

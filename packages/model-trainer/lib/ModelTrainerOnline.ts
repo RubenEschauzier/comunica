@@ -64,6 +64,8 @@ export class ModelTrainer{
                 // const valuePredictions: tf.Tensor = tf.zeros([executionTime.length,1]);
                 const valuePredictions: tf.Tensor[] = []
                 const policyPredictions: tf.Tensor[] = []
+
+                const testNumJoins: number[] = [];
                 
                 for (let i = 0;i<adjacencyMatrixes.length;i++){
                     const adjTensor = tf.tensor2d(adjacencyMatrixes[i]);
@@ -86,6 +88,8 @@ export class ModelTrainer{
                     /* Pretend we don't know the prediction output of our join node for training purposes*/
                     
                     // const forwardPassOutput: tf.Tensor[] = this.model.forwardPass(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length,1]), adjTensor) as tf.Tensor[];
+                    const testFeatures = tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length, featureMatrix[i][0].length])
+                    // console.log(testFeatures.dataSync());
                     const forwardPassOutput: tf.Tensor[] = this.model.forwardPassTest(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length, featureMatrix[i][0].length]), adjTensor) as tf.Tensor[];
                     const joinValuePrediction: tf.Tensor = forwardPassOutput[0].slice([forwardPassOutput[0].shape[0]-1, 0]);
                     const joinPolicyPrediction: tf.Tensor = forwardPassOutput[1].slice([forwardPassOutput[0].shape[0]-1, 0]);
@@ -93,28 +97,18 @@ export class ModelTrainer{
     
                     valuePredictions.push(joinValuePrediction);
                     policyPredictions.push(joinPolicyPrediction);
+                    testNumJoins.push(adjTensor.shape[0]);
                     
                     // Here we "normalise" the y by the amount of preceding joins
                 }
                 const nodeDegreeTensor = tf.sub(tf.stack(nodeDegreeArray),1).clipByValue(0, (numEntries-1)*2);
-                // nodeDegreeTensor.print();
+
                 const predictionTensor: tf.Tensor = tf.concat(valuePredictions);
                 const policyTensor: tf.Tensor = tf.concat(policyPredictions);
-                // console.log("Prediction:");
-                // predictionTensor.print();
-                // console.log("Y:");
-                // y.print();
-                // console.log("Norm factor");
-                // tf.div(tf.sub(numGraphLayers*3, nodeDegreeTensor),3).print()
                 const normY = tf.div(y, tf.sub((numEntries-1)*2, nodeDegreeTensor));
                 console.log("Prediction:")
-                predictionTensor.print()
-                // console.log("Policy prediction");
-                // policyTensor.print()
-                // console.log("Division constant:");
-                // tf.div(tf.sub(numGraphLayers*3, nodeDegreeTensor),3).print()
-                // console.log("Norm y");
-                // normY.print();
+                console.log(predictionTensor.dataSync());
+
                 
                 const loss = tf.losses.meanSquaredError(yPre, predictionTensor);
                 const scalarLoss: tf.Scalar = tf.squeeze(loss);

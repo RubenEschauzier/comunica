@@ -127,6 +127,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       number of streams decreases with more joins. 
     */
     // console.log(action);
+    // console.log(await action.entries[action.entries.length-1].output.metadata());
     const passedNodeIdMapping = action.context.getNodeIdMapping();
     const entries: IJoinEntry[] = action.entries
 
@@ -170,6 +171,14 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
         action.context.setNodeIdMapping(key, value-1);
       }
     }
+    // Add cardinality of the new join to current state
+    const numNodes = action.context.getEpisodeState().numNodes
+    const newJoinCardinality: number = (await entries[entries.length-1].output.metadata()).cardinality.value;
+    action.context.getEpisodeState().nodesArray[numNodes-1].features[0] = newJoinCardinality
+    action.context.getJoinStateMasterTree(action.context.getEpisodeState().joinIndexes).featureMatrix[numNodes-1][0] = newJoinCardinality;
+
+    // action.context.setJoinStateMasterTree(predictionOutput, featureMatrix, adjacencyMatrixCopy);
+    // action.context.setPlanHolder(newState.flat().toString().replaceAll(',', ''));
 
     /* Remove joined nodes from the index mapping*/
     action.context.setNodeIdMapping(ids[0], -1); action.context.setNodeIdMapping(ids[1], -1);
