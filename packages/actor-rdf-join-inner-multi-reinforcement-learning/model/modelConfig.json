@@ -1,7 +1,7 @@
 {
     "hiddenStateLayers":[
         {
-            "type": "graph", "inputSize": 1, "outputSize": 32, "activation": "sigmoid"
+            "type": "graph", "inputSize": 8, "outputSize": 32, "activation": "sigmoid"
         },
         {
             "type": "graph", "inputSize": 32, "outputSize": 64, "activation": "sigmoid"

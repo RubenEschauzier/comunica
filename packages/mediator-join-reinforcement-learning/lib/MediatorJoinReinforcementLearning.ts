@@ -139,7 +139,7 @@ export class MediatorJoinReinforcementLearning
         
         // Features here indicate [cardinality, subjectIsVariable, predicateIsVariable, objectIsVariable, subjectIsLiteral, predicateIsLiteral, objectIsLiteral, resultOfJoin];
         const featureNode = cardinalityNodeTemp.concat(isVariable, isLiteral, [0]);
-        let newNode: NodeStateSpace = new NodeStateSpace(i, cardinalityNode);
+        let newNode: NodeStateSpace = new NodeStateSpace(i, featureNode);
         newNode.setDepth(0);
         joinStateTest.addLeave(newNode);
       }

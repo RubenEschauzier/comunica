@@ -44,7 +44,7 @@ export class ModelTrainer{
         });
     }
 
-    public async trainModeloffline(adjacencyMatrixes: number[][][], featureMatrix: number[][], executionTime: number[], numEntries: number): Promise<number>{
+    public async trainModeloffline(adjacencyMatrixes: number[][][], featureMatrix: number[][][], executionTime: number[], numEntries: number): Promise<number>{
         // const yArray = [10, 50, 12, 33];
         // const featureMatrixPre = [[1,2,3,4,5,6],[7,8,9,10,11,12], [1,2,3,4,5,7], [7,8,9,10,11,12]];
         // const adjacencyMatrixesPre = [[[1,1,0,0,0,0],[1,1,1,0,0,0], [0,1,1,1,0,0], [0,0,1,1,1,0], [0,0,0,1,1,1], [0,0,0,0,1,1]],
@@ -86,7 +86,7 @@ export class ModelTrainer{
                     /* Pretend we don't know the prediction output of our join node for training purposes*/
                     
                     // const forwardPassOutput: tf.Tensor[] = this.model.forwardPass(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length,1]), adjTensor) as tf.Tensor[];
-                    const forwardPassOutput: tf.Tensor[] = this.model.forwardPassTest(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length,1]), adjTensor) as tf.Tensor[];
+                    const forwardPassOutput: tf.Tensor[] = this.model.forwardPassTest(tf.tensor2d(featureMatrix[i], [adjacencyMatrixes[i].length, featureMatrix[i][0].length]), adjTensor) as tf.Tensor[];
                     const joinValuePrediction: tf.Tensor = forwardPassOutput[0].slice([forwardPassOutput[0].shape[0]-1, 0]);
                     const joinPolicyPrediction: tf.Tensor = forwardPassOutput[1].slice([forwardPassOutput[0].shape[0]-1, 0]);
     
@@ -102,8 +102,8 @@ export class ModelTrainer{
                 const policyTensor: tf.Tensor = tf.concat(policyPredictions);
                 // console.log("Prediction:");
                 // predictionTensor.print();
-                console.log("Y:");
-                y.print();
+                // console.log("Y:");
+                // y.print();
                 // console.log("Norm factor");
                 // tf.div(tf.sub(numGraphLayers*3, nodeDegreeTensor),3).print()
                 const normY = tf.div(y, tf.sub((numEntries-1)*2, nodeDegreeTensor));
@@ -116,7 +116,7 @@ export class ModelTrainer{
                 // console.log("Norm y");
                 // normY.print();
                 
-                const loss = tf.losses.meanSquaredError(y, predictionTensor);
+                const loss = tf.losses.meanSquaredError(yPre, predictionTensor);
                 const scalarLoss: tf.Scalar = tf.squeeze(loss);
     
                 return scalarLoss
@@ -132,15 +132,28 @@ export class ModelTrainer{
                 return x;
             }
         }).map(x => x.id);
-        const newParent: NodeStateSpace = new NodeStateSpace(joinState.numNodes, 0);
+
+        const newParent: NodeStateSpace = new NodeStateSpace(joinState.numNodes, [0,0,0,0,0,0,0,1]);
         joinState.addParent(finalJoin, newParent);
 
         const adjTensor = tf.tensor2d(joinState.adjacencyMatrix);
 
         let featureMatrix = [];
-        for(var i=0;i<joinState.nodesArray.length;i++){
-          featureMatrix.push(joinState.nodesArray[i].cardinality);
+        for(let i=0;i<joinState.nodesArray.length;i++){
+            featureMatrix.push(joinState.nodesArray[i].features);
         }
+
+        const cardinalities: number[] = featureMatrix.map((x) => x[0]);
+        const maxCardinality: number = Math.max(...cardinalities);
+        const minCardinality: number = Math.min(...cardinalities);
+  
+        for (let i=0; i<featureMatrix.length;i++){
+          featureMatrix[i][0] = (featureMatrix[i][0]-minCardinality) / (maxCardinality - minCardinality)
+        }
+  
+        // for(var i=0;i<joinState.nodesArray.length;i++){
+        //   featureMatrix.push(joinState.nodesArray[i].cardinality);
+        // }
     
         /* Execute forward pass */
         const forwardPassOutput = this.model.forwardPass(tf.tensor2d(featureMatrix, [joinState.numNodes,1]), adjTensor) as tf.Tensor[];

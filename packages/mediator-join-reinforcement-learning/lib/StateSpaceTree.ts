@@ -14,17 +14,18 @@ export class NodeStateSpace {
     /** Boolean denoting whether a node is already part of a join */
     public joined: boolean;
     /** Temporary cardinality figure, it should be an array */
-    public cardinality: number;
+    // public cardinality: number;
     public features: number[];
 
     //  variable: number[], literal: number[]
-    constructor(idNode: number, cardinality: number) {
+    constructor(idNode: number, features: number[]) {
         // Temporary cardinality
-        this.cardinality = cardinality;
+        // this.cardinality = cardinality;
         this.children = [];
         this.childrenId = [];
         this.id = idNode;
         this.joined = false;
+        this.features = features
     }
 
     public setChild(childNode: NodeStateSpace){
@@ -140,8 +141,8 @@ export class StateSpaceTree{
         this.adjacencyMatrix[this.numNodes][leaveIndexes[1]] = 1;
 
         // This makes undirected graph
-        this.adjacencyMatrix[leaveIndexes[0]][this.numNodes] = 1;
-        this.adjacencyMatrix[leaveIndexes[1]][this.numNodes] = 1;
+        // this.adjacencyMatrix[leaveIndexes[0]][this.numNodes] = 1;
+        // this.adjacencyMatrix[leaveIndexes[1]][this.numNodes] = 1;
 
 
         this.incrementNumNodes();

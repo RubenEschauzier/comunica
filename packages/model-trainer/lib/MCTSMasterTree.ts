@@ -17,7 +17,7 @@ export class MCTSMasterTree{
         this.masterMap.set(key, joinInformation);
     }
 
-    public updateJoin(joinInformation: MCTSJoinPredictionOutput, joinFeatureMatrix: number[], joinAdjacancyMatrix: number[][]){
+    public updateJoin(joinInformation: MCTSJoinPredictionOutput, joinFeatureMatrix: number[][], joinAdjacancyMatrix: number[][]){
         /* Get previous information from map */
         const previousStateInformation = this.getJoinInformation(joinInformation.state);
         const key: string = joinInformation.state.flat().toString().replaceAll(',', '');
@@ -36,7 +36,7 @@ export class MCTSMasterTree{
         this.masterMap.set(key, newStateInformation);
     }
 
-    public updateMasterMap(operationInformation: MCTSJoinPredictionOutput, joinFeatureMatrix: number[], joinAdjacancyMatrix: number[][]){
+    public updateMasterMap(operationInformation: MCTSJoinPredictionOutput, joinFeatureMatrix: number[][], joinAdjacancyMatrix: number[][]){
         this.updateJoin(operationInformation, joinFeatureMatrix, joinAdjacancyMatrix);
     }
 
@@ -101,7 +101,7 @@ export interface MCTSJoinInformation{
     /*
     * Feature matrix of the current state
     */
-    featureMatrix: number[];
+    featureMatrix: number[][];
     /* 
     * Adjency matrix of the made joins
     */

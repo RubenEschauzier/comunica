@@ -334,19 +334,28 @@ export class QueryEngineBase implements IQueryEngine {
 
   public async trainModel(masterTreeMap: Map<string, MCTSJoinInformation>, numEntries: number){
     const adjacencyMatrixes: number[][][] = [];
-    const featureMatrixes: number[][] = [];
+    const featureMatrixes: number[][][] = [];
     const actualExecutionTimes: number[] = [];
     if (masterTreeMap.size > 0){
       for (const [key, value] of masterTreeMap.entries()) {
         adjacencyMatrixes.push(value.adjencyMatrix);
 
         /*  Scale features using Min-Max scaling  */
-        const maxCardinality: number = Math.max(...value.featureMatrix);
-        const minCardinality: number = Math.min(...value.featureMatrix);
-        const scaledFeatureMatrix = value.featureMatrix.map((vM, iM) => (vM - minCardinality) / (maxCardinality - minCardinality));
+
+        const cardinalities: number[] = value.featureMatrix.map((x) => x[0]);
+        const maxCardinality: number = Math.max(...cardinalities);
+        const minCardinality: number = Math.min(...cardinalities);
+  
+        for (let i=0; i<value.featureMatrix.length;i++){
+          value.featureMatrix[i][0] = (value.featureMatrix[i][0]-minCardinality) / (maxCardinality - minCardinality)
+        }
+  
+        // const maxCardinality: number = Math.max(...value.featureMatrix);
+        // const minCardinality: number = Math.min(...value.featureMatrix);
+        // const scaledFeatureMatrix = value.featureMatrix.map((vM, iM) => (vM - minCardinality) / (maxCardinality - minCardinality));
         // console.log(scaledFeatureMatrix)
 
-        featureMatrixes.push(scaledFeatureMatrix);
+        featureMatrixes.push(value.featureMatrix);
         actualExecutionTimes.push(value.actualExecutionTime!);
       }
       

@@ -40,7 +40,7 @@ export class EpisodeLogger{
         this.joinState.addJoinIndexes(joinIndexes);
     }
 
-    public setJoinState(joinState: MCTSJoinPredictionOutput, featureMatrix: number[], adjacencyMatrix: number[][]){
+    public setJoinState(joinState: MCTSJoinPredictionOutput, featureMatrix: number[][], adjacencyMatrix: number[][]){
         this.masterTree.updateMasterMap(joinState, featureMatrix, adjacencyMatrix);
     }
 

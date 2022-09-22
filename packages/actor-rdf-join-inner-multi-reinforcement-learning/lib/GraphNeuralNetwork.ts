@@ -437,7 +437,6 @@ export class graphConvolutionModel{
         // mAdjacency.print();
         return tf.tidy(() => {
             let x: tf.Tensor2D = this.layersHidden[0][0].call(inputFeatures, mAdjacency) as tf.Tensor2D;
-            // console.log("First")
             // x.print();
             for (let i=1; i<this.layersHidden.length;i++){
                 const layerI = this.layersHidden[i];

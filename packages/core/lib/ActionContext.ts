@@ -40,7 +40,7 @@ export class ActionContext implements IActionContext {
     this.episode.setState(joinState);
   }
 
-  public setJoinStateMasterTree(joinState: MCTSJoinPredictionOutput, featureMatrix: number[], adjacencyMatrix: number[][]){
+  public setJoinStateMasterTree(joinState: MCTSJoinPredictionOutput, featureMatrix: number[][], adjacencyMatrix: number[][]){
     this.episode.setJoinState(joinState, featureMatrix, adjacencyMatrix);
   }
 

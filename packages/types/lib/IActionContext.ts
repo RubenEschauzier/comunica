@@ -20,7 +20,7 @@ import { EpisodeLogger, MCTSJoinInformation, MCTSJoinPredictionOutput, modelHold
 export interface IActionContext {
   setEpisodeTime: (time: number) => void;
   setEpisodeState: (joinState: StateSpaceTree) => void;
-  setJoinStateMasterTree: (joinState: MCTSJoinPredictionOutput, featureMatrix: number[], adjacencyMatrix: number[][]) => void;
+  setJoinStateMasterTree: (joinState: MCTSJoinPredictionOutput, featureMatrix: number[][], adjacencyMatrix: number[][]) => void;
   setTotalEntriesMasterTree: (totalEntries: number) => void;
   setNodeIdMapping: (key: number, value: number) => void;
   setPlanHolder: (plan: string) => void;

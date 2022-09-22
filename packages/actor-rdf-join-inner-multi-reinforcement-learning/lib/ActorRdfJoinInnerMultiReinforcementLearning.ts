@@ -389,7 +389,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       const predictionOutput: MCTSJoinPredictionOutput = {N: prevPrediction.N, state: newState, predictedValueJoin: valueProbabilityJoin[0], 
         predictedProbability: valueProbabilityJoin[1]};
       
-      let featureMatrix = [];
+      let featureMatrix: number[][] = [];
       // console.log(action.entries);
       const operations: tempContextEntries = action.context.get(KeysQueryOperation.operation)!;
       const Quads: RdfJs.Quad[] = operations.input;
@@ -406,7 +406,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
         // console.log(action.context.getNodeIdMapping());
         // console.log(quad)
         // const triple = [quad.subject, quad.predicate, quad.object];
-        featureMatrix.push(action.context.getEpisodeState().nodesArray[i].cardinality);
+        featureMatrix.push(action.context.getEpisodeState().nodesArray[i].features);
       }      
 
       let adjacencyMatrixCopy = []
@@ -513,23 +513,28 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
           and cpu usage (delete the new node)
       */
       const featureNode: number[] = [0,0,0,0,0,0,0,1];
-      const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, 0);
+      const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, featureNode);
       action.context.getEpisodeState().addParent(joinCombination, newParent);
       const adjTensor: tf.Tensor2D = tf.tensor2d(action.context.getEpisodeState().adjacencyMatrix);
 
-      let featureMatrix: number[] = [];
-      for(var i=0;i<action.context.getEpisodeState().nodesArray.length;i++){
-        featureMatrix.push(action.context.getEpisodeState().nodesArray[i].cardinality);
+      let featureMatrix: number[][] = [];
+      for(let i=0;i<action.context.getEpisodeState().nodesArray.length;i++){
+        featureMatrix.push(action.context.getEpisodeState().nodesArray[i].features);
       }
 
       /*  Scale features using Min-Max scaling  */
-      const maxCardinality: number = Math.max(...featureMatrix);
-      const minCardinality: number = Math.min(...featureMatrix);
-      featureMatrix = featureMatrix.map((vM, iM) => (vM - minCardinality) / (maxCardinality - minCardinality));
+      const cardinalities: number[] = featureMatrix.map((x) => x[0]);
+      const maxCardinality: number = Math.max(...cardinalities);
+      const minCardinality: number = Math.min(...cardinalities);
+
+      // for (let i=0; i<featureMatrix.length;i++){
+      //   featureMatrix[i][0] = (featureMatrix[i][0]-minCardinality) / (maxCardinality - minCardinality)
+      // }
+      // featureMatrix = featureMatrix.map((vM, iM) => (vM[0] - minCardinality) / (maxCardinality - minCardinality) );
       
 
       /* Execute forward pass */
-      const forwardPassOutput: tf.Tensor[] = action.context.getModelHolder().getModel().forwardPassTest(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor[];
+      const forwardPassOutput: tf.Tensor[] = action.context.getModelHolder().getModel().forwardPassTest(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,featureMatrix[0].length]), adjTensor) as tf.Tensor[];
 
       const valueOutput: tf.Tensor = forwardPassOutput[0];
       const policyOutput: tf.Tensor = forwardPassOutput[1];
@@ -577,7 +582,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     
     /* Add new explored node to the stateSpace*/
     const featureNode: number[] = [predictedValueArray[idx], 0,0,0,0,0,0,1];
-    const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, predictedValueArray[idx]);
+    const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, featureNode);
     action.context.getEpisodeState().addParent(possibleJoins[idx], newParent);
 
     this.prevEstimatedCost = predictedValueArray[idx];
@@ -595,19 +600,27 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       */
       // Feature array indicating that this is a join
       const featureArray: number[] = [0,0,0,0,0,0,0,1]
-      const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, 0);
+      const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, featureArray);
       action.context.getEpisodeState().addParent(joinCombination, newParent);
       const adjTensor = tf.tensor2d(action.context.getEpisodeState().adjacencyMatrix);
 
-      let featureMatrix = [];
+      let featureMatrix: number[][] = [];
       for(var i=0;i<action.context.getEpisodeState().nodesArray.length;i++){
-        featureMatrix.push(action.context.getEpisodeState().nodesArray[i].cardinality);
+        featureMatrix.push(action.context.getEpisodeState().nodesArray[i].features);
       }
 
       /*  Scale features using Min-Max scaling  */
-      const maxCardinality: number = Math.max(...featureMatrix);
-      const minCardinality: number = Math.min(...featureMatrix);
-      featureMatrix = featureMatrix.map((vM, iM) => (vM - minCardinality) / (maxCardinality - minCardinality));
+      // const maxCardinality: number = Math.max(...featureMatrix);
+      // const minCardinality: number = Math.min(...featureMatrix);
+      // featureMatrix = featureMatrix.map((vM, iM) => (vM - minCardinality) / (maxCardinality - minCardinality));
+      const cardinalities: number[] = featureMatrix.map((x) => x[0]);
+      const maxCardinality: number = Math.max(...cardinalities);
+      const minCardinality: number = Math.min(...cardinalities);
+
+      // for (let i=0; i<featureMatrix.length;i++){
+      //   featureMatrix[i][0] = (featureMatrix[i][0]-minCardinality) / (maxCardinality - minCardinality)
+      // }
+
 
       /* Execute forward pass */
       const forwardPassOutput = action.context.getModelHolder().getModel().forwardPassTest(tf.tensor2d(featureMatrix, [action.context.getEpisodeState().numNodes,1]), adjTensor) as tf.Tensor[];
@@ -625,8 +638,8 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     }
     /* Select join to explore based on probabilty obtained by softmax of the estimated join values*/
     /*  Update the actors joinstate, which will be used by the RL medaitor to update its joinstate too  */
-    const featureArray: number[] = [bestJoinCost, 0,0,0,0,0,0,1]
-    const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, bestJoinCost);
+    const featureNode: number[] = [bestJoinCost, 0,0,0,0,0,0,1]
+    const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, featureNode);
     action.context.getEpisodeState().addParent(bestJoin, newParent);
     this.prevEstimatedCost = bestJoinCost;
 
