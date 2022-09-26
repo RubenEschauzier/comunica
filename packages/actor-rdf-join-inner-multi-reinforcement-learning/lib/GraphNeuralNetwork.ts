@@ -88,14 +88,29 @@ export class graphConvolutionLayer extends tf.layers.Layer{
             /*  Get inverted square of node degree diagonal matrix */
             const mD: tf.Tensor2D = tf.sum(mAdjacency, 1);
             const mDInv: tf.Tensor = tf.diag(tf.rsqrt(mD));
+            const mDInvFull: tf.Tensor = tf.diag(tf.reciprocal(mD));
 
             // Normalised adjecency matrix, we perform this is initialisation to not compute it in the call
-            const mAdjacencyHat: tf.Tensor2D = tf.matMul(tf.matMul(mDInv, mAdjacency), mDInv);
+            // const mAdjacencyHat: tf.Tensor2D = tf.matMul(tf.matMul(mDInv, mAdjacency), mDInv);
+            // Normalised adjacency matrix according to kipf for directed graphs;
+            const mAdjacencyHat: tf.Tensor2D = tf.matMul(mDInvFull, mAdjacency);
+            
+            
+            // console.log("Graph Layer Weights");
+            // this.mWeights.print();
+            // // console.log("Normalised adj");
+            // // mAdjacencyHat.print();
+            // console.log("The different adj hat");
+            // mAdjacencyHat.print()
+            // console.log("Features");
+            // input.print();
             // console.log("Adjacancy Hat");
             // mAdjacencyHat.print();
             
             // Tensor that denotes the signal travel in convolution
             const mSignalTravel: tf.Tensor = tf.matMul(mAdjacencyHat, input);
+            // console.log("Signal Travel");
+            // mSignalTravel.print();
             // console.log("Here is signal travel");
             // mSignalTravel.print()
 
@@ -402,62 +417,24 @@ export class graphConvolutionModel{
                 }
             }
         }
-        
-        // for(let i=0;i<this.allLayersModel.length;i++){
-
-        // }
-        // for(const layerConfig  of modelConfig.hiddenStateLayers){
-        //     if (layerConfig.type == 'graph'){
-        //         this.layersHidden.push([new graphConvolutionLayer(layerConfig.inputSize, layerConfig.outputSize, layerConfig.activation), layerConfig.type]);
-        //     }
-        //     if (layerConfig.type == 'dense'){
-        //         this.layersHidden.push([tf.layers.dense({inputShape: [layerConfig.inputSize], units: layerConfig.outputSize, 
-        //             activation: layerConfig.activation, 'trainable': true}), layerConfig.type]);
-        //     }
-        //     if (layerConfig.type == 'activation'){
-        //         this.layersHidden.push([tf.layers.activation({activation: layerConfig.activation, inputShape: [layerConfig.inputSize]}), layerConfig.type]);
-        //     }
-        // }
-        // for(const layerConfig  of modelConfig.hiddenStateLayers){
-        //     if (layerConfig.type == 'graph'){
-        //         this.layersHidden.push([new graphConvolutionLayer(layerConfig.inputSize, layerConfig.outputSize, layerConfig.activation), layerConfig.type]);
-        //     }
-        //     if (layerConfig.type == 'dense'){
-        //         this.layersHidden.push([tf.layers.dense({inputShape: [layerConfig.inputSize], units: layerConfig.outputSize, 
-        //             activation: layerConfig.activation, 'trainable': true}), layerConfig.type]);
-        //     }
-        //     if (layerConfig.type == 'activation'){
-        //         this.layersHidden.push([tf.layers.activation({activation: layerConfig.activation, inputShape: [layerConfig.inputSize]}), layerConfig.type]);
-        //     }
-        // }
     }
 
     public forwardPassTest(inputFeatures: tf.Tensor2D, mAdjacency: tf.Tensor2D){
-        // console.log("Adj in forwardPassTest");
-        // mAdjacency.print();
         return tf.tidy(() => {
             let x: tf.Tensor2D = this.layersHidden[0][0].call(inputFeatures, mAdjacency) as tf.Tensor2D;
-            // x.print();
             for (let i=1; i<this.layersHidden.length;i++){
                 const layerI = this.layersHidden[i];
-                // console.log(x.shape)
                 if (layerI[1] == 'graph'){
                     x = layerI[0].call(x, mAdjacency) as tf.Tensor2D;
-                    // console.log("Within for loop");
-                    // x.print();
                 }
                 else{
-                    // console.log(x.shape);
                     x = layerI[0].apply(x) as tf.Tensor2D;
                 }
             }
             let outputValue: tf.Tensor = this.layersValue[0][0].apply(x) as tf.Tensor;
-            // console.log(outputValue.shape)
             for (let j=1; j<this.layersValue.length;j++){
                 const layerI = this.layersValue[j];
                 outputValue = layerI[0].apply(outputValue) as tf.Tensor;
-                // console.log("Here outputValue");
-                // outputValue.print();
             }
             let outputPolicy: tf.Tensor = this.layersPolicy[0][0].apply(x) as tf.Tensor;
             for (let k=1; k<this.layersPolicy.length;k++){

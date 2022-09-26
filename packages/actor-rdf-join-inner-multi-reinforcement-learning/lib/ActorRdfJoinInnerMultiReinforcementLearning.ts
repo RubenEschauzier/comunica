@@ -19,6 +19,7 @@ import * as RdfJs from 'rdf-js'
 // import { graphConvolutionModel } from './GraphNeuralNetwork';
 import * as tf from '@tensorflow/tfjs';
 import { MCTSJoinInformation, MCTSJoinPredictionOutput } from '@comunica/model-trainer';
+import { features } from 'process';
 
 
 /* Debugging info : https://stackoverflow.com/questions/20936486/node-js-maximum-call-stack-size-exceeded
@@ -126,8 +127,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     /*Create initial mapping between entries and nodes in the state tree. We need this mapping due to the indices of nodes increasing as more joins are made, while the
       number of streams decreases with more joins. 
     */
-    // console.log(action);
-    // console.log(await action.entries[action.entries.length-1].output.metadata());
     const passedNodeIdMapping = action.context.getNodeIdMapping();
     const entries: IJoinEntry[] = action.entries
 
@@ -173,9 +172,14 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     }
     // Add cardinality of the new join to current state
     const numNodes = action.context.getEpisodeState().numNodes
-    const newJoinCardinality: number = (await entries[entries.length-1].output.metadata()).cardinality.value;
-    action.context.getEpisodeState().nodesArray[numNodes-1].features[0] = newJoinCardinality
+    const featuresLastNode: number[] = action.context.getEpisodeState().nodesArray[numNodes-1].features;
+    const addedJoinMetaData: MetadataBindings = await entries[entries.length-1].output.metadata();
+    const newJoinCardinality: number = addedJoinMetaData.cardinality.value;
+
+    featuresLastNode[0] = newJoinCardinality
+    featuresLastNode[featuresLastNode.length-1] = addedJoinMetaData.variables.length
     action.context.getJoinStateMasterTree(action.context.getEpisodeState().joinIndexes).featureMatrix[numNodes-1][0] = newJoinCardinality;
+    // console.log(action.context.getJoinStateMasterTree(action.context.getEpisodeState().joinIndexes).featureMatrix);
 
     // action.context.setJoinStateMasterTree(predictionOutput, featureMatrix, adjacencyMatrixCopy);
     // action.context.setPlanHolder(newState.flat().toString().replaceAll(',', ''));
@@ -593,6 +597,11 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     const featureNode: number[] = [predictedValueArray[idx], 0,0,0,0,0,0,1];
     const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, featureNode);
     action.context.getEpisodeState().addParent(possibleJoins[idx], newParent);
+
+    // Add self connection to explored join, experimental
+    const adjMatrixCopy = action.context.getEpisodeState().adjacencyMatrix;
+    adjMatrixCopy[adjMatrixCopy.length-1][adjMatrixCopy[0].length-1] = 1;
+
 
     this.prevEstimatedCost = predictedValueArray[idx];
     

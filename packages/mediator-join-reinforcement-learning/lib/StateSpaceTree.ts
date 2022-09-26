@@ -136,7 +136,7 @@ export class StateSpaceTree{
         }
 
         this.adjacencyMatrix.push(Array(this.numNodes+1).fill(0));
-        this.adjacencyMatrix[this.numNodes][this.numNodes] = 1;
+        // this.adjacencyMatrix[this.numNodes][this.numNodes] = 1;
         this.adjacencyMatrix[this.numNodes][leaveIndexes[0]] = 1;
         this.adjacencyMatrix[this.numNodes][leaveIndexes[1]] = 1;
 

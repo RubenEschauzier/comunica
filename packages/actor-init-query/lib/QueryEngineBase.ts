@@ -336,7 +336,8 @@ export class QueryEngineBase implements IQueryEngine {
     const adjacencyMatrixes: number[][][] = [];
     const featureMatrixes: number[][][] = [];
     const actualExecutionTimes: number[] = [];
-    if (masterTreeMap.size > 0){
+    // TEMP REMOVE THIS FOR TESTING!!
+    // if (masterTreeMap.size > 0){
       for (const [key, value] of masterTreeMap.entries()) {
         adjacencyMatrixes.push(value.adjencyMatrix);
         // console.log(value.featureMatrix.map(x => x[0]));
@@ -362,10 +363,10 @@ export class QueryEngineBase implements IQueryEngine {
       
       const trainingLoss: number = await this.modelTrainer.trainModeloffline(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, numEntries);
       return trainingLoss  
-    }
-    else{
-      console.warn('WARNING: No recorded joins this episode.');
-    }
+    // }
+    // else{
+    //   console.warn('WARNING: No recorded joins this episode.');
+    // }
   }
 
   /**
