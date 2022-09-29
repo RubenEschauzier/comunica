@@ -345,8 +345,8 @@ export class QueryEngineBase implements IQueryEngine {
         /*  Scale features using Min-Max scaling  */
 
         const cardinalities: number[] = value.featureMatrix.map((x) => x[0]);
-        const maxCardinality: number = Math.max(...cardinalities);
-        const minCardinality: number = Math.min(...cardinalities);
+        // const maxCardinality: number = Math.max(...cardinalities);
+        // const minCardinality: number = Math.min(...cardinalities);
   
         // for (let i=0; i<value.featureMatrix.length;i++){
         //   value.featureMatrix[i][0] = (value.featureMatrix[i][0]-minCardinality) / (maxCardinality - minCardinality)
@@ -361,7 +361,7 @@ export class QueryEngineBase implements IQueryEngine {
         actualExecutionTimes.push(value.actualExecutionTime!);
       }
       
-      const trainingLoss: number = await this.modelTrainer.trainModeloffline(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, numEntries);
+      const trainingLoss: number = await this.modelTrainer.trainModelOfflineBatched(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, numEntries);
       return trainingLoss  
     // }
     // else{

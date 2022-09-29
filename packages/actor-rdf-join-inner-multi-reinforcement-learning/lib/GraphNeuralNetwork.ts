@@ -43,7 +43,8 @@ export class graphConvolutionLayer extends tf.layers.Layer{
         //                             layerName);
         this.mWeights = tf.variable(tf.randomNormal([this.inputSize, this.outputSize]), true,
         layerName);
-
+        // this.mWeights = tf.variable(tf.tensor([ 2.29773776, -237.61560258,  -18.59292076,  -91.67139649,
+        //     0.        ,    0.        ,    0.        ,   19.7895892 ]), true, layerName).reshape([this.inputSize, this.outputSize]);
             
 
     }
@@ -88,34 +89,19 @@ export class graphConvolutionLayer extends tf.layers.Layer{
             /*  Get inverted square of node degree diagonal matrix */
             const mD: tf.Tensor2D = tf.sum(mAdjacency, 1);
             const mDInv: tf.Tensor = tf.diag(tf.rsqrt(mD));
+
             const mDInvFull: tf.Tensor = tf.diag(tf.reciprocal(mD));
 
             // Normalised adjecency matrix, we perform this is initialisation to not compute it in the call
             // const mAdjacencyHat: tf.Tensor2D = tf.matMul(tf.matMul(mDInv, mAdjacency), mDInv);
             // Normalised adjacency matrix according to kipf for directed graphs;
             const mAdjacencyHat: tf.Tensor2D = tf.matMul(mDInvFull, mAdjacency);
+
             
-            
-            // console.log("Graph Layer Weights");
-            // this.mWeights.print();
-            // // console.log("Normalised adj");
-            // // mAdjacencyHat.print();
-            // console.log("The different adj hat");
-            // mAdjacencyHat.print()
-            // console.log("Features");
-            // input.print();
-            // console.log("Adjacancy Hat");
-            // mAdjacencyHat.print();
+    
             
             // Tensor that denotes the signal travel in convolution
             const mSignalTravel: tf.Tensor = tf.matMul(mAdjacencyHat, input);
-            // console.log("Signal Travel");
-            // mSignalTravel.print();
-            // console.log("Here is signal travel");
-            // mSignalTravel.print()
-
-            // console.log(`Weights, inputSize ${this.inputSize}`);
-            // this.mWeights.print();
 
             // Output of convolution, by multiplying with weight matrix and applying non-linear activation function
             // Check if activation function is ok
@@ -277,8 +263,8 @@ export class graphConvolutionModel{
         this.denseLayerValueFileName = 'denseLayerValue';
         this.denseLayerPolicyFileName = 'denseLayerValue';
     
-        this.graphConvolutionalLayer1 = new graphConvolutionLayer(1, 6, "softplus");
-        this.graphConvolutionalLayer2 = new graphConvolutionLayer(6, 6, "softplus");
+        // this.graphConvolutionalLayer1 = new graphConvolutionLayer(1, 6, "softplus");
+        // this.graphConvolutionalLayer2 = new graphConvolutionLayer(6, 6, "softplus");
         this.denseLayerValue = tf.layers.dense({inputShape: [6], units: 1, activation: 'linear', 'trainable': true});
         this.denseLayerPolicy = tf.layers.dense({inputShape: [6], units: 1, activation: 'sigmoid', 'trainable': true});
 

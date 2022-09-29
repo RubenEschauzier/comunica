@@ -1,8 +1,9 @@
 {
     "hiddenStateLayers":[
         {
-            "type": "graph", "inputSize": 8, "outputSize": 1, "activation": "linear"
+            "type": "graph", "inputSize": 8, "outputSize": 1, "activation": "relu"
         }
+        
     ],
     "policyHeadLayers":[
         {
