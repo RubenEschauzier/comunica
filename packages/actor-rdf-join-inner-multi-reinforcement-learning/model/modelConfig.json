@@ -1,13 +1,17 @@
 {
     "hiddenStateLayers":[
         {
-            "type": "graph", "inputSize": 8, "outputSize": 1, "activation": "relu"
+            "type": "graph", "inputSize": 8, "outputSize": 16, "activation": "relu"
+        },
+        {
+            "type": "graph", "inputSize": 16, "outputSize": 8, "activation": "relu"
         }
+
         
     ],
     "policyHeadLayers":[
         {
-            "type": "dense", "inputSize": 1, "outputSize": 1, "activation": "sigmoid"
+            "type": "dense", "inputSize": 8, "outputSize": 1, "activation": "sigmoid"
         },
         {
             "type": "activation", "inputSize": 1, "outputSize": 1, "activation": "sigmoid"
@@ -15,7 +19,7 @@
     ],
     "valueHeadLayers":[
         {
-            "type": "dense", "inputSize": 1, "outputSize": 1, "activation": "linear"
+            "type": "dense", "inputSize": 8, "outputSize": 1, "activation": "linear"
         }
     ]
 }

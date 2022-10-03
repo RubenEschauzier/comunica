@@ -177,7 +177,7 @@ export class ModelTrainer{
         }
 
 
-        batchSize=2;
+        batchSize=4;
         let yPre = tf.tensor(yArray);
         yPre = tf.div(tf.sub(yPre,yPre.mean(0, true)), tf.moments(yPre).variance.sqrt())
         let totalLoss: number = 0;

@@ -4,10 +4,12 @@ export class MCTSMasterTree{
     /* Keys of all join states reached in one query execution */
     joinsExploredOneExecution: string[];
     totalEntries: number;
+    runningMeanStd: number[][]
 
-    public constructor() {
+    public constructor(runningMeanStd: number[][]) {
         this.masterMap = new Map();
         this.joinsExploredOneExecution = [];
+        this.runningMeanStd = runningMeanStd
     }
 
     public addUnexploredJoin(joinInformation: MCTSJoinInformation, joinIndexes: number[][], estimatedValue: number, estimatedProbability: number){
