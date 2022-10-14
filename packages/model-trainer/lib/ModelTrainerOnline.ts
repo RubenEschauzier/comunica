@@ -131,69 +131,69 @@ export class ModelTrainer{
         return std
     }
 
-    public async trainModelOfflineBatched(adjacencyMatrixes: number[][][], featureMatrix: number[][][], executionTime: number[], batchSize: number): Promise<number>{
+    public async trainModelOfflineBatched(adjacencyMatrixes: number[][][], featureMatrixes: number[][][], executionTime: number[], batchSize: number): Promise<number>{
         const featureSize: number = 8;
+        // const yArray = [40, 40, 20, 20];
+        // const adjacencyMatrixesPre = [ [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [1, 1, 0, 1, 0], [0, 0, 1, 1, 0]],
+        //     [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [1, 1, 0, 0]], 
+        // [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 1, 1, 0]],
+        // [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 1, 1, 1, 0], [1, 0, 0, 1, 0]]]
 
-        const yArray = [40, 40, 20, 20];
-        const adjacencyMatrixesPre = [ [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [1, 1, 0, 1, 0], [0, 0, 1, 1, 0]],
-            [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [1, 1, 0, 0]], 
-        [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 1, 1, 0]],
-        [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 1, 1, 1, 0], [1, 0, 0, 1, 0]]]
+        // const featureMatrixesPre = [[[100, 1, 0, 1, 0,0,0, 0], [200, 1, 1, 1, 0,0,0, 0], [50, 1, 0, 0, 1,1,1, 0], [50, 2, 1, 2, 0,0,0, 5], [0, 3, 1, 2, 0,0,0, 6]],
+        // [[100, 1, 0, 1, 0,0,0, 0], [200, 1, 1, 1, 0,0,0, 0], [50, 1, 0, 0, 1,1,1, 0], [0, 2, 1, 2, 0,0,0, 5]],
+        // [[100, 1, 0, 1, 0,0,0, 0], [200, 1, 1, 1, 0,0,0, 0], [50, 1, 0, 0, 1,1,1, 0], [0, 2, 1, 1, 0,0,0, 4]],
+        // [[100, 1, 0, 1, 0,0,0, 0], [200, 1, 1, 1, 0,0,0, 0], [50, 1, 0, 0, 1,1,1, 0], [15, 2, 1, 1, 0,0,0, 4], [0, 3, 1, 2, 0,0,0, 6]]]        
 
-        const featureMatrixesPre = [[[100, 1, 0, 1, 0,0,0, 0], [200, 1, 1, 1, 0,0,0, 0], [50, 1, 0, 0, 1,1,1, 0], [50, 2, 1, 2, 0,0,0, 5], [0, 3, 1, 2, 0,0,0, 6]],
-        [[100, 1, 0, 1, 0,0,0, 0], [200, 1, 1, 1, 0,0,0, 0], [50, 1, 0, 0, 1,1,1, 0], [0, 2, 1, 2, 0,0,0, 5]],
-        [[100, 1, 0, 1, 0,0,0, 0], [200, 1, 1, 1, 0,0,0, 0], [50, 1, 0, 0, 1,1,1, 0], [0, 2, 1, 1, 0,0,0, 4]],
-        [[100, 1, 0, 1, 0,0,0, 0], [200, 1, 1, 1, 0,0,0, 0], [50, 1, 0, 0, 1,1,1, 0], [15, 2, 1, 1, 0,0,0, 4], [0, 3, 1, 2, 0,0,0, 6]]]        
+        // const flatFeatureMatrixesPreTensor: tf.Tensor = tf.tensor(featureMatrixesPre.flat(2));
+        // const newShape: number[] = [flatFeatureMatrixesPreTensor.shape[0] / featureSize, featureSize];
+        // const reshapedTensor: tf.Tensor = flatFeatureMatrixesPreTensor.reshape(newShape);
 
-        const flatFeatureMatrixesPreTensor: tf.Tensor = tf.tensor(featureMatrixesPre.flat(2));
-        const newShape: number[] = [flatFeatureMatrixesPreTensor.shape[0] / featureSize, featureSize];
-        const reshapedTensor: tf.Tensor = flatFeatureMatrixesPreTensor.reshape(newShape);
+        // const meanFeatures: tf.Tensor = flatFeatureMatrixesPreTensor.reshape([flatFeatureMatrixesPreTensor.shape[0] / featureSize, featureSize]).mean(0, false);
+        // const std: tf.Tensor = this.getStd(flatFeatureMatrixesPreTensor, meanFeatures, featureSize);
+        // const scaledFeaturesTensor: tf.Tensor = tf.div(tf.sub(reshapedTensor, meanFeatures), std);
+        // const scaledFeatures = await scaledFeaturesTensor.array() as number[][];
 
-        const meanFeatures: tf.Tensor = flatFeatureMatrixesPreTensor.reshape([flatFeatureMatrixesPreTensor.shape[0] / featureSize, featureSize]).mean(0, false);
-        const std: tf.Tensor = this.getStd(flatFeatureMatrixesPreTensor, meanFeatures, featureSize);
-        const scaledFeaturesTensor: tf.Tensor = tf.div(tf.sub(reshapedTensor, meanFeatures), std);
-        const scaledFeatures = await scaledFeaturesTensor.array() as number[][];
+        // let startIndex: number = 0;
+        // const scaledFeaturesMatrixesPreReq: number[][][] = []
+        // for (let m=0;m<featureMatrixesPre.length;m++){
+        //     const numNodesFeature = featureMatrixesPre[m].length;
+        //     scaledFeaturesMatrixesPreReq.push(scaledFeatures.slice(startIndex, startIndex+numNodesFeature))
+        //     startIndex += numNodesFeature
+        // }
+        // const scaledFeaturesMatrixesPre: number[][][] = []
 
-        let startIndex: number = 0;
-        const scaledFeaturesMatrixesPreReq: number[][][] = []
-        for (let m=0;m<featureMatrixesPre.length;m++){
-            const numNodesFeature = featureMatrixesPre[m].length;
-            scaledFeaturesMatrixesPreReq.push(scaledFeatures.slice(startIndex, startIndex+numNodesFeature))
-            startIndex += numNodesFeature
-        }
-        const scaledFeaturesMatrixesPre: number[][][] = []
-
-        for (let m=0;m<featureMatrixesPre.length;m++){
-            const episode: number[][] = []
-            for (let n=0;n<featureMatrixesPre[m].length;n++){
-                const toPush = featureMatrixesPre[m][n];
+        // for (let m=0;m<featureMatrixesPre.length;m++){
+        //     const episode: number[][] = []
+        //     for (let n=0;n<featureMatrixesPre[m].length;n++){
+        //         const toPush = featureMatrixesPre[m][n];
                 
-                toPush[0] = scaledFeaturesMatrixesPreReq[m][n][0];
-                toPush[7] = scaledFeaturesMatrixesPreReq[m][n][7];
+        //         toPush[0] = scaledFeaturesMatrixesPreReq[m][n][0];
+        //         toPush[7] = scaledFeaturesMatrixesPreReq[m][n][7];
 
-                episode.push(toPush)
-            }
-            scaledFeaturesMatrixesPre.push(episode);
-        }
+        //         episode.push(toPush)
+        //     }
+        //     scaledFeaturesMatrixesPre.push(episode);
+        // }
 
 
         batchSize=4;
-        let yPre = tf.tensor(yArray);
-        yPre = tf.div(tf.sub(yPre,yPre.mean(0, true)), tf.moments(yPre).variance.sqrt())
+        // let yPre = tf.tensor(yArray);
+        // yPre = tf.div(tf.sub(yPre,yPre.mean(0, true)), tf.moments(yPre).variance.sqrt())
         let totalLoss: number = 0;
 
         return tf.tidy(() => {
-            for (let b=0; b<Math.floor(adjacencyMatrixesPre.length/batchSize) ; b++){
+            const y: tf.Tensor = tf.tensor(executionTime);
+            for (let b=0; b<Math.max(Math.floor(adjacencyMatrixes.length/batchSize), 1) ; b++){
                 const loss = this.optimizer.minimize(()=>{
                     const valuePredictions: tf.Tensor[] = []
                     const policyPredictions: tf.Tensor[] = []
     
-                    for (let i = 0;i<batchSize;i++){
-                        const adjTensorPre = tf.tensor2d(adjacencyMatrixesPre[b*batchSize+i]);
+                    for (let i = 0;i<Math.min(batchSize, Math.abs(b*batchSize-adjacencyMatrixes.length));i++){
+                        const adjTensorPre = tf.tensor2d(adjacencyMatrixes[b*batchSize+i]);
 
                         /* Pretend we don't know the prediction output of our join node for training purposes*/
-                        const forwardPassOutput: tf.Tensor[] = this.model.forwardPassTest(tf.tensor2d(scaledFeaturesMatrixesPre[b*batchSize+i], 
-                            [adjacencyMatrixesPre[b*batchSize+i].length, scaledFeaturesMatrixesPre[b*batchSize+i][0].length]), adjTensorPre) as tf.Tensor[];
+                        const forwardPassOutput: tf.Tensor[] = this.model.forwardPassTest(tf.tensor2d(featureMatrixes[b*batchSize+i], 
+                            [adjacencyMatrixes[b*batchSize+i].length, featureMatrixes[b*batchSize+i][0].length]), adjTensorPre) as tf.Tensor[];
 
                         const joinValuePrediction: tf.Tensor = forwardPassOutput[0].slice([forwardPassOutput[0].shape[0]-1, 0]);
                         const joinPolicyPrediction: tf.Tensor = forwardPassOutput[1].slice([forwardPassOutput[0].shape[0]-1, 0]);
@@ -203,12 +203,11 @@ export class ModelTrainer{
                         policyPredictions.push(joinPolicyPrediction);
                         
                     }
-    
                     const predictionTensor: tf.Tensor = tf.concat(valuePredictions);
-                    console.log("TEST -- Batch Result:")
+                    console.log("Batch Result (prediction \n features \n actual):");
                     predictionTensor.print();
-                    yPre.slice(b*batchSize, batchSize).print();
-                    const loss = tf.losses.meanSquaredError(yPre.slice(b*batchSize, batchSize).squeeze(), predictionTensor.squeeze());
+                    y.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-y.shape[0]))).print();
+                    const loss = tf.losses.meanSquaredError(y.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-y.shape[0]))).squeeze(), predictionTensor.squeeze());
                     const scalarLoss: tf.Scalar = tf.squeeze(loss);
         
                     return scalarLoss
@@ -227,7 +226,7 @@ export class ModelTrainer{
             }
         }).map(x => x.id);
 
-        const newParent: NodeStateSpace = new NodeStateSpace(joinState.numNodes, [0,0,0,0,0,0,0,1]);
+        const newParent: NodeStateSpace = new NodeStateSpace(joinState.numNodes, [0,0,0,0,0,0,0,1], 0);
         joinState.addParent(finalJoin, newParent);
 
         const adjTensor = tf.tensor2d(joinState.adjacencyMatrix);

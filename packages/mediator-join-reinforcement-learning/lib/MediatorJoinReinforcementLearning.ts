@@ -6,6 +6,7 @@ import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-
 import type { IQueryOperationResult, MetadataBindings } from '@comunica/types';
 import { NodeStateSpace, StateSpaceTree } from './StateSpaceTree';
 import * as RdfJs from 'rdf-js'
+import { aggregateValues, runningMoments } from '@comunica/model-trainer';
 
 /**
  * A comunica mediator that mediates for the reinforcement learning-based multi join actor
@@ -121,12 +122,17 @@ export class MediatorJoinReinforcementLearning
     * If we perform offline training we simulate 'x' join plans according to our current neural network predictions. We do so by calling the mediateWith function 'x'
     * times from the start of the join execution plan.
     */
-    /* At first join execution we initialise our StateSpaceTree with just leave nodes */
+    /* At first join execution we initialise our StateSpaceTree with just leaf nodes */
     if (!action.context.getEpisodeState()){
       let joinStateTest = new StateSpaceTree();
       action.context.setTotalEntriesMasterTree(action.entries.length)
       const operations: tempContextEntries = action.context.get(KeysQueryOperation.operation)!;
       const Quads: RdfJs.Quad[] = operations.input;
+
+      // Get Metadatas
+      const cardinalitiesEntries = action.entries.map(async (x) => {return (await x.output.metadata()).cardinality.value});
+      const cardinalitiesResolved = await Promise.all(cardinalitiesEntries);
+      const indexesToTrack = action.context.getRunningMomentsMasterTree().indexes;
 
       for (let i=0; i<action.entries.length;i++){
         // Create nodes with estimated cardinality as feature
@@ -134,18 +140,37 @@ export class MediatorJoinReinforcementLearning
 
         const isVariable: number[] = triple.map(x => x.termType=='Variable' ? 1 : 0);
         const isLiteral: number[] = triple.map(x=> x.termType=='Literal' ? 1 : 0);
-        const cardinalityNode: number = (await action.entries[i].output.metadata()).cardinality.value;
-        const cardinalityNodeTemp: number[] = [cardinalityNode]
-        
+        const cardinalityNode: number[] = [cardinalitiesResolved[i]];
+
         // Features here indicate [cardinality, subjectIsVariable, predicateIsVariable, objectIsVariable, subjectIsLiteral, predicateIsLiteral, objectIsLiteral, resultOfJoin];
-        const featureNode = cardinalityNodeTemp.concat(isVariable, isLiteral, [0]);
-        let newNode: NodeStateSpace = new NodeStateSpace(i, featureNode);
+        const featureNode = cardinalityNode.concat(isVariable, isLiteral, [0]);
+
+        // Here we initialise the tracking of our features based on what features we want to standardize
+        for (const index of indexesToTrack){
+          action.context.updateRunningMomentsMasterTree(featureNode[index], index);
+        }
+
+        // Create the new leaf node and add to statespace
+        let newNode: NodeStateSpace = new NodeStateSpace(i, featureNode, featureNode[0]);
         newNode.setDepth(0);
         joinStateTest.addLeave(newNode);
       }
+      // Standardise our features based on running mean and std
+      for (const index of indexesToTrack){
+        joinStateTest.nodesArray.map((x: NodeStateSpace)=> {
+          const runningMoments: runningMoments = action.context.getRunningMomentsMasterTree();
+          const runningMomentsIndex: aggregateValues|undefined = runningMoments.runningStats.get(index);
+          if (runningMomentsIndex && runningMomentsIndex.std != 0){
+            x.features[index] = (x.features[index] - runningMomentsIndex.mean)/runningMomentsIndex.std; 
+          }
+          else{
+            console.error("Accessing index in running moments that does not exist (mediator)");
+          }
+        });
+      }
+
       /* Set the number of leave nodes in the tree, this will not change during execution */
       joinStateTest.setNumLeaveNodes(joinStateTest.numNodes); 
-
       action.context.setEpisodeState(joinStateTest);
     }
     return await this.mediateWith(action, this.publish(action));

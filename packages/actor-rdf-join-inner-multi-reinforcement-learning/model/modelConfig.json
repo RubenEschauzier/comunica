@@ -1,11 +1,20 @@
 {
     "hiddenStateLayers":[
         {
-            "type": "graph", "inputSize": 8, "outputSize": 16, "activation": "relu"
+            "type": "graph", "inputSize": 8, "outputSize": 32, "activation": "sigmoid"
         },
         {
-            "type": "graph", "inputSize": 16, "outputSize": 8, "activation": "relu"
+            "type": "graph", "inputSize": 32, "outputSize": 8, "activation": "sigmoid"
+        },
+        {
+            "type": "dense", "inputSize": 8, "outputSize": 8, "activation": "linear"
+        },
+        {
+            "type": "activation", "inputSize": 8, "outputSize": 1, "activation": "sigmoid"
         }
+
+
+
 
         
     ],

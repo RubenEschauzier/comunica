@@ -1,7 +1,6 @@
 export class NodeStateSpace {
     /** Node denoting either a join (parent node) or a binding stream (leaf)
      */
-    public featureArray: Array<number>;
     // public parent: NodeStateSpace;
     public parentId: number;
     public children: NodeStateSpace[];
@@ -16,9 +15,10 @@ export class NodeStateSpace {
     /** Temporary cardinality figure, it should be an array */
     // public cardinality: number;
     public features: number[];
+    public cardinality: number;
 
     //  variable: number[], literal: number[]
-    constructor(idNode: number, features: number[]) {
+    constructor(idNode: number, features: number[], cardinality: number) {
         // Temporary cardinality
         // this.cardinality = cardinality;
         this.children = [];
@@ -26,6 +26,7 @@ export class NodeStateSpace {
         this.id = idNode;
         this.joined = false;
         this.features = features
+        this.cardinality = cardinality;
     }
 
     public setChild(childNode: NodeStateSpace){
@@ -46,7 +47,7 @@ export class NodeStateSpace {
     }
 
     public setFeatures(features: number[]){
-        this.featureArray = features;
+        this.features = features;
     }
 
     public isLeave(){
@@ -57,9 +58,10 @@ export class NodeStateSpace {
         this.depth=depth;
     }
 
-    public setFeature(featureArray: number[]){
-        this.featureArray = featureArray;
+    public setCardinality(card: number){
+        this.cardinality = card;
     }
+
 }
 
 export class StateSpaceTree{
@@ -84,6 +86,10 @@ export class StateSpaceTree{
 
     public addJoinIndexes(joinToAdd: number[]){
         this.joinIndexes.push(joinToAdd);
+    }
+
+    public getJoinIndexes(){
+        return this.joinIndexes;
     }
 
     public addLeave(leave: NodeStateSpace){

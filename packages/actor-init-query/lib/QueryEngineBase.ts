@@ -333,6 +333,18 @@ export class QueryEngineBase implements IQueryEngine {
 
 
   public async trainModel(masterTreeMap: Map<string, MCTSJoinInformation>, numEntries: number){
+
+    function shuffleTrainingData(adjMatrixes: number[][][], featureMatrixes: number[][][], actualExecutionTimes: number[]) {
+      var j, xA, xF, xE, i;
+      for (i = adjMatrixes.length - 1; i > 0; i--) {
+          j = Math.floor(Math.random() * (i + 1));
+          xA = adjMatrixes[i]; xF = featureMatrixes[i]; xE = actualExecutionTimes[i];
+          adjMatrixes[i] = adjMatrixes[j]; featureMatrixes[i] = featureMatrixes[j]; actualExecutionTimes[i] = actualExecutionTimes[j]
+          adjMatrixes[j] = xA; featureMatrixes[j] = xF; actualExecutionTimes[j] = xE;
+      }
+      return [adjMatrixes, featureMatrixes, actualExecutionTimes];
+    }
+  
     const adjacencyMatrixes: number[][][] = [];
     const featureMatrixes: number[][][] = [];
     const actualExecutionTimes: number[] = [];
@@ -360,7 +372,7 @@ export class QueryEngineBase implements IQueryEngine {
         featureMatrixes.push(value.featureMatrix);
         actualExecutionTimes.push(value.actualExecutionTime!);
       }
-      
+      const shuffledInPlace = shuffleTrainingData(adjacencyMatrixes, featureMatrixes, actualExecutionTimes);
       const trainingLoss: number = await this.modelTrainer.trainModelOfflineBatched(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, numEntries);
       return trainingLoss  
     // }

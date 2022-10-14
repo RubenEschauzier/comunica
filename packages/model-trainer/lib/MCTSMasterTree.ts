@@ -4,12 +4,12 @@ export class MCTSMasterTree{
     /* Keys of all join states reached in one query execution */
     joinsExploredOneExecution: string[];
     totalEntries: number;
-    runningMeanStd: number[][]
+    runningMoments: runningMoments
 
-    public constructor(runningMeanStd: number[][]) {
+    public constructor(runningMeanStd: runningMoments) {
         this.masterMap = new Map();
         this.joinsExploredOneExecution = [];
-        this.runningMeanStd = runningMeanStd
+        this.runningMoments = runningMeanStd
     }
 
     public addUnexploredJoin(joinInformation: MCTSJoinInformation, joinIndexes: number[][], estimatedValue: number, estimatedProbability: number){
@@ -81,6 +81,26 @@ export class MCTSMasterTree{
     public getTotalEntries(){
         return this.totalEntries;
     }
+
+    public getRunningMoments(): runningMoments{
+        return this.runningMoments
+    }
+
+    public updateRunningMoments(newValue: number, index: number){
+        // Update procedure from Welford's online algorithm for running mean and variance without numerical instabilities
+        const toUpdateAggregate: aggregateValues | undefined = this.getRunningMoments().runningStats.get(index);
+        if (toUpdateAggregate){
+            toUpdateAggregate.N +=1;
+            const delta = newValue - toUpdateAggregate.mean; 
+            toUpdateAggregate.mean += delta / toUpdateAggregate.N;
+            const newDelta = newValue - toUpdateAggregate.mean;
+            toUpdateAggregate.M2 += delta * newDelta;
+            toUpdateAggregate.std = Math.sqrt(toUpdateAggregate.M2 / toUpdateAggregate.N);
+        }
+        else{
+            throw Error("Tried to get running moments index that does not exist");
+        }
+    }
 }
 
 export interface MCTSJoinInformation{
@@ -136,4 +156,32 @@ export interface MCTSJoinPredictionOutput{
     * Predicted probability of choosing this join state 
     */
     predictedProbability: number;
+}
+
+export interface runningMoments{
+    /*
+    * Indexes of features to normalise and track
+    */
+    indexes: number[];
+    /*
+    * The running values of mean, std, n, mn mapped to index
+    * These are the quantities required for the Welfold's online algorithm
+    */
+    runningStats: Map<number, aggregateValues>;
+}
+
+export interface aggregateValues{
+    N: number;
+    /*
+    * Aggregate mean
+    */
+    mean: number;
+    /*
+    * Aggregate standard deviation
+    */
+    std: number;
+    /*
+    * Aggregate M2
+    */
+    M2: number;
 }

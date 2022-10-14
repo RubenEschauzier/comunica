@@ -44,6 +44,10 @@ export class EpisodeLogger{
         this.masterTree.updateMasterMap(joinState, featureMatrix, adjacencyMatrix);
     }
 
+    public updateRunningMomentsMasterTree(newValue: number, index: number): void{
+        this.masterTree.updateRunningMoments(newValue, index);
+    }
+
     public getState(): StateSpaceTree{
         return this.joinState;
     }
@@ -62,6 +66,10 @@ export class EpisodeLogger{
 
     public getJoinStateMasterTree(joinIndexes: number[][]){
         return this.masterTree.getJoinInformation(joinIndexes);
+    }
+
+    public getRunningMomentsMasterTree(){
+        return this.masterTree.getRunningMoments();
     }
 
     public getTotalEntriesMasterTree(){
