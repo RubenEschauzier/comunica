@@ -86,4 +86,8 @@ export class EpisodeLogger{
     public getNodeIdMappingKey(key: number){
         return this.node_idmapping.get(key)!;
     }
+
+    public getMasterTree(){
+        return this.masterTree;
+    }
 }

@@ -33,7 +33,7 @@
       "mediatorJoin": { "@id": "urn:comunica:default:rdf-join/mediators#main" },
       "onlineTrain": false,
       "offlineTrain": true,
-      "explorationDegree": 2 
+      "explorationDegree": 15 
     },
     {
       "@id": "urn:comunica:default:rdf-join/actors#inner-multi-empty",

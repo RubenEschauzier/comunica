@@ -1,7 +1,7 @@
 import { StateSpaceTree } from '@comunica/mediator-join-reinforcement-learning';
 import type { IActionContext, IActionContextKey } from '@comunica/types';
 import { Map as IMap } from 'immutable';
-import { EpisodeLogger, MCTSJoinInformation, MCTSJoinPredictionOutput, modelHolder, runningMoments } from '@comunica/model-trainer';
+import { EpisodeLogger, MCTSJoinInformation, MCTSJoinPredictionOutput, MCTSMasterTree, modelHolder, runningMoments } from '@comunica/model-trainer';
 
 /**
  * Implementation of {@link IActionContext} using Immutable.js.
@@ -105,6 +105,10 @@ export class ActionContext implements IActionContext {
 
   public getRunningMomentsMasterTree(): runningMoments{
     return this.episode.getRunningMomentsMasterTree();
+  }
+
+  public getMasterTree(): MCTSMasterTree{
+    return this.episode.getMasterTree();
   }
 
   // public setInPlace<V>(key: IActionContextKey<V>, value: V): void{

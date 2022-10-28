@@ -82,10 +82,6 @@ export class graphConvolutionLayer extends tf.layers.Layer{
     // I should call build function for flexibility, not sure if I need it yet, but might become needed
     call(input: tf.Tensor2D,  mAdjacency: tf.Tensor2D, kwargs?: any): tf.Tensor {
         return tf.tidy(() => {
-            // console.log("Input:");
-            // input.print();
-            // console.log("Adjecency In Call:");
-            // mAdjacency.print();
             /*  Get inverted square of node degree diagonal matrix */
             const mD: tf.Tensor2D = tf.sum(mAdjacency, 1);
             const mDInv: tf.Tensor = tf.diag(tf.rsqrt(mD));
@@ -417,6 +413,7 @@ export class graphConvolutionModel{
                     x = layerI[0].apply(x) as tf.Tensor2D;
                 }
             }
+
             let outputValue: tf.Tensor = this.layersValue[0][0].apply(x) as tf.Tensor;
             for (let j=1; j<this.layersValue.length;j++){
                 const layerI = this.layersValue[j];
@@ -427,6 +424,7 @@ export class graphConvolutionModel{
                 const layerK = this.layersPolicy[k];
                 outputPolicy = layerK[0].apply(outputPolicy) as tf.Tensor;
             }
+
             return [outputValue, outputPolicy] as tf.Tensor[];
         })
     }

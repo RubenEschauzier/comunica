@@ -17,6 +17,7 @@ export class MCTSMasterTree{
         //     priorProbability: estimatedProbability};
         const key: string = joinIndexes.flat().toString().replaceAll(',', '');
         this.masterMap.set(key, joinInformation);
+        console.trace()
     }
 
     public updateJoin(joinInformation: MCTSJoinPredictionOutput, joinFeatureMatrix: number[][], joinAdjacancyMatrix: number[][]){
@@ -36,6 +37,14 @@ export class MCTSMasterTree{
         }
 
         this.masterMap.set(key, newStateInformation);
+    }
+
+    public updateJoinDirect(newJoinInformation: MCTSJoinInformation, joinIndexes: number[][]){
+        /**
+         * Directly updates join information in map, should only be used when specific values of the join information should be changed, like prior probability
+         */
+        const key: string = joinIndexes.flat().toString().replaceAll(',', '');
+        this.masterMap.set(key, newJoinInformation);
     }
 
     public updateMasterMap(operationInformation: MCTSJoinPredictionOutput, joinFeatureMatrix: number[][], joinAdjacancyMatrix: number[][]){

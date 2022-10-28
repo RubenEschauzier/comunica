@@ -334,20 +334,22 @@ export class QueryEngineBase implements IQueryEngine {
 
   public async trainModel(masterTreeMap: Map<string, MCTSJoinInformation>, numEntries: number){
 
-    function shuffleTrainingData(adjMatrixes: number[][][], featureMatrixes: number[][][], actualExecutionTimes: number[]) {
-      var j, xA, xF, xE, i;
+    function shuffleTrainingData(adjMatrixes: number[][][], featureMatrixes: number[][][], actualExecutionTimes: number[], actualProbabilities: number[]) {
+      var j, xA, xF, xE, xP, i;
       for (i = adjMatrixes.length - 1; i > 0; i--) {
           j = Math.floor(Math.random() * (i + 1));
-          xA = adjMatrixes[i]; xF = featureMatrixes[i]; xE = actualExecutionTimes[i];
-          adjMatrixes[i] = adjMatrixes[j]; featureMatrixes[i] = featureMatrixes[j]; actualExecutionTimes[i] = actualExecutionTimes[j]
-          adjMatrixes[j] = xA; featureMatrixes[j] = xF; actualExecutionTimes[j] = xE;
+          xA = adjMatrixes[i]; xF = featureMatrixes[i]; xE = actualExecutionTimes[i]; xP = actualProbabilities[i]
+          adjMatrixes[i] = adjMatrixes[j]; featureMatrixes[i] = featureMatrixes[j]; actualExecutionTimes[i] = actualExecutionTimes[j];
+          actualProbabilities[i] = actualProbabilities[j];
+          adjMatrixes[j] = xA; featureMatrixes[j] = xF; actualExecutionTimes[j] = xE; actualProbabilities[j]=xP
       }
-      return [adjMatrixes, featureMatrixes, actualExecutionTimes];
+      return [adjMatrixes, featureMatrixes, actualExecutionTimes, actualProbabilities];
     }
   
     const adjacencyMatrixes: number[][][] = [];
     const featureMatrixes: number[][][] = [];
     const actualExecutionTimes: number[] = [];
+    const actualProbabilities: number[] = [];
     // TEMP REMOVE THIS FOR TESTING!!
     // if (masterTreeMap.size > 0){
       for (const [key, value] of masterTreeMap.entries()) {
@@ -371,9 +373,10 @@ export class QueryEngineBase implements IQueryEngine {
 
         featureMatrixes.push(value.featureMatrix);
         actualExecutionTimes.push(value.actualExecutionTime!);
+        actualProbabilities.push(value.priorProbability);
       }
-      const shuffledInPlace = shuffleTrainingData(adjacencyMatrixes, featureMatrixes, actualExecutionTimes);
-      const trainingLoss: number = await this.modelTrainer.trainModelOfflineBatched(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, numEntries);
+      const shuffledInPlace = shuffleTrainingData(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, actualProbabilities);
+      const trainingLoss: number = await this.modelTrainer.trainModelOfflineBatched(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, actualProbabilities, numEntries);
       return trainingLoss  
     // }
     // else{
