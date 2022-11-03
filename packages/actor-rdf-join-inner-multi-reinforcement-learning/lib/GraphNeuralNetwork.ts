@@ -2,6 +2,7 @@ import { TypeofTypeAnnotation } from '@babel/types';
 import { hasContextSingleSourceOfType } from '@comunica/bus-rdf-resolve-quad-pattern';
 import * as tf from '@tensorflow/tfjs';
 import * as fs from 'fs';
+import * as path from 'path';
 
 // This is tensorflow for cpu, if we were to train and it takes long we can change to gpu probably.
 // https://towardsdatascience.com/how-to-do-deep-learning-on-graphs-with-graph-convolutional-networks-62acf5b143d0
@@ -19,17 +20,12 @@ export class graphConvolutionLayer extends tf.layers.Layer{
     // mVariable: tf.Tensor2D;
     mWeights: tf.Variable;
     testWeights: tf.layers.Layer;
-
-    fs: any;
-    path: any;
     modelDirectory: string;
 
     public static className: string = 'graphConvolutionLayer'; 
 
     constructor(inputSize: number, outputSize: number, activationName: string, layerName?: string) {
         super({});
-        this.path = require('path');
-        this.fs = require('fs');
         this.modelDirectory = this.getModelDirectory();
 
         // Define the activation layer used in this layer
@@ -49,7 +45,7 @@ export class graphConvolutionLayer extends tf.layers.Layer{
 
     }
     public async loadWeights(loadPath: string): Promise<void>{
-        const fileLocation = this.path.join(this.modelDirectory, loadPath);
+        const fileLocation = path.join(this.modelDirectory, loadPath);
         const weights = await this.readWeightFile(fileLocation);
         this.mWeights.assign(weights);
     }
@@ -70,7 +66,7 @@ export class graphConvolutionLayer extends tf.layers.Layer{
 
     public async saveWeights(savePath: string): Promise<void> {
         const weights = await this.mWeights.array();
-        const fileLocation = this.path.join(this.modelDirectory, savePath);
+        const fileLocation = path.join(this.modelDirectory, savePath);
         fs.writeFile(fileLocation, JSON.stringify(weights), function(err: any) {
             if(err) {
                 return console.log(err);
@@ -80,7 +76,7 @@ export class graphConvolutionLayer extends tf.layers.Layer{
 
     
     // I should call build function for flexibility, not sure if I need it yet, but might become needed
-    call(input: tf.Tensor2D,  mAdjacency: tf.Tensor2D, kwargs?: any): tf.Tensor {
+    call(input: tf.Tensor2D|tf.Tensor,  mAdjacency: tf.Tensor2D, kwargs?: any): tf.Tensor {
         return tf.tidy(() => {
             /*  Get inverted square of node degree diagonal matrix */
             const mD: tf.Tensor2D = tf.sum(mAdjacency, 1);
@@ -93,15 +89,14 @@ export class graphConvolutionLayer extends tf.layers.Layer{
             // Normalised adjacency matrix according to kipf for directed graphs;
             const mAdjacencyHat: tf.Tensor2D = tf.matMul(mDInvFull, mAdjacency);
 
-            
-    
-            
+
             // Tensor that denotes the signal travel in convolution
             const mSignalTravel: tf.Tensor = tf.matMul(mAdjacencyHat, input);
 
             // Output of convolution, by multiplying with weight matrix and applying non-linear activation function
             // Check if activation function is ok
             const mWeightedSignal: tf.Tensor = this.activationLayer.apply(tf.matMul(mSignalTravel, this.mWeights));
+
             return mWeightedSignal;
             }
         )
@@ -112,7 +107,7 @@ export class graphConvolutionLayer extends tf.layers.Layer{
     }
 
     private getModelDirectory(){          
-        const modelDir: string = this.path.join(__dirname, '../../actor-rdf-join-inner-multi-reinforcement-learning/model');
+        const modelDir: string = path.join(__dirname, '../../actor-rdf-join-inner-multi-reinforcement-learning/model');
         return modelDir;
     }
 
@@ -124,22 +119,74 @@ export class denseOwnImplementation extends tf.layers.Layer{
     mBias: tf.Variable;
     inputDim: number;
     outputDim: number;
+    modelDirectory: string;
+
 
     public constructor(inputDim: number, outputDim: number){
         super({});
         this.inputDim = inputDim;
         this.outputDim = outputDim
-        this.mWeights = tf.variable(tf.randomUniform([inputDim, outputDim], 0, .2), true);
-        this.mBias = tf.variable(tf.randomUniform([1, outputDim], 0, .2), true);
+        this.mWeights = tf.variable(tf.randomNormal([this.inputDim, this.outputDim]), true);
+        this.mBias = tf.variable(tf.randomNormal([1, outputDim]), true);
+        this.modelDirectory = this.getModelDirectory();
     }
 
-    call(inputs: tf.Tensor2D){
+    call(inputs: tf.Tensor2D|tf.Tensor){
         return tf.tidy(() => {
             return tf.add(tf.matMul(inputs, this.mWeights), this.mBias.broadcastTo([inputs.shape[0], this.outputDim]));
         });
     }
     getClassName() {
         return 'Dense Own';
+    }
+
+    public async saveWeights(savePath: string): Promise<void> {
+        const weights = await this.mWeights.array();
+        const fileLocation = path.join(this.modelDirectory, savePath);
+        fs.writeFile(fileLocation, JSON.stringify(weights), function(err: any) {
+            if(err) {
+                return console.log(err);
+            }
+        }); 
+    }
+    public async saveBias(savePath:string): Promise<void> {
+        const weights = await this.mBias.array();
+        const fileLocation = path.join(this.modelDirectory, savePath);
+        fs.writeFile(fileLocation, JSON.stringify(weights), function(err: any) {
+            if(err) {
+                return console.log(err);
+            }
+        }); 
+    }
+
+    public async loadWeights(loadPath: string): Promise<void>{
+        const fileLocation = path.join(this.modelDirectory, loadPath);
+        const weights = await this.readWeightFile(fileLocation);
+        this.mWeights.assign(weights);
+    }
+    public async loadBias(loadPath: string): Promise<void>{
+        const fileLocation = path.join(this.modelDirectory, loadPath);
+        const weights = await this.readWeightFile(fileLocation);
+        this.mBias.assign(weights);
+    }
+
+    private readWeightFile(fileLocationWeights: string){
+        const readWeights = new Promise<tf.Tensor>( (resolve, reject) => {
+            fs.readFile(fileLocationWeights, 'utf8', async function (err, data) {
+                if (err) throw err;
+                const weightArray: number[][] = JSON.parse(data);
+                // const weights: tf.Tensor[] = weightArray.map((x: number[]) => tf.tensor(x));
+                const weights: tf.Tensor = tf.tensor(weightArray);
+                resolve(weights);
+              });
+        })
+        return readWeights;
+
+    }
+
+    private getModelDirectory(){          
+        const modelDir: string = path.join(__dirname, '../../actor-rdf-join-inner-multi-reinforcement-learning/model');
+        return modelDir;
     }
 
 }
@@ -243,10 +290,10 @@ export class graphConvolutionModel{
 
     model: tf.Sequential;
     
-    allLayersModel: [graphConvolutionLayer|tf.layers.Layer, layerIdentifier][][];
-    layersHidden: [graphConvolutionLayer|tf.layers.Layer, layerIdentifier][];
-    layersValue: [graphConvolutionLayer|tf.layers.Layer, layerIdentifier][];
-    layersPolicy: [graphConvolutionLayer|tf.layers.Layer, layerIdentifier][];
+    allLayersModel: [graphConvolutionLayer|tf.layers.Layer|denseOwnImplementation, layerIdentifier][][];
+    layersHidden: [graphConvolutionLayer|tf.layers.Layer|denseOwnImplementation, layerIdentifier][];
+    layersValue: [graphConvolutionLayer|tf.layers.Layer|denseOwnImplementation, layerIdentifier][];
+    layersPolicy: [graphConvolutionLayer|tf.layers.Layer|denseOwnImplementation, layerIdentifier][];
 
     fs: any;     path: any;
     modelDirectory: string;
@@ -290,29 +337,102 @@ export class graphConvolutionModel{
         )
     }
 
-    public saveModel(){
+    public saveModel(epochString: string){
         tf.serialization.registerClass(graphConvolutionLayer);
-        
+        const firstLayer: graphConvolutionLayer = this.layersHidden[0][0] as graphConvolutionLayer
+        const modelDir: string = firstLayer.modelDirectory
+        fs.mkdirSync(modelDir + '/' + epochString, { recursive: true })
+
         // Hardcoded, should be config when we are happy with performance
-        this.graphConvolutionalLayer1.saveWeights('gcnLayer1');
-        this.graphConvolutionalLayer2.saveWeights('gcnLayer2');
-        this.saveDenseLayer(this.denseLayerValue, this.denseLayerValueFileName);
-        this.saveDenseLayer(this.denseLayerPolicy, this.denseLayerPolicyFileName);
+        // this.graphConvolutionalLayer1.saveWeights('gcnLayer1');
+        // this.graphConvolutionalLayer2.saveWeights('gcnLayer2');
+        // this.saveDenseLayer(this.denseLayerValue, this.denseLayerValueFileName);
+        // this.saveDenseLayer(this.denseLayerPolicy, this.denseLayerPolicyFileName);
+        let numGraph = 0
+        let numDense = 0;
+        for (const layerType of this.layersHidden){
+            if (layerType[1]=='graph'){
+                const layerGraph: graphConvolutionLayer = layerType[0] as graphConvolutionLayer;
+                layerGraph.saveWeights('/' + epochString+'/'+'gcnLayer'+ numGraph.toString());
+                numGraph+=1;
+                console.log("LOading graph thingy");
+            }
+            if(layerType[1]=='dense'){
+                const layerGraph: denseOwnImplementation = layerType[0] as denseOwnImplementation;
+                layerGraph.saveWeights('/' + epochString+'/'+'denseLayer' + numDense.toString());
+                layerGraph.saveBias('/' + epochString+'/'+'denseLayerBias' + numDense.toString());
 
+                numDense+=1;
+            }
+        }
+        let numDenseValue = 0;
+        for (const layerType of this.layersValue){
+            if(layerType[1] == 'dense'){
+                const layerGraph: denseOwnImplementation = layerType[0] as denseOwnImplementation;
+                layerGraph.saveWeights('/' + epochString+'/'+'denseValueLayer' + numDenseValue.toString());
+                layerGraph.saveBias('/' + epochString + '/' + 'denseLayerValueBias' + numDenseValue.toString());
 
+                numDenseValue+=1;
+            }
+        }
+        let numDensePolicy = 0;
+        for (const layerType of this.layersPolicy){
+            if(layerType[1] == 'dense'){
+                const layerGraph: denseOwnImplementation = layerType[0] as denseOwnImplementation;
+                layerGraph.saveWeights('/' + epochString+'/'+'densePolicyLayer' + numDensePolicy.toString());
+                layerGraph.saveBias('/' + epochString + '/' + 'denseLayerPolicyBias' + numDensePolicy.toString());
+
+                numDensePolicy+=1;
+            }
+        }
     }
 
-    public async loadModel(){
-        const layer1 = new graphConvolutionLayer(1, 6, 'relu');
-        layer1.loadWeights('gcnLayer1');
+    public async loadModel(epochString: string){
+        let numGraph = 0;
+        let numDense = 0;
+        for(const layerType of this.layersHidden){
+            if (layerType[1]=='graph'){
+                const layerGraph: graphConvolutionLayer = layerType[0] as graphConvolutionLayer;
+                await layerGraph.loadWeights('/' + epochString+'/'+'gcnLayer'+ numGraph.toString());
+                numGraph+=1;
+            }
+            if(layerType[1]=='dense'){
+                const layerDense: denseOwnImplementation = layerType[0] as denseOwnImplementation;
+                await layerDense.loadWeights('/' + epochString+'/'+'denseLayer' + numDense.toString());
+                await layerDense.loadBias('/' + epochString+ '/' + 'denseLayerBias' + numDense.toString());
+                numDense+=1;
+            }        
+        }
+        let numDenseValue = 0;
+        for(const layerType of this.layersValue){
+            if(layerType[1] == 'dense'){
+                const layerDense: denseOwnImplementation = layerType[0] as denseOwnImplementation;
+                await layerDense.loadWeights('/' + epochString+'/'+'denseValueLayer' + numDenseValue.toString());
+                await layerDense.loadBias('/' + epochString + '/' + 'denseLayerValueBias' + numDenseValue.toString());
 
-        const layer2 = new graphConvolutionLayer(6, 6, 'relu');
-        layer2.loadWeights('gcnLayer2');
+                numDenseValue+=1;
+            }
+        }
+        let numDensePolicy = 0;
 
-        const denseLayerValue = await this.loadDenseLayer(this.denseLayerValueFileName);
-        const denseLayerPolicy = await this.loadDenseLayer(this.denseLayerPolicyFileName);
+        for(const layerType of this.layersPolicy){
+            if(layerType[1] == 'dense'){
+                const layerDense: denseOwnImplementation = layerType[0] as denseOwnImplementation;
+                await layerDense.loadWeights('/' + epochString+'/'+'densePolicyLayer' + numDensePolicy.toString());
+                await layerDense.loadBias('/' + epochString + '/' + 'denseLayerPolicyBias' + numDensePolicy.toString());
+                numDensePolicy+=1;
+            }
+        }
+        // const layer1 = new graphConvolutionLayer(1, 6, 'relu');
+        // layer1.loadWeights('gcnLayer1');
 
-        this.graphConvolutionalLayer1 = layer1; this.graphConvolutionalLayer2 = layer2; this.denseLayerValue = denseLayerValue; this.denseLayerPolicy = denseLayerPolicy;
+        // const layer2 = new graphConvolutionLayer(6, 6, 'relu');
+        // layer2.loadWeights('gcnLayer2');
+
+        // const denseLayerValue = await this.loadDenseLayer(this.denseLayerValueFileName);
+        // const denseLayerPolicy = await this.loadDenseLayer(this.denseLayerPolicyFileName);
+
+        // this.graphConvolutionalLayer1 = layer1; this.graphConvolutionalLayer2 = layer2; this.denseLayerValue = denseLayerValue; this.denseLayerPolicy = denseLayerPolicy;
     }
 
     public async saveDenseLayer(layer: tf.layers.Layer, fileName: string){
@@ -402,8 +522,10 @@ export class graphConvolutionModel{
     }
 
     public forwardPassTest(inputFeatures: tf.Tensor2D, mAdjacency: tf.Tensor2D){
+        // console.log("Input Features!");
+        // inputFeatures.print()
         return tf.tidy(() => {
-            let x: tf.Tensor2D = this.layersHidden[0][0].call(inputFeatures, mAdjacency) as tf.Tensor2D;
+            let x: tf.Tensor = this.layersHidden[0][0].call(inputFeatures, mAdjacency) as tf.Tensor;
             for (let i=1; i<this.layersHidden.length;i++){
                 const layerI = this.layersHidden[i];
                 if (layerI[1] == 'graph'){
@@ -413,7 +535,8 @@ export class graphConvolutionModel{
                     x = layerI[0].apply(x) as tf.Tensor2D;
                 }
             }
-
+            // console.log("HiddenLayer Output");
+            // x.print();
             let outputValue: tf.Tensor = this.layersValue[0][0].apply(x) as tf.Tensor;
             for (let j=1; j<this.layersValue.length;j++){
                 const layerI = this.layersValue[j];

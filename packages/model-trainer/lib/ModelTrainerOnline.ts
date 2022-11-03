@@ -1,5 +1,5 @@
 import { enumStringBody } from "@babel/types";
-import { graphConvolutionModel } from "@comunica/actor-rdf-join-inner-multi-reinforcement-learning/lib/GraphNeuralNetwork";
+import { denseOwnImplementation, graphConvolutionLayer, graphConvolutionModel } from "@comunica/actor-rdf-join-inner-multi-reinforcement-learning/lib/GraphNeuralNetwork";
 import { NodeStateSpace, StateSpaceTree } from "@comunica/mediator-join-reinforcement-learning";
 import * as tf from '@tensorflow/tfjs';
 
@@ -19,13 +19,13 @@ export class ModelTrainer{
         this.model = modelHolder.getModel();
     }
 
-    public loadModel(){
+    public loadModel(saveDir: string){
         this.model = new graphConvolutionModel();
-        this.model.loadModel();
+        this.model.loadModel(saveDir);
     }
 
-    public saveModel(){
-        this.model.saveModel();
+    public saveModel(saveDir: string){
+        this.model.saveModel(saveDir);
     }
     
     private getModelDirectory(){          
@@ -104,9 +104,9 @@ export class ModelTrainer{
                 // const policyTensor: tf.Tensor = tf.concat(policyPredictions);
                 // const normY = tf.div(y, tf.sub((numEntries-1)*2, nodeDegreeTensor));
                 console.log("Prediction:")
-                console.log(predictionTensor.dataSync());
+                console.log(predictionTensor.squeeze().dataSync());
                 console.log("Y Actual");
-                console.log(yPre.dataSync());
+                console.log(yPre.squeeze().dataSync());
 
                 const loss = tf.losses.meanSquaredError(yPre, predictionTensor.squeeze());
                 const scalarLoss: tf.Scalar = tf.squeeze(loss);
@@ -185,12 +185,18 @@ export class ModelTrainer{
           }
           
 
-
+        // for (const fm of featureMatrixes){
+        //     for (const feature of fm){
+        //         console.log("Feature / Length")
+        //         console.log(feature);
+        //         console.log(feature.length);
+        //     }
+        // }
         batchSize=4;
         // let yPre = tf.tensor(yArray);
         // yPre = tf.div(tf.sub(yPre,yPre.mean(0, true)), tf.moments(yPre).variance.sqrt())
+
         let totalLoss: number = 0;
-        console.log(executionTime);
         return tf.tidy(() => {
             const yValue: tf.Tensor = tf.tensor(executionTime);
             const yProb: tf.Tensor = tf.tensor(actualProbabilities);
@@ -203,8 +209,8 @@ export class ModelTrainer{
                         const adjTensorPre = tf.tensor2d(adjacencyMatrixes[b*batchSize+i]);
 
                         /* Pretend we don't know the prediction output of our join node for training purposes*/
-                        const forwardPassOutput: tf.Tensor[] = this.model.forwardPassTest(tf.tensor2d(featureMatrixes[b*batchSize+i], 
-                            [adjacencyMatrixes[b*batchSize+i].length, featureMatrixes[b*batchSize+i][0].length]), adjTensorPre) as tf.Tensor[];
+                        const forwardPassOutput: tf.Tensor[] = this.model.forwardPassTest(tf.tensor(featureMatrixes[b*batchSize+i],
+                            [featureMatrixes[b*batchSize+i].length, featureMatrixes[b*batchSize+i][0].length], 'float32'), adjTensorPre) as tf.Tensor[];
 
                         const joinValuePrediction: tf.Tensor = forwardPassOutput[0].slice([forwardPassOutput[0].shape[0]-1, 0]);
                         const joinPolicyPrediction: tf.Tensor = forwardPassOutput[1].slice([forwardPassOutput[0].shape[0]-1, 0]);
@@ -216,10 +222,13 @@ export class ModelTrainer{
                     }
                     const predictionTensorValue: tf.Tensor = tf.concat(valuePredictions);
                     const predictionTensorProb: tf.Tensor = tf.concat(policyPredictions)
-                    console.log("Batch Result (prediction \n actual):");
-                    predictionTensorValue.print();
-                    yValue.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-yValue.shape[0]))).print();
-                    const loss = tf.losses.meanSquaredError(yValue.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-yValue.shape[0]))).squeeze(), predictionTensorValue.squeeze());
+                    console.log("Batch Result (predictionValue-actual-predictionProb-actual):");
+                    predictionTensorValue.squeeze().print();
+                    yValue.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-yValue.shape[0]))).squeeze().print();
+                    predictionTensorProb.squeeze().print();
+                    yProb.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-yValue.shape[0]))).squeeze().print();
+
+                    // const loss = tf.losses.meanSquaredError(yValue.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-yValue.shape[0]))).squeeze(), predictionTensorValue.squeeze());
                     const lossNew = joinLoss(predictionTensorValue.squeeze(), predictionTensorProb.squeeze(), 
                         yValue.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-yValue.shape[0]))).squeeze(), yProb.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-yValue.shape[0]))).squeeze());
                     const scalarLoss: tf.Scalar = tf.squeeze(lossNew);
@@ -229,6 +238,7 @@ export class ModelTrainer{
                 }, true)!;
                 totalLoss += loss.dataSync()[0];
             }
+            // this.saveModel('testDir');
             return totalLoss;
         }); 
     }
@@ -239,8 +249,9 @@ export class ModelTrainer{
                 return x;
             }
         }).map(x => x.id);
+        const zeroEmbedding = new Array(128).fill(0);
 
-        const newParent: NodeStateSpace = new NodeStateSpace(joinState.numNodes, [0,0,0,0,0,0,0,1], 0);
+        const newParent: NodeStateSpace = new NodeStateSpace(joinState.numNodes, [0,0,0,0,0,0,0,1, ...zeroEmbedding], 0, zeroEmbedding);
         joinState.addParent(finalJoin, newParent);
 
         const adjTensor = tf.tensor2d(joinState.adjacencyMatrix);

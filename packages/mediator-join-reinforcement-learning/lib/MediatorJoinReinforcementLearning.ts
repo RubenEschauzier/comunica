@@ -7,7 +7,9 @@ import type { IQueryOperationResult, MetadataBindings } from '@comunica/types';
 import { NodeStateSpace, StateSpaceTree } from './StateSpaceTree';
 import * as RdfJs from 'rdf-js'
 import { aggregateValues, runningMoments } from '@comunica/model-trainer';
-
+import * as fs from 'node:fs'
+import * as readline from 'node:readline'
+import * as path from 'path'
 /**
  * A comunica mediator that mediates for the reinforcement learning-based multi join actor
  * @template A The type of actor to mediator over.
@@ -22,6 +24,7 @@ export class MediatorJoinReinforcementLearning
   extends Mediator<ActorRdfJoin, IActionRdfJoin, IMediatorTypeJoinCoefficients, IQueryOperationResult> {
   public joinState: StateSpaceTree;
   public offlineTrain: boolean;
+  public graphVectors = new Map<string, number[]>();
   public readonly cpuWeight: number;
   public readonly memoryWeight: number;
   public readonly timeWeight: number;
@@ -31,6 +34,30 @@ export class MediatorJoinReinforcementLearning
     super(args);
     this.offlineTrain = args['offlineTrain'];
 
+  }
+
+  public async processLineByLine(vectorLocation: string) {
+      const fileStream = fs.createReadStream(vectorLocation);
+      const rl = readline.createInterface({
+        input: fileStream,
+        crlfDelay: Infinity
+      });
+    
+      for await (const line of rl) {
+        // Each line in input.txt will be successively available here as `line`.
+        const entityTest = line.split('[sep]')
+        // const entityVector = line.split(/(.*)/s);
+        const entity = entityTest[0]
+        const vectorRepresentation = entityTest[1].trim().split(" ").map(Number);
+        this.graphVectors.set(entity, vectorRepresentation);
+      }
+    }
+
+  public async loadGraphVectors(){
+    const vectorLocation = path.join(__dirname, "..", "..", "/actor-rdf-join-inner-multi-reinforcement-learning/model/vectors.txt");
+    this.graphVectors = new Map();
+    // const vectors = JSON.parse(readFileSync(vectorLocation, 'utf8'));
+    await this.processLineByLine(vectorLocation);
   }
 
   protected async mediateWith(action: IActionRdfJoin, testResults: IActorReply<ActorRdfJoin, IActionRdfJoin, IMediatorTypeJoinCoefficients, IQueryOperationResult>[],
@@ -122,6 +149,9 @@ export class MediatorJoinReinforcementLearning
     * If we perform offline training we simulate 'x' join plans according to our current neural network predictions. We do so by calling the mediateWith function 'x'
     * times from the start of the join execution plan.
     */
+    if (this.graphVectors.size==0){
+      this.loadGraphVectors();
+    }
     /* At first join execution we initialise our StateSpaceTree with just leaf nodes */
     if (!action.context.getEpisodeState()){
       let joinStateTest = new StateSpaceTree();
@@ -142,8 +172,9 @@ export class MediatorJoinReinforcementLearning
         const isLiteral: number[] = triple.map(x=> x.termType=='Literal' ? 1 : 0);
         const cardinalityNode: number[] = [cardinalitiesResolved[i]];
 
+        const predicateEmbedding = this.graphVectors.get(Quads[i].predicate.value)!;
         // Features here indicate [cardinality, subjectIsVariable, predicateIsVariable, objectIsVariable, subjectIsLiteral, predicateIsLiteral, objectIsLiteral, resultOfJoin];
-        const featureNode = cardinalityNode.concat(isVariable, isLiteral, [0]);
+        const featureNode = cardinalityNode.concat(isVariable, isLiteral, [0], predicateEmbedding);
 
         // Here we initialise the tracking of our features based on what features we want to standardize
         for (const index of indexesToTrack){
@@ -151,9 +182,9 @@ export class MediatorJoinReinforcementLearning
         }
 
         // Create the new leaf node and add to statespace
-        let newNode: NodeStateSpace = new NodeStateSpace(i, featureNode, featureNode[0]);
+        let newNode: NodeStateSpace = new NodeStateSpace(i, featureNode, featureNode[0], predicateEmbedding);
         newNode.setDepth(0);
-        joinStateTest.addLeave(newNode);
+        joinStateTest.addLeaf(newNode);
       }
       // Standardise our features based on running mean and std
       for (const index of indexesToTrack){
@@ -167,7 +198,9 @@ export class MediatorJoinReinforcementLearning
             console.error("Accessing index in running moments that does not exist (mediator)");
           }
         });
+        
       }
+      
 
       /* Set the number of leave nodes in the tree, this will not change during execution */
       joinStateTest.setNumLeaveNodes(joinStateTest.numNodes); 

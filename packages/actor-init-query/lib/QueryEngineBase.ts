@@ -134,6 +134,10 @@ export class QueryEngineBase implements IQueryEngine {
     // Prepare episodeLogger and context
     /* Create episodeLogger, with master tree if we perform offline training */
     const queryEpisode: EpisodeLogger = new EpisodeLogger();
+    // We create our model and load weights if applicable
+    if (!this.modelHolder.instantiated){
+      await this.modelHolder.instantiateModel();
+    }
 
     /* When offline training we require an externally created instance of the master tree to be passed */
     if (context && context.masterTree){

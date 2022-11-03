@@ -16,9 +16,10 @@ export class NodeStateSpace {
     // public cardinality: number;
     public features: number[];
     public cardinality: number;
+    public predicateEmbedding: number[];
 
     //  variable: number[], literal: number[]
-    constructor(idNode: number, features: number[], cardinality: number) {
+    constructor(idNode: number, features: number[], cardinality: number, predicateEmbedding: number[]) {
         // Temporary cardinality
         // this.cardinality = cardinality;
         this.children = [];
@@ -27,6 +28,7 @@ export class NodeStateSpace {
         this.joined = false;
         this.features = features
         this.cardinality = cardinality;
+        this.predicateEmbedding = predicateEmbedding
     }
 
     public setChild(childNode: NodeStateSpace){
@@ -92,7 +94,7 @@ export class StateSpaceTree{
         return this.joinIndexes;
     }
 
-    public addLeave(leave: NodeStateSpace){
+    public addLeaf(leave: NodeStateSpace){
         this.nodesArray.push(leave);
         this.incrementNumNodes();
         this.numUnjoined += 1;
@@ -112,12 +114,12 @@ export class StateSpaceTree{
         }
     }
 
-    public addParent(leaveIndexes: number[], parent: NodeStateSpace){
+    public addParent(leafIndexes: number[], parent: NodeStateSpace){
         // Bad code, should do in for loop
-        console.assert (leaveIndexes.length == 2, {numberChildren: leaveIndexes.length,
+        console.assert (leafIndexes.length == 2, {numberChildren: leafIndexes.length,
             errorMsg: "Can only supply 2 indices to add, no more or less"});
-        const node1: NodeStateSpace = this.nodesArray[leaveIndexes[0]];
-        const node2: NodeStateSpace = this.nodesArray[leaveIndexes[1]];
+        const node1: NodeStateSpace = this.nodesArray[leafIndexes[0]];
+        const node2: NodeStateSpace = this.nodesArray[leafIndexes[1]];
 
         // Set child and parent relations
         
@@ -133,7 +135,7 @@ export class StateSpaceTree{
         parent.setDepth(parentDepth);
 
         // Update child nodes in the array and add parent node to the array
-        this.nodesArray[leaveIndexes[0]] = node1; this.nodesArray[leaveIndexes[1]] = node2;
+        this.nodesArray[leafIndexes[0]] = node1; this.nodesArray[leafIndexes[1]] = node2;
         this.nodesArray.push(parent);
 
         /* Add entry to adjacency matrix*/
@@ -143,8 +145,8 @@ export class StateSpaceTree{
 
         this.adjacencyMatrix.push(Array(this.numNodes+1).fill(0));
         // this.adjacencyMatrix[this.numNodes][this.numNodes] = 1;
-        this.adjacencyMatrix[this.numNodes][leaveIndexes[0]] = 1;
-        this.adjacencyMatrix[this.numNodes][leaveIndexes[1]] = 1;
+        this.adjacencyMatrix[this.numNodes][leafIndexes[0]] = 1;
+        this.adjacencyMatrix[this.numNodes][leafIndexes[1]] = 1;
 
         // This makes undirected graph
         // this.adjacencyMatrix[leaveIndexes[0]][this.numNodes] = 1;

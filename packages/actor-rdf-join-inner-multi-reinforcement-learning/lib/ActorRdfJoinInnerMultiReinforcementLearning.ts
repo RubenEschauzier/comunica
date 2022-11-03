@@ -22,6 +22,7 @@ import { aggregateValues, MCTSJoinInformation, MCTSJoinPredictionOutput, MCTSMas
 import * as _ from 'lodash'
 import { Variable } from 'rdf-data-factory';
 import { getContextSourceUrl } from '@comunica/bus-rdf-resolve-quad-pattern';
+import { FederatedQuadSource } from '@comunica/actor-rdf-resolve-quad-pattern-federated';
 
 /* Debugging info : https://stackoverflow.com/questions/20936486/node-js-maximum-call-stack-size-exceeded
 * https://blog.jcoglan.com/2010/08/30/the-potentially-asynchronous-loop/
@@ -47,6 +48,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
 
   prevEstimatedCost: number;
   explorationDegree: number;
+  predicateEmbeddingSize: number;
   /* Node id to entries index mapping*/
   nodeid_mapping: Map<number, number>;
   nodeid_mapping_test: Map<number, number>;
@@ -62,6 +64,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     this.offlineTrain = args['offlineTrain']
     this.explorationDegree = args['explorationDegree'];
     this.nodeid_mapping = new Map<number, number>();
+    this.predicateEmbeddingSize = 128;
   }
 
   // private initialiseStates(action: IActionRdfJoin, metadatas: MetadataBindings[]): void {
@@ -95,6 +98,14 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     return tf.tidy(()=>{
       return tf.div(tf.exp(logits), tf.sum(tf.exp(logits), undefined, false));
     })
+  }
+
+  public maxPool(array1: number[], array2: number[]){
+    const maxPooled = []
+    for (let i=0;i<array1.length;i++){
+      maxPooled.push(Math.max(array1[i], array2[i]))
+    }
+    return maxPooled;
   }
 
   public chooseUsingProbability(probArray: Float32Array|number[]): number{
@@ -183,32 +194,36 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     }
     // Here we try to use a reduced form of cardinality for feature, since the comunica cardinality explodes when selectivity is small
     const selectivity: number = (await this.mediatorJoinSelectivity.mediate({entries: [toBeJoined1,toBeJoined2], context: action.context})).selectivity;
-    const testCardSmaller: number = (joined_nodes[0].cardinality +joined_nodes[1].cardinality)*selectivity
+    const testCardSmaller: number = (joined_nodes[0].cardinality +joined_nodes[1].cardinality)*selectivity;
+    const joinedPredicateEmbedding = this.maxPool(joined_nodes[0].predicateEmbedding, joined_nodes[1].predicateEmbedding);
 
     // Add cardinality of the new join to current state, 
     const numNodes = action.context.getEpisodeState().numNodes
     const featuresLastNode: number[] = action.context.getEpisodeState().nodesArray[numNodes-1].features;
     const addedJoinMetaData: MetadataBindings = await entries[entries.length-1].output.metadata();
     // const newJoinCardinality: number = addedJoinMetaData.cardinality.value;
-
-    action.context.getEpisodeState().nodesArray[numNodes-1].cardinality = testCardSmaller
+    action.context.getEpisodeState().nodesArray[numNodes-1].cardinality = testCardSmaller;
     featuresLastNode[0] = testCardSmaller;
-    featuresLastNode[featuresLastNode.length-1] = addedJoinMetaData.variables.length
+    featuresLastNode[featuresLastNode.length-1] = addedJoinMetaData.variables.length;
+    const first8: number[] = featuresLastNode.slice(0,8);
+    const newFeatures: number[] = [...first8, ...joinedPredicateEmbedding]
+    action.context.getEpisodeState().nodesArray[numNodes-1].features = newFeatures;
+
 
     // Update the running mean and std
     const indexesToTrack = action.context.getRunningMomentsMasterTree().indexes;
     for (const index of indexesToTrack){
-      action.context.updateRunningMomentsMasterTree(featuresLastNode[index], index);
+      action.context.updateRunningMomentsMasterTree(newFeatures[index], index);
       const runningMoments = action.context.getRunningMomentsMasterTree().runningStats.get(index);
       if (runningMoments){
-        featuresLastNode[index] = (featuresLastNode[index] - runningMoments.mean)/runningMoments.std;
+        newFeatures[index] = (newFeatures[index] - runningMoments.mean)/runningMoments.std;
       }
       else{
         console.error("Accessing index in running moments that does not exist (actor)");
       }
     }
-
-    action.context.getJoinStateMasterTree(action.context.getEpisodeState().joinIndexes).featureMatrix[numNodes-1][0] = featuresLastNode[0];
+    
+    action.context.getJoinStateMasterTree(action.context.getEpisodeState().joinIndexes).featureMatrix[numNodes-1][0] = newFeatures[0];
     // console.log(action.context.getJoinStateMasterTree(action.context.getEpisodeState().joinIndexes).featureMatrix);
 
     // action.context.setJoinStateMasterTree(predictionOutput, featureMatrix, adjacencyMatrixCopy);
@@ -465,7 +480,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     action: IActionRdfJoin,
     metadatas: MetadataBindings[],
   ): Promise<IMediatorTypeJoinCoefficients> {
-    console.log(action.entries);
     /**
      * Execute the RL agent on all possible joins from the current join state and return the best join state.
      * @param {IActionRdfJoin} action An array containing information on the joins
@@ -678,6 +692,11 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     const state: StateSpaceTree = searchAction.context.getEpisodeState(); 
     // First expand the root of the seach
     const numPossibleChild: number = await this.expandChildStatesTest(searchAction, modelHolder, masterTree);
+    // console.log("NEW CALL!");
+    // for (const test of masterTree.masterMap){
+    //   console.log(`Key ${test[0]}`);
+    //   console.log(test[1].featureMatrix.slice(-1));
+    // }
     // Num sims from http://ceur-ws.org/Vol-2652/paper05.pdf, alpha join
     const numSimulations = (numPossibleChild) * searchFactor;
 
@@ -687,9 +706,13 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     for(let i=0;i<searchAction.context.getEpisodeState().nodesArray.length;i++){
       featureMatrix.push(searchAction.context.getEpisodeState().nodesArray[i].features);
     }
-    searchAction.context.setJoinStateMasterTree({N:1, state:state.getJoinIndexes(), predictedValueJoin: 0, predictedProbability: 1},featureMatrix, adjMatrix);
-    masterTree.updateJoin({N:1, state:state.getJoinIndexes(), predictedValueJoin: 0, predictedProbability: 1},featureMatrix, adjMatrix);
+    // console.log("Before")
+    // console.log(masterTree.getJoinInformation(state.getJoinIndexes()));
 
+    searchAction.context.setJoinStateMasterTree({N:1, state:state.getJoinIndexes(), predictedValueJoin: 0, predictedProbability: 1}, featureMatrix, adjMatrix);
+    masterTree.updateJoin({N:1, state:state.getJoinIndexes(), predictedValueJoin: 0, predictedProbability: 1}, featureMatrix, adjMatrix);
+    // console.log("After")
+    // console.log(masterTree.getJoinInformation(state.getJoinIndexes()));
     // Perform MCTS simulations
     for(let i=0; i<numSimulations; i++){
       const cloneAction: IActionRdfJoin = _.cloneDeep(searchAction);
@@ -728,8 +751,11 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     }
     const idx = this.chooseUsingProbability(improvedProbabilitiesChildren);
     // console.log(improvedProbabilitiesChildren);
-    const featureNode: number[] = [0, 0,0,0,0,0,0,1];
-    const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, featureNode, 0);
+    const featureAddedJoin: number[] = masterTree.getJoinInformation(joinKeysChildren[idx]).featureMatrix[featureMatrix.length-1];
+    const joinEmbedding: number[] = featureAddedJoin.slice(8);
+    const newFeatures: number[] = [0,0,0,0,0,0,0,1, ...joinEmbedding]
+
+    const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, newFeatures, 0, joinEmbedding);
     action.context.getEpisodeState().addParent(possibleChildren[idx], newParent);
 
     // Add self connection to explored join, experimental
@@ -774,7 +800,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
         return;
       }
 
-      let maxU = -1;
+      let maxU = Number.NEGATIVE_INFINITY;
       let bestJoin = [0,0];
       for (const join of possibleJoins){
         const joinEntryIndexes: number[] = join.map(x => clonedAction.context.getNodeIdMapping().get(x)!);
@@ -1032,18 +1058,18 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
   
 
 
-  private async executeJoinMCTS(copiedAction: IActionRdfJoin, join: number[]){
+  private async executeJoinMCTS(copiedAction: IActionRdfJoin, joinToExecute: number[]){
     const passedNodeIdMapping = copiedAction.context.getNodeIdMapping();
-    const entries: IJoinEntry[] = copiedAction.entries;
+    const entriesToExecute: IJoinEntry[] = copiedAction.entries;
     const state: StateSpaceTree = copiedAction.context.getEpisodeState();
-    const joinedNodes = join.map(x => state.nodesArray[x]);
+    const joinedNodes = joinToExecute.map(x => state.nodesArray[x]);
     const runningMeans: runningMoments = copiedAction.context.getRunningMomentsMasterTree();
 
     // Get the join indexes corresponding to node indexes passed in the join 
-    const indexJoins: number[] = join.map(x => passedNodeIdMapping.get(x)!).sort();
-    const toBeJoined1 = entries[indexJoins[0]]; const toBeJoined2 = entries[indexJoins[1]];
+    const indexJoins: number[] = joinToExecute.map(x => passedNodeIdMapping.get(x)!).sort();
+    const toBeJoined1 = entriesToExecute[indexJoins[0]]; const toBeJoined2 = entriesToExecute[indexJoins[1]];
 
-    entries.splice(indexJoins[1],1); entries.splice(indexJoins[0],1);
+    entriesToExecute.splice(indexJoins[1],1); entriesToExecute.splice(indexJoins[0],1);
 
     /* Save the join indices */
     const firstEntry: IJoinEntry = {
@@ -1052,7 +1078,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
       operation: ActorRdfJoinInnerMultiReinforcementLearning.FACTORY
         .createJoin([ toBeJoined1.operation, toBeJoined2.operation ], false),
     };
-    entries.push(firstEntry);
+    entriesToExecute.push(firstEntry);
 
     /* Update the mapping to reflect the newly executed join*/
     /* Find maximum and minimum index in the join entries array to update the mapping */
@@ -1070,7 +1096,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     }
 
     /* Remove joined nodes from the index mapping*/
-    copiedAction.context.setNodeIdMapping(join[0], -1); copiedAction.context.setNodeIdMapping(join[1], -1);
+    copiedAction.context.setNodeIdMapping(joinToExecute[0], -1); copiedAction.context.setNodeIdMapping(joinToExecute[1], -1);
 
     // Here we try to use a reduced form of cardinality for feature, since the comunica cardinality explodes when selectivity is small
     const selectivity: number = (await this.mediatorJoinSelectivity.mediate({entries: [toBeJoined1,toBeJoined2], context: copiedAction.context})).selectivity;
@@ -1079,17 +1105,19 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
 
     // Add node with features to the state
     const numNodes = state.numNodes;
-    const addedJoinMetaData: MetadataBindings = await entries[entries.length-1].output.metadata();
-
-    const featureNode: number[] = [testCardSmaller, 0,0,0,0,0,0, addedJoinMetaData.variables.length];
+    const addedJoinMetaData: MetadataBindings = await entriesToExecute[entriesToExecute.length-1].output.metadata();
+    // Get zeros vector for predicate representation
+    const predEmbedding1 = joinedNodes[0].predicateEmbedding; const predEmbedding2 = joinedNodes[1].predicateEmbedding
+    const newJoinEmbedding = this.maxPool(predEmbedding1, predEmbedding2);
+    const featureNode: number[] = [testCardSmaller, 0,0,0,0,0,0, addedJoinMetaData.variables.length, ...newJoinEmbedding];
     // Standardise new features
     for (const index of runningMeans.indexes){
       const runningStatsIndex: aggregateValues = runningMeans.runningStats.get(index)!;
       featureNode[index] = (featureNode[index] - runningStatsIndex.mean) / runningStatsIndex.std;
     }
 
-    const newParent: NodeStateSpace = new NodeStateSpace(numNodes, featureNode, testCardSmaller);
-    state.addParent(join, newParent);
+    const newParent: NodeStateSpace = new NodeStateSpace(numNodes, featureNode, testCardSmaller, newJoinEmbedding);
+    state.addParent(joinToExecute, newParent);
 
     // Add the joined entry to the index mapping
     copiedAction.context.setNodeIdMapping(newParent.id, copiedAction.entries.length-1);
@@ -1108,6 +1136,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
   }
 
   private async getChosenJoinOnline(action: IActionRdfJoin, metadatas: MetadataBindings[], possibleJoins: number[][]){
+    // Needs to be redone
     let bestJoinCost: number = Infinity;
     let bestJoin: number[] = [-1, -1];
 
@@ -1116,8 +1145,9 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
           and cpu usage (delete the new node)
       */
       // Feature array indicating that this is a join
-      const featureArray: number[] = [0,0,0,0,0,0,0,1]
-      const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, featureArray, 0);
+      const zeroEmbedding = new Array(this.predicateEmbeddingSize).fill(0);
+      const featureArray: number[] = [0,0,0,0,0,0,0,1, ...zeroEmbedding]
+      const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, featureArray, 0, zeroEmbedding);
       action.context.getEpisodeState().addParent(joinCombination, newParent);
       const adjTensor = tf.tensor2d(action.context.getEpisodeState().adjacencyMatrix);
 
@@ -1153,10 +1183,11 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
 
       action.context.getEpisodeState().removeLastAdded();
     }
+    const zeroEmbedding = new Array(this.predicateEmbeddingSize).fill(0);
     /* Select join to explore based on probabilty obtained by softmax of the estimated join values*/
     /*  Update the actors joinstate, which will be used by the RL medaitor to update its joinstate too  */
-    const featureNode: number[] = [bestJoinCost, 0,0,0,0,0,0,1]
-    const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, featureNode, 0);
+    const featureNode: number[] = [bestJoinCost, 0,0,0,0,0,0,1, ...zeroEmbedding]
+    const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, featureNode, 0, zeroEmbedding);
     action.context.getEpisodeState().addParent(bestJoin, newParent);
     this.prevEstimatedCost = bestJoinCost;
 
