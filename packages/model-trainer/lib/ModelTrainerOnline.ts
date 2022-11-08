@@ -132,8 +132,7 @@ export class ModelTrainer{
     }
 
     public async trainModelOfflineBatched(adjacencyMatrixes: number[][][], featureMatrixes: number[][][], executionTime: number[], 
-        actualProbabilities: number[], batchSize: number): Promise<number>{
-        const featureSize: number = 8;
+        actualProbabilities: number[][], estimatedProbabilitiesTensor: tf.Tensor[], batchSize: number): Promise<number>{
         // const yArray = [40, 40, 20, 20];
         // const adjacencyMatrixesPre = [ [[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [1, 1, 0, 1, 0], [0, 0, 1, 1, 0]],
         //     [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [1, 1, 0, 0]], 
@@ -175,23 +174,14 @@ export class ModelTrainer{
         //     }
         //     scaledFeaturesMatrixesPre.push(episode);
         // }
-        function joinLoss(predictionValue: tf.Tensor, predictionProb: tf.Tensor, actualValue: tf.Tensor, actualProb: tf.Tensor) {
-            return tf.tidy(()=>{
+        function joinLoss(predictionValue: tf.Tensor, predictionProb: tf.Tensor, actualValue: tf.Tensor, actualProb: tf.Tensor) {  
+                return tf.tidy(()=>{
                 const valueTerm: tf.Tensor = tf.pow(tf.sub(predictionValue, actualValue),2);
-                const probTerm: tf.Tensor = tf.mul(actualProb, tf.log(predictionProb));
+                const probTerm: tf.Tensor = tf.sum(tf.mul(actualProb, tf.log(predictionProb)),Math.min(1,actualProb.shape.length-1));
                 const loss: tf.Tensor = tf.sum(tf.sub(valueTerm, probTerm));
                 return loss
             })
-          }
-          
-
-        // for (const fm of featureMatrixes){
-        //     for (const feature of fm){
-        //         console.log("Feature / Length")
-        //         console.log(feature);
-        //         console.log(feature.length);
-        //     }
-        // }
+        }
         batchSize=4;
         // let yPre = tf.tensor(yArray);
         // yPre = tf.div(tf.sub(yPre,yPre.mean(0, true)), tf.moments(yPre).variance.sqrt())
@@ -200,7 +190,12 @@ export class ModelTrainer{
         return tf.tidy(() => {
             const yValue: tf.Tensor = tf.tensor(executionTime);
             const yProb: tf.Tensor = tf.tensor(actualProbabilities);
+            // console.log("Here are tensors");
+            // for (const tensor of estimatedProbabilitiesTensor){
+            //     tensor.print()
+            // }
             for (let b=0; b<Math.max(Math.floor(adjacencyMatrixes.length/batchSize), 1) ; b++){
+                console.log(`Batch ${b}`);
                 const loss = this.optimizer.minimize(()=>{
                     const valuePredictions: tf.Tensor[] = []
                     const policyPredictions: tf.Tensor[] = []
@@ -214,23 +209,32 @@ export class ModelTrainer{
 
                         const joinValuePrediction: tf.Tensor = forwardPassOutput[0].slice([forwardPassOutput[0].shape[0]-1, 0]);
                         const joinPolicyPrediction: tf.Tensor = forwardPassOutput[1].slice([forwardPassOutput[0].shape[0]-1, 0]);
-                            
-        
+                        // console.log("Features:")
+                        // tf.tensor(featureMatrixes[b*batchSize+i],
+                        //     [featureMatrixes[b*batchSize+i].length, featureMatrixes[b*batchSize+i][0].length], 'float32').print();
+                        // console.log("Adj Tensor");
+                        // adjTensorPre.print();
+                        // console.log("Prediction:");
+                        // joinValuePrediction.print();
+                        console.log(`Prediction in Batch ${joinValuePrediction.dataSync()}`);
                         valuePredictions.push(joinValuePrediction);
                         policyPredictions.push(joinPolicyPrediction);
                         
                     }
                     const predictionTensorValue: tf.Tensor = tf.concat(valuePredictions);
-                    const predictionTensorProb: tf.Tensor = tf.concat(policyPredictions)
+                    const predictionTensorProb: tf.Tensor = tf.concat(policyPredictions);
+                    const estimatedProbabilitiesSliced: tf.Tensor = tf.stack(estimatedProbabilitiesTensor.slice(b*batchSize, 
+                        Math.min((b+1)*batchSize,Math.abs(b*batchSize-estimatedProbabilitiesTensor.length)))).squeeze()
+                    console.log("All predictions!")
+                    console.log(predictionTensorValue.dataSync())
                     console.log("Batch Result (predictionValue-actual-predictionProb-actual):");
                     predictionTensorValue.squeeze().print();
                     yValue.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-yValue.shape[0]))).squeeze().print();
-                    predictionTensorProb.squeeze().print();
+                    estimatedProbabilitiesSliced.print();
                     yProb.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-yValue.shape[0]))).squeeze().print();
-
                     // const loss = tf.losses.meanSquaredError(yValue.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-yValue.shape[0]))).squeeze(), predictionTensorValue.squeeze());
-                    const lossNew = joinLoss(predictionTensorValue.squeeze(), predictionTensorProb.squeeze(), 
-                        yValue.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-yValue.shape[0]))).squeeze(), yProb.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-yValue.shape[0]))).squeeze());
+                    const lossNew = joinLoss(predictionTensorValue.squeeze(), estimatedProbabilitiesSliced, 
+                        yValue.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-yValue.shape[0]))).squeeze(), yProb.slice(b*batchSize, Math.min(batchSize, Math.abs(b*batchSize-yProb.shape[0]))).squeeze());
                     const scalarLoss: tf.Scalar = tf.squeeze(lossNew);
         
                     return scalarLoss

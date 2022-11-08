@@ -36,6 +36,7 @@ export interface IActionContext {
   getNodeIdMapping: () => Map<number,number>;
   getModelHolder: () => modelHolder;
   getMasterTree: () => MCTSMasterTree; 
+  getValidation: () => boolean;
   set: <V>(key: IActionContextKey<V>, value: V) => IActionContext;
   /**
    * Will only set the value if the key is not already set.

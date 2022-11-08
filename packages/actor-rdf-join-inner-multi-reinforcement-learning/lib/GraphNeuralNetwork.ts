@@ -1,6 +1,7 @@
 import { TypeofTypeAnnotation } from '@babel/types';
 import { hasContextSingleSourceOfType } from '@comunica/bus-rdf-resolve-quad-pattern';
 import * as tf from '@tensorflow/tfjs';
+import { kMaxLength } from 'buffer';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -19,6 +20,7 @@ export class graphConvolutionLayer extends tf.layers.Layer{
     mAdjacencyHat: tf.Tensor2D;
     // mVariable: tf.Tensor2D;
     mWeights: tf.Variable;
+    heInitTerm: tf.Tensor;
     testWeights: tf.layers.Layer;
     modelDirectory: string;
 
@@ -37,8 +39,10 @@ export class graphConvolutionLayer extends tf.layers.Layer{
         // Trainable weights of convolution
         // this.mWeights = tf.variable(tf.randomUniform([this.inputSize, this.outputSize], 0, .1), true,
         //                             layerName);
-        this.mWeights = tf.variable(tf.randomNormal([this.inputSize, this.outputSize]), true,
+        this.heInitTerm = tf.sqrt(tf.div(tf.tensor(2), tf.tensor(outputSize)));
+        this.mWeights = tf.variable(tf.mul(tf.randomNormal([this.inputSize, this.outputSize],0,1),this.heInitTerm), true,
         layerName);
+        this.heInitTerm.dispose();
         // this.mWeights = tf.variable(tf.tensor([ 2.29773776, -237.61560258,  -18.59292076,  -91.67139649,
         //     0.        ,    0.        ,    0.        ,   19.7895892 ]), true, layerName).reshape([this.inputSize, this.outputSize]);
             
@@ -92,7 +96,6 @@ export class graphConvolutionLayer extends tf.layers.Layer{
 
             // Tensor that denotes the signal travel in convolution
             const mSignalTravel: tf.Tensor = tf.matMul(mAdjacencyHat, input);
-
             // Output of convolution, by multiplying with weight matrix and applying non-linear activation function
             // Check if activation function is ok
             const mWeightedSignal: tf.Tensor = this.activationLayer.apply(tf.matMul(mSignalTravel, this.mWeights));
@@ -115,6 +118,7 @@ export class graphConvolutionLayer extends tf.layers.Layer{
 }
 
 export class denseOwnImplementation extends tf.layers.Layer{
+    heInitTerm: tf.Tensor;
     mWeights: tf.Variable;
     mBias: tf.Variable;
     inputDim: number;
@@ -125,9 +129,10 @@ export class denseOwnImplementation extends tf.layers.Layer{
     public constructor(inputDim: number, outputDim: number){
         super({});
         this.inputDim = inputDim;
-        this.outputDim = outputDim
-        this.mWeights = tf.variable(tf.randomNormal([this.inputDim, this.outputDim]), true);
-        this.mBias = tf.variable(tf.randomNormal([1, outputDim]), true);
+        this.outputDim = outputDim;
+        this.heInitTerm = tf.sqrt(tf.div(tf.tensor(2), tf.tensor(this.outputDim)));
+        this.mWeights = tf.variable(tf.mul(tf.randomNormal([this.inputDim, this.outputDim],0,1),this.heInitTerm), true);
+        this.mBias = tf.variable(tf.mul(tf.randomNormal([1, outputDim],0,1), this.heInitTerm), true);
         this.modelDirectory = this.getModelDirectory();
     }
 
@@ -190,6 +195,9 @@ export class denseOwnImplementation extends tf.layers.Layer{
     }
 
 }
+const test: tf.layers.Layer = tf.layers.batchNormalization({trainable: true});
+
+
 // export class graphConvolutionLayerTest extends tf.layers.Layer{
 
 //     // Disgusting any, should look up what a tf.layers.activation is
@@ -343,11 +351,6 @@ export class graphConvolutionModel{
         const modelDir: string = firstLayer.modelDirectory
         fs.mkdirSync(modelDir + '/' + epochString, { recursive: true })
 
-        // Hardcoded, should be config when we are happy with performance
-        // this.graphConvolutionalLayer1.saveWeights('gcnLayer1');
-        // this.graphConvolutionalLayer2.saveWeights('gcnLayer2');
-        // this.saveDenseLayer(this.denseLayerValue, this.denseLayerValueFileName);
-        // this.saveDenseLayer(this.denseLayerPolicy, this.denseLayerPolicyFileName);
         let numGraph = 0
         let numDense = 0;
         for (const layerType of this.layersHidden){
@@ -355,7 +358,6 @@ export class graphConvolutionModel{
                 const layerGraph: graphConvolutionLayer = layerType[0] as graphConvolutionLayer;
                 layerGraph.saveWeights('/' + epochString+'/'+'gcnLayer'+ numGraph.toString());
                 numGraph+=1;
-                console.log("LOading graph thingy");
             }
             if(layerType[1]=='dense'){
                 const layerGraph: denseOwnImplementation = layerType[0] as denseOwnImplementation;
@@ -504,27 +506,24 @@ export class graphConvolutionModel{
                 if (layerConfig.type == 'graph'){
                     this.allLayersModel[index].push([new graphConvolutionLayer(layerConfig.inputSize, layerConfig.outputSize, layerConfig.activation), layerConfig.type]);
                 }
-                // if (layerConfig.type == 'dense'){
-                //     this.allLayersModel[index].push([tf.layers.dense({inputShape: [layerConfig.inputSize], units: layerConfig.outputSize, 
-                //         activation: layerConfig.activation, 'trainable': true, kernelConstraint: 'nonNeg', biasConstraint: 'nonNeg'}), layerConfig.type]);
-                // }
-                // Test of own implementation dense layer
                 if (layerConfig.type == 'dense'){
                     const testDense = new denseOwnImplementation(layerConfig.inputSize, layerConfig.outputSize);
                     this.allLayersModel[index].push([testDense, layerConfig.type]);
                 }
-
                 if (layerConfig.type == 'activation'){
                     this.allLayersModel[index].push([tf.layers.activation({activation: layerConfig.activation, inputShape: [layerConfig.inputSize]}), layerConfig.type]);
                 }
+                if (layerConfig.type == 'batchNorm'){
+                    this.allLayersModel[index].push([tf.layers.batchNormalization({axis:1}), layerConfig.type])
+                }
+
             }
         }
     }
 
     public forwardPassTest(inputFeatures: tf.Tensor2D, mAdjacency: tf.Tensor2D){
-        // console.log("Input Features!");
-        // inputFeatures.print()
         return tf.tidy(() => {
+            const test = this.layersHidden[0][0] as graphConvolutionLayer
             let x: tf.Tensor = this.layersHidden[0][0].call(inputFeatures, mAdjacency) as tf.Tensor;
             for (let i=1; i<this.layersHidden.length;i++){
                 const layerI = this.layersHidden[i];
@@ -535,8 +534,6 @@ export class graphConvolutionModel{
                     x = layerI[0].apply(x) as tf.Tensor2D;
                 }
             }
-            // console.log("HiddenLayer Output");
-            // x.print();
             let outputValue: tf.Tensor = this.layersValue[0][0].apply(x) as tf.Tensor;
             for (let j=1; j<this.layersValue.length;j++){
                 const layerI = this.layersValue[j];
@@ -629,7 +626,7 @@ export const activationOptions = stringLiteralArray([
   ]);
 type activationIdentifier = typeof activationOptions[number]
 
-export const layerOptions = stringLiteralArray(['graph', 'dense', 'activation']);
+export const layerOptions = stringLiteralArray(['graph', 'dense', 'activation', 'batchNorm']);
 type layerIdentifier = typeof layerOptions[number];
 // // Test functions:
 // const file = fs.readFileSync('Reinforcement-Learning-Join-Mediator/data/soc-karate.mtx','utf8');

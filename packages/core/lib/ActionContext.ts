@@ -110,7 +110,9 @@ export class ActionContext implements IActionContext {
   public getMasterTree(): MCTSMasterTree{
     return this.episode.getMasterTree();
   }
-
+  public getValidation(): boolean{
+    return this.episode.validation;
+  }
   // public setInPlace<V>(key: IActionContextKey<V>, value: V): void{
   //   this.setInPlaceRaw(key.name, value);
   // }

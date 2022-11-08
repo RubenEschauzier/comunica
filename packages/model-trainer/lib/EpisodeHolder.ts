@@ -12,6 +12,8 @@ export class EpisodeLogger{
     executionTime: number;
     testMap: Map<number[][], number>;
 
+    validation: boolean;
+
 
     public constructor(){
         this.node_idmapping = new Map<number, number>();
@@ -34,6 +36,10 @@ export class EpisodeLogger{
     
     public setPlan(joinPlan: string){
         this.planHolder.set(joinPlan, 0);
+    }
+
+    public setValidation(validation: boolean){
+        this.validation = validation;
     }
 
     public addJoinIndexes(joinIndexes: number[]): void{

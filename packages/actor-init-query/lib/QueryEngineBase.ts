@@ -17,6 +17,7 @@ import { EpisodeLogger, MCTSJoinInformation, MCTSMasterTree, modelHolder } from 
 import { ModelTrainer } from '../../model-trainer/lib/ModelTrainerOnline';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
+import * as tf from '@tensorflow/tfjs';
 
 /**
  * Base implementation of a Comunica query engine.
@@ -145,6 +146,9 @@ export class QueryEngineBase implements IQueryEngine {
     }
     if (context && context.planHolder){
       queryEpisode.setPlanHolder(context.planHolder)
+    }
+    if (context && context.validation){
+      queryEpisode.setValidation(context.validation);
     }
 
     let actionContext: IActionContext = new ActionContext(context, queryEpisode, this.modelHolder);
@@ -337,26 +341,29 @@ export class QueryEngineBase implements IQueryEngine {
 
 
   public async trainModel(masterTreeMap: Map<string, MCTSJoinInformation>, numEntries: number){
+    // console.log("Start Train")
+    // console.log(tf.memory());
 
-    function shuffleTrainingData(adjMatrixes: number[][][], featureMatrixes: number[][][], actualExecutionTimes: number[], actualProbabilities: number[]) {
-      var j, xA, xF, xE, xP, i;
+    function shuffleTrainingData(adjMatrixes: number[][][], featureMatrixes: number[][][], actualExecutionTimes: number[], actualProbabilities: number[][], estimatedProbabilitiesTensor: tf.Tensor[]) {
+      let j, xA, xF, xE, xP, xT, i;
       for (i = adjMatrixes.length - 1; i > 0; i--) {
           j = Math.floor(Math.random() * (i + 1));
-          xA = adjMatrixes[i]; xF = featureMatrixes[i]; xE = actualExecutionTimes[i]; xP = actualProbabilities[i]
-          adjMatrixes[i] = adjMatrixes[j]; featureMatrixes[i] = featureMatrixes[j]; actualExecutionTimes[i] = actualExecutionTimes[j];
-          actualProbabilities[i] = actualProbabilities[j];
-          adjMatrixes[j] = xA; featureMatrixes[j] = xF; actualExecutionTimes[j] = xE; actualProbabilities[j]=xP
+          xA = adjMatrixes[i]; xF = featureMatrixes[i]; xE = actualExecutionTimes[i]; xP = actualProbabilities[i]; xT = estimatedProbabilitiesTensor[i]
+          adjMatrixes[i] = adjMatrixes[j]; featureMatrixes[i] = featureMatrixes[j]; actualExecutionTimes[i] = actualExecutionTimes[j]; 
+          actualProbabilities[i] = actualProbabilities[j]; estimatedProbabilitiesTensor[i] = estimatedProbabilitiesTensor[j];
+          adjMatrixes[j] = xA; featureMatrixes[j] = xF; actualExecutionTimes[j] = xE; actualProbabilities[j] = xP; estimatedProbabilitiesTensor[j] = xT
       }
-      return [adjMatrixes, featureMatrixes, actualExecutionTimes, actualProbabilities];
+      return [adjMatrixes, featureMatrixes, actualExecutionTimes, actualProbabilities, estimatedProbabilitiesTensor];
     }
   
     const adjacencyMatrixes: number[][][] = [];
     const featureMatrixes: number[][][] = [];
     const actualExecutionTimes: number[] = [];
-    const actualProbabilities: number[] = [];
+    const actualProbabilities: number[][] = [];
+    const estimatedProbabilitiesTensor: tf.Tensor[] = [];
     // TEMP REMOVE THIS FOR TESTING!!
     // if (masterTreeMap.size > 0){
-      for (const [key, value] of masterTreeMap.entries()) {
+    for (const [key, value] of masterTreeMap.entries()) {
         adjacencyMatrixes.push(value.adjencyMatrix);
         // console.log(value.featureMatrix.map(x => x[0]));
 
@@ -377,10 +384,20 @@ export class QueryEngineBase implements IQueryEngine {
 
         featureMatrixes.push(value.featureMatrix);
         actualExecutionTimes.push(value.actualExecutionTime!);
-        actualProbabilities.push(value.priorProbability);
+        actualProbabilities.push(value.actualProbabilityVector!);
+        const concatProbTensor: tf.Tensor = tf.concat(value.predictedProbabilityVector!);
+        // Dispose of tensor after using it
+        value.predictedProbabilityVector!.map(x=>x.dispose());
+        estimatedProbabilitiesTensor.push(concatProbTensor)
       }
-      const shuffledInPlace = shuffleTrainingData(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, actualProbabilities);
-      const trainingLoss: number = await this.modelTrainer.trainModelOfflineBatched(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, actualProbabilities, numEntries);
+      const shuffledInPlace = shuffleTrainingData(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, actualProbabilities, estimatedProbabilitiesTensor);
+      const trainingLoss: number = await this.modelTrainer.trainModelOfflineBatched(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, 
+        actualProbabilities, estimatedProbabilitiesTensor, numEntries);
+
+      estimatedProbabilitiesTensor.map(x => x.dispose());
+      // console.log("End Train")
+      // console.log(tf.memory());
+
       return trainingLoss  
     // }
     // else{

@@ -1,34 +1,43 @@
 {
     "hiddenStateLayers":[
         {
-            "type": "graph", "inputSize": 136, "outputSize": 256, "activation": "sigmoid"
+            "type": "graph", "inputSize": 136, "outputSize": 512, "activation": "relu"
         },
-        {
-            "type": "graph", "inputSize": 256, "outputSize": 512, "activation": "sigmoid"
-        },
+
         {
             "type": "dense", "inputSize": 512, "outputSize": 256, "activation": "linear"
         },
         {
-            "type": "activation", "inputSize": 256, "outputSize": 256, "activation": "sigmoid"
+            "type": "activation", "inputSize": 256, "outputSize": 256, "activation": "relu"
+        },
+        {
+            "type": "batchNorm"
         },
         {
             "type": "dense", "inputSize": 256, "outputSize": 128, "activation": "linear"
         },
         {
-            "type": "activation", "inputSize": 128, "outputSize": 128, "activation": "sigmoid"
+            "type": "activation", "inputSize": 128, "outputSize": 128, "activation": "relu"
         },
         {
-            "type": "dense", "inputSize": 128, "outputSize": 8, "activation": "linear"
+            "type": "dense", "inputSize": 128, "outputSize": 64, "activation": "linear"
         },
         {
-            "type": "activation", "inputSize": 8, "outputSize": 8, "activation": "sigmoid"
+            "type": "activation", "inputSize": 64, "outputSize": 64, "activation": "relu"
+        },
+        {
+            "type": "dense", "inputSize": 64, "outputSize": 32, "activation": "linear"
+        },
+        {
+            "type": "activation", "inputSize": 32, "outputSize": 32, "activation": "relu"
         }
+
+
 
     ],
     "policyHeadLayers":[
         {
-            "type": "dense", "inputSize": 8, "outputSize": 1, "activation": "sigmoid"
+            "type": "dense", "inputSize": 32, "outputSize": 1, "activation": "sigmoid"
         },
         {
             "type": "activation", "inputSize": 1, "outputSize": 1, "activation": "sigmoid"
@@ -36,7 +45,7 @@
     ],
     "valueHeadLayers":[
         {
-            "type": "dense", "inputSize": 8, "outputSize": 1, "activation": "linear"
+            "type": "dense", "inputSize": 32, "outputSize": 1, "activation": "linear"
         }
     ]
 }

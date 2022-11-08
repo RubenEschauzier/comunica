@@ -1,3 +1,5 @@
+import * as tf from '@tensorflow/tfjs';
+
 export class MCTSMasterTree{    
     /* Map containing all exploration information of one query iteration */
     masterMap: Map<string, MCTSJoinInformation>;
@@ -138,9 +140,17 @@ export interface MCTSJoinInformation{
     */
     adjencyMatrix: number[][];
     /*
-    * 
+    * Estimated probability as tensor to retain gradients, very ugly solution.. NEED TO BE DISPOSED AFTER RESET OF MASTER TREE
     */
-    
+    estimatedProbabilityTensor?: tf.Tensor;
+    /*
+    * Probability vector of actualProbabilities
+    */
+    actualProbabilityVector?: number[];
+    /*
+    * Probability vector of estimated probabilities of children
+    */
+    predictedProbabilityVector?: tf.Tensor[];
     /*
     * Actual recorded value
     */
