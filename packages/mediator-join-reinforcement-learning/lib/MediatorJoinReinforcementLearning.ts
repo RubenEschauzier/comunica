@@ -67,6 +67,7 @@ export class MediatorJoinReinforcementLearning
       .map(({ reply }) => reply)
       .map(promise => promise.catch(error => {
         errors.push(error);
+        
       }));
     const coefficients = await Promise.all(promises);
 
@@ -108,7 +109,7 @@ export class MediatorJoinReinforcementLearning
     // Reject if all actors rejected
     if (minIndex < 0) {
       throw new Error(`All actors rejected their test in ${this.name}\n${
-        errors.map(error => error.message).join('\n')}`);
+        errors.map(error => {error.message; console.error(error.stack)}).join('\n')}`);
     }
 
     // Return actor with lowest cost
@@ -171,8 +172,13 @@ export class MediatorJoinReinforcementLearning
         const isVariable: number[] = triple.map(x => x.termType=='Variable' ? 1 : 0);
         const isLiteral: number[] = triple.map(x=> x.termType=='Literal' ? 1 : 0);
         const cardinalityNode: number[] = [cardinalitiesResolved[i]];
-
-        const predicateEmbedding = this.graphVectors.get(Quads[i].predicate.value)!;
+        let predicateEmbedding: number[] = [];
+        if (this.graphVectors.get(Quads[i].predicate.value)){
+          predicateEmbedding = this.graphVectors.get(Quads[i].predicate.value)!;
+        }
+        else{
+          predicateEmbedding = new Array(128).fill(0);
+        }
         // Features here indicate [cardinality, subjectIsVariable, predicateIsVariable, objectIsVariable, subjectIsLiteral, predicateIsLiteral, objectIsLiteral, resultOfJoin];
         const featureNode = cardinalityNode.concat(isVariable, isLiteral, [0], predicateEmbedding);
 

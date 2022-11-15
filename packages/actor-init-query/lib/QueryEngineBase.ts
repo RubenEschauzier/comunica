@@ -17,7 +17,7 @@ import { EpisodeLogger, MCTSJoinInformation, MCTSMasterTree, modelHolder } from 
 import { ModelTrainer } from '../../model-trainer/lib/ModelTrainerOnline';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
-import * as tf from '@tensorflow/tfjs';
+import * as tf from '@tensorflow/tfjs-node';
 
 /**
  * Base implementation of a Comunica query engine.
@@ -343,6 +343,8 @@ export class QueryEngineBase implements IQueryEngine {
   public async trainModel(masterTreeMap: Map<string, MCTSJoinInformation>, numEntries: number){
     // console.log("Start Train")
     // console.log(tf.memory());
+    // console.log("Start")
+    // console.log(tf.memory())
 
     function shuffleTrainingData(adjMatrixes: number[][][], featureMatrixes: number[][][], actualExecutionTimes: number[], actualProbabilities: number[][], estimatedProbabilitiesTensor: tf.Tensor[]) {
       let j, xA, xF, xE, xP, xT, i;
@@ -361,48 +363,64 @@ export class QueryEngineBase implements IQueryEngine {
     const actualExecutionTimes: number[] = [];
     const actualProbabilities: number[][] = [];
     const estimatedProbabilitiesTensor: tf.Tensor[] = [];
-    // TEMP REMOVE THIS FOR TESTING!!
-    // if (masterTreeMap.size > 0){
     for (const [key, value] of masterTreeMap.entries()) {
         adjacencyMatrixes.push(value.adjencyMatrix);
-        // console.log(value.featureMatrix.map(x => x[0]));
-
-        /*  Scale features using Min-Max scaling  */
-
-        const cardinalities: number[] = value.featureMatrix.map((x) => x[0]);
-        // const maxCardinality: number = Math.max(...cardinalities);
-        // const minCardinality: number = Math.min(...cardinalities);
-  
-        // for (let i=0; i<value.featureMatrix.length;i++){
-        //   value.featureMatrix[i][0] = (value.featureMatrix[i][0]-minCardinality) / (maxCardinality - minCardinality)
-        // }
-  
-        // const maxCardinality: number = Math.max(...value.featureMatrix);
-        // const minCardinality: number = Math.min(...value.featureMatrix);
-        // const scaledFeatureMatrix = value.featureMatrix.map((vM, iM) => (vM - minCardinality) / (maxCardinality - minCardinality));
-        // console.log(scaledFeatureMatrix)
-
         featureMatrixes.push(value.featureMatrix);
         actualExecutionTimes.push(value.actualExecutionTime!);
         actualProbabilities.push(value.actualProbabilityVector!);
-        const concatProbTensor: tf.Tensor = tf.concat(value.predictedProbabilityVector!);
+        const concatProbTensor: tf.Tensor = tf.concat(value.predictedProbabilityVectorTensor!);
         // Dispose of tensor after using it
-        value.predictedProbabilityVector!.map(x=>x.dispose());
         estimatedProbabilitiesTensor.push(concatProbTensor)
+
+        if (value.estimatedProbabilityTensor){
+          value.estimatedProbabilityTensor.dispose()
+        }
+        if(value.predictedProbabilityVectorTensor){
+          value.predictedProbabilityVectorTensor.map(x=>x.dispose());
+        }
+
       }
       const shuffledInPlace = shuffleTrainingData(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, actualProbabilities, estimatedProbabilitiesTensor);
       const trainingLoss: number = await this.modelTrainer.trainModelOfflineBatched(adjacencyMatrixes, featureMatrixes, actualExecutionTimes, 
         actualProbabilities, estimatedProbabilitiesTensor, numEntries);
 
       estimatedProbabilitiesTensor.map(x => x.dispose());
-      // console.log("End Train")
-      // console.log(tf.memory());
-
       return trainingLoss  
-    // }
-    // else{
-    //   console.warn('WARNING: No recorded joins this episode.');
-    // }
+  }
+
+  public validateModel(masterTreeMap: Map<string, MCTSJoinInformation>){
+    // Validate model for only query at the time, but with multiple substeps
+    function joinLossMSE(predictionValue: number, predictionProb: number[], actualValue: number, actualProb: number[]) {  
+      const valueTerm: number = Math.pow(predictionValue-actualValue,2);
+      let probTerm: number = 0;
+      for(let i=0;i<predictionProb.length;i++){
+        probTerm+=actualProb[i]*Math.log(predictionProb[i]);
+      }
+      return [valueTerm - probTerm, valueTerm];
+    }
+    
+    let averageValLoss = 0;
+    let averageValMSE = 0;
+    let averageValExecutionTime = 0;
+    for(const [key, value] of masterTreeMap.entries()){
+      const actualExecutionTime: number = value.actualExecutionTime!;
+      const predictedExecutionTime: number = value.meanValueJoin;
+      const actualProbabilityVector: number[] = value.actualProbabilityVector!;
+      const predictedProbabilityVector: number[] = value.predictedProbabilityVector!;
+
+      const valMetrics: number[] = joinLossMSE(predictedExecutionTime, predictedProbabilityVector, actualExecutionTime, actualProbabilityVector);
+      averageValLoss += valMetrics[0];
+      averageValMSE += valMetrics[1];
+      averageValExecutionTime += actualExecutionTime;
+    }
+    averageValExecutionTime = averageValExecutionTime / masterTreeMap.size;
+    averageValLoss = averageValLoss / masterTreeMap.size;
+    averageValMSE = averageValMSE / masterTreeMap.size;
+    return [averageValLoss, averageValMSE, averageValExecutionTime];
+  }
+
+  public saveModel(epochString: string){
+    this.modelTrainer.saveModel(epochString);
   }
 
   /**

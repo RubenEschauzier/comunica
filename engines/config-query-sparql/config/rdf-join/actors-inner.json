@@ -44,6 +44,17 @@
       "@id": "urn:comunica:default:rdf-join/actors#inner-nested-loop",
       "@type": "ActorRdfJoinNestedLoop",
       "mediatorJoinSelectivity": { "@id": "urn:comunica:default:rdf-join-selectivity/mediators#main" }
+    },
+    {
+      "@id": "urn:comunica:default:rdf-join/actors#inner-hash",
+      "@type": "ActorRdfJoinHash",
+      "mediatorJoinSelectivity": { "@id": "urn:comunica:default:rdf-join-selectivity/mediators#main" }
+    },
+    {
+      "@id": "urn:comunica:default:rdf-join/actors#inner-symmetric-hash",
+      "@type": "ActorRdfJoinSymmetricHash",
+      "mediatorJoinSelectivity": { "@id": "urn:comunica:default:rdf-join-selectivity/mediators#main" }
     }
+
   ]
 }

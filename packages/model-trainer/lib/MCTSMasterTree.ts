@@ -1,4 +1,4 @@
-import * as tf from '@tensorflow/tfjs';
+import * as tf from '@tensorflow/tfjs-node';
 
 export class MCTSMasterTree{    
     /* Map containing all exploration information of one query iteration */
@@ -150,7 +150,10 @@ export interface MCTSJoinInformation{
     /*
     * Probability vector of estimated probabilities of children
     */
-    predictedProbabilityVector?: tf.Tensor[];
+    predictedProbabilityVectorTensor?: tf.Tensor[];
+    /* Probability vector of estimated probabilities of children, in array form */
+    predictedProbabilityVector?: number[]
+
     /*
     * Actual recorded value
     */

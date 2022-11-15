@@ -17,12 +17,13 @@ import {ActionContextKey, CONTEXT_KEY_LOGGER} from '@comunica/core'
 import {KeysQueryOperation} from '@comunica/context-entries'
 import * as RdfJs from 'rdf-js'
 // import { graphConvolutionModel } from './GraphNeuralNetwork';
-import * as tf from '@tensorflow/tfjs';
+import * as tf from '@tensorflow/tfjs-node';
 import { aggregateValues, MCTSJoinInformation, MCTSJoinPredictionOutput, MCTSMasterTree, modelHolder, runningMoments } from '@comunica/model-trainer';
 import * as _ from 'lodash'
 import { Variable } from 'rdf-data-factory';
 import { getContextSourceUrl } from '@comunica/bus-rdf-resolve-quad-pattern';
 import { FederatedQuadSource } from '@comunica/actor-rdf-resolve-quad-pattern-federated';
+import { kMaxLength } from 'buffer';
 
 /* Debugging info : https://stackoverflow.com/questions/20936486/node-js-maximum-call-stack-size-exceeded
 * https://blog.jcoglan.com/2010/08/30/the-potentially-asynchronous-loop/
@@ -67,32 +68,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
     this.predicateEmbeddingSize = 128;
   }
 
-  // private initialiseStates(action: IActionRdfJoin, metadatas: MetadataBindings[]): void {
-  //   /**
-  //    * Initialise any internal states that need to be initialised.
-  //    * @param {IActionRdfJoin} action An array containing information on the joins
-  //    * @param {MetadataBindings[]} metadatas An array with all  metadatas of the bindingstreams
-  //    * @returns {Promise<void>} Changes only internal states
-  //    */
-  //   if (!this.joinState || this.joinState.isEmpty()){
-  //     this.joinState = new StateSpaceTree();
-  //     for (const [i, metadata] of metadatas.entries()){
-  //       // Create nodes with estimated cardinality as feature
-  //       let newNode: NodeStateSpace = new NodeStateSpace(i, metadata.cardinality.value);
-  //       newNode.setDepth(0);
-  //       this.joinState.addLeave(newNode);
-  //     }
-  //     /* Set the number of leave nodes in the tree, this will not change during execution */
-  //     this.joinState.setNumLeaveNodes(this.joinState.numNodes); 
-  //     action.context.setEpisodeState(this.joinState);
-  //   }
-
-  //   if (this.nodeid_mapping.size == 0){
-  //       for(let i:number=0;i<action.entries.length;i++){
-  //         this.nodeid_mapping.set(i,i);
-  //       }
-  //   }
-  // }
 
   public softMax(logits: tf.Tensor): tf.Tensor{
     return tf.tidy(()=>{
@@ -253,8 +228,756 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
         smallest: [ toBeJoined1, toBeJoined2 ],
       },
     }
+}
 
+  protected async getJoinCoefficients(
+    action: IActionRdfJoin,
+    metadatas: MetadataBindings[],
+  ): Promise<IMediatorTypeJoinCoefficients> {
+    /**
+     * Execute the RL agent on all possible joins from the current join state and return the best join state.
+     * @param {IActionRdfJoin} action An array containing information on the joins
+     * @param {MetadataBindings[]} metadatas An array with all  metadatas of the bindingstreams
+     * @returns {Promise<IMediatorTypeJoinCoefficients>} Interface with estimated cost of the best join
+    */
+    // console.log("Start");
+    // console.log(tf.memory());
+    /* If we have no joinState or nodeid_mapping due to resets we initialise empty ones */
+    const passedNodeIdMapping = action.context.getNodeIdMapping();
+    if(passedNodeIdMapping.size == 0){
+      for(let i:number=0;i<action.entries.length;i++){
+        passedNodeIdMapping.set(i,i);
+      }
+    }
+
+    let nodeIndexes: number[] = [... Array(action.context.getEpisodeState().numNodes).keys()];
+
+    /*  Remove already joined nodes from consideration by traversing the node indices in reverse order 
+        which does not disturb the indexing of the array  */
+    for (let i:number=action.context.getEpisodeState().numNodes-1;i>=0;i--){
+      if (action.context.getEpisodeState().nodesArray[i].joined==true){
+        nodeIndexes.splice(i,1);
+      }
+    }
+    const MCTSearchTree: MCTSMasterTree = _.cloneDeep(action.context.getMasterTree());
+    if (action.context.getValidation()){
+      // const startTensor: number = tf.memory().numTensors;
+      const valueProbability: [number, number, number[], number[]] = await this.MCTSOnline(action, action.context.getModelHolder(), MCTSearchTree); 
+
+      const valueAddedJoin: number = valueProbability[0];
+      const priorProbJoin: number = valueProbability[1];
+      const actualProbabilityVector: number[] = valueProbability[2];
+      const estimatedProbabilityVector: number[] = valueProbability[3];
+
+      /* Add the newly chosen joins to the joinIndexes in the stateSpaceTree */
+
+      const joined_nodes: NodeStateSpace[] = action.context.getEpisodeState().nodesArray[action.context.getEpisodeState().numNodes-1].children;
+      // SOmething we should add
+      // const newFeaturesJoin = [];
+      // for(let i=0;i<8;i++){
+      //   newFeaturesJoin.push(joined_nodes[0].features[i]+joined_nodes[1].features[i]);
+      // }
+      const ids: number[] = joined_nodes.map(a => a.id).sort();
+      const indexJoins: number[] = ids.map(a => passedNodeIdMapping.get(a)!).sort();
+
+      action.context.getEpisodeState().addJoinIndexes(indexJoins);
+
+      const newState: number[][] = action.context.getEpisodeState().joinIndexes
+      const prevPrediction: MCTSJoinInformation = MCTSearchTree.getJoinInformation(newState);
+
+      let featureMatrix: number[][] = [];
+      for(var i=0;i<action.context.getEpisodeState().nodesArray.length;i++){
+        featureMatrix.push(action.context.getEpisodeState().nodesArray[i].features);
+      }      
+      let adjacencyMatrixCopy = []
+      for (let i = 0; i<action.context.getEpisodeState().adjacencyMatrix.length; i++){
+        adjacencyMatrixCopy.push(action.context.getEpisodeState().adjacencyMatrix[i].slice());
+      }
+      if (MCTSearchTree.masterMap.get(newState.flat().toString().replaceAll(',', ''))){
+        MCTSearchTree.getJoinInformation(newState).predictedProbabilityVectorTensor?.map(x=>x.dispose());
+      }
+      const choiceToAdd: MCTSJoinInformation = {N: prevPrediction.N, meanValueJoin: valueAddedJoin, 
+        totalValueJoin: prevPrediction.totalValueJoin, priorProbability: priorProbJoin, featureMatrix: featureMatrix, adjencyMatrix: adjacencyMatrixCopy, 
+        actualProbabilityVector: actualProbabilityVector, predictedProbabilityVector: estimatedProbabilityVector};
+      
+      action.context.getMasterTree().updateJoinDirect(choiceToAdd, newState);
+      action.context.setPlanHolder(newState.flat().toString().replaceAll(',', ''));
+    }
+    else{
+      // const startTensor: number = tf.memory().numTensors;
+
+      const valueProbabilityJoin = await this.MCTSOffline(action, action.context.getModelHolder(), MCTSearchTree); 
+      // console.log(`Added ${tf.memory().numTensors-startTensor} Tensors during MCTSOffline`);
+
+      // const startTensorAfterMCTS: number = tf.memory().numTensors;
+      const joined_nodes: NodeStateSpace[] = action.context.getEpisodeState().nodesArray[action.context.getEpisodeState().numNodes-1].children;
+      const ids: number[] = joined_nodes.map(a => a.id).sort();
+      const indexJoins: number[] = ids.map(a => passedNodeIdMapping.get(a)!).sort();
   
+      /* Add the newly chosen joins to the joinIndexes in the stateSpaceTree */
+      action.context.getEpisodeState().addJoinIndexes(indexJoins);
+      /* Update our master tree with new predictions if we perform offline training */
+      const valueAddedJoin: number = valueProbabilityJoin[0] as number;
+      const priorProbJoin: number = valueProbabilityJoin[1] as number;
+      const actualProbabilityVector: number[] = valueProbabilityJoin[2] as number[];
+      // Make clone to pass to training
+      const estimatedProbabilityVector: tf.Tensor[] = valueProbabilityJoin[3].map(x => tf.clone(x));
+      // Dispose of estimate
+      // console.log(`Added ${valueProbabilityJoin.length} tensors to the extra big tree`);
+      const newState: number[][] = action.context.getEpisodeState().joinIndexes
+      const prevPrediction: MCTSJoinInformation = MCTSearchTree.getJoinInformation(newState);
+
+      let featureMatrix: number[][] = [];
+      for(var i=0;i<action.context.getEpisodeState().nodesArray.length;i++){
+        featureMatrix.push(action.context.getEpisodeState().nodesArray[i].features);
+      }      
+      let adjacencyMatrixCopy = []
+      for (let i = 0; i<action.context.getEpisodeState().adjacencyMatrix.length; i++){
+        adjacencyMatrixCopy.push(action.context.getEpisodeState().adjacencyMatrix[i].slice());
+      }
+      const choiceToAdd: MCTSJoinInformation = {N: prevPrediction.N, meanValueJoin: valueAddedJoin, 
+        totalValueJoin: prevPrediction.totalValueJoin, priorProbability: priorProbJoin, featureMatrix: featureMatrix, adjencyMatrix: adjacencyMatrixCopy, 
+        actualProbabilityVector: actualProbabilityVector, predictedProbabilityVectorTensor: estimatedProbabilityVector};
+      // console.log("Added choice feature matrix");
+      // console.dir(featureMatrix, {'maxArrayLength': null});
+      valueProbabilityJoin[3].map(x=>x.dispose());
+      // console.log(`Added ${tf.memory().numTensors-startTensorAfterMCTS} Tensors after MCTSOffline`);
+      // const startTensorBeforeClean: number = tf.memory().numTensors;
+      // console.log("Start dispose MCTSearchTree used to perform MCTS")
+      for (const [key, value] of MCTSearchTree.masterMap.entries()) {
+        // console.log("Before");
+        // console.log(value.estimatedProbabilityTensor?.isDisposed);
+        // console.log(value.predictedProbabilityVectorTensor?.map(x=>x.isDisposed));
+        if (value.estimatedProbabilityTensor){
+          value.estimatedProbabilityTensor.dispose();
+        }
+        if (value.predictedProbabilityVectorTensor){
+          value.predictedProbabilityVectorTensor.map(x=>x.dispose());
+        }
+        // console.log("After");
+        // console.log(value.estimatedProbabilityTensor?.isDisposed);
+        // console.log(value.predictedProbabilityVectorTensor?.map(x=>x.isDisposed));
+
+      }
+      // console.log(`Adding join ${newState}, with N= ${action.context.getMasterTree().getJoinInformation(newState).N}`);
+      // console.log("Cleaning previous entry tree:")
+      if (action.context.getMasterTree().getJoinInformation(newState).N>0){
+        const joinInformationPrevious = action.context.getMasterTree().getJoinInformation(newState);
+        // console.log("Before");
+        // console.log(action.context.getMasterTree().getJoinInformation(newState).estimatedProbabilityTensor?.isDisposed);
+        // console.log(action.context.getMasterTree().getJoinInformation(newState).predictedProbabilityVectorTensor?.map(x=>x.isDisposed));
+        if (joinInformationPrevious.predictedProbabilityVectorTensor){
+          joinInformationPrevious.predictedProbabilityVectorTensor.map(x => x.dispose());
+        }
+        if (joinInformationPrevious.estimatedProbabilityTensor){
+          joinInformationPrevious.estimatedProbabilityTensor.dispose();
+        }
+        action.context.getMasterTree().getJoinInformation(newState).predictedProbabilityVectorTensor?.map(x=>x.dispose);
+        action.context.getMasterTree().getJoinInformation(newState).estimatedProbabilityTensor?.dispose();
+        // console.log("After")
+        // console.log(action.context.getMasterTree().getJoinInformation(newState).predictedProbabilityVectorTensor?.map(x=>x.isDisposed));
+
+      }
+      // console.log(`Added ${tf.memory().numTensors-startTensorBeforeClean} Tensors after cleaning Tree`);
+
+
+      action.context.getMasterTree().updateJoinDirect(choiceToAdd, newState);
+      action.context.setPlanHolder(newState.flat().toString().replaceAll(',', ''));
+    }
+
+    return {
+      iterations: this.prevEstimatedCost,
+      persistedItems: 0,
+      blockingItems: 0,
+      requestTime: 0,
+    };
+
+  }
+
+
+
+  public async MCTSOffline(action: IActionRdfJoin, modelHolder: modelHolder, masterTree: MCTSMasterTree): Promise<[number, number, number[], tf.Tensor[]]>{
+    const searchFactor = 5;
+    const searchAction: IActionRdfJoin = _.cloneDeep(action);
+    const state: StateSpaceTree = searchAction.context.getEpisodeState(); 
+    // First expand the root of the seach
+    const numPossibleChild: number = await this.expandChildStates(searchAction, modelHolder, masterTree);
+    // Num sims from http://ceur-ws.org/Vol-2652/paper05.pdf, alpha join
+    const numSimulations = (numPossibleChild) * searchFactor;
+
+    // Add root to masterTee
+    const adjMatrix: number[][] = searchAction.context.getEpisodeState().adjacencyMatrix;
+    let featureMatrix: number[][] = [];
+    for(let i=0;i<searchAction.context.getEpisodeState().nodesArray.length;i++){
+      featureMatrix.push(searchAction.context.getEpisodeState().nodesArray[i].features);
+    }
+    // console.log("Before")
+    // console.log(masterTree.getJoinInformation(state.getJoinIndexes()));
+
+    searchAction.context.setJoinStateMasterTree({N:1, state:state.getJoinIndexes(), predictedValueJoin: 0, predictedProbability: 1}, featureMatrix, adjMatrix);
+
+    masterTree.updateJoin({N:1, state:state.getJoinIndexes(), predictedValueJoin: 0, predictedProbability: 1}, featureMatrix, adjMatrix);
+    const startInfoRoot: MCTSJoinInformation = masterTree.getJoinInformation(state.getJoinIndexes());
+    // When we have already added join this will have N > 1, so we need to update that to 1 for proper probabilities
+    startInfoRoot.N=1;
+    // Perform MCTS simulations
+    // console.log(`Start MCTSearch num tensors ${tf.memory().numTensors}`)
+    for(let i=0; i<numSimulations; i++){
+      const cloneAction: IActionRdfJoin = _.cloneDeep(searchAction);
+      await this.MCTSearch(cloneAction, modelHolder, masterTree, state.getJoinIndexes());
+      const rootInformation: MCTSJoinInformation = masterTree.getJoinInformation(state.getJoinIndexes());
+      rootInformation.N += 1;
+    }
+    // console.log(`End num tensors ${tf.memory().numTensors}`);
+    // Choose next join based on largest N
+    const rootInformation: MCTSJoinInformation = masterTree.getJoinInformation(state.getJoinIndexes());
+    const episodeState = searchAction.context.getEpisodeState();
+    let nodeIndexes: number[] = [... Array(episodeState.numNodes).keys()];
+    const possibleChildren: number[][] = this.getPossibleChildren(nodeIndexes, episodeState);
+    const improvedProbabilitiesChildren: number[] = [];
+    const joinKeysChildren: number[][][] = [];
+    const estimatedValuesChildren: number[] = [];
+    const estimatedProbabilitiesChildren: tf.Tensor[] = []
+    // let bestJoin: number[] = [0,0]; let bestProbability = -1; let bestJoinKey: number[][] = [[]]; let estimatedValue = 0;
+    for (const join of possibleChildren){
+      // Construct join key
+      const passedNodeIdMapping = searchAction.context.getNodeIdMapping();  
+      const indexJoins: number[] = join.map(x => passedNodeIdMapping.get(x)!).sort();
+      const joinKey = [...state.getJoinIndexes()];
+      joinKey.push(indexJoins);
+      
+      // Get best probability of improved policy
+      const improvedPolicyProbability = masterTree.getJoinInformation(joinKey).N / (rootInformation.N-1);
+      improvedProbabilitiesChildren.push(improvedPolicyProbability);
+      joinKeysChildren.push(joinKey);
+      estimatedValuesChildren.push(masterTree.getJoinInformation(joinKey).meanValueJoin);
+      // Dispose this tensor!!
+      estimatedProbabilitiesChildren.push(masterTree.getJoinInformation(joinKey).estimatedProbabilityTensor!);
+    }
+    // // Set actual probability vector
+    // rootInformation.actualProbabilityVector = improvedProbabilitiesChildren;
+    // // Set estimated probabilities vector
+    // rootInformation.predictedProbabilityVector = estimatedProbabilitiesChildren;
+
+    const idx = this.chooseUsingProbability(improvedProbabilitiesChildren);
+    // console.log(improvedProbabilitiesChildren);
+    // console.log("Feature Matrix of Added Join");
+    // console.log(masterTree.getJoinInformation(joinKeysChildren[idx]));
+    const featureMatrixJoin: number[][] = masterTree.getJoinInformation(joinKeysChildren[idx]).featureMatrix;
+    const featureAddedJoin: number[] = featureMatrixJoin[featureMatrixJoin.length-1];
+    // console.log("FeatureAddedJoin");
+    // console.log(featureAddedJoin)
+    
+    const joinEmbedding: number[] = featureAddedJoin.slice(8);
+    const newFeatures: number[] = [0,0,0,0,0,0,0,1, ...joinEmbedding]
+
+    const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, newFeatures, 0, joinEmbedding);
+    action.context.getEpisodeState().addParent(possibleChildren[idx], newParent);
+
+    // Add self connection to explored join, experimental
+    const adjMatrixCopy = action.context.getEpisodeState().adjacencyMatrix;
+    adjMatrixCopy[adjMatrixCopy.length-1][adjMatrixCopy[0].length-1] = 1;
+    return [estimatedValuesChildren[idx], improvedProbabilitiesChildren[idx], improvedProbabilitiesChildren, estimatedProbabilitiesChildren];
+  }
+  
+  public async MCTSearch(action: IActionRdfJoin, modelHolder: modelHolder, MCTSMasterTree: MCTSMasterTree, rootJoin: number[][]){
+    /**
+     * Call this to either expand node or select another node recursively
+     */
+    const currentJoinStateKey: number[][] = action.context.getEpisodeState().joinIndexes;
+    const currentJoinStateInformation: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(currentJoinStateKey)!;
+    const clonedAction: IActionRdfJoin = _.cloneDeep(action);
+    const state: StateSpaceTree = clonedAction.context.getEpisodeState();
+    // console.log(`Join ${currentJoinStateKey}`);
+    if (currentJoinStateInformation.priorProbability<0){
+      console.error("We have prior probability smaller than 0 (Actor)");
+    }
+    // STILL CHECK IF TERMINAL STATE AND RETURN UPWARDS
+    if (currentJoinStateInformation.N>0){
+      // 2. If we already explored, call search recursively on selected child node based on UCT
+      let nodeIndexes: number[] = [... Array(state.numNodes).keys()];
+      const possibleChildren: number[] = nodeIndexes.filter(item => !state.nodesArray[item].joined);
+      let possibleJoins: number[][] = this.getPossibleJoins(possibleChildren);
+
+      if (possibleJoins.length == 0){
+        // Terminal State propogate the q value upwards!
+        const outputChild = await this.getOutputChild(clonedAction, modelHolder, MCTSMasterTree, currentJoinStateKey);  
+        outputChild[1].dispose();
+        // Propogate found value of join upwards
+        const prevJoin = [...currentJoinStateKey];
+        for (let i=1;i<currentJoinStateKey.length;i++){
+          prevJoin.pop();
+          if (!_.isEqual(prevJoin, rootJoin)){
+            const joinInformationParent: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(prevJoin);
+            const newQ = (joinInformationParent.totalValueJoin + outputChild[0][0])/(joinInformationParent.N+1);
+            joinInformationParent.N += 1; joinInformationParent.meanValueJoin=newQ; joinInformationParent.totalValueJoin += outputChild[0][0];
+          } 
+        }
+        // Break out of recursion
+        return;
+      }
+
+      let maxU = Number.NEGATIVE_INFINITY;
+      let bestJoin = [0,0];
+      for (const join of possibleJoins){
+        const joinEntryIndexes: number[] = join.map(x => clonedAction.context.getNodeIdMapping().get(x)!);
+        const newJoinKey: number[][] = [...currentJoinStateKey];
+        newJoinKey.push(joinEntryIndexes);
+
+        const joinInformation: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(newJoinKey);
+        // Here the UCB value is calculated according to https://web.stanford.edu/~surag/posts/alphazero.html, note that the parent # visits is equal to the total visits of 
+        // All child actions.
+        const U = joinInformation.meanValueJoin + this.explorationDegree * joinInformation.priorProbability*(Math.sqrt(currentJoinStateInformation.N)/(1+joinInformation.N));
+        if (U >= maxU){
+          maxU = U;
+          bestJoin = join;
+        }
+      }
+      // Execute the best join and recursively call the MCTSearch
+      await this.executeJoinMCTS(clonedAction, bestJoin);
+      await this.MCTSearch(clonedAction, modelHolder, MCTSMasterTree, rootJoin);
+      return;
+    }
+    else{
+
+      // 3. If we haven't, expand the child states and add them to MCTS
+      /* Here we add x tensor if it has x child*/
+      const nPossibleChild: number = await this.expandChildStates(clonedAction, modelHolder, MCTSMasterTree);
+      // console.log(`Expanding child states for ${clonedAction.context.getEpisodeState().joinIndexes}, with ${nPossibleChild} possible Children`);
+
+      
+  
+      // Add unexplored node to join state properly, feature matrix and Adj matrix are added in child expansion phase
+      /* NO LEAK*/
+      const outputChild = await this.getOutputChild(clonedAction, modelHolder, MCTSMasterTree, currentJoinStateKey);
+      outputChild[1].dispose();
+      /* NO LEAK */
+
+
+      const joinInformationNode: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(currentJoinStateKey); 
+      joinInformationNode.meanValueJoin = outputChild[0][0]; joinInformationNode.totalValueJoin = outputChild[0][0]; joinInformationNode.N = 1;
+      // Propogate found value of join upwards
+      const prevJoin = [...currentJoinStateKey];
+      for (let i=1;i<currentJoinStateKey.length;i++){
+        prevJoin.pop();
+        if (!_.isEqual(prevJoin, rootJoin)){
+          const joinInformationParent: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(prevJoin);
+          const newQ = (joinInformationParent.totalValueJoin + outputChild[0][0])/(joinInformationParent.N+1);
+          joinInformationParent.N += 1; joinInformationParent.meanValueJoin=newQ; joinInformationParent.totalValueJoin+= outputChild[0][0];
+        } 
+      }
+    }
+  }
+
+  private async getOutputChild(action: IActionRdfJoin, modelHolder: modelHolder, masterTree: MCTSMasterTree, joinKey: number[][]): Promise<[number[], tf.Tensor]>{
+    /*
+    1. clone action
+    2. execute proposed join on action
+    3. Get features matrices / adjmatrices
+    4. Return probability of child
+    */
+
+    const featureMatrix = masterTree.getJoinInformation(joinKey).featureMatrix;
+    const adjMatrix = masterTree.getJoinInformation(joinKey).adjencyMatrix;
+    /* Execute forward pass */
+    const adjTensor: tf.Tensor2D = tf.tensor2d(adjMatrix);
+    const inputFeaturesTensor: tf.Tensor2D = tf.tensor2d(featureMatrix, [featureMatrix.length,featureMatrix[0].length]);
+    const forwardPassOutput: tf.Tensor[] = modelHolder.getModel().forwardPassTest(inputFeaturesTensor, adjTensor) as tf.Tensor[];
+
+    const valueOutput = (await forwardPassOutput[0].data())[featureMatrix.length-1]
+    const policyOutput = (await forwardPassOutput[1].data())[featureMatrix.length-1];
+
+    const probTensor: tf.Tensor = forwardPassOutput[1].slice(featureMatrix.length-1, 1);
+
+    inputFeaturesTensor.dispose(); forwardPassOutput.map(x => x.dispose()); adjTensor.dispose(); 
+
+    return [[valueOutput, policyOutput], probTensor];
+  }
+
+  private async expandChildStates(action: IActionRdfJoin, modelHolder: modelHolder, masterTree: MCTSMasterTree){
+    // Clone the state so we can recursively search
+    // const startTensor: number = tf.memory().numTensors;
+    const episodeState = _.cloneDeep(action.context.getEpisodeState());
+    let nodeIndexes: number[] = [... Array(episodeState.numNodes).keys()];
+    const possibleChildren: number[][] = this.getPossibleChildren(nodeIndexes, episodeState);
+    // console.log("Start expansion child states");
+    // console.log(`Should add ${possibleChildren.length} tensors`);
+    // console.log(tf.memory())
+    if (possibleChildren.length>0){
+      let priorProbabilitiesEstimated: number[] = []
+      let estimatedProbabilitiesTensor: tf.Tensor[] = []
+      for (const join of possibleChildren){
+        // Get probabilties for each child
+        const addedJoinKey: number[][] = await this.constructJoinState(action, join, masterTree);
+        const predictionOutput = await this.getOutputChild(action, modelHolder, masterTree, addedJoinKey);
+        priorProbabilitiesEstimated.push(predictionOutput[0][1]);
+        estimatedProbabilitiesTensor.push(predictionOutput[1]);
+      }
+      // So ugly, so much waste :/
+      const concatinatedProbTensor: tf.Tensor = tf.concat(estimatedProbabilitiesTensor)
+  
+      const priorProbabilitiesTensor: tf.Tensor = tf.tensor(priorProbabilitiesEstimated);
+      const probabilitiesTensor: tf.Tensor = this.softMax(priorProbabilitiesTensor);
+      const estimatedProbabilitiesTensorSoftMax: tf.Tensor = this.softMax(concatinatedProbTensor);
+      // There is something wrong with probabilities, gives NaN sometimes;
+      const probabilities = probabilitiesTensor.dataSync();
+      for(let i=0;i<probabilities.length;i++){
+        const joinId = possibleChildren[i];
+        const joinEntryIndexes: number[] = joinId.map(x => action.context.getNodeIdMapping().get(x)!).sort();
+        // Get key to identify the explored child nodes
+        const newJoinIndexes = [...episodeState.joinIndexes];
+        newJoinIndexes.push(joinEntryIndexes);
+  
+        // Update the prior probabilities
+        const toUpdateJoinInformation: MCTSJoinInformation = masterTree.getJoinInformation(newJoinIndexes);
+        toUpdateJoinInformation.priorProbability = probabilities[i];
+        toUpdateJoinInformation.estimatedProbabilityTensor = estimatedProbabilitiesTensorSoftMax.slice([i,0],[1,1]);
+      }
+
+      priorProbabilitiesTensor.dispose(); probabilitiesTensor.dispose(); concatinatedProbTensor.dispose(); 
+      estimatedProbabilitiesTensorSoftMax.dispose(); estimatedProbabilitiesTensor.map(x=>x.dispose());  
+    }
+    // const addedTensor = tf.memory().numTensors-startTensor;
+    // console.log(`Should add ${possibleChildren.length} tensors, added ${addedTensor}`); 
+    // console.log(tf.memory());
+    return possibleChildren.length;
+  } 
+
+  private async constructJoinState(action: IActionRdfJoin, join: number[], masterTree: MCTSMasterTree){
+    /**
+     * Function that takes a not yet executed join,  executes it and creates the feature matrixes and adjacency matrixes and adds these to the masterTree
+     * It is then the responsibility of another function to update the prior probability by taking these feature matrixes and executing the forwardPass.
+     * returns: the indexes / key of the added join
+     */
+    /* NO LEAK HERE */
+    const actionToExplore: IActionRdfJoin = _.cloneDeep(action);
+
+    // Execute the join
+    await this.executeJoinMCTS(actionToExplore, join);
+
+    let featureMatrix: number[][] = [];
+    for(let i=0;i<actionToExplore.context.getEpisodeState().nodesArray.length;i++){
+      featureMatrix.push(actionToExplore.context.getEpisodeState().nodesArray[i].features);
+    }
+
+    const addedJoinIndexes = actionToExplore.context.getEpisodeState().joinIndexes;
+    const joinInformationToAdd: MCTSJoinInformation = {N:0, meanValueJoin:0, priorProbability: 0, totalValueJoin:0, featureMatrix: featureMatrix, 
+      adjencyMatrix: actionToExplore.context.getEpisodeState().adjacencyMatrix}
+    // const joinInformationToAdd: MCTSJoinPredictionOutput = {N:0, predictedValueJoin:0, predictedProbability: 0, state: addedJoinIndexes};
+    if (masterTree.getJoinInformation(addedJoinIndexes).estimatedProbabilityTensor||masterTree.getJoinInformation(addedJoinIndexes).predictedProbabilityVectorTensor){
+      masterTree.getJoinInformation(addedJoinIndexes).estimatedProbabilityTensor?.dispose();
+      masterTree.getJoinInformation(addedJoinIndexes).predictedProbabilityVectorTensor?.map(x=>x.dispose());
+    }
+
+    masterTree.updateJoinDirect(joinInformationToAdd, addedJoinIndexes)
+    // masterTree.updateMasterMap(joinInformationToAdd, featureMatrix, actionToExplore.context.getEpisodeState().adjacencyMatrix);
+    return addedJoinIndexes;
+
+
+  }
+  
+  private async executeJoinMCTS(copiedAction: IActionRdfJoin, joinToExecute: number[]){
+    const passedNodeIdMapping = copiedAction.context.getNodeIdMapping();
+    const entriesToExecute: IJoinEntry[] = copiedAction.entries;
+    const state: StateSpaceTree = copiedAction.context.getEpisodeState();
+    const joinedNodes = joinToExecute.map(x => state.nodesArray[x]);
+    const runningMeans: runningMoments = copiedAction.context.getRunningMomentsMasterTree();
+
+    // Get the join indexes corresponding to node indexes passed in the join 
+    const indexJoins: number[] = joinToExecute.map(x => passedNodeIdMapping.get(x)!).sort();
+    const toBeJoined1 = entriesToExecute[indexJoins[0]]; const toBeJoined2 = entriesToExecute[indexJoins[1]];
+
+    entriesToExecute.splice(indexJoins[1],1); entriesToExecute.splice(indexJoins[0],1);
+
+    /* Save the join indices */
+    const firstEntry: IJoinEntry = {
+      output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
+        .mediate({ type: copiedAction.type, entries: [ toBeJoined1, toBeJoined2 ], context: copiedAction.context })),
+      operation: ActorRdfJoinInnerMultiReinforcementLearning.FACTORY
+        .createJoin([ toBeJoined1.operation, toBeJoined2.operation ], false),
+    };
+    entriesToExecute.push(firstEntry);
+
+    /* Update the mapping to reflect the newly executed join*/
+    /* Find maximum and minimum index in the join entries array to update the mapping */
+    const max_idx: number = indexJoins[1];
+    const min_idx: number = indexJoins[0];
+
+    /* Update the mappings by keeping track of the position of each entry in the nodeid mapping and updating according to position in the array*/
+    for (let [key, value] of passedNodeIdMapping){
+      if (value > max_idx){
+        copiedAction.context.setNodeIdMapping(key, value-2);
+      }
+      else if(value > min_idx && value < max_idx){
+        copiedAction.context.setNodeIdMapping(key, value-1);
+      }
+    }
+
+    /* Remove joined nodes from the index mapping*/
+    copiedAction.context.setNodeIdMapping(joinToExecute[0], -1); copiedAction.context.setNodeIdMapping(joinToExecute[1], -1);
+
+    // Here we try to use a reduced form of cardinality for feature, since the comunica cardinality explodes when selectivity is small
+    const selectivity: number = (await this.mediatorJoinSelectivity.mediate({entries: [toBeJoined1,toBeJoined2], context: copiedAction.context})).selectivity;
+    const testCardSmaller: number = (joinedNodes[0].cardinality + joinedNodes[1].cardinality)*selectivity
+
+
+    // Add node with features to the state
+    const numNodes = state.numNodes;
+    const addedJoinMetaData: MetadataBindings = await entriesToExecute[entriesToExecute.length-1].output.metadata();
+    // Get zeros vector for predicate representation
+    const predEmbedding1 = joinedNodes[0].predicateEmbedding; const predEmbedding2 = joinedNodes[1].predicateEmbedding;
+    const newJoinEmbedding = this.maxPool(predEmbedding1, predEmbedding2);
+    const featureNode: number[] = [testCardSmaller, 0,0,0,0,0,0, addedJoinMetaData.variables.length, ...newJoinEmbedding];
+    // Standardise new features
+    for (const index of runningMeans.indexes){
+      const runningStatsIndex: aggregateValues = runningMeans.runningStats.get(index)!;
+      featureNode[index] = (featureNode[index] - runningStatsIndex.mean) / runningStatsIndex.std;
+    }
+
+    const newParent: NodeStateSpace = new NodeStateSpace(numNodes, featureNode, testCardSmaller, newJoinEmbedding);
+    state.addParent(joinToExecute, newParent);
+
+    // Add the joined entry to the index mapping
+    copiedAction.context.setNodeIdMapping(newParent.id, copiedAction.entries.length-1);
+
+    // Add join to join indexes
+    state.joinIndexes.push(indexJoins);
+  }
+
+
+  private getPossibleChildren(nodeIndexes: number[], episodeState: StateSpaceTree): number[][]{
+    // Get all unjoined nodes, these will form the possible actions
+    const possibleChildren: number[] = nodeIndexes.filter(item => !episodeState.nodesArray[item].joined).sort();
+    // Get all actions by finding all possible join combinations
+    let possibleJoins: number[][] = this.getPossibleJoins(possibleChildren);
+    return possibleJoins
+  }
+
+  private async MCTSOnline(action: IActionRdfJoin, modelHolder: modelHolder, masterTree: MCTSMasterTree): Promise<[number, number, number[], number[]]>{
+
+      const searchFactor = 5;
+      const searchAction: IActionRdfJoin = _.cloneDeep(action);
+      const state: StateSpaceTree = searchAction.context.getEpisodeState(); 
+      // First expand the root of the seach
+      const numPossibleChild: number = await this.expandChildStatesOnline(searchAction, modelHolder, masterTree);
+      // Num sims from http://ceur-ws.org/Vol-2652/paper05.pdf, alpha join
+      const numSimulations = (numPossibleChild) * searchFactor;
+  
+      // Add root to masterTee
+      const adjMatrix: number[][] = searchAction.context.getEpisodeState().adjacencyMatrix;
+      let featureMatrix: number[][] = [];
+      for(let i=0;i<searchAction.context.getEpisodeState().nodesArray.length;i++){
+        featureMatrix.push(searchAction.context.getEpisodeState().nodesArray[i].features);
+      }
+  
+      searchAction.context.setJoinStateMasterTree({N:1, state:state.getJoinIndexes(), predictedValueJoin: 0, predictedProbability: 1}, featureMatrix, adjMatrix);
+      masterTree.updateJoin({N:1, state:state.getJoinIndexes(), predictedValueJoin: 0, predictedProbability: 1}, featureMatrix, adjMatrix);
+      // Perform MCTS simulations
+
+      for(let i=0; i<numSimulations; i++){
+        const cloneAction: IActionRdfJoin = _.cloneDeep(searchAction);
+
+        await this.MCTSearchOnline(cloneAction, modelHolder, masterTree, state.getJoinIndexes());
+
+        const rootInformation: MCTSJoinInformation = masterTree.getJoinInformation(state.getJoinIndexes());
+        rootInformation.N += 1;
+      }
+
+      // Choose next join based on largest N
+      const rootInformation: MCTSJoinInformation = masterTree.getJoinInformation(state.getJoinIndexes());
+      const episodeState = searchAction.context.getEpisodeState();
+      let nodeIndexes: number[] = [... Array(episodeState.numNodes).keys()];
+      const possibleChildren: number[][] = this.getPossibleChildren(nodeIndexes, episodeState);
+
+      const estimatedProbabilitiesChildren: number[] = [];
+      const improvedProbabilitiesChildren: number[] = [];
+      let bestN = -1;
+      let bestProbabilityImproved = 0;
+      let bestJoinNode: number[] = [];
+      let bestJoinKey: number[][] = [[]];
+      let bestEstimatedValue: number = 0;
+
+      for (const join of possibleChildren){
+        // Construct join key
+        const passedNodeIdMapping = searchAction.context.getNodeIdMapping();  
+        const indexJoins: number[] = join.map(x => passedNodeIdMapping.get(x)!).sort();
+        const joinKey = [...state.getJoinIndexes()];
+        joinKey.push(indexJoins);
+  
+        const improvedPolicyProbability = masterTree.getJoinInformation(joinKey).N / (rootInformation.N-1);  
+        // Get best probability of improved policy
+        const numVisits =  masterTree.getJoinInformation(joinKey).N;
+        estimatedProbabilitiesChildren.push(masterTree.getJoinInformation(joinKey).priorProbability);
+        improvedProbabilitiesChildren.push(improvedPolicyProbability);
+
+        if (numVisits>bestN){
+          bestN = numVisits;
+          bestProbabilityImproved = improvedPolicyProbability;
+          bestJoinKey = joinKey;
+          bestEstimatedValue = masterTree.getJoinInformation(joinKey).meanValueJoin;
+          bestJoinNode = join;
+        }
+  
+      }
+      const featureMatrixJoin: number[][] = masterTree.getJoinInformation(bestJoinKey).featureMatrix;
+      const featureAddedJoin: number[] = featureMatrixJoin[featureMatrixJoin.length-1];
+      
+      const joinEmbedding: number[] = featureAddedJoin.slice(8);
+      const newFeatures: number[] = [0,0,0,0,0,0,0,1, ...joinEmbedding]
+  
+      const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, newFeatures, 0, joinEmbedding);
+      action.context.getEpisodeState().addParent(bestJoinNode, newParent);
+  
+      // Add self connection to explored join, experimental
+      const adjMatrixCopy = action.context.getEpisodeState().adjacencyMatrix;
+      adjMatrixCopy[adjMatrixCopy.length-1][adjMatrixCopy[0].length-1] = 1;
+
+      return [bestEstimatedValue, bestProbabilityImproved, improvedProbabilitiesChildren, estimatedProbabilitiesChildren];
+
+  }
+  public async MCTSearchOnline(action: IActionRdfJoin, modelHolder: modelHolder, MCTSMasterTree: MCTSMasterTree, rootJoin: number[][]){
+    /**
+    * Call this to either expand node or select another node recursively
+    */
+    const currentJoinStateKey: number[][] = action.context.getEpisodeState().joinIndexes;
+    const currentJoinStateInformation: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(currentJoinStateKey)!;
+    const clonedAction: IActionRdfJoin = _.cloneDeep(action);
+    const state: StateSpaceTree = clonedAction.context.getEpisodeState();
+    // console.log(`Join ${currentJoinStateKey}`);
+    if (currentJoinStateInformation.priorProbability<0){
+      console.error("We have prior probability smaller than 0 (Actor)");
+    }
+    // STILL CHECK IF TERMINAL STATE AND RETURN UPWARDS
+    if (currentJoinStateInformation.N>0){
+      // 2. If we already explored, call search recursively on selected child node based on UCT
+      let nodeIndexes: number[] = [... Array(state.numNodes).keys()];
+      const possibleChildren: number[] = nodeIndexes.filter(item => !state.nodesArray[item].joined);
+      let possibleJoins: number[][] = this.getPossibleJoins(possibleChildren);
+
+      if (possibleJoins.length == 0){
+        // Terminal State propogate the q value upwards!
+        const outputChild: number[] = await this.getOutputChildOnline(clonedAction, modelHolder, MCTSMasterTree, currentJoinStateKey);  
+        // Propogate found value of join upwards
+        const prevJoin = [...currentJoinStateKey];
+        for (let i=1;i<currentJoinStateKey.length;i++){
+          prevJoin.pop();
+          if (!_.isEqual(prevJoin, rootJoin)){
+            const joinInformationParent: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(prevJoin);
+            const newQ = (joinInformationParent.totalValueJoin + outputChild[0])/(joinInformationParent.N+1);
+            joinInformationParent.N += 1; joinInformationParent.meanValueJoin=newQ; joinInformationParent.totalValueJoin += outputChild[0];
+          } 
+        }
+        // Break out of recursion
+        return;
+      }
+
+      let maxU = Number.NEGATIVE_INFINITY;
+      let bestJoin = [0,0];
+      for (const join of possibleJoins){
+        const joinEntryIndexes: number[] = join.map(x => clonedAction.context.getNodeIdMapping().get(x)!);
+        const newJoinKey: number[][] = [...currentJoinStateKey];
+        newJoinKey.push(joinEntryIndexes);
+
+        const joinInformation: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(newJoinKey);
+        // Here the UCB value is calculated according to https://web.stanford.edu/~surag/posts/alphazero.html, note that the parent # visits is equal to the total visits of 
+        // All child actions.
+        const U = joinInformation.meanValueJoin + this.explorationDegree * joinInformation.priorProbability*(Math.sqrt(currentJoinStateInformation.N)/(1+joinInformation.N));
+        if (U >= maxU){
+          maxU = U;
+          bestJoin = join;
+        }
+      }
+      // Execute the best join and recursively call the MCTSearch
+      await this.executeJoinMCTS(clonedAction, bestJoin);
+      await this.MCTSearchOnline(clonedAction, modelHolder, MCTSMasterTree, rootJoin);
+
+      return;
+    }
+    else{ 
+      // 3. If we haven't, expand the child states and add them to MCTS
+      /* Here we add x tensor if it has x child*/
+      const nPossibleChild: number = await this.expandChildStatesOnline(clonedAction, modelHolder, MCTSMasterTree);
+  
+      // Add unexplored node to join state properly, feature matrix and Adj matrix are added in child expansion phase
+      const outputChild: number[] = await this.getOutputChildOnline(clonedAction, modelHolder, MCTSMasterTree, currentJoinStateKey);
+
+      const joinInformationNode: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(currentJoinStateKey); 
+      joinInformationNode.meanValueJoin = outputChild[0]; joinInformationNode.totalValueJoin = outputChild[0]; joinInformationNode.N = 1;
+      // Propogate found value of join upwards
+      const prevJoin = [...currentJoinStateKey];
+      for (let i=1;i<currentJoinStateKey.length;i++){
+        prevJoin.pop();
+        if (!_.isEqual(prevJoin, rootJoin)){
+          const joinInformationParent: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(prevJoin);
+          const newQ = (joinInformationParent.totalValueJoin + outputChild[0])/(joinInformationParent.N+1);
+          joinInformationParent.N += 1; joinInformationParent.meanValueJoin=newQ; joinInformationParent.totalValueJoin+= outputChild[0];
+        } 
+      }
+ 
+    }
+ 
+  }
+  
+  private async getOutputChildOnline(action: IActionRdfJoin, modelHolder: modelHolder, masterTree: MCTSMasterTree, joinKey: number[][]): Promise<number[]>{
+    /*
+    1. clone action
+    2. execute proposed join on action
+    3. Get features matrices / adjmatrices
+    4. Return probability of child
+    */
+
+    const featureMatrix = masterTree.getJoinInformation(joinKey).featureMatrix;
+    const adjMatrix = masterTree.getJoinInformation(joinKey).adjencyMatrix;
+    /* Execute forward pass */
+    const adjTensor: tf.Tensor2D = tf.tensor2d(adjMatrix);
+    const inputFeaturesTensor: tf.Tensor2D = tf.tensor2d(featureMatrix, [featureMatrix.length,featureMatrix[0].length]);
+    const forwardPassOutput: tf.Tensor[] = modelHolder.getModel().forwardPassTest(inputFeaturesTensor, adjTensor) as tf.Tensor[];
+
+    const valueOutput = (await forwardPassOutput[0].data())[featureMatrix.length-1]
+    const policyOutput = (await forwardPassOutput[1].data())[featureMatrix.length-1];
+
+    inputFeaturesTensor.dispose(); forwardPassOutput.map(x => x.dispose()); adjTensor.dispose(); 
+
+    return [valueOutput, policyOutput];
+  }
+
+  private async expandChildStatesOnline(action: IActionRdfJoin, modelHolder: modelHolder, masterTree: MCTSMasterTree){
+    // Clone the state so we can recursively search
+    const episodeState = _.cloneDeep(action.context.getEpisodeState());
+    let nodeIndexes: number[] = [... Array(episodeState.numNodes).keys()];
+    const possibleChildren: number[][] = this.getPossibleChildren(nodeIndexes, episodeState);
+    if (possibleChildren.length>0){
+      let priorProbabilitiesEstimated: number[] = []
+      for (const join of possibleChildren){
+        // Get probabilties for each child
+        const addedJoinKey: number[][] = await this.constructJoinState(action, join, masterTree);
+        const predictionOutput: number[] = await this.getOutputChildOnline(action, modelHolder, masterTree, addedJoinKey);
+        priorProbabilitiesEstimated.push(predictionOutput[1]);
+      }
+      // Soft max to convert to actual probabilities
+      const priorProbabilitiesTensor: tf.Tensor = tf.tensor(priorProbabilitiesEstimated);
+      const probabilitiesTensor: tf.Tensor = this.softMax(priorProbabilitiesTensor);
+      const probabilities = probabilitiesTensor.dataSync();
+      for(let i=0;i<probabilities.length;i++){
+        const joinId = possibleChildren[i];
+        const joinEntryIndexes: number[] = joinId.map(x => action.context.getNodeIdMapping().get(x)!);
+        // Get key to identify the explored child nodes
+        const newJoinIndexes = [...episodeState.joinIndexes];
+        newJoinIndexes.push(joinEntryIndexes);
+  
+        // Update the prior probabilities
+        const toUpdateJoinInformation: MCTSJoinInformation = masterTree.getJoinInformation(newJoinIndexes);
+        toUpdateJoinInformation.priorProbability = probabilities[i];
+      }
+
+      priorProbabilitiesTensor.dispose(); probabilitiesTensor.dispose();  
+    }
+    return possibleChildren.length;
+  } 
+
+
+
+
     
   //  if (!this.offlineTrain){
   //   const entries: IJoinEntry[] = action.entries
@@ -397,8 +1120,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
   //     },
   //   }
   // }
-}
-
 
   // protected async getJoinCoefficients(
   //   action: IActionRdfJoin,
@@ -482,524 +1203,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearning extends ActorRdfJoin {
   //   };
 
   // }
-
-  protected async getJoinCoefficients(
-    action: IActionRdfJoin,
-    metadatas: MetadataBindings[],
-  ): Promise<IMediatorTypeJoinCoefficients> {
-    /**
-     * Execute the RL agent on all possible joins from the current join state and return the best join state.
-     * @param {IActionRdfJoin} action An array containing information on the joins
-     * @param {MetadataBindings[]} metadatas An array with all  metadatas of the bindingstreams
-     * @returns {Promise<IMediatorTypeJoinCoefficients>} Interface with estimated cost of the best join
-    */
-
-    /* If we have no joinState or nodeid_mapping due to resets we initialise empty ones */
-    const passedNodeIdMapping = action.context.getNodeIdMapping();
-    if(passedNodeIdMapping.size == 0){
-      for(let i:number=0;i<action.entries.length;i++){
-        passedNodeIdMapping.set(i,i);
-      }
-    }
-
-    let nodeIndexes: number[] = [... Array(action.context.getEpisodeState().numNodes).keys()];
-
-    /*  Remove already joined nodes from consideration by traversing the node indices in reverse order 
-        which does not disturb the indexing of the array  */
-    for (let i:number=action.context.getEpisodeState().numNodes-1;i>=0;i--){
-      if (action.context.getEpisodeState().nodesArray[i].joined==true){
-        nodeIndexes.splice(i,1);
-      }
-    }
-    /*  Generate possible joinState combinations  */
-    const possibleJoins: number[][] = this.getPossibleJoins(nodeIndexes);
-    // UGLY!!
-    const temp0Tensor: tf.Tensor = tf.tensor([0]);
-    let valueProbabilityJoin:  [number, number, number[], tf.Tensor[]] = [0, 0, [0], [temp0Tensor]];
-    let estimatedOnlineValueJoin: number = 0;
-    const MCTSearchTree: MCTSMasterTree = _.cloneDeep(action.context.getMasterTree());
-    if (action.context.getValidation()){
-      // estimatedOnlineValueJoin = await this.getChosenJoinOnline(action, metadatas, possibleJoins);
-      valueProbabilityJoin = await this.MCTSOffline(action, action.context.getModelHolder(), MCTSearchTree); 
-
-    }
-    else{  
-      valueProbabilityJoin = await this.MCTSOffline(action, action.context.getModelHolder(), MCTSearchTree); 
-    }
-    temp0Tensor.dispose();
-    const joined_nodes: NodeStateSpace[] = action.context.getEpisodeState().nodesArray[action.context.getEpisodeState().numNodes-1].children;
-    const newFeaturesJoin = [];
-    for(let i=0;i<8;i++){
-      newFeaturesJoin.push(joined_nodes[0].features[i]+joined_nodes[1].features[i]);
-    }
-    const ids: number[] = joined_nodes.map(a => a.id).sort();
-    const indexJoins: number[] = ids.map(a => passedNodeIdMapping.get(a)!).sort();
-
-    /* Add the newly chosen joins to the joinIndexes in the stateSpaceTree */
-    action.context.getEpisodeState().addJoinIndexes(indexJoins);
-    /* Update our master tree with new predictions if we perform offline training */
-    if (this.offlineTrain){
-      const valueAddedJoin: number = valueProbabilityJoin[0] as number;
-      const priorProbJoin: number = valueProbabilityJoin[1] as number;
-      const actualProbabilityVector: number[] = valueProbabilityJoin[2] as number[];
-      const estimatedProbabilityVector: tf.Tensor[] = valueProbabilityJoin[3];
-
-      const newState: number[][] = action.context.getEpisodeState().joinIndexes
-      const prevPrediction: MCTSJoinInformation = MCTSearchTree.getJoinInformation(newState);
-
-      let featureMatrix: number[][] = [];
-      for(var i=0;i<action.context.getEpisodeState().nodesArray.length;i++){
-        featureMatrix.push(action.context.getEpisodeState().nodesArray[i].features);
-      }      
-      let adjacencyMatrixCopy = []
-      for (let i = 0; i<action.context.getEpisodeState().adjacencyMatrix.length; i++){
-        adjacencyMatrixCopy.push(action.context.getEpisodeState().adjacencyMatrix[i].slice());
-      }
-      if (MCTSearchTree.masterMap.get(newState.flat().toString().replaceAll(',', ''))){
-        MCTSearchTree.getJoinInformation(newState).predictedProbabilityVector?.map(x=>x.dispose());
-      }
-      const choiceToAdd: MCTSJoinInformation = {N: prevPrediction.N, meanValueJoin: valueAddedJoin, 
-        totalValueJoin: prevPrediction.totalValueJoin, priorProbability: priorProbJoin, featureMatrix: featureMatrix, adjencyMatrix: adjacencyMatrixCopy, 
-        actualProbabilityVector: actualProbabilityVector, predictedProbabilityVector: estimatedProbabilityVector};
-      // console.log("Added choice feature matrix");
-      // console.dir(featureMatrix, {'maxArrayLength': null});
-
-      action.context.getMasterTree().updateJoinDirect(choiceToAdd, newState);
-      action.context.setPlanHolder(newState.flat().toString().replaceAll(',', ''));
-    }
-
-    return {
-      iterations: this.prevEstimatedCost,
-      persistedItems: 0,
-      blockingItems: 0,
-      requestTime: 0,
-    };
-
-  }
-
-
-
-  public async MCTSOffline(action: IActionRdfJoin, modelHolder: modelHolder, masterTree: MCTSMasterTree): Promise<[number, number, number[], tf.Tensor[]]>{
-    const searchFactor = 5;
-    const searchAction: IActionRdfJoin = _.cloneDeep(action);
-    const state: StateSpaceTree = searchAction.context.getEpisodeState(); 
-    // First expand the root of the seach
-    const numPossibleChild: number = await this.expandChildStates(searchAction, modelHolder, masterTree);
-    // Num sims from http://ceur-ws.org/Vol-2652/paper05.pdf, alpha join
-    const numSimulations = (numPossibleChild) * searchFactor;
-
-    // Add root to masterTee
-    const adjMatrix: number[][] = searchAction.context.getEpisodeState().adjacencyMatrix;
-    let featureMatrix: number[][] = [];
-    for(let i=0;i<searchAction.context.getEpisodeState().nodesArray.length;i++){
-      featureMatrix.push(searchAction.context.getEpisodeState().nodesArray[i].features);
-    }
-    // console.log("Before")
-    // console.log(masterTree.getJoinInformation(state.getJoinIndexes()));
-
-    searchAction.context.setJoinStateMasterTree({N:1, state:state.getJoinIndexes(), predictedValueJoin: 0, predictedProbability: 1}, featureMatrix, adjMatrix);
-    masterTree.updateJoin({N:1, state:state.getJoinIndexes(), predictedValueJoin: 0, predictedProbability: 1}, featureMatrix, adjMatrix);
-    // console.log("After")
-    // console.log(masterTree.getJoinInformation(state.getJoinIndexes()));
-    // Perform MCTS simulations
-
-    for(let i=0; i<numSimulations; i++){
-      const cloneAction: IActionRdfJoin = _.cloneDeep(searchAction);
-      await this.MCTSearch(cloneAction, modelHolder, masterTree, state.getJoinIndexes());
-      const rootInformation: MCTSJoinInformation = masterTree.getJoinInformation(state.getJoinIndexes());
-      rootInformation.N += 1;
-    }
-    // Choose next join based on largest N
-    const rootInformation: MCTSJoinInformation = masterTree.getJoinInformation(state.getJoinIndexes());
-    const episodeState = searchAction.context.getEpisodeState();
-    let nodeIndexes: number[] = [... Array(episodeState.numNodes).keys()];
-    const possibleChildren: number[][] = this.getPossibleChildren(nodeIndexes, episodeState);
-    const improvedProbabilitiesChildren: number[] = [];
-    const joinKeysChildren: number[][][] = [];
-    const estimatedValuesChildren: number[] = [];
-    const estimatedProbabilitiesChildren: tf.Tensor[] = []
-    // let bestJoin: number[] = [0,0]; let bestProbability = -1; let bestJoinKey: number[][] = [[]]; let estimatedValue = 0;
-    for (const join of possibleChildren){
-      // Construct join key
-      const passedNodeIdMapping = searchAction.context.getNodeIdMapping();  
-      const indexJoins: number[] = join.map(x => passedNodeIdMapping.get(x)!).sort();
-      const joinKey = [...state.getJoinIndexes()];
-      joinKey.push(indexJoins);
-
-      // Get best probability of improved policy
-      const improvedPolicyProbability = masterTree.getJoinInformation(joinKey).N / (rootInformation.N-1);
-      improvedProbabilitiesChildren.push(improvedPolicyProbability);
-      joinKeysChildren.push(joinKey);
-      estimatedValuesChildren.push(masterTree.getJoinInformation(joinKey).meanValueJoin);
-      // Dispose this tensor!!
-      estimatedProbabilitiesChildren.push(masterTree.getJoinInformation(joinKey).estimatedProbabilityTensor!);
-
-      // Dispose of tensor in masterTree when we don't need it anymore
-
-      // if (improvedPolicyProbability > bestProbability){
-      //   bestJoin = join;
-      //   bestProbability = improvedPolicyProbability;
-      //   bestJoinKey = joinKey;
-      //   estimatedValue = masterTree.getJoinInformation(joinKey).meanValueJoin;
-      // }
-    }
-    // // Set actual probability vector
-    // rootInformation.actualProbabilityVector = improvedProbabilitiesChildren;
-    // // Set estimated probabilities vector
-    // rootInformation.predictedProbabilityVector = estimatedProbabilitiesChildren;
-
-    const idx = this.chooseUsingProbability(improvedProbabilitiesChildren);
-    // console.log(improvedProbabilitiesChildren);
-    // console.log("Feature Matrix of Added Join");
-    // console.log(masterTree.getJoinInformation(joinKeysChildren[idx]));
-    const featureMatrixJoin: number[][] = masterTree.getJoinInformation(joinKeysChildren[idx]).featureMatrix;
-    const featureAddedJoin: number[] = featureMatrixJoin[featureMatrixJoin.length-1];
-    // console.log("FeatureAddedJoin");
-    // console.log(featureAddedJoin)
-    
-    const joinEmbedding: number[] = featureAddedJoin.slice(8);
-    const newFeatures: number[] = [0,0,0,0,0,0,0,1, ...joinEmbedding]
-
-    const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, newFeatures, 0, joinEmbedding);
-    action.context.getEpisodeState().addParent(possibleChildren[idx], newParent);
-
-    // Add self connection to explored join, experimental
-    const adjMatrixCopy = action.context.getEpisodeState().adjacencyMatrix;
-    adjMatrixCopy[adjMatrixCopy.length-1][adjMatrixCopy[0].length-1] = 1;
-    return [estimatedValuesChildren[idx], improvedProbabilitiesChildren[idx], improvedProbabilitiesChildren, estimatedProbabilitiesChildren];
-  }
-  
-  public async MCTSearch(action: IActionRdfJoin, modelHolder: modelHolder, MCTSMasterTree: MCTSMasterTree, rootJoin: number[][]){
-    /**
-     * Call this to either expand node or select another node recursively
-     */
-    const currentJoinStateKey: number[][] = action.context.getEpisodeState().joinIndexes;
-    const currentJoinStateInformation: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(currentJoinStateKey)!;
-    const clonedAction: IActionRdfJoin = _.cloneDeep(action);
-    const state: StateSpaceTree = clonedAction.context.getEpisodeState();
-    // console.log(`Join ${currentJoinStateKey}`);
-    if (currentJoinStateInformation.priorProbability<0){
-      console.error("We have prior probability smaller than 0 (Actor)");
-    }
-    // STILL CHECK IF TERMINAL STATE AND RETURN UPWARDS
-    if (currentJoinStateInformation.N>0){
-      // 2. If we already explored, call search recursively on selected child node based on UCT
-      let nodeIndexes: number[] = [... Array(state.numNodes).keys()];
-      const possibleChildren: number[] = nodeIndexes.filter(item => !state.nodesArray[item].joined);
-      let possibleJoins: number[][] = this.getPossibleJoins(possibleChildren);
-
-      if (possibleJoins.length == 0){
-        // Terminal State propogate the q value upwards!
-        const outputChild = await this.getOutputChild(clonedAction, modelHolder, MCTSMasterTree, currentJoinStateKey);  
-        outputChild[1].dispose();
-        // Propogate found value of join upwards
-        const prevJoin = [...currentJoinStateKey];
-        for (let i=1;i<currentJoinStateKey.length;i++){
-          prevJoin.pop();
-          if (!_.isEqual(prevJoin, rootJoin)){
-            const joinInformationParent: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(prevJoin);
-            const newQ = (joinInformationParent.totalValueJoin + outputChild[0][0])/(joinInformationParent.N+1);
-            joinInformationParent.N += 1; joinInformationParent.meanValueJoin=newQ; joinInformationParent.totalValueJoin += outputChild[0][0];
-          } 
-        }
-        // Break out of recursion
-        return;
-      }
-
-      let maxU = Number.NEGATIVE_INFINITY;
-      let bestJoin = [0,0];
-      for (const join of possibleJoins){
-        const joinEntryIndexes: number[] = join.map(x => clonedAction.context.getNodeIdMapping().get(x)!);
-        const newJoinKey: number[][] = [...currentJoinStateKey];
-        newJoinKey.push(joinEntryIndexes);
-
-        const joinInformation: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(newJoinKey);
-        // Here the UCB value is calculated according to https://web.stanford.edu/~surag/posts/alphazero.html, note that the parent # visits is equal to the total visits of 
-        // All child actions.
-        const U = joinInformation.meanValueJoin + this.explorationDegree * joinInformation.priorProbability*(Math.sqrt(currentJoinStateInformation.N)/(1+joinInformation.N));
-        if (U >= maxU){
-          maxU = U;
-          bestJoin = join;
-        }
-      }
-      // Execute the best join and recursively call the MCTSearch
-      await this.executeJoinMCTS(clonedAction, bestJoin);
-      await this.MCTSearch(clonedAction, modelHolder, MCTSMasterTree, rootJoin);
-      return;
-    }
-    else{
-
-      // 3. If we haven't, expand the child states and add them to MCTS
-      /* Here we add x tensor if it has x child*/
-      const nPossibleChild: number = await this.expandChildStates(clonedAction, modelHolder, MCTSMasterTree);
-      
-  
-      // Add unexplored node to join state properly, feature matrix and Adj matrix are added in child expansion phase
-      /* NO LEAK*/
-      const outputChild = await this.getOutputChild(clonedAction, modelHolder, MCTSMasterTree, currentJoinStateKey);
-      outputChild[1].dispose();
-      /* NO LEAK */
-
-
-      const joinInformationNode: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(currentJoinStateKey); 
-      joinInformationNode.meanValueJoin = outputChild[0][0]; joinInformationNode.totalValueJoin = outputChild[0][0]; joinInformationNode.N = 1;
-      // Propogate found value of join upwards
-      const prevJoin = [...currentJoinStateKey];
-      for (let i=1;i<currentJoinStateKey.length;i++){
-        prevJoin.pop();
-        if (!_.isEqual(prevJoin, rootJoin)){
-          const joinInformationParent: MCTSJoinInformation = MCTSMasterTree.getJoinInformation(prevJoin);
-          const newQ = (joinInformationParent.totalValueJoin + outputChild[0][0])/(joinInformationParent.N+1);
-          joinInformationParent.N += 1; joinInformationParent.meanValueJoin=newQ; joinInformationParent.totalValueJoin+= outputChild[0][0];
-        } 
-      }
-    }
-  }
-
-  private async getOutputChild(action: IActionRdfJoin, modelHolder: modelHolder, masterTree: MCTSMasterTree, joinKey: number[][]): Promise<[number[], tf.Tensor]>{
-    /*
-    1. clone action
-    2. execute proposed join on action
-    3. Get features matrices / adjmatrices
-    4. Return probability of child
-    */
-
-    const featureMatrix = masterTree.getJoinInformation(joinKey).featureMatrix;
-    const adjMatrix = masterTree.getJoinInformation(joinKey).adjencyMatrix;
-    /* Execute forward pass */
-    const adjTensor: tf.Tensor2D = tf.tensor2d(adjMatrix);
-    const inputFeaturesTensor: tf.Tensor2D = tf.tensor2d(featureMatrix, [featureMatrix.length,featureMatrix[0].length]);
-    const forwardPassOutput: tf.Tensor[] = modelHolder.getModel().forwardPassTest(inputFeaturesTensor, adjTensor) as tf.Tensor[];
-
-    const valueOutput = (await forwardPassOutput[0].data())[featureMatrix.length-1]
-    const policyOutput = (await forwardPassOutput[1].data())[featureMatrix.length-1];
-
-    const probTensor: tf.Tensor = forwardPassOutput[1].slice(featureMatrix.length-1, 1);
-
-    inputFeaturesTensor.dispose(); forwardPassOutput.map(x => x.dispose()); adjTensor.dispose(); 
-
-    return [[valueOutput, policyOutput], probTensor];
-  }
-
-  private async expandChildStates(action: IActionRdfJoin, modelHolder: modelHolder, masterTree: MCTSMasterTree){
-    // Clone the state so we can recursively search
-    const episodeState = _.cloneDeep(action.context.getEpisodeState());
-    let nodeIndexes: number[] = [... Array(episodeState.numNodes).keys()];
-    const possibleChildren: number[][] = this.getPossibleChildren(nodeIndexes, episodeState);
-    if (possibleChildren.length>0){
-      let priorProbabilitiesEstimated: number[] = []
-      let estimatedProbabilitiesTensor: tf.Tensor[] = []
-      for (const join of possibleChildren){
-        // Get probabilties for each child
-        const addedJoinKey: number[][] = await this.constructJoinState(action, join, masterTree);
-        const predictionOutput = await this.getOutputChild(action, modelHolder, masterTree, addedJoinKey);
-        priorProbabilitiesEstimated.push(predictionOutput[0][1]);
-        estimatedProbabilitiesTensor.push(predictionOutput[1]);
-      }
-      // So ugly, so much waste :/
-      const concatinatedProbTensor: tf.Tensor = tf.concat(estimatedProbabilitiesTensor)
-  
-      const priorProbabilitiesTensor: tf.Tensor = tf.tensor(priorProbabilitiesEstimated);
-      const probabilitiesTensor: tf.Tensor = this.softMax(priorProbabilitiesTensor);
-      const estimatedProbabilitiesTensorSoftMax: tf.Tensor = this.softMax(concatinatedProbTensor);
-      // There is something wrong with probabilities, gives NaN sometimes;
-      const probabilities = probabilitiesTensor.dataSync();
-      for(let i=0;i<probabilities.length;i++){
-        const joinId = possibleChildren[i];
-        const joinEntryIndexes: number[] = joinId.map(x => action.context.getNodeIdMapping().get(x)!);
-        // Get key to identify the explored child nodes
-        const newJoinIndexes = [...episodeState.joinIndexes];
-        newJoinIndexes.push(joinEntryIndexes);
-  
-        // Update the prior probabilities
-        const toUpdateJoinInformation: MCTSJoinInformation = masterTree.getJoinInformation(newJoinIndexes);
-        toUpdateJoinInformation.priorProbability = probabilities[i];
-        toUpdateJoinInformation.estimatedProbabilityTensor = estimatedProbabilitiesTensorSoftMax.slice([i,0],[1,1]);
-      }
-
-      priorProbabilitiesTensor.dispose(); probabilitiesTensor.dispose(); concatinatedProbTensor.dispose(); 
-      estimatedProbabilitiesTensorSoftMax.dispose(); estimatedProbabilitiesTensor.map(x=>x.dispose());  
-    }
-    return possibleChildren.length;
-  } 
-
-  private async constructJoinState(action: IActionRdfJoin, join: number[], masterTree: MCTSMasterTree){
-    /**
-     * Function that takes a not yet executed join,  executes it and creates the feature matrixes and adjacency matrixes and adds these to the masterTree
-     * It is then the responsibility of another function to update the prior probability by taking these feature matrixes and executing the forwardPass.
-     * returns: the indexes / key of the added join
-     */
-    /* NO LEAK HERE */
-    const actionToExplore: IActionRdfJoin = _.cloneDeep(action);
-
-    // Execute the join
-    await this.executeJoinMCTS(actionToExplore, join);
-
-    let featureMatrix: number[][] = [];
-
-    for(let i=0;i<actionToExplore.context.getEpisodeState().nodesArray.length;i++){
-      featureMatrix.push(actionToExplore.context.getEpisodeState().nodesArray[i].features);
-    }
-    const addedJoinIndexes = actionToExplore.context.getEpisodeState().joinIndexes;
-    const joinInformationToAdd: MCTSJoinInformation = {N:0, meanValueJoin:0, priorProbability: 0, totalValueJoin:0, featureMatrix: featureMatrix, 
-      adjencyMatrix: actionToExplore.context.getEpisodeState().adjacencyMatrix}
-    // const joinInformationToAdd: MCTSJoinPredictionOutput = {N:0, predictedValueJoin:0, predictedProbability: 0, state: addedJoinIndexes};
-    masterTree.updateJoinDirect(joinInformationToAdd, addedJoinIndexes)
-    // masterTree.updateMasterMap(joinInformationToAdd, featureMatrix, actionToExplore.context.getEpisodeState().adjacencyMatrix);
-    return addedJoinIndexes;
-
-
-  }
-  
-  private async executeJoinMCTS(copiedAction: IActionRdfJoin, joinToExecute: number[]){
-    const passedNodeIdMapping = copiedAction.context.getNodeIdMapping();
-    const entriesToExecute: IJoinEntry[] = copiedAction.entries;
-    const state: StateSpaceTree = copiedAction.context.getEpisodeState();
-    const joinedNodes = joinToExecute.map(x => state.nodesArray[x]);
-    const runningMeans: runningMoments = copiedAction.context.getRunningMomentsMasterTree();
-
-    // Get the join indexes corresponding to node indexes passed in the join 
-    const indexJoins: number[] = joinToExecute.map(x => passedNodeIdMapping.get(x)!).sort();
-    const toBeJoined1 = entriesToExecute[indexJoins[0]]; const toBeJoined2 = entriesToExecute[indexJoins[1]];
-
-    entriesToExecute.splice(indexJoins[1],1); entriesToExecute.splice(indexJoins[0],1);
-
-    /* Save the join indices */
-    const firstEntry: IJoinEntry = {
-      output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
-        .mediate({ type: copiedAction.type, entries: [ toBeJoined1, toBeJoined2 ], context: copiedAction.context })),
-      operation: ActorRdfJoinInnerMultiReinforcementLearning.FACTORY
-        .createJoin([ toBeJoined1.operation, toBeJoined2.operation ], false),
-    };
-    entriesToExecute.push(firstEntry);
-
-    /* Update the mapping to reflect the newly executed join*/
-    /* Find maximum and minimum index in the join entries array to update the mapping */
-    const max_idx: number = indexJoins[1];
-    const min_idx: number = indexJoins[0];
-
-    /* Update the mappings by keeping track of the position of each entry in the nodeid mapping and updating according to position in the array*/
-    for (let [key, value] of passedNodeIdMapping){
-      if (value > max_idx){
-        copiedAction.context.setNodeIdMapping(key, value-2);
-      }
-      else if(value > min_idx && value < max_idx){
-        copiedAction.context.setNodeIdMapping(key, value-1);
-      }
-    }
-
-    /* Remove joined nodes from the index mapping*/
-    copiedAction.context.setNodeIdMapping(joinToExecute[0], -1); copiedAction.context.setNodeIdMapping(joinToExecute[1], -1);
-
-    // Here we try to use a reduced form of cardinality for feature, since the comunica cardinality explodes when selectivity is small
-    const selectivity: number = (await this.mediatorJoinSelectivity.mediate({entries: [toBeJoined1,toBeJoined2], context: copiedAction.context})).selectivity;
-    const testCardSmaller: number = (joinedNodes[0].cardinality + joinedNodes[1].cardinality)*selectivity
-
-
-    // Add node with features to the state
-    const numNodes = state.numNodes;
-    const addedJoinMetaData: MetadataBindings = await entriesToExecute[entriesToExecute.length-1].output.metadata();
-    // Get zeros vector for predicate representation
-    const predEmbedding1 = joinedNodes[0].predicateEmbedding; const predEmbedding2 = joinedNodes[1].predicateEmbedding
-    const newJoinEmbedding = this.maxPool(predEmbedding1, predEmbedding2);
-    const featureNode: number[] = [testCardSmaller, 0,0,0,0,0,0, addedJoinMetaData.variables.length, ...newJoinEmbedding];
-    // Standardise new features
-    for (const index of runningMeans.indexes){
-      const runningStatsIndex: aggregateValues = runningMeans.runningStats.get(index)!;
-      featureNode[index] = (featureNode[index] - runningStatsIndex.mean) / runningStatsIndex.std;
-    }
-
-    const newParent: NodeStateSpace = new NodeStateSpace(numNodes, featureNode, testCardSmaller, newJoinEmbedding);
-    state.addParent(joinToExecute, newParent);
-
-    // Add the joined entry to the index mapping
-    copiedAction.context.setNodeIdMapping(newParent.id, copiedAction.entries.length-1);
-
-    // Add join to join indexes
-    state.joinIndexes.push(indexJoins);
-  }
-
-
-  private getPossibleChildren(nodeIndexes: number[], episodeState: StateSpaceTree): number[][]{
-    // Get all unjoined nodes, these will form the possible actions
-    const possibleChildren: number[] = nodeIndexes.filter(item => !episodeState.nodesArray[item].joined).sort();
-    // Get all actions by finding all possible join combinations
-    let possibleJoins: number[][] = this.getPossibleJoins(possibleChildren);
-    return possibleJoins
-  }
-
-  private async MCTSOnline(action: IActionRdfJoin, modelHolder: modelHolder, masterTree: MCTSMasterTree){
-      const searchFactor = 5;
-      const searchAction: IActionRdfJoin = _.cloneDeep(action);
-      const state: StateSpaceTree = searchAction.context.getEpisodeState(); 
-      // First expand the root of the seach
-      const numPossibleChild: number = await this.expandChildStates(searchAction, modelHolder, masterTree);
-      // Num sims from http://ceur-ws.org/Vol-2652/paper05.pdf, alpha join
-      const numSimulations = (numPossibleChild) * searchFactor;
-  
-      // Add root to masterTee
-      const adjMatrix: number[][] = searchAction.context.getEpisodeState().adjacencyMatrix;
-      let featureMatrix: number[][] = [];
-      for(let i=0;i<searchAction.context.getEpisodeState().nodesArray.length;i++){
-        featureMatrix.push(searchAction.context.getEpisodeState().nodesArray[i].features);
-      }
-      // console.log("Before")
-      // console.log(masterTree.getJoinInformation(state.getJoinIndexes()));
-  
-      searchAction.context.setJoinStateMasterTree({N:1, state:state.getJoinIndexes(), predictedValueJoin: 0, predictedProbability: 1}, featureMatrix, adjMatrix);
-      masterTree.updateJoin({N:1, state:state.getJoinIndexes(), predictedValueJoin: 0, predictedProbability: 1}, featureMatrix, adjMatrix);
-      // console.log("After")
-      // console.log(masterTree.getJoinInformation(state.getJoinIndexes()));
-      // Perform MCTS simulations
-  
-      for(let i=0; i<numSimulations; i++){
-        const cloneAction: IActionRdfJoin = _.cloneDeep(searchAction);
-        await this.MCTSearch(cloneAction, modelHolder, masterTree, state.getJoinIndexes());
-        const rootInformation: MCTSJoinInformation = masterTree.getJoinInformation(state.getJoinIndexes());
-        rootInformation.N += 1;
-      }
-      // Choose next join based on largest N
-      const rootInformation: MCTSJoinInformation = masterTree.getJoinInformation(state.getJoinIndexes());
-      const episodeState = searchAction.context.getEpisodeState();
-      let nodeIndexes: number[] = [... Array(episodeState.numNodes).keys()];
-      const possibleChildren: number[][] = this.getPossibleChildren(nodeIndexes, episodeState);
-      const improvedProbabilitiesChildren: number[] = [];
-      const joinKeysChildren: number[][][] = [];
-      const estimatedValuesChildren: number[] = [];
-      const estimatedProbabilitiesChildren: tf.Tensor[] = []
-      // let bestJoin: number[] = [0,0]; let bestProbability = -1; let bestJoinKey: number[][] = [[]]; let estimatedValue = 0;
-      for (const join of possibleChildren){
-        // Construct join key
-        const passedNodeIdMapping = searchAction.context.getNodeIdMapping();  
-        const indexJoins: number[] = join.map(x => passedNodeIdMapping.get(x)!).sort();
-        const joinKey = [...state.getJoinIndexes()];
-        joinKey.push(indexJoins);
-  
-        // Get best probability of improved policy
-        const improvedPolicyProbability = masterTree.getJoinInformation(joinKey).N / (rootInformation.N-1);
-        improvedProbabilitiesChildren.push(improvedPolicyProbability);
-        joinKeysChildren.push(joinKey);
-        estimatedValuesChildren.push(masterTree.getJoinInformation(joinKey).meanValueJoin);
-        // Dispose this tensor!!
-        estimatedProbabilitiesChildren.push(masterTree.getJoinInformation(joinKey).estimatedProbabilityTensor!);
-      }
-      const idx = this.chooseUsingProbability(improvedProbabilitiesChildren);
-      const featureMatrixJoin: number[][] = masterTree.getJoinInformation(joinKeysChildren[idx]).featureMatrix;
-      const featureAddedJoin: number[] = featureMatrixJoin[featureMatrixJoin.length-1];
-      
-      const joinEmbedding: number[] = featureAddedJoin.slice(8);
-      const newFeatures: number[] = [0,0,0,0,0,0,0,1, ...joinEmbedding]
-  
-      const newParent: NodeStateSpace = new NodeStateSpace(action.context.getEpisodeState().numNodes, newFeatures, 0, joinEmbedding);
-      action.context.getEpisodeState().addParent(possibleChildren[idx], newParent);
-  
-      // Add self connection to explored join, experimental
-      const adjMatrixCopy = action.context.getEpisodeState().adjacencyMatrix;
-      adjMatrixCopy[adjMatrixCopy.length-1][adjMatrixCopy[0].length-1] = 1;
-      return [estimatedValuesChildren[idx], improvedProbabilitiesChildren[idx], improvedProbabilitiesChildren, estimatedProbabilitiesChildren];
-
-  }
-
   // private async getChosenJoinOnline(action: IActionRdfJoin, metadatas: MetadataBindings[], possibleJoins: number[][]){
   //   // Needs to be redone
   //   let bestJoinCost: number = Infinity;
