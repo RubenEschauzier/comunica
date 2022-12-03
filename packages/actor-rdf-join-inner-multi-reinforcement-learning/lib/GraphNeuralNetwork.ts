@@ -516,24 +516,32 @@ export class graphConvolutionModel{
                 if (layerConfig.type == 'batchNorm'){
                     this.allLayersModel[index].push([tf.layers.batchNormalization({axis:1}), layerConfig.type])
                 }
+                if(layerConfig.type == 'dropout'){
+                    this.allLayersModel[index].push([tf.layers.dropout({rate: .5}),layerConfig.type])
+                }
 
             }
         }
     }
 
-    public forwardPassTest(inputFeatures: tf.Tensor2D, mAdjacency: tf.Tensor2D){
+    public forwardPassFromConfig(inputFeatures: tf.Tensor2D, mAdjacency: tf.Tensor2D, validation?: boolean){
         return tf.tidy(() => {
-            const test = this.layersHidden[0][0] as graphConvolutionLayer
             let x: tf.Tensor = this.layersHidden[0][0].call(inputFeatures, mAdjacency) as tf.Tensor;
             for (let i=1; i<this.layersHidden.length;i++){
                 const layerI = this.layersHidden[i];
                 if (layerI[1] == 'graph'){
                     x = layerI[0].call(x, mAdjacency) as tf.Tensor2D;
                 }
+                else if (layerI[1] == 'dropout'){
+                    if (!validation){
+                        x=tf.dropout(x, .25)
+                    }
+                }
                 else{
                     x = layerI[0].apply(x) as tf.Tensor2D;
                 }
             }
+
             let outputValue: tf.Tensor = this.layersValue[0][0].apply(x) as tf.Tensor;
             for (let j=1; j<this.layersValue.length;j++){
                 const layerI = this.layersValue[j];
@@ -626,7 +634,7 @@ export const activationOptions = stringLiteralArray([
   ]);
 type activationIdentifier = typeof activationOptions[number]
 
-export const layerOptions = stringLiteralArray(['graph', 'dense', 'activation', 'batchNorm']);
+export const layerOptions = stringLiteralArray(['graph', 'dense', 'activation', 'batchNorm', 'dropout']);
 type layerIdentifier = typeof layerOptions[number];
 // // Test functions:
 // const file = fs.readFileSync('Reinforcement-Learning-Join-Mediator/data/soc-karate.mtx','utf8');

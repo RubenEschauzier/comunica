@@ -54,7 +54,7 @@ export class MediatorJoinReinforcementLearning
     }
 
   public async loadGraphVectors(){
-    const vectorLocation = path.join(__dirname, "..", "..", "/actor-rdf-join-inner-multi-reinforcement-learning/model/vectors.txt");
+    const vectorLocation = path.join(__dirname, "..", "..", "/actor-rdf-join-inner-multi-reinforcement-learning/model/vectorsBerlin/vectors.txt");
     this.graphVectors = new Map();
     // const vectors = JSON.parse(readFileSync(vectorLocation, 'utf8'));
     await this.processLineByLine(vectorLocation);
@@ -70,7 +70,6 @@ export class MediatorJoinReinforcementLearning
         
       }));
     const coefficients = await Promise.all(promises);
-
     // Calculate costs
     let costs: (number | undefined)[] = coefficients
       // eslint-disable-next-line array-callback-return
@@ -114,6 +113,12 @@ export class MediatorJoinReinforcementLearning
 
     // Return actor with lowest cost
     const bestActor = testResults[minIndex].actor;
+    // const test = action.entries.map(async entry => (await entry.output.metadata()).cardinality);
+    // for (const t of test){
+    //   await t;
+    // }
+    // console.log(bestActor.name);
+    // console.log(test);
     // Emit calculations in logger
     if (bestActor.includeInLogs) {
       Actor.getContextLogger(action.context)?.debug(`Determined physical join operator '${bestActor.logicalType}-${bestActor.physicalName}'`, {

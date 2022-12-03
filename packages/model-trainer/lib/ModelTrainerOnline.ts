@@ -15,7 +15,7 @@ export class ModelTrainer{
 
     public constructor(modelHolder: modelHolder){
         this.path = require('path');
-        this.optimizer = tf.train.adam(.05);
+        this.optimizer = tf.train.adam(.005);
         this.model = modelHolder.getModel();
     }
 
@@ -89,7 +89,7 @@ export class ModelTrainer{
                     // const degreeLastNode = nodeDegree.slice([nodeDegree.shape[0]-1]);
                     // nodeDegreeArray.push(degreeLastNode)  
                     /* Pretend we don't know the prediction output of our join node for training purposes*/
-                    const forwardPassOutput: tf.Tensor[] = this.model.forwardPassTest(tf.tensor2d(featureMatrixesPre[i], [adjacencyMatrixesPre[i].length, featureMatrixesPre[i][0].length]), adjTensorPre) as tf.Tensor[];
+                    const forwardPassOutput: tf.Tensor[] = this.model.forwardPassFromConfig(tf.tensor2d(featureMatrixesPre[i], [adjacencyMatrixesPre[i].length, featureMatrixesPre[i][0].length]), adjTensorPre) as tf.Tensor[];
                     const joinValuePrediction: tf.Tensor = forwardPassOutput[0].slice([forwardPassOutput[0].shape[0]-1, 0]);
                     const joinPolicyPrediction: tf.Tensor = forwardPassOutput[1].slice([forwardPassOutput[0].shape[0]-1, 0]);
                         
@@ -165,7 +165,7 @@ export class ModelTrainer{
                         const adjTensorPre = tf.tensor2d(adjacencyMatrixes[b*batchSize+i]);
 
                         /* Pretend we don't know the prediction output of our join node for training purposes*/
-                        const forwardPassOutput: tf.Tensor[] = this.model.forwardPassTest(tf.tensor(featureMatrixes[b*batchSize+i],
+                        const forwardPassOutput: tf.Tensor[] = this.model.forwardPassFromConfig(tf.tensor(featureMatrixes[b*batchSize+i],
                             [featureMatrixes[b*batchSize+i].length, featureMatrixes[b*batchSize+i][0].length], 'float32'), adjTensorPre) as tf.Tensor[];
 
                         const joinValuePrediction: tf.Tensor = forwardPassOutput[0].slice([forwardPassOutput[0].shape[0]-1, 0]);
@@ -189,7 +189,7 @@ export class ModelTrainer{
                 totalLoss += loss.dataSync()[0];
             }
             // this.saveModel('testDir');
-            return totalLoss;
+            return totalLoss/adjacencyMatrixes.length;
         }); 
     }
 

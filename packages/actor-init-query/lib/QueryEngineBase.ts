@@ -13,12 +13,13 @@ import type { IActionContext, IPhysicalQueryPlanLogger,
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import type { Algebra } from 'sparqlalgebrajs';
-import { EpisodeLogger, MCTSJoinInformation, MCTSMasterTree, modelHolder } from '../../model-trainer/lib';
+import { aggregateValues, EpisodeLogger, MCTSJoinInformation, MCTSMasterTree, modelHolder, runningMoments } from '../../model-trainer/lib';
 import { ModelTrainer } from '../../model-trainer/lib/ModelTrainerOnline';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
 import * as tf from '@tensorflow/tfjs-node';
-
+import * as path from 'path';
+import * as fs from 'node:fs'
 /**
  * Base implementation of a Comunica query engine.
  */
@@ -137,7 +138,14 @@ export class QueryEngineBase implements IQueryEngine {
     const queryEpisode: EpisodeLogger = new EpisodeLogger();
     // We create our model and load weights if applicable
     if (!this.modelHolder.instantiated){
-      await this.modelHolder.instantiateModel();
+      if (context && context.modelLocation){
+          await this.modelHolder.instantiateModel(context.modelLocation);
+          await context.masterTree.loadRunningMoments(context.modelLocation);
+
+      }
+      else{
+        await this.modelHolder.instantiateModel();
+      }
     }
 
     /* When offline training we require an externally created instance of the master tree to be passed */
@@ -266,11 +274,6 @@ export class QueryEngineBase implements IQueryEngine {
         data: physicalQueryPlanLogger.toJson(),
       };
     }
-
-    /**
-     * For our reinforcement learning actor we include the timing always, but this should be configurable
-     */
-    const queryExecutionTime: number = this.timer.updateEndTime();
     
     /* This can be undefined when there is no joins */
     if (actionContext.getEpisodeState()){
@@ -394,7 +397,7 @@ export class QueryEngineBase implements IQueryEngine {
       const valueTerm: number = Math.pow(predictionValue-actualValue,2);
       let probTerm: number = 0;
       for(let i=0;i<predictionProb.length;i++){
-        probTerm+=actualProb[i]*Math.log(predictionProb[i]);
+        probTerm+=actualProb[i]*Math.log(predictionProb[i]+0.01);
       }
       return [valueTerm - probTerm, valueTerm];
     }
@@ -409,6 +412,11 @@ export class QueryEngineBase implements IQueryEngine {
       const predictedProbabilityVector: number[] = value.predictedProbabilityVector!;
 
       const valMetrics: number[] = joinLossMSE(predictedExecutionTime, predictedProbabilityVector, actualExecutionTime, actualProbabilityVector);
+      // console.log("Val Loss")
+      // console.log(valMetrics[0])
+      // console.log("Predicted Exe time");
+      // console.log(predictedExecutionTime)
+      // console.log(predictedProbabilityVector);
       averageValLoss += valMetrics[0];
       averageValMSE += valMetrics[1];
       averageValExecutionTime += actualExecutionTime;
@@ -419,8 +427,30 @@ export class QueryEngineBase implements IQueryEngine {
     return [averageValLoss, averageValMSE, averageValExecutionTime];
   }
 
-  public saveModel(epochString: string){
+  public saveModel(epochString: string, runningMomentsX: runningMoments, runningMomentsY: aggregateValues){
     this.modelTrainer.saveModel(epochString);
+    const modelDir: string = path.join(__dirname, '../../actor-rdf-join-inner-multi-reinforcement-learning/model');
+
+    const fileLocationX = path.join(modelDir, epochString+"/runningWeightsX");
+    const fileLocationY = path.join(modelDir, epochString+"/runningWeightsY")
+
+    let serialiseObject: {[key: string|number]: any} = {};
+    serialiseObject['indexes'] = runningMomentsX.indexes;
+    for (const [key, value] of runningMomentsX.runningStats){
+      serialiseObject[key] = value;
+    }
+    fs.writeFile(fileLocationX, JSON.stringify(serialiseObject), function(err: any) {
+        if(err) {
+            return console.log(err);
+        }
+    }); 
+    fs.writeFile(fileLocationY, JSON.stringify(runningMomentsY), function(err: any) {
+      if(err) {
+          return console.log(err);
+      }
+  }); 
+
+
   }
 
   /**

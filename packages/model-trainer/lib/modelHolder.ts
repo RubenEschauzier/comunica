@@ -9,10 +9,13 @@ export class modelHolder{
 
 
     }
-    public async instantiateModel(){
+    public async instantiateModel(loadDir?:string){
         await this.model.instantiateModel()
         // Should do better thing for this
-        // await this.model.loadModel('testDir');
+        if (loadDir){
+            console.log(`Loaded model: ${loadDir}`);
+            await this.model.loadModel(loadDir);
+        }
         const test = this.model.layersHidden[0][0] as graphConvolutionLayer
         this.instantiated=true;
     }

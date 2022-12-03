@@ -1,4 +1,6 @@
 import * as tf from '@tensorflow/tfjs-node';
+import { fstat } from 'fs';
+import path = require('path');
 
 export class MCTSMasterTree{    
     /* Map containing all exploration information of one query iteration */
@@ -111,6 +113,34 @@ export class MCTSMasterTree{
         else{
             throw Error("Tried to get running moments index that does not exist");
         }
+    }
+    public loadRunningMoments(momentLocation: string){
+        const fs = require('fs');
+        // const data = fs.readFileSync(momentLocation);
+        const test = path.join(__dirname, '..','..','actor-rdf-join-inner-multi-reinforcement-learning','model',momentLocation,'runningWeightsX');
+        const data = fs.readFileSync(test, 'utf8');
+        const dataParsed = JSON.parse(data);
+        const indexes = dataParsed.indexes
+        const runningIndexStats: Map<number, aggregateValues> = new Map();
+        for (const index of indexes){
+            const strIndex = index.toString()
+            runningIndexStats.set(index, dataParsed[strIndex]);
+        }
+        const loadedRunningMoments: runningMoments = {indexes: indexes, runningStats: runningIndexStats}
+        this.runningMoments = loadedRunningMoments;
+        console.log("Loaded Running Moments")
+        console.log(loadedRunningMoments);
+        // console.log(data)
+        // serialiseObject['indexes'] = runningMomentsX.indexes;
+        // for (const [key, value] of runningMomentsX.runningStats){
+        //   serialiseObject[key] = value;
+        // }
+        // fs.writeFile(fileLocationX, JSON.stringify(serialiseObject), function(err: any) {
+        //     if(err) {
+        //         return console.log(err);
+        //     }
+        // }); 
+    
     }
 }
 

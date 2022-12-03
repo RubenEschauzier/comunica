@@ -24,7 +24,7 @@ export class ActorRdfJoinSingle extends ActorRdfJoin {
   }
 
   protected async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
-    console.log("Executed inner single join");
+    console.log("Got Output Single");
     return {
       result: action.entries[0].output,
     };
