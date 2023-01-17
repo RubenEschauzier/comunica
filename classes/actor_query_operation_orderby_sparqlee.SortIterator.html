@@ -189,8 +189,10 @@
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="actor_query_operation_orderby_sparqlee.SortIterator.html#skip" class="tsd-kind-icon">skip</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="actor_query_operation_orderby_sparqlee.SortIterator.html#surround" class="tsd-kind-icon">surround</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="actor_query_operation_orderby_sparqlee.SortIterator.html#take" class="tsd-kind-icon">take</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="actor_query_operation_orderby_sparqlee.SortIterator.html#toArray" class="tsd-kind-icon">to<wbr>Array</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="actor_query_operation_orderby_sparqlee.SortIterator.html#toString" class="tsd-kind-icon">to<wbr>String</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-has-type-parameter tsd-is-inherited tsd-is-external"><a href="actor_query_operation_orderby_sparqlee.SortIterator.html#transform" class="tsd-kind-icon">transform</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="actor_query_operation_orderby_sparqlee.SortIterator.html#uniq" class="tsd-kind-icon">uniq</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-static tsd-is-external"><a href="actor_query_operation_orderby_sparqlee.SortIterator.html#listenerCount-1" class="tsd-kind-icon">listener<wbr>Count</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-static tsd-is-external"><a href="actor_query_operation_orderby_sparqlee.SortIterator.html#on-1" class="tsd-kind-icon">on</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-static tsd-is-external"><a href="actor_query_operation_orderby_sparqlee.SortIterator.html#once-1" class="tsd-kind-icon">once</a></li>
@@ -212,7 +214,7 @@
 							<aside class="tsd-sources">
 								<p>Overrides TransformIterator&lt;T, T&gt;.constructor</p>
 								<ul>
-									<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts#L10">packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts:10</a></li>
+									<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts#L10">packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts:10</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-type-parameters-title">Type parameters</h4>
@@ -268,7 +270,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator._boundPush</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:510</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:562</li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -296,11 +298,11 @@
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-protected tsd-is-external">
 					<a name="_createSource" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagProtected">Protected</span> <span class="tsd-flag ts-flagOptional">Optional</span> _create<wbr>Source</h3>
-					<div class="tsd-signature tsd-kind-icon">_create<wbr>Source<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">null</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">AsyncIteratorOrPromise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span></div>
+					<div class="tsd-signature tsd-kind-icon">_create<wbr>Source<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">null</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">MaybePromise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span></div>
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator._createSource</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:507</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:559</li>
 						</ul>
 					</aside>
 				</section>
@@ -311,7 +313,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator._destroySource</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:508</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:560</li>
 						</ul>
 					</aside>
 				</section>
@@ -322,7 +324,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator._optional</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:509</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:561</li>
 						</ul>
 					</aside>
 				</section>
@@ -333,7 +335,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator._properties</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:62</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:64</li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -352,7 +354,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator._propertyCallbacks</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:65</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:67</li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -371,7 +373,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator._pushedCount</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:402</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:457</li>
 						</ul>
 					</aside>
 				</section>
@@ -382,7 +384,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator._reading</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:401</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:456</li>
 						</ul>
 					</aside>
 				</section>
@@ -393,7 +395,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator._source</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:506</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:558</li>
 						</ul>
 					</aside>
 				</section>
@@ -404,7 +406,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator._sourceStarted</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:403</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:458</li>
 						</ul>
 					</aside>
 				</section>
@@ -415,7 +417,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator._state</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:60</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:62</li>
 						</ul>
 					</aside>
 				</section>
@@ -425,7 +427,7 @@
 					<div class="tsd-signature tsd-kind-icon">sort<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">(</span>left<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span>, right<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">number</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts#L7">packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts:7</a></li>
+							<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts#L7">packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts:7</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -459,7 +461,7 @@
 					<div class="tsd-signature tsd-kind-icon">sorted<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">[]</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts#L8">packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts:8</a></li>
+							<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts#L8">packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts:8</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -469,18 +471,18 @@
 					<div class="tsd-signature tsd-kind-icon">window<wbr>Length<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts#L6">packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts:6</a></li>
+							<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts#L6">packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts:6</a></li>
 						</ul>
 					</aside>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-static tsd-is-external">
 					<a name="captureRejectionSymbol" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagReadonly">Readonly</span> capture<wbr>Rejection<wbr>Symbol</h3>
-					<div class="tsd-signature tsd-kind-icon">capture<wbr>Rejection<wbr>Symbol<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">typeof </span><a href="actor_query_operation_construct.BindingsToQuadsIterator.html#captureRejectionSymbol" class="tsd-signature-type" data-tsd-kind="Property">captureRejectionSymbol</a></div>
+					<div class="tsd-signature tsd-kind-icon">capture<wbr>Rejection<wbr>Symbol<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">typeof </span><a href="actor_abstract_path.PathVariableObjectIterator.html#captureRejectionSymbol" class="tsd-signature-type" data-tsd-kind="Property">captureRejectionSymbol</a></div>
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator.captureRejectionSymbol</p>
 						<ul>
-							<li>Defined in node_modules/@types/node/events.d.ts:38</li>
+							<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:38</li>
 						</ul>
 					</aside>
 				</section>
@@ -491,7 +493,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator.captureRejections</p>
 						<ul>
-							<li>Defined in node_modules/@types/node/events.d.ts:44</li>
+							<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:44</li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -507,18 +509,18 @@
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator.defaultMaxListeners</p>
 						<ul>
-							<li>Defined in node_modules/@types/node/events.d.ts:45</li>
+							<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:45</li>
 						</ul>
 					</aside>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-static tsd-is-external">
 					<a name="errorMonitor" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagReadonly">Readonly</span> error<wbr>Monitor</h3>
-					<div class="tsd-signature tsd-kind-icon">error<wbr>Monitor<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">typeof </span><a href="actor_query_operation_construct.BindingsToQuadsIterator.html#errorMonitor" class="tsd-signature-type" data-tsd-kind="Property">errorMonitor</a></div>
+					<div class="tsd-signature tsd-kind-icon">error<wbr>Monitor<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">typeof </span><a href="actor_abstract_path.PathVariableObjectIterator.html#errorMonitor" class="tsd-signature-type" data-tsd-kind="Property">errorMonitor</a></div>
 					<aside class="tsd-sources">
 						<p>Inherited from TransformIterator.errorMonitor</p>
 						<ul>
-							<li>Defined in node_modules/@types/node/events.d.ts:37</li>
+							<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:37</li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -545,7 +547,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:179</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:181</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -571,7 +573,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:191</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:193</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -597,7 +599,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:198</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:200</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -624,7 +626,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:185</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:187</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -651,7 +653,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:420</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:472</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -666,7 +668,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:421</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:473</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -697,7 +699,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:172</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:174</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -717,7 +719,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:173</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:175</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -748,7 +750,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:526</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:578</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -761,7 +763,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:527</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:579</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -793,7 +795,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._begin</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:436</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:488</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -839,7 +841,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._changeState</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:79</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:81</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -881,7 +883,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._closeWhenDone</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:567</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:619</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -904,7 +906,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._completeClose</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:484</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:536</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -933,7 +935,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._destroy</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:485</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:537</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -978,7 +980,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._end</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:568</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:620</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -1002,7 +1004,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._endAsync</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:160</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:162</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1025,7 +1027,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._fillBuffer</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:465</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:517</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1054,7 +1056,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._fillBufferAsync</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:469</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:521</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1077,7 +1079,7 @@
 							<aside class="tsd-sources">
 								<p>Overrides TransformIterator._flush</p>
 								<ul>
-									<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts#L58">packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts:58</a></li>
+									<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts#L58">packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts:58</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -1113,7 +1115,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._init</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:428</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:480</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1146,7 +1148,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._loadSourceAsync</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:532</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:584</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1169,7 +1171,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._optionalTransform</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:552</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:604</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1214,7 +1216,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._push</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:458</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:510</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1251,7 +1253,7 @@
 							<aside class="tsd-sources">
 								<p>Overrides TransformIterator._read</p>
 								<ul>
-									<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts#L21">packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts:21</a></li>
+									<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts#L21">packages/actor-query-operation-orderby-sparqlee/lib/SortIterator.ts:21</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -1290,7 +1292,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._readAndTransform</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:547</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:599</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1346,7 +1348,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._toStringDetails</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:498</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:550</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1362,14 +1364,14 @@
 					<a name="_transform" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagProtected">Protected</span> _transform</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-protected tsd-is-external">
-						<li class="tsd-signature tsd-kind-icon">_transform<span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span>, done<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span>, push<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+						<li class="tsd-signature tsd-kind-icon">_transform<span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span>, done<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span>, push<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span>i<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._transform</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:562</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:614</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1406,21 +1408,21 @@
 									</ul>
 								</li>
 								<li>
-									<h5>push: <span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span></h5>
+									<h5>push: <span class="tsd-signature-symbol">(</span>i<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span></h5>
 									<div class="tsd-comment tsd-typography">
 										<p>A callback to push zero or more transformation results.</p>
 									</div>
 									<ul class="tsd-parameters">
 										<li class="tsd-parameter-signature">
 											<ul class="tsd-signatures tsd-kind-type-literal tsd-is-external">
-												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>i<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 											</ul>
 											<ul class="tsd-descriptions">
 												<li class="tsd-description">
 													<h4 class="tsd-parameters-title">Parameters</h4>
 													<ul class="tsd-parameters">
 														<li>
-															<h5>item: <span class="tsd-signature-type">T</span></h5>
+															<h5>i: <span class="tsd-signature-type">T</span></h5>
 														</li>
 													</ul>
 													<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
@@ -1445,7 +1447,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator._validateSource</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:539</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:591</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1483,7 +1485,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.addListener</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:57</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:57</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -1528,7 +1530,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.append</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:289</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:306</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1562,7 +1564,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.clone</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:327</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:344</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1589,7 +1591,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.close</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:477</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:529</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1620,7 +1622,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.copyProperties</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:241</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:251</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1658,7 +1660,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.destroy</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:139</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:141</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1700,7 +1702,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.emit</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:67</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:67</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -1727,7 +1729,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.eventNames</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:72</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:72</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-symbol">(</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span></h4>
@@ -1746,7 +1748,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.filter</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:274</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:284</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1801,7 +1803,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.filter</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:275</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:285</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -1846,7 +1848,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.forEach</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:120</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:122</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1903,7 +1905,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.getMaxListeners</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:64</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:64</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
@@ -1921,7 +1923,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.getProperties</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:226</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:236</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1950,7 +1952,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.getProperty</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:215</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:225</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2014,7 +2016,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.listenerCount</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:68</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:68</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2038,7 +2040,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.listeners</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:65</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:65</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2055,14 +2057,14 @@
 					<a name="map" class="tsd-anchor"></a>
 					<h3>map</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-has-type-parameter tsd-is-inherited tsd-is-external">
-						<li class="tsd-signature tsd-kind-icon">map&lt;D&gt;<span class="tsd-signature-symbol">(</span>map<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">D</span>, self<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">D</span><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">map&lt;D&gt;<span class="tsd-signature-symbol">(</span>map<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">MapFunction</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">D</span><span class="tsd-signature-symbol">&gt;</span>, self<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">D</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.map</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:266</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:276</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2080,28 +2082,10 @@
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>map: <span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">D</span></h5>
+									<h5>map: <span class="tsd-signature-type">MapFunction</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">D</span><span class="tsd-signature-symbol">&gt;</span></h5>
 									<div class="tsd-comment tsd-typography">
 										<p>A mapping function to call on this iterator&#39;s (remaining) items</p>
 									</div>
-									<ul class="tsd-parameters">
-										<li class="tsd-parameter-signature">
-											<ul class="tsd-signatures tsd-kind-type-literal tsd-is-external">
-												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">D</span></li>
-											</ul>
-											<ul class="tsd-descriptions">
-												<li class="tsd-description">
-													<h4 class="tsd-parameters-title">Parameters</h4>
-													<ul class="tsd-parameters">
-														<li>
-															<h5>item: <span class="tsd-signature-type">T</span></h5>
-														</li>
-													</ul>
-													<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">D</span></h4>
-												</li>
-											</ul>
-										</li>
-									</ul>
 								</li>
 								<li>
 									<h5><span class="tsd-flag ts-flagOptional">Optional</span> self: <span class="tsd-signature-type">any</span></h5>
@@ -2126,7 +2110,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.off</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:61</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:61</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2171,7 +2155,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.on</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:58</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:58</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2216,7 +2200,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.once</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:59</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:59</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2261,7 +2245,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.prepend</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:282</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:299</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2295,7 +2279,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.prependListener</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:70</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:70</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2340,7 +2324,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.prependOnceListener</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:71</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:71</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2385,7 +2369,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.range</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:319</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:336</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2425,7 +2409,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.rawListeners</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:66</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:66</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2449,7 +2433,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.read</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:443</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:495</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2475,7 +2459,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.removeAllListeners</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:62</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:62</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2499,7 +2483,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.removeListener</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:60</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:60</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2544,7 +2528,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.setMaxListeners</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:63</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:63</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2568,7 +2552,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.setProperties</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:233</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:243</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2605,7 +2589,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.setProperty</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:221</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:231</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2649,7 +2633,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.skip</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:304</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:321</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2683,7 +2667,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.surround</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:297</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:314</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2723,7 +2707,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.take</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:311</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:328</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2747,6 +2731,40 @@
 					</ul>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
+					<a name="toArray" class="tsd-anchor"></a>
+					<h3>to<wbr>Array</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
+						<li class="tsd-signature tsd-kind-icon">to<wbr>Array<span class="tsd-signature-symbol">(</span>options<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-symbol">{ </span>limit<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> }</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Inherited from TransformIterator.toArray</p>
+								<ul>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:212</li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Consume all remaining items of the iterator into an array that will be returned asynchronously.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> options: <span class="tsd-signature-symbol">{ </span>limit<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> }</span></h5>
+									<ul class="tsd-parameters">
+										<li class="tsd-parameter">
+											<h5><span class="tsd-flag ts-flagOptional">Optional</span> limit<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">number</span></h5>
+										</li>
+									</ul>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
 					<a name="toString" class="tsd-anchor"></a>
 					<h3>to<wbr>String</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
@@ -2757,7 +2775,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.toString</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:199</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:201</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4>
@@ -2775,7 +2793,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.transform</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:258</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:268</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2801,6 +2819,58 @@
 						</li>
 					</ul>
 				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
+					<a name="uniq" class="tsd-anchor"></a>
+					<h3>uniq</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
+						<li class="tsd-signature tsd-kind-icon">uniq<span class="tsd-signature-symbol">(</span>by<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Inherited from TransformIterator.uniq</p>
+								<ul>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:292</li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Returns a new iterator containing all of the unique items in the original iterator.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> by: <span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>The derived value by which to determine uniqueness (e.g., stringification).
+										Defaults to the identity function.</p>
+									</div>
+									<ul class="tsd-parameters">
+										<li class="tsd-parameter-signature">
+											<ul class="tsd-signatures tsd-kind-type-literal tsd-is-external">
+												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span></li>
+											</ul>
+											<ul class="tsd-descriptions">
+												<li class="tsd-description">
+													<h4 class="tsd-parameters-title">Parameters</h4>
+													<ul class="tsd-parameters">
+														<li>
+															<h5>item: <span class="tsd-signature-type">T</span></h5>
+														</li>
+													</ul>
+													<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">any</span></h4>
+												</li>
+											</ul>
+										</li>
+									</ul>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></h4>
+							<p>An iterator with duplicates filtered out.</p>
+						</li>
+					</ul>
+				</section>
 				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-static tsd-is-external">
 					<a name="listenerCount-1" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagStatic">Static</span> listener<wbr>Count</h3>
@@ -2812,7 +2882,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.listenerCount</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:26</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:26</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2846,7 +2916,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.on</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:23</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:23</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2874,7 +2944,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.once</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:21</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:21</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2892,7 +2962,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from TransformIterator.once</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:22</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:22</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -3169,10 +3239,16 @@
 										<a href="actor_query_operation_orderby_sparqlee.SortIterator.html#take" class="tsd-kind-icon">take</a>
 									</li>
 									<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
+										<a href="actor_query_operation_orderby_sparqlee.SortIterator.html#toArray" class="tsd-kind-icon">to<wbr>Array</a>
+									</li>
+									<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
 										<a href="actor_query_operation_orderby_sparqlee.SortIterator.html#toString" class="tsd-kind-icon">to<wbr>String</a>
 									</li>
 									<li class=" tsd-kind-method tsd-parent-kind-class tsd-has-type-parameter tsd-is-inherited tsd-is-external">
 										<a href="actor_query_operation_orderby_sparqlee.SortIterator.html#transform" class="tsd-kind-icon">transform</a>
+									</li>
+									<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
+										<a href="actor_query_operation_orderby_sparqlee.SortIterator.html#uniq" class="tsd-kind-icon">uniq</a>
 									</li>
 									<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-static tsd-is-external">
 										<a href="actor_query_operation_orderby_sparqlee.SortIterator.html#listenerCount-1" class="tsd-kind-icon">listener<wbr>Count</a>
@@ -3204,6 +3280,7 @@
 			<ul class="tsd-legend">
 				<li class="tsd-kind-variable"><span class="tsd-kind-icon">Variable</span></li>
 				<li class="tsd-kind-function"><span class="tsd-kind-icon">Function</span></li>
+				<li class="tsd-kind-function tsd-has-type-parameter"><span class="tsd-kind-icon">Function with type parameter</span></li>
 				<li class="tsd-kind-type-alias"><span class="tsd-kind-icon">Type alias</span></li>
 				<li class="tsd-kind-type-alias tsd-has-type-parameter"><span class="tsd-kind-icon">Type alias with type parameter</span></li>
 			</ul>

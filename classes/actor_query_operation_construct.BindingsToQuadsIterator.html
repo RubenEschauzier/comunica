@@ -81,7 +81,7 @@
 				<h3>Hierarchy</h3>
 				<ul class="tsd-hierarchy">
 					<li>
-						<span class="tsd-signature-type">MultiTransformIterator</span><span class="tsd-signature-symbol">&lt;</span><a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">RDF.Quad</span><span class="tsd-signature-symbol">&gt;</span>
+						<span class="tsd-signature-type">MultiTransformIterator</span><span class="tsd-signature-symbol">&lt;</span><a href="../modules/types.html#Bindings" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">RDF.Quad</span><span class="tsd-signature-symbol">&gt;</span>
 						<ul class="tsd-hierarchy">
 							<li>
 								<span class="target">BindingsToQuadsIterator</span>
@@ -192,8 +192,10 @@
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="actor_query_operation_construct.BindingsToQuadsIterator.html#skip" class="tsd-kind-icon">skip</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="actor_query_operation_construct.BindingsToQuadsIterator.html#surround" class="tsd-kind-icon">surround</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="actor_query_operation_construct.BindingsToQuadsIterator.html#take" class="tsd-kind-icon">take</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="actor_query_operation_construct.BindingsToQuadsIterator.html#toArray" class="tsd-kind-icon">to<wbr>Array</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="actor_query_operation_construct.BindingsToQuadsIterator.html#toString" class="tsd-kind-icon">to<wbr>String</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-has-type-parameter tsd-is-inherited tsd-is-external"><a href="actor_query_operation_construct.BindingsToQuadsIterator.html#transform" class="tsd-kind-icon">transform</a></li>
+								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external"><a href="actor_query_operation_construct.BindingsToQuadsIterator.html#uniq" class="tsd-kind-icon">uniq</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-static"><a href="actor_query_operation_construct.BindingsToQuadsIterator.html#bindQuad" class="tsd-kind-icon">bind<wbr>Quad</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-static"><a href="actor_query_operation_construct.BindingsToQuadsIterator.html#bindTerm" class="tsd-kind-icon">bind<wbr>Term</a></li>
 								<li class="tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-static tsd-is-external"><a href="actor_query_operation_construct.BindingsToQuadsIterator.html#listenerCount-1" class="tsd-kind-icon">listener<wbr>Count</a></li>
@@ -212,14 +214,14 @@
 					<a name="constructor" class="tsd-anchor"></a>
 					<h3>constructor</h3>
 					<ul class="tsd-signatures tsd-kind-constructor tsd-parent-kind-class tsd-is-overwrite">
-						<li class="tsd-signature tsd-kind-icon">new <wbr>Bindings<wbr>ToQuads<wbr>Iterator<span class="tsd-signature-symbol">(</span>template<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">BaseQuad</span><span class="tsd-signature-symbol">[]</span>, bindingsStream<span class="tsd-signature-symbol">: </span><a href="" class="tsd-signature-type" data-tsd-kind="Type alias">BindingsStream</a>, localizeBlankNodes<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="actor_query_operation_construct.BindingsToQuadsIterator.html" class="tsd-signature-type" data-tsd-kind="Class">BindingsToQuadsIterator</a></li>
+						<li class="tsd-signature tsd-kind-icon">new <wbr>Bindings<wbr>ToQuads<wbr>Iterator<span class="tsd-signature-symbol">(</span>template<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">BaseQuad</span><span class="tsd-signature-symbol">[]</span>, bindingsStream<span class="tsd-signature-symbol">: </span><a href="../modules/types.html#BindingsStream" class="tsd-signature-type" data-tsd-kind="Type alias">BindingsStream</a>, localizeBlankNodes<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="actor_query_operation_construct.BindingsToQuadsIterator.html" class="tsd-signature-type" data-tsd-kind="Class">BindingsToQuadsIterator</a></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<p>Overrides MultiTransformIterator&lt;Bindings, RDF.Quad&gt;.constructor</p>
 								<ul>
-									<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L20">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:20</a></li>
+									<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L21">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:21</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -228,7 +230,7 @@
 									<h5>template: <span class="tsd-signature-type">BaseQuad</span><span class="tsd-signature-symbol">[]</span></h5>
 								</li>
 								<li>
-									<h5>bindingsStream: <a href="" class="tsd-signature-type" data-tsd-kind="Type alias">BindingsStream</a></h5>
+									<h5>bindingsStream: <a href="../modules/types.html#BindingsStream" class="tsd-signature-type" data-tsd-kind="Type alias">BindingsStream</a></h5>
 								</li>
 								<li>
 									<h5>localizeBlankNodes: <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol"> = true</span></h5>
@@ -248,7 +250,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator._boundPush</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:510</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:562</li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -276,11 +278,11 @@
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-protected tsd-is-external">
 					<a name="_createSource" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagProtected">Protected</span> <span class="tsd-flag ts-flagOptional">Optional</span> _create<wbr>Source</h3>
-					<div class="tsd-signature tsd-kind-icon">_create<wbr>Source<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">null</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">AsyncIteratorOrPromise</span><span class="tsd-signature-symbol">&lt;</span><a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span></div>
+					<div class="tsd-signature tsd-kind-icon">_create<wbr>Source<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">null</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">MaybePromise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Bindings</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span></div>
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator._createSource</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:507</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:559</li>
 						</ul>
 					</aside>
 				</section>
@@ -291,7 +293,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator._destroySource</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:508</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:560</li>
 						</ul>
 					</aside>
 				</section>
@@ -302,7 +304,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator._optional</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:509</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:561</li>
 						</ul>
 					</aside>
 				</section>
@@ -313,7 +315,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator._properties</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:62</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:64</li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -332,7 +334,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator._propertyCallbacks</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:65</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:67</li>
 						</ul>
 					</aside>
 					<div class="tsd-type-declaration">
@@ -351,7 +353,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator._pushedCount</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:402</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:457</li>
 						</ul>
 					</aside>
 				</section>
@@ -362,18 +364,18 @@
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator._reading</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:401</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:456</li>
 						</ul>
 					</aside>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-protected tsd-is-external">
 					<a name="_source" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagProtected">Protected</span> <span class="tsd-flag ts-flagOptional">Optional</span> _source</h3>
-					<div class="tsd-signature tsd-kind-icon">_source<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">InternalSource</span><span class="tsd-signature-symbol">&lt;</span><a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a><span class="tsd-signature-symbol">&gt;</span></div>
+					<div class="tsd-signature tsd-kind-icon">_source<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">InternalSource</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Bindings</span><span class="tsd-signature-symbol">&gt;</span></div>
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator._source</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:506</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:558</li>
 						</ul>
 					</aside>
 				</section>
@@ -384,7 +386,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator._sourceStarted</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:403</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:458</li>
 						</ul>
 					</aside>
 				</section>
@@ -395,7 +397,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator._state</p>
 						<ul>
-							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:60</li>
+							<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:62</li>
 						</ul>
 					</aside>
 				</section>
@@ -405,7 +407,7 @@
 					<div class="tsd-signature tsd-kind-icon">blank<wbr>Node<wbr>Counter<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L18">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:18</a></li>
+							<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L19">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:19</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -415,7 +417,7 @@
 					<div class="tsd-signature tsd-kind-icon">localize<wbr>Blank<wbr>Nodes<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L17">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:17</a></li>
+							<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L18">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:18</a></li>
 						</ul>
 					</aside>
 				</section>
@@ -425,18 +427,18 @@
 					<div class="tsd-signature tsd-kind-icon">template<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">BaseQuad</span><span class="tsd-signature-symbol">[]</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L16">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:16</a></li>
+							<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L17">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:17</a></li>
 						</ul>
 					</aside>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-static tsd-is-external">
 					<a name="captureRejectionSymbol" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagReadonly">Readonly</span> capture<wbr>Rejection<wbr>Symbol</h3>
-					<div class="tsd-signature tsd-kind-icon">capture<wbr>Rejection<wbr>Symbol<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">typeof </span><a href="actor_query_operation_construct.BindingsToQuadsIterator.html#captureRejectionSymbol" class="tsd-signature-type" data-tsd-kind="Property">captureRejectionSymbol</a></div>
+					<div class="tsd-signature tsd-kind-icon">capture<wbr>Rejection<wbr>Symbol<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">typeof </span><a href="actor_abstract_path.PathVariableObjectIterator.html#captureRejectionSymbol" class="tsd-signature-type" data-tsd-kind="Property">captureRejectionSymbol</a></div>
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator.captureRejectionSymbol</p>
 						<ul>
-							<li>Defined in node_modules/@types/node/events.d.ts:38</li>
+							<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:38</li>
 						</ul>
 					</aside>
 				</section>
@@ -447,7 +449,7 @@
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator.captureRejections</p>
 						<ul>
-							<li>Defined in node_modules/@types/node/events.d.ts:44</li>
+							<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:44</li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -463,18 +465,18 @@
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator.defaultMaxListeners</p>
 						<ul>
-							<li>Defined in node_modules/@types/node/events.d.ts:45</li>
+							<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:45</li>
 						</ul>
 					</aside>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-property tsd-parent-kind-class tsd-is-inherited tsd-is-static tsd-is-external">
 					<a name="errorMonitor" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagStatic">Static</span> <span class="tsd-flag ts-flagReadonly">Readonly</span> error<wbr>Monitor</h3>
-					<div class="tsd-signature tsd-kind-icon">error<wbr>Monitor<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">typeof </span><a href="actor_query_operation_construct.BindingsToQuadsIterator.html#errorMonitor" class="tsd-signature-type" data-tsd-kind="Property">errorMonitor</a></div>
+					<div class="tsd-signature tsd-kind-icon">error<wbr>Monitor<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-symbol">typeof </span><a href="actor_abstract_path.PathVariableObjectIterator.html#errorMonitor" class="tsd-signature-type" data-tsd-kind="Property">errorMonitor</a></div>
 					<aside class="tsd-sources">
 						<p>Inherited from MultiTransformIterator.errorMonitor</p>
 						<ul>
-							<li>Defined in node_modules/@types/node/events.d.ts:37</li>
+							<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:37</li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -501,7 +503,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:179</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:181</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -527,7 +529,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:191</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:193</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -553,7 +555,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:198</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:200</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -580,7 +582,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:185</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:187</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -607,7 +609,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:420</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:472</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -622,7 +624,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:421</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:473</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -653,7 +655,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:172</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:174</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -673,7 +675,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:173</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:175</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -704,7 +706,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:526</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:578</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -717,7 +719,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:527</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:579</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -749,7 +751,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._begin</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:436</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:488</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -795,7 +797,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._changeState</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:79</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:81</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -837,7 +839,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._closeWhenDone</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:637</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:689</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
@@ -855,7 +857,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._completeClose</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:484</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:536</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -877,20 +879,20 @@
 					<a name="_createTransformer" class="tsd-anchor"></a>
 					<h3>_create<wbr>Transformer</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-overwrite">
-						<li class="tsd-signature tsd-kind-icon">_create<wbr>Transformer<span class="tsd-signature-symbol">(</span>bindings<span class="tsd-signature-symbol">: </span><a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">_create<wbr>Transformer<span class="tsd-signature-symbol">(</span>bindings<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Bindings</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<p>Overrides MultiTransformIterator._createTransformer</p>
 								<ul>
-									<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L115">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:115</a></li>
+									<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L116">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:116</a></li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>bindings: <a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a></h5>
+									<h5>bindings: <span class="tsd-signature-type">Bindings</span></h5>
 								</li>
 							</ul>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span></h4>
@@ -908,7 +910,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._destroy</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:485</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:537</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -953,7 +955,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._end</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:568</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:690</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -977,7 +979,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._endAsync</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:160</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:162</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1000,7 +1002,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._fillBuffer</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:465</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:517</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1029,7 +1031,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._fillBufferAsync</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:469</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:521</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1052,7 +1054,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._flush</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:493</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:545</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1098,7 +1100,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._init</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:428</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:480</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1131,7 +1133,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._loadSourceAsync</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:532</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:584</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1147,14 +1149,14 @@
 					<a name="_optionalTransform" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagProtected">Protected</span> _optional<wbr>Transform</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-protected tsd-is-external">
-						<li class="tsd-signature tsd-kind-icon">_optional<wbr>Transform<span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a>, done<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+						<li class="tsd-signature tsd-kind-icon">_optional<wbr>Transform<span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Bindings</span>, done<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._optionalTransform</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:552</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:604</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1166,7 +1168,7 @@
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>item: <a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a></h5>
+									<h5>item: <span class="tsd-signature-type">Bindings</span></h5>
 								</li>
 								<li>
 									<h5>done: <span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span></h5>
@@ -1199,7 +1201,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._push</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:458</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:510</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1236,7 +1238,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._read</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:630</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:682</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -1275,7 +1277,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._readAndTransform</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:547</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:599</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1331,7 +1333,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._toStringDetails</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:498</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:550</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1347,14 +1349,14 @@
 					<a name="_transform" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagProtected">Protected</span> _transform</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-protected tsd-is-external">
-						<li class="tsd-signature tsd-kind-icon">_transform<span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a>, done<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span>, push<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+						<li class="tsd-signature tsd-kind-icon">_transform<span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Bindings</span>, done<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span>, push<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span>i<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._transform</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:562</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:614</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1367,7 +1369,7 @@
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>item: <a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a></h5>
+									<h5>item: <span class="tsd-signature-type">Bindings</span></h5>
 									<div class="tsd-comment tsd-typography">
 										<p>The last read item from the source</p>
 									</div>
@@ -1391,21 +1393,21 @@
 									</ul>
 								</li>
 								<li>
-									<h5>push: <span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span></h5>
+									<h5>push: <span class="tsd-signature-symbol">(</span>i<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">void</span></h5>
 									<div class="tsd-comment tsd-typography">
 										<p>A callback to push zero or more transformation results.</p>
 									</div>
 									<ul class="tsd-parameters">
 										<li class="tsd-parameter-signature">
 											<ul class="tsd-signatures tsd-kind-type-literal tsd-is-external">
-												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>i<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 											</ul>
 											<ul class="tsd-descriptions">
 												<li class="tsd-description">
 													<h4 class="tsd-parameters-title">Parameters</h4>
 													<ul class="tsd-parameters">
 														<li>
-															<h5>item: <span class="tsd-signature-type">Quad</span></h5>
+															<h5>i: <span class="tsd-signature-type">Quad</span></h5>
 														</li>
 													</ul>
 													<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
@@ -1423,14 +1425,14 @@
 					<a name="_validateSource" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagProtected">Protected</span> _validate<wbr>Source</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-protected tsd-is-external">
-						<li class="tsd-signature tsd-kind-icon">_validate<wbr>Source<span class="tsd-signature-symbol">(</span>source<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a><span class="tsd-signature-symbol">&gt;</span>, allowDestination<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">InternalSource</span><span class="tsd-signature-symbol">&lt;</span><a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">_validate<wbr>Source<span class="tsd-signature-symbol">(</span>source<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Bindings</span><span class="tsd-signature-symbol">&gt;</span>, allowDestination<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">InternalSource</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Bindings</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator._validateSource</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:539</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:591</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1441,7 +1443,7 @@
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5><span class="tsd-flag ts-flagOptional">Optional</span> source: <span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a><span class="tsd-signature-symbol">&gt;</span></h5>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> source: <span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Bindings</span><span class="tsd-signature-symbol">&gt;</span></h5>
 									<div class="tsd-comment tsd-typography">
 										<p>The source to validate</p>
 									</div>
@@ -1453,7 +1455,7 @@
 									</div>
 								</li>
 							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">InternalSource</span><span class="tsd-signature-symbol">&lt;</span><a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a><span class="tsd-signature-symbol">&gt;</span></h4>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">InternalSource</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Bindings</span><span class="tsd-signature-symbol">&gt;</span></h4>
 						</li>
 					</ul>
 				</section>
@@ -1468,7 +1470,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.addListener</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:57</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:57</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -1506,14 +1508,14 @@
 					<a name="append" class="tsd-anchor"></a>
 					<h3>append</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
-						<li class="tsd-signature tsd-kind-icon">append<span class="tsd-signature-symbol">(</span>items<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">append<span class="tsd-signature-symbol">(</span>items<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.append</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:289</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:306</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1525,7 +1527,7 @@
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>items: <span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span></h5>
+									<h5>items: <span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">[]</span></h5>
 									<div class="tsd-comment tsd-typography">
 										<p>Items to insert after this iterator&#39;s (remaining) items</p>
 									</div>
@@ -1540,13 +1542,13 @@
 					<a name="bindTemplate" class="tsd-anchor"></a>
 					<h3>bind<wbr>Template</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class">
-						<li class="tsd-signature tsd-kind-icon">bind<wbr>Template<span class="tsd-signature-symbol">(</span>bindings<span class="tsd-signature-symbol">: </span><a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a>, template<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">BaseQuad</span><span class="tsd-signature-symbol">[]</span>, blankNodeCounter<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">[]</span></li>
+						<li class="tsd-signature tsd-kind-icon">bind<wbr>Template<span class="tsd-signature-symbol">(</span>bindings<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Bindings</span>, template<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">BaseQuad</span><span class="tsd-signature-symbol">[]</span>, blankNodeCounter<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">[]</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L102">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:102</a></li>
+									<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L103">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:103</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1557,7 +1559,7 @@
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>bindings: <a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a></h5>
+									<h5>bindings: <span class="tsd-signature-type">Bindings</span></h5>
 									<div class="tsd-comment tsd-typography">
 										<p>A bindings object.</p>
 									</div>
@@ -1591,7 +1593,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.clone</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:327</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:344</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1618,7 +1620,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.close</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:477</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:529</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1649,7 +1651,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.copyProperties</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:241</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:251</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1687,7 +1689,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.destroy</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:139</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:141</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1729,7 +1731,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.emit</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:67</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:67</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -1756,7 +1758,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.eventNames</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:72</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:72</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-symbol">(</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">symbol</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">[]</span></h4>
@@ -1775,7 +1777,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.filter</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:274</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:284</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1830,7 +1832,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.filter</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:275</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:285</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -1875,7 +1877,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.forEach</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:120</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:122</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1932,7 +1934,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.getMaxListeners</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:64</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:64</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">number</span></h4>
@@ -1950,7 +1952,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.getProperties</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:226</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:236</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -1979,7 +1981,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.getProperty</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:215</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:225</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2043,7 +2045,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.listenerCount</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:68</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:68</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2067,7 +2069,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.listeners</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:65</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:65</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2084,14 +2086,14 @@
 					<a name="map" class="tsd-anchor"></a>
 					<h3>map</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-has-type-parameter tsd-is-inherited tsd-is-external">
-						<li class="tsd-signature tsd-kind-icon">map&lt;D&gt;<span class="tsd-signature-symbol">(</span>map<span class="tsd-signature-symbol">: </span><span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">D</span>, self<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">D</span><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">map&lt;D&gt;<span class="tsd-signature-symbol">(</span>map<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">MapFunction</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">D</span><span class="tsd-signature-symbol">&gt;</span>, self<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">D</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.map</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:266</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:276</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2109,28 +2111,10 @@
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>map: <span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">D</span></h5>
+									<h5>map: <span class="tsd-signature-type">MapFunction</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">D</span><span class="tsd-signature-symbol">&gt;</span></h5>
 									<div class="tsd-comment tsd-typography">
 										<p>A mapping function to call on this iterator&#39;s (remaining) items</p>
 									</div>
-									<ul class="tsd-parameters">
-										<li class="tsd-parameter-signature">
-											<ul class="tsd-signatures tsd-kind-type-literal tsd-is-external">
-												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">D</span></li>
-											</ul>
-											<ul class="tsd-descriptions">
-												<li class="tsd-description">
-													<h4 class="tsd-parameters-title">Parameters</h4>
-													<ul class="tsd-parameters">
-														<li>
-															<h5>item: <span class="tsd-signature-type">Quad</span></h5>
-														</li>
-													</ul>
-													<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">D</span></h4>
-												</li>
-											</ul>
-										</li>
-									</ul>
 								</li>
 								<li>
 									<h5><span class="tsd-flag ts-flagOptional">Optional</span> self: <span class="tsd-signature-type">any</span></h5>
@@ -2155,7 +2139,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.off</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:61</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:61</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2200,7 +2184,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.on</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:58</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:58</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2245,7 +2229,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.once</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:59</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:59</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2283,14 +2267,14 @@
 					<a name="prepend" class="tsd-anchor"></a>
 					<h3>prepend</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
-						<li class="tsd-signature tsd-kind-icon">prepend<span class="tsd-signature-symbol">(</span>items<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span></li>
+						<li class="tsd-signature tsd-kind-icon">prepend<span class="tsd-signature-symbol">(</span>items<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.prepend</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:282</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:299</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2302,7 +2286,7 @@
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>items: <span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span></h5>
+									<h5>items: <span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">[]</span></h5>
 									<div class="tsd-comment tsd-typography">
 										<p>Items to insert before this iterator&#39;s (remaining) items</p>
 									</div>
@@ -2324,7 +2308,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.prependListener</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:70</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:70</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2369,7 +2353,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.prependOnceListener</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:71</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:71</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2414,7 +2398,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.range</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:319</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:336</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2454,7 +2438,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.rawListeners</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:66</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:66</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2478,7 +2462,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.read</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:443</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:495</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2504,7 +2488,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.removeAllListeners</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:62</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:62</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2528,7 +2512,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.removeListener</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:60</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:60</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2573,7 +2557,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.setMaxListeners</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:63</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:63</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -2597,7 +2581,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.setProperties</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:233</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:243</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2634,7 +2618,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.setProperty</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:221</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:231</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2678,7 +2662,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.skip</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:304</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:321</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2712,7 +2696,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.surround</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:297</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:314</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2752,7 +2736,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.take</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:311</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:328</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2776,6 +2760,40 @@
 					</ul>
 				</section>
 				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
+					<a name="toArray" class="tsd-anchor"></a>
+					<h3>to<wbr>Array</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
+						<li class="tsd-signature tsd-kind-icon">to<wbr>Array<span class="tsd-signature-symbol">(</span>options<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-symbol">{ </span>limit<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> }</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Inherited from MultiTransformIterator.toArray</p>
+								<ul>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:212</li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Consume all remaining items of the iterator into an array that will be returned asynchronously.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> options: <span class="tsd-signature-symbol">{ </span>limit<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> }</span></h5>
+									<ul class="tsd-parameters">
+										<li class="tsd-parameter">
+											<h5><span class="tsd-flag ts-flagOptional">Optional</span> limit<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">number</span></h5>
+										</li>
+									</ul>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">[]</span><span class="tsd-signature-symbol">&gt;</span></h4>
+						</li>
+					</ul>
+				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
 					<a name="toString" class="tsd-anchor"></a>
 					<h3>to<wbr>String</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
@@ -2786,7 +2804,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.toString</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:199</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:201</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">string</span></h4>
@@ -2804,7 +2822,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.transform</p>
 								<ul>
-									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:258</li>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:268</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2830,17 +2848,69 @@
 						</li>
 					</ul>
 				</section>
+				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
+					<a name="uniq" class="tsd-anchor"></a>
+					<h3>uniq</h3>
+					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
+						<li class="tsd-signature tsd-kind-icon">uniq<span class="tsd-signature-symbol">(</span>by<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span></li>
+					</ul>
+					<ul class="tsd-descriptions">
+						<li class="tsd-description">
+							<aside class="tsd-sources">
+								<p>Inherited from MultiTransformIterator.uniq</p>
+								<ul>
+									<li>Defined in node_modules/asynciterator/dist/asynciterator.d.ts:292</li>
+								</ul>
+							</aside>
+							<div class="tsd-comment tsd-typography">
+								<div class="lead">
+									<p>Returns a new iterator containing all of the unique items in the original iterator.</p>
+								</div>
+							</div>
+							<h4 class="tsd-parameters-title">Parameters</h4>
+							<ul class="tsd-parameters">
+								<li>
+									<h5><span class="tsd-flag ts-flagOptional">Optional</span> by: <span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol"> =&gt; </span><span class="tsd-signature-type">any</span></h5>
+									<div class="tsd-comment tsd-typography">
+										<p>The derived value by which to determine uniqueness (e.g., stringification).
+										Defaults to the identity function.</p>
+									</div>
+									<ul class="tsd-parameters">
+										<li class="tsd-parameter-signature">
+											<ul class="tsd-signatures tsd-kind-type-literal tsd-is-external">
+												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>item<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span></li>
+											</ul>
+											<ul class="tsd-descriptions">
+												<li class="tsd-description">
+													<h4 class="tsd-parameters-title">Parameters</h4>
+													<ul class="tsd-parameters">
+														<li>
+															<h5>item: <span class="tsd-signature-type">Quad</span></h5>
+														</li>
+													</ul>
+													<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">any</span></h4>
+												</li>
+											</ul>
+										</li>
+									</ul>
+								</li>
+							</ul>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">AsyncIterator</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">Quad</span><span class="tsd-signature-symbol">&gt;</span></h4>
+							<p>An iterator with duplicates filtered out.</p>
+						</li>
+					</ul>
+				</section>
 				<section class="tsd-panel tsd-member tsd-kind-method tsd-parent-kind-class tsd-is-static">
 					<a name="bindQuad" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagStatic">Static</span> bind<wbr>Quad</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-static">
-						<li class="tsd-signature tsd-kind-icon">bind<wbr>Quad<span class="tsd-signature-symbol">(</span>bindings<span class="tsd-signature-symbol">: </span><a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a>, pattern<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">BaseQuad</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">Quad</span></li>
+						<li class="tsd-signature tsd-kind-icon">bind<wbr>Quad<span class="tsd-signature-symbol">(</span>bindings<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Bindings</span>, pattern<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">BaseQuad</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">Quad</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L55">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:55</a></li>
+									<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L56">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:56</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2853,7 +2923,7 @@
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>bindings: <a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a></h5>
+									<h5>bindings: <span class="tsd-signature-type">Bindings</span></h5>
 									<div class="tsd-comment tsd-typography">
 										<p>A bindings object.</p>
 									</div>
@@ -2874,13 +2944,13 @@
 					<a name="bindTerm" class="tsd-anchor"></a>
 					<h3><span class="tsd-flag ts-flagStatic">Static</span> bind<wbr>Term</h3>
 					<ul class="tsd-signatures tsd-kind-method tsd-parent-kind-class tsd-is-static">
-						<li class="tsd-signature tsd-kind-icon">bind<wbr>Term<span class="tsd-signature-symbol">(</span>bindings<span class="tsd-signature-symbol">: </span><a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a>, term<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Term</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Term</span></li>
+						<li class="tsd-signature tsd-kind-icon">bind<wbr>Term<span class="tsd-signature-symbol">(</span>bindings<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Bindings</span>, term<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Term</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">Term</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L40">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:40</a></li>
+									<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L41">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:41</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2896,7 +2966,7 @@
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>bindings: <a href="" class="tsd-signature-type" data-tsd-kind="Type alias">Bindings</a></h5>
+									<h5>bindings: <span class="tsd-signature-type">Bindings</span></h5>
 									<div class="tsd-comment tsd-typography">
 										<p>A bindings object.</p>
 									</div>
@@ -2908,7 +2978,7 @@
 									</div>
 								</li>
 							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Term</span></h4>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">Term</span></h4>
 							<p>If the given term is not a variable, the term itself is returned.
 								If the given term is a variable, then the bound term is returned,
 							or a falsy value if it did not exist in the bindings.</p>
@@ -2926,7 +2996,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.listenerCount</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:26</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:26</li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2959,7 +3029,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L76">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:76</a></li>
+									<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L77">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:77</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -2998,7 +3068,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/comunica/comunica/blob/1dc145f/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L90">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:90</a></li>
+									<li>Defined in <a href="https://github.com/RubenEschauzier/comunica/blob/43f2f28/packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts#L91">packages/actor-query-operation-construct/lib/BindingsToQuadsIterator.ts:91</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -3037,7 +3107,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.on</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:23</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:23</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -3065,7 +3135,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.once</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:21</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:21</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -3083,7 +3153,7 @@
 							<aside class="tsd-sources">
 								<p>Inherited from MultiTransformIterator.once</p>
 								<ul>
-									<li>Defined in node_modules/@types/node/events.d.ts:22</li>
+									<li>Defined in node_modules/@types/node/ts4.8/events.d.ts:22</li>
 								</ul>
 							</aside>
 							<h4 class="tsd-parameters-title">Parameters</h4>
@@ -3366,10 +3436,16 @@
 										<a href="actor_query_operation_construct.BindingsToQuadsIterator.html#take" class="tsd-kind-icon">take</a>
 									</li>
 									<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
+										<a href="actor_query_operation_construct.BindingsToQuadsIterator.html#toArray" class="tsd-kind-icon">to<wbr>Array</a>
+									</li>
+									<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
 										<a href="actor_query_operation_construct.BindingsToQuadsIterator.html#toString" class="tsd-kind-icon">to<wbr>String</a>
 									</li>
 									<li class=" tsd-kind-method tsd-parent-kind-class tsd-has-type-parameter tsd-is-inherited tsd-is-external">
 										<a href="actor_query_operation_construct.BindingsToQuadsIterator.html#transform" class="tsd-kind-icon">transform</a>
+									</li>
+									<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-inherited tsd-is-external">
+										<a href="actor_query_operation_construct.BindingsToQuadsIterator.html#uniq" class="tsd-kind-icon">uniq</a>
 									</li>
 									<li class=" tsd-kind-method tsd-parent-kind-class tsd-is-static">
 										<a href="actor_query_operation_construct.BindingsToQuadsIterator.html#bindQuad" class="tsd-kind-icon">bind<wbr>Quad</a>
@@ -3410,6 +3486,7 @@
 			<ul class="tsd-legend">
 				<li class="tsd-kind-variable"><span class="tsd-kind-icon">Variable</span></li>
 				<li class="tsd-kind-function"><span class="tsd-kind-icon">Function</span></li>
+				<li class="tsd-kind-function tsd-has-type-parameter"><span class="tsd-kind-icon">Function with type parameter</span></li>
 				<li class="tsd-kind-type-alias"><span class="tsd-kind-icon">Type alias</span></li>
 				<li class="tsd-kind-type-alias tsd-has-type-parameter"><span class="tsd-kind-icon">Type alias with type parameter</span></li>
 			</ul>
