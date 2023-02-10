@@ -144,7 +144,10 @@ export interface IActorInitQueryBaseArgs<QueryContext extends IQueryContextCommo
    *   "functionArgumentsCache": "@comunica/actor-init-query:functionArgumentsCache",
    *   "explain": "@comunica/actor-init-query:explain",
    *   "unionDefaultGraph": "@comunica/bus-query-operation:unionDefaultGraph",
-   *   "localizeBlankNodes": "@comunica/actor-query-operation:localizeBlankNodes"
+   *   "localizeBlankNodes": "@comunica/actor-query-operation:localizeBlankNodes",
+   *   "trainEpisode": "@comunica/actor-init-query:trainEpisode",
+   *   "batchedTrainingExamples": "@comunica/actor-init-query:batchedTrainingExamples",
+   *   "modelInstance": "@comunica/actor-rdf-join-inner-multi-reinforcement-learning:ModelInstance"
    * }}
    */
   contextKeyShortcuts: Record<string, string> | Partial<Record<keyof QueryContext, string>>;
@@ -167,4 +170,5 @@ export interface IActorInitQueryBaseArgs<QueryContext extends IQueryContextCommo
    */
   contextKeyShortcutsExtensions?: (Record<string, string>
   | Partial<Record<keyof Omit<QueryContext, keyof IQueryContextCommon>, string>>)[];
+
 }

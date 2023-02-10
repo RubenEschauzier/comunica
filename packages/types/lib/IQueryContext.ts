@@ -6,6 +6,10 @@ import type { SourceType } from './IQueryEngine';
 import type { QueryExplainMode } from './IQueryOperationResult';
 import type { Logger } from './Logger';
 
+import * as tf from '@tensorflow/tfjs-node';
+import { IResultSetRepresentation } from '@comunica/mediator-join-reinforcement-learning';
+import { InstanceModel } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
+
 /**
  * Query context when a string-based query was passed.
  */
@@ -17,13 +21,33 @@ export type QueryAlgebraContext = RDF.QueryAlgebraContext & RDF.QuerySourceConte
 
 export type FunctionArgumentsCache = Record<string, { func?: any; cache?: FunctionArgumentsCache }>;
 
+export interface ITrainEpisode {
+  joinsMade: number[][];
+  estimatedQValues: tf.Tensor[];
+  featureTensor: IResultSetRepresentation;
+  isEmpty: boolean;
+};
+
+export interface IBatchedTrainingExamples{
+  trainingExamples: Map<string, ITrainingExample>;
+  leafFeatures: IResultSetRepresentation;
+}
+
+export interface ITrainingExample{
+  qValue: tf.Tensor;
+  actualExecutionTime: number;
+  N: number;
+}
+
 /**
  * Common query context interface
  */
 export interface IQueryContextCommon {
   // Types of these entries should be aligned with contextKeyShortcuts in ActorInitQueryBase
   // and Keys in @comunica/context-entries
-
+  trainEpisode?: ITrainEpisode;
+  batchedTrainingExamples?: IBatchedTrainingExamples;
+  modelInstance?: InstanceModel;
   source?: IDataSource;
   // Inherited from RDF.QueryStringContext: sources
   destination?: IDataDestination;

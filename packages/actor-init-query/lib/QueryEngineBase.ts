@@ -1,6 +1,6 @@
 import { materializeOperation } from '@comunica/bus-query-operation';
 import type { IActionSparqlSerialize, IActorQueryResultSerializeOutput } from '@comunica/bus-query-result-serialize';
-import { KeysCore, KeysInitQuery, KeysRdfResolveQuadPattern } from '@comunica/context-entries';
+import { KeysCore, KeysInitQuery, KeysRdfResolveQuadPattern, KeysRlTrain } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
 import type {
   IActionContext, IPhysicalQueryPlanLogger,
@@ -10,12 +10,18 @@ import type {
   QueryType, QueryExplainMode, BindingsStream,
   QueryAlgebraContext, QueryStringContext, IQueryBindingsEnhanced,
   IQueryQuadsEnhanced, QueryEnhanced, IQueryContextCommon, FunctionArgumentsCache,
+  ITrainEpisode,
+  IBatchedTrainingExamples
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import type { Algebra } from 'sparqlalgebrajs';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
+import * as tf from '@tensorflow/tfjs-node';
+import { ModelTrainerOffline } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
+import { MediatorJoinReinforcementLearning } from '@comunica/mediator-join-reinforcement-learning';
+import { InstanceModel } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
 
 /**
  * Base implementation of a Comunica query engine.
@@ -24,10 +30,19 @@ export class QueryEngineBase<QueryContext extends IQueryContextCommon = IQueryCo
 implements IQueryEngine<QueryContext> {
   private readonly actorInitQuery: ActorInitQueryBase;
   private readonly defaultFunctionArgumentsCache: FunctionArgumentsCache;
+  public trainEpisode: ITrainEpisode;
+  public modelTrainerOffline: ModelTrainerOffline;
+  public modelInstance: InstanceModel;
+
 
   public constructor(actorInitQuery: ActorInitQueryBase<QueryContext>) {
     this.actorInitQuery = actorInitQuery;
     this.defaultFunctionArgumentsCache = {};
+    this.trainEpisode = {joinsMade: [], estimatedQValues: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
+    // Hardcoded, should be config, but not sure how to incorporate
+    this.modelInstance = new InstanceModel();
+    this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.005});
+    
   }
 
   public async queryBindings<QueryFormatTypeInner extends QueryFormatType>(
@@ -138,13 +153,15 @@ implements IQueryEngine<QueryContext> {
       }
     }
     const baseIRI: string | undefined = actionContext.get(KeysInitQuery.baseIRI);
-
+    this.modelInstance.initModel();
     actionContext = actionContext
       .setDefault(KeysInitQuery.queryTimestamp, new Date())
       .setDefault(KeysRdfResolveQuadPattern.sourceIds, new Map())
       // Set the default logger if none is provided
       .setDefault(KeysCore.log, this.actorInitQuery.logger)
-      .setDefault(KeysInitQuery.functionArgumentsCache, this.defaultFunctionArgumentsCache);
+      .setDefault(KeysInitQuery.functionArgumentsCache, this.defaultFunctionArgumentsCache)
+      .setDefault(KeysRlTrain.trainEpisode, this.trainEpisode)
+      .setDefault(KeysRlTrain.modelInstance, this.modelInstance);
 
     // Pre-processing the context
     actionContext = (await this.actorInitQuery.mediatorContextPreprocess.mediate({ context: actionContext })).context;
@@ -308,6 +325,40 @@ implements IQueryEngine<QueryContext> {
     return this.actorInitQuery.mediatorHttpInvalidate.mediate({ url, context });
   }
 
+  public async trainModel(batchedTrainingExamples: IBatchedTrainingExamples){
+    function shuffleData(executionTimes: number[], qValues: tf.Tensor[], partialJoinTree: number[][][]){
+      let i, j, xE, xQ, xP;
+      for (i=executionTimes.length-1;i>0;i--){
+        j = Math.floor(Math.random()*(i+1));
+        xE = executionTimes[i]; xQ = qValues[i]; xP = partialJoinTree[i];
+        executionTimes[i] = executionTimes[j]; qValues[i]=qValues[j]; partialJoinTree[i]=partialJoinTree[j];
+        executionTimes[j] = xE; qValues[j]= xQ; partialJoinTree[j] = xP;
+      }
+      return [qValues, executionTimes, partialJoinTree]
+    }
+    if (batchedTrainingExamples.trainingExamples.size==0){
+      throw new Error("Empty map passed");
+    }
+    const actualExecutionTime: number[] = [];
+    const predictedQValues: tf.Tensor[] = [];
+    const partialJoinTree: number[][][] = [];
+    for (const [joinKey, trainingExample] of batchedTrainingExamples.trainingExamples.entries()){
+      actualExecutionTime.push(trainingExample.actualExecutionTime);
+      predictedQValues.push(trainingExample.qValue);
+      partialJoinTree.push(MediatorJoinReinforcementLearning.keyToIdx(joinKey));
+    }
+    // const shuffled = shuffleData(actualExecutionTime, predictedQValues, partialJoinTree);
+    const loss = this.modelTrainerOffline.trainOfflineBatched(partialJoinTree, batchedTrainingExamples.leafFeatures, 
+      predictedQValues, actualExecutionTime, this.modelInstance.getModel(), 4);
+    // TODO For Results:
+    // 1. Implement train loss
+    // 2. Normalise features / y
+    // 3. Track Statistics (+ STD)
+    // 5. Create new vectors for watdiv!!
+    // 4. Query Encoding Implemented
+  }
+
+
   /**
    * Convert an internal query result to a final one.
    * @param internalResult An intermediary query result.
@@ -373,4 +424,5 @@ implements IQueryEngine<QueryContext> {
         };
     }
   }
+
 }

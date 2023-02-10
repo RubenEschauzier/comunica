@@ -8,11 +8,12 @@ import type {
   DataSources,
   IDataSource,
   IDataDestination,
-  MetadataBindings, FunctionArgumentsCache,
+  MetadataBindings, FunctionArgumentsCache, ITrainEpisode, IBatchedTrainingExamples,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
 import type { Algebra } from 'sparqlalgebrajs';
+import {InstanceModel} from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree'
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
@@ -264,3 +265,9 @@ export const KeysRdfUpdateQuads = {
    */
   destination: new ActionContextKey<IDataDestination>('@comunica/bus-rdf-update-quads:destination'),
 };
+
+export const KeysRlTrain = {
+  trainEpisode: new ActionContextKey<ITrainEpisode>('@comunica/actor-init-query:trainEpisode'),
+  batchedTrainingExamples: new ActionContextKey<IBatchedTrainingExamples>('@comunica/actor-init-query:batchedTrainingExamples'),
+  modelInstance: new ActionContextKey<InstanceModel>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning:ModelInstance')
+}

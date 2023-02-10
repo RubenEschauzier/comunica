@@ -1,0 +1,41 @@
+{
+    "binaryTreeLSTM":{
+        "weightsConfig":{
+            "loadWeights": false,
+            "weightLocation": "/binaryLstmWeights.txt"
+        },
+        "type": "lstm",
+        "layers":[
+            {"type": "binaryTreeLSTM", "activation": "relu", "numUnits": 4}
+        ]
+
+    },
+    "childSumTreeLSTM":{
+        "weightsConfig":{
+            "loadWeights": false,
+            "weightLocation": "/childSumLstmWeights.txt"
+        },
+        "type": "lstm",
+        "layers":[
+            {"type": "childSumTreeLSTM", "activation": "relu", "numUnits": 4}
+        ]
+
+    },
+    "qValueNetwork":{
+        "weightsConfig":{
+            "loadWeights": false,
+            "weightLocation": "/denseWeights/weight",
+            "weightLocationBias":"/denseBias/weight"
+            
+        },
+        "type": "dense",
+        "layers":[
+            {"type": "dense", "inputSize": 4, "outputSize": 8},
+            {"type": "activation", "activation": "relu", "inputSize": 8, "outputSize": 8},
+            {"type": "dense", "inputSize": 8, "outputSize": 4},
+            {"type": "activation", "activation": "relu", "inputSize":4, "outputSize": 4},
+            {"type": "dense", "inputSize": 4, "outputSize":1}
+        ]
+    }
+
+}
