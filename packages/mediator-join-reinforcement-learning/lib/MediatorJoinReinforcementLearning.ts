@@ -152,14 +152,19 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       if (!batchToUpdate.trainingExamples){
         throw new Error("Mediator is passed invalid BatchedTrainingExamples object");
       }
-      batchToUpdate.trainingExamples.set(MediatorJoinReinforcementLearning.idxToKey(trainEpisode.joinsMade), {qValue: bestActorReply.predictedQValue, actualExecutionTime: -1, N: 0});
+      const key: string = MediatorJoinReinforcementLearning.idxToKey(trainEpisode.joinsMade);
+
+      // We only add qValue to batch if not already in trainingBatch. If it is in training batch we don't update it
+      // because we expect qValues for the same order to be consistent over a training episode due to the deterministic nature
+      // of network forward passes
+      if(!batchToUpdate.trainingExamples.get(key)){
+        batchToUpdate.trainingExamples.set(MediatorJoinReinforcementLearning.idxToKey(trainEpisode.joinsMade), {qValue: bestActorReply.predictedQValue, actualExecutionTime: -1, N: 0});
+      }
   
     }
     if (!action.context.get(KeysRlTrain.batchedTrainingExamples)){
       throw new Error("Mediator did not receive a batched training example object");
     }
-
-
 
     // Emit calculations in logger
     if (bestActor.includeInLogs) {
@@ -215,12 +220,13 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
         // Zero vector represents unknown predicate
         predicateEmbedding = new Array(vectorSize).fill(0);
       }
-      leafFeatures.push([cardinalityLeaf].concat(isVariable));
+      leafFeatures.push([cardinalityLeaf].concat(isVariable[0]));
       // leafFeatures.push([cardinalityLeaf].concat(isVariable, isNamedNode, isLiteral, [0], predicateEmbedding));
       //TODO: Normalization of inputs
     }
     // Feature tensors created here, after no longer needed (corresponding result sets are joined) they need to be disposed
-    const featureTensorLeaf: tf.Tensor[] = leafFeatures.map(x=>tf.tensor(x).reshape([x.length,1]));
+    // const featureTensorLeaf: tf.Tensor[] = leafFeatures.map(x=>tf.tensor(x).reshape([x.length,1]));
+    const featureTensorLeaf: tf.Tensor[] = leafFeatures.map(x=>tf.tensor(x).reshape([1, x.length]));
     const memoryCellLeaf: tf.Tensor[] = featureTensorLeaf.map(x=>tf.zeros(x.shape));
     const resultSetRepresentationLeaf: IResultSetRepresentation = {hiddenStates: featureTensorLeaf, memoryCell: memoryCellLeaf}
     if (!action.context.get(KeysRlTrain.trainEpisode)){

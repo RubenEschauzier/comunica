@@ -234,7 +234,12 @@ implements IQueryEngine<QueryContext> {
       operation,
     });
     output.context = actionContext;
-
+    // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
+    // If we train
+    if (!context!.train){
+      console.log("RESET!!")
+      this.trainEpisode = {joinsMade: [], estimatedQValues: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
+    }
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
 
     // Output physical query plan after query exec if needed
@@ -354,8 +359,12 @@ implements IQueryEngine<QueryContext> {
     // 1. Implement train loss
     // 2. Normalise features / y
     // 3. Track Statistics (+ STD)
-    // 5. Create new vectors for watdiv!!
-    // 4. Query Encoding Implemented
+    // 4. Create new vectors for watdiv!!
+    // 5. Query Encoding Implemented
+    // (Optional for workshop)
+    // 6. Experience Replay (https://paperswithcode.com/method/experience-replay) 
+    // (https://towardsdatascience.com/a-technical-introduction-to-experience-replay-for-off-policy-deep-reinforcement-learning-9812bc920a96)
+    // 7. Temperature scaling for bolzman softmax
   }
 
 

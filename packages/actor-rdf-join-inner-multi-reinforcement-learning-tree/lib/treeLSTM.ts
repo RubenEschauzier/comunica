@@ -84,13 +84,21 @@ export class BinaryTreeLSTM extends tf.layers.Layer{
 
 
         // Bias vectors 
-        this.bI = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        // this.bI = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        // "bIb");
+        // this.bF = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        // "bfb");
+        // this.bO = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        // "bOb");
+        // this.bU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        // "bUb");
+        this.bI = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
         "bIb");
-        this.bF = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        this.bF = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
         "bfb");
-        this.bO = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        this.bO = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
         "bOb");
-        this.bU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        this.bU = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
         "bUb");
 
         this.allWeights = [ this.IWInput, this.FWInput, this.OWInput, this.UWInput, this.lhIU, this.rhIU, this.lhFUL, this.lhFUR, this.rhFUL, this.rhFUR, this.lhOU, this.rhOU,
@@ -128,21 +136,30 @@ export class BinaryTreeLSTM extends tf.layers.Layer{
             const forgetGateR: tf.Tensor = this.activationLayer.apply(this.getGate(inputsNode, lhs, rhs, this.FWInput, this.lhFUR, this.rhFUR, this.bF));
             const outputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputsNode, lhs, rhs, this.OWInput, this.lhOU, this.rhOU, this.bO));
             const uGate: tf.Tensor = tf.tanh(this.getGate(inputsNode, lhs, rhs, this.UWInput, this.lhUU, this.rhUU, this.bU));
-
             const memoryCell: tf.Tensor = this.getMemoryCell(inputGate, uGate, forgetGateL, forgetGateR, lmc, rmc);
             const hiddenState: tf.Tensor = this.getHiddenState(outputGate, memoryCell);
-
             return [hiddenState, memoryCell];
         });
     }
 
+    // getGate(input:tf.Tensor, lhs:tf.Tensor, rhs: tf.Tensor, inputWeight: tf.Variable, lhUWeight: tf.Variable, rhUWeight: tf.Variable, biasVec: tf.Variable){
+    //     // Calculate i_{j} = W_{input} * x_{j} + \sum_{k=1}^{2} U_{k}^{i} h_{jk} + b^{i}
+    //     // W_{input} * x_{j} = inRepI, \sum_{k=1}^{2} U_{k}^{i} h_{jk}=hsRepI, i_{j} = inputGate
+
+    //     return tf.tidy(()=>{
+    //         const inRepG: tf.Tensor = tf.matMul(inputWeight, input);
+    //         const hsRepG: tf.Tensor = tf.add(tf.matMul(lhUWeight, lhs), tf.matMul(rhUWeight, rhs));
+    //         const gateRep: tf.Tensor = tf.add(tf.add(inRepG, hsRepG), biasVec);
+    //         return gateRep    
+    //     });
+    // }
     getGate(input:tf.Tensor, lhs:tf.Tensor, rhs: tf.Tensor, inputWeight: tf.Variable, lhUWeight: tf.Variable, rhUWeight: tf.Variable, biasVec: tf.Variable){
         // Calculate i_{j} = W_{input} * x_{j} + \sum_{k=1}^{2} U_{k}^{i} h_{jk} + b^{i}
         // W_{input} * x_{j} = inRepI, \sum_{k=1}^{2} U_{k}^{i} h_{jk}=hsRepI, i_{j} = inputGate
 
         return tf.tidy(()=>{
-            const inRepG: tf.Tensor = tf.matMul(inputWeight, input);
-            const hsRepG: tf.Tensor = tf.add(tf.matMul(lhUWeight, lhs), tf.matMul(rhUWeight, rhs));
+            const inRepG: tf.Tensor = tf.matMul(input, inputWeight);
+            const hsRepG: tf.Tensor = tf.add(tf.matMul(lhs, lhUWeight), tf.matMul(rhs, rhUWeight));
             const gateRep: tf.Tensor = tf.add(tf.add(inRepG, hsRepG), biasVec);
             return gateRep    
         });
@@ -157,6 +174,17 @@ export class BinaryTreeLSTM extends tf.layers.Layer{
             return tf.mul(outputGate, tf.tanh(memoryCell));
         });
     }
+
+    // getMemoryCell(inputGate:tf.Tensor, uGate: tf.Tensor, forgetGateL: tf.Tensor, forgetGateR: tf.Tensor, lmc: tf.Tensor, rmc: tf.Tensor){
+    //     return tf.tidy(()=>{
+    //         return tf.add(tf.mul(inputGate, uGate), tf.add(tf.mul(forgetGateL, lmc), tf.mul(forgetGateR,rmc)));
+    //     });
+    // }
+    // getHiddenState(outputGate:tf.Tensor, memoryCell:tf.Tensor){
+    //     return tf.tidy(()=>{
+    //         return tf.mul(outputGate, tf.tanh(memoryCell));
+    //     });
+    // }
     public loadWeights(fileLocation: string){
         const weightValues: number[][][] = JSON.parse(fs.readFileSync(fileLocation, 'utf8'));
         for (let i = 0;i<weightValues.length;i++){
@@ -221,92 +249,41 @@ export class ChildSumTreeLSTM extends tf.layers.Layer{
         this.UU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
         "UU");
 
-        this.bI = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        // this.bI = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        // "bI");
+        // this.bF = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        // "bF");
+        // this.bO = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        // "bO");
+        // this.bU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        // "bU");
+        this.bI = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
         "bI");
-        this.bF = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        this.bF = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
         "bF");
-        this.bO = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        this.bO = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
         "bO");
-        this.bU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
+        this.bU = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
         "bU");
 
         this.allWeights = [ this.IWInput, this.FWInput, this.OWInput, this.UWInput, this.IU, this.FU, this.OU, this.UU, this.bI, this.bF, this.bO, this.bU];
     }
-    /**
-     * 
-     * @param inputs Inputs a list of stacked tensors as follows: [inputFeature, child hidden states, child memory cells]
-     * 
-     */
+    // /**
+    //  * 
+    //  * @param inputs Inputs a list of stacked tensors as follows: [inputFeature, child hidden states, child memory cells]
+    //  * 
+    //  */
     
-    call(inputs: tf.Tensor[]){
-        return tf.tidy(()=>{
-            
-            const inputFeature: tf.Tensor = inputs[0]; const hiddenStatesChildren: tf.Tensor = inputs[1]; const memoryCellsChildren: tf.Tensor = inputs[2];
-            // Shapes: [ 4, 1 ] [ 2, 4, 1 ] [ 2, 4, 1 ]
-
-            const hiddenStateTilde: tf.Tensor = tf.sum(hiddenStatesChildren, 0);
-    
-            const inputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.IWInput, this.IU, this.bU));
-            const forgetGates: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStatesChildren, this.FWInput, this.FU, this.bF));
-            const outputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.OWInput, this.OU, this.bO));
-            const uGate: tf.Tensor = tf.tanh(this.getGate(inputFeature, hiddenStateTilde, this.UWInput, this.UU, this.bU));
-    
-            const memoryCellCurrent: tf.Tensor = this.getMemoryCell(inputGate, uGate, forgetGates, memoryCellsChildren);
-            const hiddenStateCurrent: tf.Tensor = this.getHiddenState(outputGate, memoryCellCurrent);
-            
-            return [hiddenStateCurrent, memoryCellCurrent];
-        });
-    }
-    callTestWeird(inputs: tf.Tensor[]){
-        return tf.tidy(()=>{
-            
-            const inputFeature: tf.Tensor = inputs[0]; const hiddenStatesChildren: tf.Tensor = inputs[1]; const memoryCellsChildren: tf.Tensor = inputs[2];
-            // console.log(memoryCellsChildren.shape)
-            // // Shapes: [ 4, 1 ] [ 2, 4, 1 ] [ 2, 4, 1 ]
-
-            const hiddenStateTilde: tf.Tensor = tf.sum(hiddenStatesChildren, 0);
-    
-            const inputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.IWInput, this.IU, this.bU));
-            // const forgetGates: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStatesChildren, this.FWInput, this.FU, this.bF));
-            // const test = tf.reshape(this.FU, hiddenStatesChildren.shape);
-            const inputFeatureForget: tf.Tensor = inputFeature.reshape([1, inputFeature.shape[0]]);
-            const forgetGatesCollapsed: tf.Tensor = this.activationLayer.apply(this.getGateForget(inputFeatureForget, hiddenStatesChildren.squeeze(), this.FWInput, this.FU, this.bF));
-            // const forgetGatesCollapsed: tf.Tensor = this.activationLayer.apply(tf.sum(tf.matMul(hiddenStatesChildren.squeeze(), this.FU),0));
-            const outputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.OWInput, this.OU, this.bO));
-            const uGate: tf.Tensor = tf.tanh(this.getGate(inputFeature, hiddenStateTilde, this.UWInput, this.UU, this.bU));
-    
-            const memoryCellCurrent: tf.Tensor = this.getMemoryCellTest(inputGate, uGate, forgetGatesCollapsed, memoryCellsChildren);
-            const hiddenStateCurrent: tf.Tensor = this.getHiddenState(outputGate, memoryCellCurrent);
-            console.log("Mem cell shape")
-            console.log(memoryCellCurrent.shape);
-            return [hiddenStateCurrent, memoryCellCurrent];
-        });
-    }
-    /**
-     * 
-     * @param inputs Inputs a list of tensors as follows: [inputFeature, child hidden states, child memory cells]
-     * 
-     */
-    
-    // callTestGradientFix(inputs: tf.Tensor[]){
-    //     if(inputs.length<3){
-    //         throw new Error("Childsum tree LSTM requires atleast one input, hiddenState and memoryCell tensor as input")
-    //     }
-    //     if ((inputs.length-1)%2!=0){
-    //         throw new Error("Unequal number of hiddenState and memoryCell inputs");
-    //     }
-    //     const middleIndex = ((inputs.length-1)/2);
+    // call(inputs: tf.Tensor[]){
     //     return tf.tidy(()=>{
-    //         const inputFeature: tf.Tensor = inputs[0]; const hiddenStatesChildrenArray: tf.Tensor[]=inputs.slice(1, 1+middleIndex); 
-    //         const memoryCellsChildrenArray: tf.Tensor[] = inputs.slice(middleIndex+1);
-    //         const hiddenStatesChildren: tf.Tensor = tf.stack([hiddenStatesChildrenArray[0]]);
-    //         const memoryCellsChildren: tf.Tensor = tf.stack([memoryCellsChildrenArray[0]]);
-    
+            
+    //         const inputFeature: tf.Tensor = inputs[0]; const hiddenStatesChildren: tf.Tensor = inputs[1]; const memoryCellsChildren: tf.Tensor = inputs[2];
+    //         // Shapes: [ 4, 1 ] [ 2, 4, 1 ] [ 2, 4, 1 ]
+
     //         const hiddenStateTilde: tf.Tensor = tf.sum(hiddenStatesChildren, 0);
     
-    //         // Make more flexible with config!
     //         const inputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.IWInput, this.IU, this.bU));
-    //         const forgetGates: tf.Tensor = this.activationLayer.apply(this.getGateForget(inputFeature, hiddenStatesChildrenArray, this.FWInput, this.FU, this.bF));
+    //         const forgetGates: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStatesChildren, this.FWInput, this.FU, this.bF));
     //         const outputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.OWInput, this.OU, this.bO));
     //         const uGate: tf.Tensor = tf.tanh(this.getGate(inputFeature, hiddenStateTilde, this.UWInput, this.UU, this.bU));
     
@@ -316,39 +293,79 @@ export class ChildSumTreeLSTM extends tf.layers.Layer{
     //         return [hiddenStateCurrent, memoryCellCurrent];
     //     });
     // }
+    callTestWeird(inputs: tf.Tensor[]){
+        return tf.tidy(()=>{
+            const inputFeature: tf.Tensor = inputs[0]; const hiddenStatesChildren: tf.Tensor = inputs[1]; const memoryCellsChildren: tf.Tensor = inputs[2];
+            // // Shapes: [ 4, 1 ] [ 2, 4, 1 ] [ 2, 4, 1 ]
+
+            const hiddenStateTilde: tf.Tensor = tf.sum(hiddenStatesChildren, 0);
+    
+            const inputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.IWInput, this.IU, this.bU));
+            // const forgetGates: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStatesChildren, this.FWInput, this.FU, this.bF));
+            // const test = tf.reshape(this.FU, hiddenStatesChildren.shape);
+            // const inputFeatureForget: tf.Tensor = inputFeature.reshape([1, inputFeature.shape[0]]);
+            const forgetGatesCollapsed: tf.Tensor = this.activationLayer.apply(this.getGateForget(inputFeature, hiddenStatesChildren.squeeze(), this.FWInput, this.FU, this.bF));
+            // const forgetGatesCollapsed: tf.Tensor = this.activationLayer.apply(tf.sum(tf.matMul(hiddenStatesChildren.squeeze(), this.FU),0));
+            const outputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.OWInput, this.OU, this.bO));
+            const uGate: tf.Tensor = tf.tanh(this.getGate(inputFeature, hiddenStateTilde, this.UWInput, this.UU, this.bU));
+
+            const memoryCellCurrent: tf.Tensor = this.getMemoryCellTest(inputGate, uGate, forgetGatesCollapsed, memoryCellsChildren.squeeze());
+            const hiddenStateCurrent: tf.Tensor = this.getHiddenState(outputGate, memoryCellCurrent);
+            return [hiddenStateCurrent, memoryCellCurrent];
+        });
+    }
+    /**
+     * 
+     * @param inputs Inputs a list of stacked tensors as follows: [inputFeature, child hidden states, child memory cells]
+     * 
+     */
+    
+    call(inputs: tf.Tensor[]){
+        return tf.tidy(()=>{
+            const inputFeature: tf.Tensor = inputs[0]; const hiddenStatesChildren: tf.Tensor = inputs[1]; const memoryCellsChildren: tf.Tensor = inputs[2];
+            // Shapes: [ 4, 1 ] [ 2, 4, 1 ] [ 2, 4, 1 ]
+
+            const hiddenStateTilde: tf.Tensor = tf.sum(hiddenStatesChildren, 0);
+    
+            const inputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.IWInput, this.IU, this.bU));
+            const forgetGates: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStatesChildren, this.FWInput, this.FU, this.bF));
+            const outputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.OWInput, this.OU, this.bO));
+            const uGate: tf.Tensor = tf.tanh(this.getGate(inputFeature, hiddenStateTilde, this.UWInput, this.UU, this.bU));
+            const memoryCellCurrent: tf.Tensor = this.getMemoryCell(inputGate, uGate, forgetGates, memoryCellsChildren);
+            const hiddenStateCurrent: tf.Tensor = this.getHiddenState(outputGate, memoryCellCurrent);
+            
+            return [hiddenStateCurrent, memoryCellCurrent];
+        });
+    }    /**
+     * 
+     * @param inputs Inputs a list of tensors as follows: [inputFeature, child hidden states, child memory cells]
+     * 
+     */
     
 
+    // private getGate(inputNode: tf.Tensor, inputHiddenState: tf.Tensor, inputWeight: tf.Variable, hiddenStateWeight: tf.Variable, biasVec: tf.Variable){
+    //     return tf.add(tf.add(tf.matMul(inputWeight, inputNode), tf.matMul(hiddenStateWeight, inputHiddenState)), biasVec);
+    // }
     private getGate(inputNode: tf.Tensor, inputHiddenState: tf.Tensor, inputWeight: tf.Variable, hiddenStateWeight: tf.Variable, biasVec: tf.Variable){
-        return tf.add(tf.add(tf.matMul(inputWeight, inputNode), tf.matMul(hiddenStateWeight, inputHiddenState)), biasVec);
+        return tf.add(tf.add(tf.matMul(inputNode, inputWeight), tf.matMul(inputHiddenState, hiddenStateWeight)), biasVec);
     }
 
+    private getGateUpdated(inputNode: tf.Tensor, inputHiddenState: tf.Tensor, inputWeight: tf.Variable, 
+        hiddenStateWeight: tf.Variable, biasVec: tf.Variable){
+            return tf.add(tf.add(tf.matMul(inputNode, inputWeight), tf.matMul(inputHiddenState, hiddenStateWeight)), biasVec);
+        }
 
     private getGateForget(inputNode: tf.Tensor, inputHiddenStates: tf.Tensor, inputWeight: tf.Variable, hiddenStateWeight: tf.Variable, biasVec: tf.Variable){
         const intermediate: tf.Tensor = tf.add(tf.matMul(inputNode, inputWeight), tf.matMul(inputHiddenStates, hiddenStateWeight));
-        return tf.add(intermediate.reshape([intermediate.shape[1]!,intermediate.shape[0]]), biasVec);
-
+        return tf.add(intermediate, biasVec);
     }
 
     private getMemoryCell(inputGate: tf.Tensor, uGate: tf.Tensor, forgetGates: tf.Tensor, memoryCellsChildren: tf.Tensor){
-        // console.log(forgetGates.shape);
-        // console.log(memoryCellsChildren.shape);
-        const memoryCellChildrenReshaped = memoryCellsChildren.reshape([memoryCellsChildren.shape[1]!,memoryCellsChildren.shape[0]]);
-        console.log("Int result shapes")
-        console.log(forgetGates.shape)
-        console.log(memoryCellsChildren.shape);
-        console.log(tf.sum(tf.mul(forgetGates, memoryCellsChildren), 0).shape);
-        console.log(tf.mul(inputGate, uGate).shape);
         return tf.add(tf.mul(inputGate, uGate), tf.sum(tf.mul(forgetGates, memoryCellsChildren), 0));
     }
 
     private getMemoryCellTest(inputGate: tf.Tensor, uGate: tf.Tensor, forgetGates: tf.Tensor, memoryCellsChildren: tf.Tensor){
-        // console.log(forgetGates.shape);
-        // console.log(memoryCellsChildren.shape);
-        const memoryCellChildrenReshaped = memoryCellsChildren.reshape([memoryCellsChildren.shape[1]!,memoryCellsChildren.shape[0]]);
-        console.log(memoryCellChildrenReshaped.shape)
-        console.log(tf.sum(tf.mul(forgetGates, memoryCellChildrenReshaped), 1, true).shape);
-        console.log(tf.mul(inputGate, uGate).shape);
-        return tf.add(tf.mul(inputGate, uGate), tf.sum(tf.mul(forgetGates, memoryCellChildrenReshaped), 1, true));
+        return tf.add(tf.mul(inputGate, uGate), tf.sum(tf.mul(forgetGates, memoryCellsChildren), 0, true));
     }
 
 
@@ -444,7 +461,8 @@ export class ModelTreeLSTM{
     }
 
     public forwardPass(resultSetFeatures: IResultSetRepresentation, idx: number[]): IModelOutput{
-        const outputTensors = tf.tidy(() =>{
+        const outputTensors = tf.tidy(() =>{       
+
             // Turn off for real use?
             if (resultSetFeatures.hiddenStates.length!=resultSetFeatures.memoryCell.length){
                 throw new Error("Model given hiddenState and memoryCell arrays with different sizes");
@@ -453,7 +471,7 @@ export class ModelTreeLSTM{
                 throw new Error("Model given join indexes out of range of array");
             }
             // Input to binary Tree LSTM
-            const inputTensor: tf.Tensor = tf.zeros([this.binaryTreeLSTMLayer[0].numUnits, 1]);
+            const inputTensor: tf.Tensor = tf.zeros([1, this.binaryTreeLSTMLayer[0].numUnits]);
 
             const binaryLSTMInput: tf.Tensor = tf.stack([inputTensor, resultSetFeatures.hiddenStates[idx[0]], resultSetFeatures.hiddenStates[idx[1]],
             resultSetFeatures.memoryCell[idx[0]], resultSetFeatures.memoryCell[idx[1]]]);
@@ -472,14 +490,15 @@ export class ModelTreeLSTM{
             }
             // Add join features
             resultSetFeatures.hiddenStates.push(joinHiddenState); resultSetFeatures.memoryCell.push(joinMemoryCell);
-
             const childSumInput: tf.Tensor[] = [inputTensor, tf.stack(resultSetFeatures.hiddenStates), tf.stack(resultSetFeatures.memoryCell)];
             const childSumOutput: tf.Tensor[] = this.childSumTreeLSTMLayer[0].call(childSumInput);
 
             // TODO: Query representation
 
             // Feed representation into dense layer to get Q-value
-            const qValue = this.qValueNetwork.forwardPassFromConfig(childSumOutput[0]);
+            const test = childSumOutput[0].reshape([childSumOutput[0].shape[1]!, childSumOutput[0].shape[0]]);
+    
+            const qValue = this.qValueNetwork.forwardPassFromConfig(test);
             return [qValue, joinHiddenState, joinMemoryCell];
         });
 
@@ -500,40 +519,40 @@ export class ModelTreeLSTM{
 
     // TODO: TEST THIS!!!! Also fixed a bug possibly, in binaryLSTMInput = ... I used to do hiddenStates[0] and hiddenStates[1] instead of index,
     // that was most likely incorrect
-    public forwardPassRecursive(inputFeatures: IResultSetRepresentation, treeState: number[][]){        
-        const inputFeaturesCloned: IResultSetRepresentation =   {hiddenStates: inputFeatures.hiddenStates.map(x=>x.clone()),
-        memoryCell: inputFeatures.memoryCell.map(x=>x.clone())};
-        // Recursively execute joins of join state 
-        const inputTensor: tf.Tensor = tf.zeros([this.binaryTreeLSTMLayer[0].numUnits,1]);
-
-        for (const idx of treeState){
-            const binaryLSTMInput: tf.Tensor = tf.stack([inputTensor, inputFeaturesCloned.hiddenStates[idx[0]], inputFeaturesCloned.hiddenStates[idx[1]],
-                inputFeaturesCloned.memoryCell[idx[0]], inputFeaturesCloned.memoryCell[idx[1]]]);
-
-            const joinRepresentation: tf.Tensor[] = this.binaryTreeLSTMLayer[0].call(binaryLSTMInput);
-            const joinHiddenState: tf.Tensor = joinRepresentation[0]; const joinMemoryCell: tf.Tensor = joinRepresentation[1];
-            /* This part we take all features and pass this into childsum tree lstm */
-            // Sort high to low such that we can remove without consideration of what removing elements from array does to indexing
-            const removeIdx = idx.sort((a,b)=> b-a);
-            for (const i of removeIdx){
-                // Dispose tensors before removing pointer to avoid "floating" tensors
-                inputFeaturesCloned.hiddenStates[i].dispose(); inputFeaturesCloned.memoryCell[i].dispose();
-                // Remove features associated with index
-                inputFeaturesCloned.hiddenStates.splice(i,1); inputFeaturesCloned.memoryCell.splice(i,1);
-            }
-            // Add join features
-            inputFeaturesCloned.hiddenStates.push(joinHiddenState); inputFeaturesCloned.memoryCell.push(joinMemoryCell);
-
-        }
-
-        const childSumInput: tf.Tensor[] = [inputTensor, tf.stack(inputFeaturesCloned.hiddenStates), tf.stack(inputFeaturesCloned.memoryCell)];
-        const childSumOutput: tf.Tensor[] = this.childSumTreeLSTMLayer[0].call(childSumInput);
-        // TODO: Query representation
-
-        // Feed representation into dense layer to get Q-value
-        const qValue = this.qValueNetwork.forwardPassFromConfig(childSumOutput[0]);
-        return qValue
+    public forwardPassRecursive(inputFeatures: IResultSetRepresentation, treeState: number[][]){   
+        return tf.tidy(()=>{
+            const inputFeaturesCloned: IResultSetRepresentation =   {hiddenStates: inputFeatures.hiddenStates.map(x=>x.clone()),
+            memoryCell: inputFeatures.memoryCell.map(x=>x.clone())};
+            // Recursively execute joins of join state 
+            const inputTensor: tf.Tensor = tf.zeros([1, this.binaryTreeLSTMLayer[0].numUnits]);
+            for (const idx of treeState){
+                const binaryLSTMInput: tf.Tensor = tf.stack([inputTensor, inputFeaturesCloned.hiddenStates[idx[0]], inputFeaturesCloned.hiddenStates[idx[1]],
+                    inputFeaturesCloned.memoryCell[idx[0]], inputFeaturesCloned.memoryCell[idx[1]]]);
+                const joinRepresentation: tf.Tensor[] = this.binaryTreeLSTMLayer[0].call(binaryLSTMInput);
+                const joinHiddenState: tf.Tensor = joinRepresentation[0]; const joinMemoryCell: tf.Tensor = joinRepresentation[1];
+                /* This part we take all features and pass this into childsum tree lstm */
+                // Sort high to low such that we can remove without consideration of what removing elements from array does to indexing
+                const removeIdx = idx.sort((a,b)=> b-a);
+                for (const i of removeIdx){
+                    // Dispose tensors before removing pointer to avoid "floating" tensors
+                    inputFeaturesCloned.hiddenStates[i].dispose(); inputFeaturesCloned.memoryCell[i].dispose();
+                    // Remove features associated with index
+                    inputFeaturesCloned.hiddenStates.splice(i,1); inputFeaturesCloned.memoryCell.splice(i,1);
+                }
+                // Add join features
+                inputFeaturesCloned.hiddenStates.push(joinHiddenState); inputFeaturesCloned.memoryCell.push(joinMemoryCell);
     
+            }
+    
+            const childSumInput: tf.Tensor[] = [inputTensor, tf.stack(inputFeaturesCloned.hiddenStates), tf.stack(inputFeaturesCloned.memoryCell)];
+            const childSumOutput: tf.Tensor[] = this.childSumTreeLSTMLayer[0].callTestWeird(childSumInput);
+            // TODO: Query representation
+    
+            // Feed representation into dense layer to get Q-value
+            const test = childSumOutput[0].reshape([childSumOutput[0].shape[1]!, childSumOutput[0].shape[0]]);
+            const qValue = this.qValueNetwork.forwardPassFromConfig(test);
+            return qValue 
+        })         
     }
 
     public validateConfig(modelConfig: IModelConfig){

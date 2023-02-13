@@ -55,6 +55,31 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     return orders;
   }
 
+  public chooseUsingProbability(probArray: Float32Array|number[]): number{
+    // const cumsum = (arr: Float32Array|number[]) => arr.map((sum => value => sum += value)(0));
+    let cumSumNew = [];
+    let runningSum = 0;
+    for (let j=0; j<probArray.length; j++){
+      runningSum+= probArray[j];
+      cumSumNew.push(runningSum);
+    }
+
+    // const cumProb: Float32Array|number[] = cumsum(probArray);
+
+    const pick: number = Math.random();
+
+    for (let i=0;i<cumSumNew.length;i++){
+      /* If we land at our draw, we return the index of the draw*/
+      if(pick > cumSumNew[i]){
+      }
+      else{
+        return i;
+      }
+    }
+    return cumSumNew.length-1;
+
+  }
+
   protected async getOutput(action: IActionRdfJoinReinforcementLearning): Promise<IActorRdfJoinOutputInner> {
     // Determine the two smallest streams by sorting (e.g. via cardinality)
     const entries = [...action.entries];
@@ -96,64 +121,58 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
   ): Promise<IMediatorTypeReinforcementLearning> {
     const modelTreeLSTM: ModelTreeLSTM = (action.context.get(KeysRlTrain.modelInstance) as InstanceModel).getModel();
 
-    // const trainEpisodeTest: ITrainEpisode = action.context.get(KeysRlTrain.trainEpisode)!;
-    // console.log("Last feature before model execution");
-    // console.log(trainEpisodeTest.featureTensor.hiddenStates[trainEpisodeTest.featureTensor.hiddenStates.length-1].dataSync().slice(0,10));
-
     const bestOutput = tf.tidy(():[tf.Tensor, tf.Tensor, tf.Tensor, number[]]=>{
       // Get possible join indexes, this disregards order of joins, is that a good assumption for for example hash join?
       const trainEpisode: ITrainEpisode = action.context.get(KeysRlTrain.trainEpisode)!;
     
       const possibleJoinIndexes = this.getPossibleJoins(action.entries.length);
-      let bestQValue: number = -Infinity;
-      let bestJoinIdx: number[] = [];
+      const possibelJoinIndexesUnSorted = [...possibleJoinIndexes];
+
+      const qValuesEst: number[] = [];
+      // All elements in these two lists should be disposed
+      const qValuesEstTensor: tf.Tensor[] = [];
+      const featureRepresentations: ISingleResultSetRepresentation[]=[];
+
+      // let bestQValue: number = -Infinity;
+      // let bestJoinIdx: number[] = [];
   
-      let bestQTensor: tf.Tensor = tf.tensor([]);
-      let bestFeatureRep: ISingleResultSetRepresentation = {hiddenState: tf.tensor([]), memoryCell: tf.tensor([])};
-      // let bestFeatureRep: tf.Tensor[] = [];
-      // console.log("In actor:");
-      // console.log(trainEpisode.featureTensor.hiddenStates.length);
-      // console.log(trainEpisode.featureTensor.memoryCell.length)
-      // console.log(trainEpisode.featureTensor.hiddenStates[trainEpisode.featureTensor.hiddenStates.length-1].dataSync())
-  
+      // let bestQTensor: tf.Tensor = tf.tensor([]);
+      // let bestFeatureRep: ISingleResultSetRepresentation = {hiddenState: tf.tensor([]), memoryCell: tf.tensor([])};
       for (const joinCombination of possibleJoinIndexes){
   
         // Clone features to make our prediction
         const clonedFeatures: IResultSetRepresentation = {hiddenStates: trainEpisode.featureTensor.hiddenStates.map(x=>tf.clone(x)),
         memoryCell: trainEpisode.featureTensor.memoryCell.map(x=>tf.clone(x))};
-        // console.log(trainEpisode.featureTensor.hiddenStates[trainEpisode.featureTensor.hiddenStates.length-1].dataSync())
-        // console.log("INPUT NORMAL FWPASS HiddenState")
-        // console.log(clonedFeatures.hiddenStates.map(x=>x.dataSync()))
+
         const joinCombinationUnsorted: number[] = [...joinCombination];
         const modelOutput: IModelOutput = modelTreeLSTM.forwardPass(clonedFeatures, joinCombination);
-        // console.log("Here join combi normal execution");
-        // console.log(joinCombinationUnsorted);
-
-        // // This should be a parameter:
-        // const train=true;
-        // if (train){
-        //   const grads = tf.grads(this.modelTreeLSTM.forwardPassGradsTest);
-        //   grads([clonedFeatures.hiddenStates, clonedFeatures.memoryCell]);
-        // }
         
         const qValueScalar: tf.Scalar = tf.squeeze(modelOutput.qValue);
         if (qValueScalar.dataSync().length>1){
           throw new Error("Non scalar returned as Q-value");
         }
-  
-        if (qValueScalar.dataSync()[0]>bestQValue){
-          bestQValue = qValueScalar.dataSync()[0];
-          bestJoinIdx = joinCombinationUnsorted;
+        qValuesEst.push(qValueScalar.dataSync()[0]);
+        qValuesEstTensor.push(qValueScalar);
+        featureRepresentations.push({hiddenState: modelOutput.hiddenState, memoryCell: modelOutput.memoryCell})
 
-          // Select new optimal tensors
-          bestQTensor = modelOutput.qValue;
-          bestFeatureRep.hiddenState = modelOutput.hiddenState; bestFeatureRep.memoryCell = modelOutput.memoryCell;
-        }
       }
+      // Choose according to softmaxed probabilities
+      const estProb = tf.softmax(tf.stack(qValuesEstTensor)).dataSync() as Float32Array;
+      const chosenIdx = this.chooseUsingProbability(estProb);
+
+      // Clone all tensors belonging to best join
+      const bestQTensor: tf.Tensor = tf.clone(qValuesEstTensor[chosenIdx]);
+      const bestFeatureRep: ISingleResultSetRepresentation = {hiddenState: tf.clone(featureRepresentations[chosenIdx].hiddenState), 
+      memoryCell: tf.clone(featureRepresentations[chosenIdx].memoryCell)};
+      const bestJoinIdx: number[] = possibelJoinIndexesUnSorted[chosenIdx];
+      // Dipose left over tensors
+      qValuesEstTensor.map(x=>x.dispose()); 
+      featureRepresentations.map(x=>{
+        x.hiddenState.dispose(); x.memoryCell.dispose();
+      });
+
       return [bestQTensor, bestFeatureRep.hiddenState, bestFeatureRep.memoryCell, bestJoinIdx]
     });
-    // console.log(`Chosen idx: ${bestOutput[3]}, forward pass normal`)
-    // console.log(bestOutput[0].dataSync());
 
     const featureRepresentation: ISingleResultSetRepresentation = {hiddenState: bestOutput[1], memoryCell: bestOutput[2]};
     return {iterations: 0, persistedItems: 0, blockingItems: 0, requestTime:0,
