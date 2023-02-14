@@ -147,9 +147,12 @@ export interface IActorInitQueryBaseArgs<QueryContext extends IQueryContextCommo
    *   "localizeBlankNodes": "@comunica/actor-query-operation:localizeBlankNodes",
    *   "trainEpisode": "@comunica/actor-init-query:trainEpisode",
    *   "batchedTrainingExamples": "@comunica/actor-init-query:batchedTrainingExamples",
-   *   "modelInstance": "@comunica/actor-rdf-join-inner-multi-reinforcement-learning:ModelInstance"
+   *   "modelInstance": "@comunica/actor-rdf-join-inner-multi-reinforcement-learning:ModelInstance",
+   *   "runningMomentsExecutionTime" : "@comunica/mediator-join-reinforcement-learning:runningMomentsExecutionTime",
+   *   "runningMomentsFeatureFile" : "@comunica/mediator-join-reinforcement-learning:runningMomentsFeatureFile"
    * }}
    */
+
   contextKeyShortcuts: Record<string, string> | Partial<Record<keyof QueryContext, string>>;
   /**
    * An array of `contextKeyShortcuts` that are to be appended to the (default) `contextKeyShortcuts`

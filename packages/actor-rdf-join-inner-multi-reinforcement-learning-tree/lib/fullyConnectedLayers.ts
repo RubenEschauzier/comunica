@@ -89,11 +89,13 @@ export class QValueNetwork{
     }
 
     public forwardPassFromConfig(input: tf.Tensor){
-        let x: tf.Tensor = this.networkLayers[0].apply(input) as tf.Tensor;
-        for (let i=1;i<this.networkLayers.length;i++){
-            x = this.networkLayers[i].apply(x) as tf.Tensor;
-        }
-        return x;
+        return tf.tidy(()=>{
+            let x: tf.Tensor = this.networkLayers[0].apply(input) as tf.Tensor;
+            for (let i=1;i<this.networkLayers.length;i++){
+                x = this.networkLayers[i].apply(x) as tf.Tensor;
+            }
+            return x;    
+        })
     }
 
     public async init(qValueNetworkConfig: ILayerConfig, weightsDir: string ){

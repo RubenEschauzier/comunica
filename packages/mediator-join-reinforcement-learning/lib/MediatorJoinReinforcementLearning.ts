@@ -3,13 +3,10 @@ import { KeysQueryOperation, KeysRlTrain } from '@comunica/context-entries';
 import { ActionContext, Actor, IAction, IActorOutput, IActorReply, IActorTest, IMediatorArgs, Mediator } from '@comunica/core';
 import { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
 import { IBatchedTrainingExamples, IQueryOperationResult, ITrainEpisode } from '@comunica/types';
-// import * as RdfJs from 'rdf-js'
-import {Quad} from 'rdf-js'
 import * as tf from '@tensorflow/tfjs-node';
 import * as path from 'path';
 import * as fs from 'fs';
 import { Operation, Pattern } from 'sparqlalgebrajs/lib/algebra';
-import { isUndefined } from 'util';
 import { ISingleResultSetRepresentation } from '../../actor-rdf-join-inner-multi-reinforcement-learning-tree/lib';
 
 /**
@@ -132,7 +129,6 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       action.nextJoinIndexes = idx;
       // Check if this works with multiple query executions
       trainEpisode.joinsMade.push(unsortedIndexes);
-
       for (const i of idx){
           // Dispose tensors before removing pointer to avoid "floating" tensors
           trainEpisode.featureTensor.hiddenStates[i].dispose(); trainEpisode.featureTensor.memoryCell[i].dispose();
@@ -140,11 +136,12 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
           trainEpisode.featureTensor.hiddenStates.splice(i,1); trainEpisode.featureTensor.memoryCell.splice(i,1);
       }
       // Add new join representation
-      trainEpisode.estimatedQValues.push(bestActorReply.predictedQValue);
+      // trainEpisode.estimatedQValues.push(bestActorReply.predictedQValue);
       trainEpisode.featureTensor.hiddenStates.push(bestActorReply.representation.hiddenState);
       trainEpisode.featureTensor.memoryCell.push(bestActorReply.representation.memoryCell);
+
       // Update training data batch
-      // TODO: turn this off for benchmarking and actual execution!!
+      // TODO: turn checks off for benchmarking and actual execution!!
       const batchToUpdate: IBatchedTrainingExamples|undefined = action.context.get(KeysRlTrain.batchedTrainingExamples)!;
       if (!batchToUpdate){
         throw new Error("Mediator is passed undefined as BatchedTrainingExamples object");
@@ -160,7 +157,6 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       if(!batchToUpdate.trainingExamples.get(key)){
         batchToUpdate.trainingExamples.set(MediatorJoinReinforcementLearning.idxToKey(trainEpisode.joinsMade), {qValue: bestActorReply.predictedQValue, actualExecutionTime: -1, N: 0});
       }
-  
     }
     if (!action.context.get(KeysRlTrain.batchedTrainingExamples)){
       throw new Error("Mediator did not receive a batched training example object");
@@ -182,7 +178,6 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
         ])),
       });
     }
-
     return bestActor;
   }
 
@@ -222,11 +217,14 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       }
       leafFeatures.push([cardinalityLeaf].concat(isVariable[0]));
       // leafFeatures.push([cardinalityLeaf].concat(isVariable, isNamedNode, isLiteral, [0], predicateEmbedding));
-      //TODO: Normalization of inputs
     }
+    // Update running moments only at leaf
+    const runningMomentsFeatures: IRunningMoments = action.context.get(KeysRlTrain.runningMomentsFeatures)!
+    this.updateAllMoments(runningMomentsFeatures, leafFeatures);
+    this.standardiseFeatures(runningMomentsFeatures, leafFeatures);
     // Feature tensors created here, after no longer needed (corresponding result sets are joined) they need to be disposed
     // const featureTensorLeaf: tf.Tensor[] = leafFeatures.map(x=>tf.tensor(x).reshape([x.length,1]));
-    const featureTensorLeaf: tf.Tensor[] = leafFeatures.map(x=>tf.tensor(x).reshape([1, x.length]));
+    const featureTensorLeaf: tf.Tensor[] = leafFeatures.map(x=>tf.tensor(x,[1, x.length]));
     const memoryCellLeaf: tf.Tensor[] = featureTensorLeaf.map(x=>tf.zeros(x.shape));
     const resultSetRepresentationLeaf: IResultSetRepresentation = {hiddenStates: featureTensorLeaf, memoryCell: memoryCellLeaf}
     if (!action.context.get(KeysRlTrain.trainEpisode)){
@@ -234,23 +232,15 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     }
     const episode: ITrainEpisode = action.context.get(KeysRlTrain.trainEpisode)!;
     const batchToUpdate: IBatchedTrainingExamples|undefined = action.context.get(KeysRlTrain.batchedTrainingExamples)!;
+
     if (!batchToUpdate){
       throw new Error("Mediator is passed undefined as BatchedTrainingExamples object");
     }
     // Clone of tensors, will prob make memory leaks!
-    batchToUpdate.leafFeatures = {hiddenStates: resultSetRepresentationLeaf.hiddenStates.map(x=>x.clone()), 
-      memoryCell: resultSetRepresentationLeaf.memoryCell.map(x=>x.clone())};
-
-    // TESTING CODE
-    // console.log("Tensor ids in mediator def")
-    // const batchTensorIds = [];
-    // for (const hs of batchToUpdate.leafFeatures.hiddenStates){
-    //   batchTensorIds.push(hs.id);
-    // }
-    // for(const m of batchToUpdate.leafFeatures.memoryCell){
-    //   batchTensorIds.push(m.id);
-    // }
-    // console.log(batchTensorIds);
+    if (batchToUpdate.leafFeatures.hiddenStates.length==0){
+      batchToUpdate.leafFeatures = {hiddenStates: resultSetRepresentationLeaf.hiddenStates.map(x=>x.clone()), 
+        memoryCell: resultSetRepresentationLeaf.memoryCell.map(x=>x.clone())};  
+    }
 
     episode.featureTensor=resultSetRepresentationLeaf;
     episode.isEmpty = false;
@@ -272,7 +262,35 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     }
     return idx;
   }
-  
+
+  public standardiseFeatures(runningMomentsFeatures: IRunningMoments, features: number[][]){
+    for (const idx of runningMomentsFeatures.indexes){
+      const momentsAtIndex: IAggregateValues = runningMomentsFeatures.runningStats.get(idx)!;
+      if (!momentsAtIndex){
+        console.error("Accessing moments index that does not exist");
+      }
+      for (const feature of features){
+        feature[idx] = (feature[idx] - (momentsAtIndex.mean))/momentsAtIndex.std;
+      }    
+    }
+  }
+
+  public updateAllMoments(runningMoments: IRunningMoments, newFeatures: number[][]){
+    for (const index of runningMoments.indexes){
+      for (const newFeature of newFeatures){
+        this.updateMoment(runningMoments.runningStats.get(index)!, newFeature[index]);
+      }
+    }
+  }
+
+  public updateMoment(toUpdateAggregate: IAggregateValues, newValue: number){
+    toUpdateAggregate.N +=1;
+    const delta = newValue - toUpdateAggregate.mean; 
+    toUpdateAggregate.mean += delta / toUpdateAggregate.N;
+    const newDelta = newValue - toUpdateAggregate.mean;
+    toUpdateAggregate.M2 += delta * newDelta;
+    toUpdateAggregate.std = Math.sqrt(toUpdateAggregate.M2 / toUpdateAggregate.N);
+  }
 }
 
 
@@ -324,4 +342,32 @@ export interface IActionRdfJoinReinforcementLearning extends IActionRdfJoin{
 export interface IResultSetRepresentation{
   hiddenStates: tf.Tensor[];
   memoryCell: tf.Tensor[];
+}
+
+export interface IRunningMoments{
+  /*
+  * Indexes of features to normalise and track
+  */
+  indexes: number[];
+  /*
+  * The running values of mean, std, n, mn mapped to index
+  * These are the quantities required for the Welfold's online algorithm
+  */
+  runningStats: Map<number, IAggregateValues>;
+}
+
+export interface IAggregateValues{
+  N: number;
+  /*
+  * Aggregate mean
+  */
+  mean: number;
+  /*
+  * Aggregate standard deviation
+  */
+  std: number;
+  /*
+  * Aggregate M2
+  */
+  M2: number;
 }

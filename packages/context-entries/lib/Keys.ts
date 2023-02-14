@@ -14,6 +14,7 @@ import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
 import type { Algebra } from 'sparqlalgebrajs';
 import {InstanceModel} from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree'
+import { IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
@@ -267,7 +268,26 @@ export const KeysRdfUpdateQuads = {
 };
 
 export const KeysRlTrain = {
+  /**
+   * One training episode execution, used to keep track of the query planning execution
+   */
   trainEpisode: new ActionContextKey<ITrainEpisode>('@comunica/actor-init-query:trainEpisode'),
+  /**
+   * The training examples obtained by query executions between training steps
+   */
   batchedTrainingExamples: new ActionContextKey<IBatchedTrainingExamples>('@comunica/actor-init-query:batchedTrainingExamples'),
-  modelInstance: new ActionContextKey<InstanceModel>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning:ModelInstance')
+  /**
+   * Container for model to ensure the same model is used during training and query execution
+   */
+  modelInstance: new ActionContextKey<InstanceModel>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning:ModelInstance'),
+  /**
+   * Context entries related to the runningMoments used to standardise both features and execution times to 
+   * standard normal variable
+   */
+  runningMomentsFeatures: new ActionContextKey<IRunningMoments>('@comunica/mediator-join-reinforcement-learning:runningMomentsFeatures000'),
+  runningMomentsExecutionTime: new ActionContextKey<IRunningMoments>('@comunica/mediator-join-reinforcement-learning:runningMomentsExecutionTime'),
+  /**
+   * Location previously created running moments are stored
+   */
+  runningMomentsFeatureFile: new ActionContextKey<string>('@comunica/mediator-join-reinforcement-learning:runningMomentsFeatureFile')
 }

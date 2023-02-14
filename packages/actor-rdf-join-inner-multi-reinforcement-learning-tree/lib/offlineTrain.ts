@@ -20,31 +20,9 @@ export class ModelTrainerOffline{
 
     public trainOfflineBatched(partialJoinTree: number[][][], resultSetRepresentation: IResultSetRepresentation, 
         qValues: tf.Tensor[], executionTimes: number[], model: ModelTreeLSTM, batchSize: number){
-        Error.stackTraceLimit = Infinity;
-        console.log("Start offline traing")
         if (qValues.length!=executionTimes.length){
             throw new Error("Got unequal number of qVales and executionTimes");
         }
-        // const testTensor1 = tf.tensor([[1, 4]]);
-        // const testTensor2 = tf.tensor([[2, 4]]);
-        // const testTensor3 = tf.tensor([[4, 2]]);
-        // const testTensor4 = tf.tensor([[1, 4]]);
-        // const testTensor5 = tf.tensor([[3, 6]]);
-        // const testTensor6 = tf.tensor([[4, 3]]);
-        // const testTensor7 = tf.tensor([[4, 4]]);
-        // const testTensor8 = tf.tensor([[2, 4]]);
-        // const testTensor9 = tf.tensor([[4, 4]]);
-
-        // tf.variableGrads(()=>{
-        //     const qValuesRecursive: tf.Tensor[] = []
-
-        //     for (const tree of partialJoinTree){
-        //         qValuesRecursive.push(model.forwardPassRecursive(resultSetRepresentation, tree));
-        //     }
-        //     const loss = tf.sum(squaredDifference(tf.concat(qValuesRecursive).squeeze(), tf.tensor(executionTimes)));
-        //     // const loss = this.meanSquaredError(tf.stack(qValuesRecursive).squeeze(), tf.stack(executionTimes));
-        //     return loss.squeeze();
-        // });
         console.log("executionTimes")
         console.log(executionTimes);
         return tf.tidy(()=>{

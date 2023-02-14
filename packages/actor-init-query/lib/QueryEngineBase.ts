@@ -20,9 +20,9 @@ import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
 import * as tf from '@tensorflow/tfjs-node';
 import { ModelTrainerOffline } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
-import { MediatorJoinReinforcementLearning } from '@comunica/mediator-join-reinforcement-learning';
+import { IAggregateValues, IRunningMoments, MediatorJoinReinforcementLearning } from '@comunica/mediator-join-reinforcement-learning';
 import { InstanceModel } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
-
+import * as chalk from 'chalk';
 /**
  * Base implementation of a Comunica query engine.
  */
@@ -33,12 +33,14 @@ implements IQueryEngine<QueryContext> {
   public trainEpisode: ITrainEpisode;
   public modelTrainerOffline: ModelTrainerOffline;
   public modelInstance: InstanceModel;
+  public runningMomentsFeatures: IRunningMoments
 
 
   public constructor(actorInitQuery: ActorInitQueryBase<QueryContext>) {
     this.actorInitQuery = actorInitQuery;
     this.defaultFunctionArgumentsCache = {};
     this.trainEpisode = {joinsMade: [], estimatedQValues: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
+    this.runningMomentsFeatures = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
     // Hardcoded, should be config, but not sure how to incorporate
     this.modelInstance = new InstanceModel();
     this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.005});
@@ -133,7 +135,6 @@ implements IQueryEngine<QueryContext> {
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
   ): Promise<QueryType | IQueryExplained> {
     context = context || <any>{};
-
     // Expand shortcuts
     for (const key in context) {
       if (this.actorInitQuery.contextKeyShortcuts[key]) {
@@ -152,6 +153,29 @@ implements IQueryEngine<QueryContext> {
         actionContext = actionContext.setDefault(KeysInitQuery.graphqlSingularizeVariables, {});
       }
     }
+    // Initialise the running moments from file (The running moments file should only be passed on first execution)
+    if(actionContext.get(KeysRlTrain.runningMomentsFeatureFile)){
+      if (this.modelInstance.initMoments){
+        console.warn("WARNING: Reloading Moments When They Are Already Initialised");
+      }
+
+      const loadedRunningMomentsFeature: IRunningMoments = 
+      this.modelInstance.loadRunningMoments(actionContext.get(KeysRlTrain.runningMomentsFeatureFile)!);
+      this.runningMomentsFeatures = loadedRunningMomentsFeature;
+      // Signal we loaded the moments
+      this.modelInstance.initMoments=true;
+    }
+
+    // If no path was passed and the moments are not initialised we create mean 0 std 1 moments
+    else if (!this.modelInstance.initMoments){
+      console.warn(chalk.red("WARNING: Running Query Without Initialised Running Moments"));
+      for (const index of this.runningMomentsFeatures.indexes){
+        const startPoint: IAggregateValues = {N: 0, mean: 0, std: 1, M2: 1}
+        this.runningMomentsFeatures.runningStats.set(index, startPoint);
+      }
+      this.modelInstance.initMoments=true;
+    }
+
     const baseIRI: string | undefined = actionContext.get(KeysInitQuery.baseIRI);
     this.modelInstance.initModel();
     actionContext = actionContext
@@ -161,7 +185,8 @@ implements IQueryEngine<QueryContext> {
       .setDefault(KeysCore.log, this.actorInitQuery.logger)
       .setDefault(KeysInitQuery.functionArgumentsCache, this.defaultFunctionArgumentsCache)
       .setDefault(KeysRlTrain.trainEpisode, this.trainEpisode)
-      .setDefault(KeysRlTrain.modelInstance, this.modelInstance);
+      .setDefault(KeysRlTrain.modelInstance, this.modelInstance)
+      .setDefault(KeysRlTrain.runningMomentsFeatures, this.runningMomentsFeatures);
 
     // Pre-processing the context
     actionContext = (await this.actorInitQuery.mediatorContextPreprocess.mediate({ context: actionContext })).context;
@@ -237,7 +262,6 @@ implements IQueryEngine<QueryContext> {
     // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
     // If we train
     if (!context!.train){
-      console.log("RESET!!")
       this.trainEpisode = {joinsMade: [], estimatedQValues: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
     }
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
@@ -329,8 +353,13 @@ implements IQueryEngine<QueryContext> {
     context = ActionContext.ensureActionContext(context);
     return this.actorInitQuery.mediatorHttpInvalidate.mediate({ url, context });
   }
+  public saveModel(runningMomentsPath: string){
+    this.modelInstance.saveModel();
+    this.modelInstance.saveRunningMoments(this.runningMomentsFeatures, runningMomentsPath);
 
+  }
   public async trainModel(batchedTrainingExamples: IBatchedTrainingExamples){
+
     function shuffleData(executionTimes: number[], qValues: tf.Tensor[], partialJoinTree: number[][][]){
       let i, j, xE, xQ, xP;
       for (i=executionTimes.length-1;i>0;i--){
@@ -341,6 +370,7 @@ implements IQueryEngine<QueryContext> {
       }
       return [qValues, executionTimes, partialJoinTree]
     }
+
     if (batchedTrainingExamples.trainingExamples.size==0){
       throw new Error("Empty map passed");
     }
@@ -352,21 +382,48 @@ implements IQueryEngine<QueryContext> {
       predictedQValues.push(trainingExample.qValue);
       partialJoinTree.push(MediatorJoinReinforcementLearning.keyToIdx(joinKey));
     }
-    // const shuffled = shuffleData(actualExecutionTime, predictedQValues, partialJoinTree);
+    const shuffled = shuffleData(actualExecutionTime, predictedQValues, partialJoinTree);
     const loss = this.modelTrainerOffline.trainOfflineBatched(partialJoinTree, batchedTrainingExamples.leafFeatures, 
       predictedQValues, actualExecutionTime, this.modelInstance.getModel(), 4);
-    // TODO For Results:
-    // 1. Implement train loss
-    // 2. Normalise features / y
-    // 3. Track Statistics (+ STD)
-    // 4. Create new vectors for watdiv!!
-    // 5. Query Encoding Implemented
-    // (Optional for workshop)
-    // 6. Experience Replay (https://paperswithcode.com/method/experience-replay) 
-    // (https://towardsdatascience.com/a-technical-introduction-to-experience-replay-for-off-policy-deep-reinforcement-learning-9812bc920a96)
-    // 7. Temperature scaling for bolzman softmax
+
+    /**
+     * TODO For Results:
+     * 1. Implement train loss 
+     * 1.5 Fix memory leaks :/
+     * 2. Normalise features / y
+     * 3. Track Statistics (+ STD)
+     * 4. Create new vectors for watdiv!!
+     * 5. Query Encoding Implemented
+     * (Optional for workshop)
+     * 6. Experience Replay (https://paperswithcode.com/method/experience-replay) 
+     * (https://towardsdatascience.com/a-technical-introduction-to-experience-replay-for-off-policy-deep-reinforcement-learning-9812bc920a96)
+     * 7. Temperature scaling for bolzman softmax
+     * 
+     * Considerations:
+     * When we use features that 'mean' something in leaf result sets and then let the model generate feature representations for
+     * joins, don't we lose information of what the features mean in the result set leafs
+     * On one hand, the model can learn what what representations it should make to get the best results
+     * On other hand, it seems counter intuitive?
+     * 
+     * Graph Encoding:
+     * https://towardsdatascience.com/graph-representation-learning-network-embeddings-d1162625c52b
+     * Hyperbolic embeddings
+     * PCA on adjacency matrix
+     * 
+     * Lit review:
+     * Comprehensive review of join order optimizers
+     * https://www.vldb.org/pvldb/vol15/p1658-zhao.pdf 
+     * Super cool paper on query performance prediction
+     * https://www.vldb.org/pvldb/vol12/p1733-marcus.pdf
+     */
+
   }
 
+  public disposeTrainEpisode(){
+    // this.trainEpisode.estimatedQValues.map(x=>x.dispose());
+    this.trainEpisode.featureTensor.hiddenStates.map(x=>x.dispose());
+    this.trainEpisode.featureTensor.memoryCell.map(x=>x.dispose()); 
+  }
 
   /**
    * Convert an internal query result to a final one.

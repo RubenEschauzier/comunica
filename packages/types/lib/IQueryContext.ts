@@ -7,7 +7,7 @@ import type { QueryExplainMode } from './IQueryOperationResult';
 import type { Logger } from './Logger';
 
 import * as tf from '@tensorflow/tfjs-node';
-import { IResultSetRepresentation } from '@comunica/mediator-join-reinforcement-learning';
+import { IResultSetRepresentation, IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
 import { InstanceModel } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
 
 /**
@@ -48,6 +48,8 @@ export interface IQueryContextCommon {
   trainEpisode?: ITrainEpisode;
   batchedTrainingExamples?: IBatchedTrainingExamples;
   modelInstance?: InstanceModel;
+  runningMomentsExecutionTime?: IRunningMoments;
+  runningMomentsFeaturesFile?: string;
   source?: IDataSource;
   // Inherited from RDF.QueryStringContext: sources
   destination?: IDataDestination;

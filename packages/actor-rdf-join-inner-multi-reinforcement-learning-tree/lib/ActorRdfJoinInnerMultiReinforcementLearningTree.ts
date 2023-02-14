@@ -119,6 +119,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     action: IActionRdfJoin,
     metadatas: MetadataBindings[],
   ): Promise<IMediatorTypeReinforcementLearning> {
+    const startTensors: number = tf.memory().numTensors;
     const modelTreeLSTM: ModelTreeLSTM = (action.context.get(KeysRlTrain.modelInstance) as InstanceModel).getModel();
 
     const bestOutput = tf.tidy(():[tf.Tensor, tf.Tensor, tf.Tensor, number[]]=>{
@@ -133,11 +134,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
       const qValuesEstTensor: tf.Tensor[] = [];
       const featureRepresentations: ISingleResultSetRepresentation[]=[];
 
-      // let bestQValue: number = -Infinity;
-      // let bestJoinIdx: number[] = [];
-  
-      // let bestQTensor: tf.Tensor = tf.tensor([]);
-      // let bestFeatureRep: ISingleResultSetRepresentation = {hiddenState: tf.tensor([]), memoryCell: tf.tensor([])};
       for (const joinCombination of possibleJoinIndexes){
   
         // Clone features to make our prediction
@@ -161,17 +157,13 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
       const chosenIdx = this.chooseUsingProbability(estProb);
 
       // Clone all tensors belonging to best join
-      const bestQTensor: tf.Tensor = tf.clone(qValuesEstTensor[chosenIdx]);
-      const bestFeatureRep: ISingleResultSetRepresentation = {hiddenState: tf.clone(featureRepresentations[chosenIdx].hiddenState), 
-      memoryCell: tf.clone(featureRepresentations[chosenIdx].memoryCell)};
-      const bestJoinIdx: number[] = possibelJoinIndexesUnSorted[chosenIdx];
-      // Dipose left over tensors
-      qValuesEstTensor.map(x=>x.dispose()); 
-      featureRepresentations.map(x=>{
-        x.hiddenState.dispose(); x.memoryCell.dispose();
-      });
+      // const bestQTensor: tf.Tensor = tf.clone(qValuesEstTensor[chosenIdx]);
+      // const bestFeatureRep: ISingleResultSetRepresentation = {hiddenState: tf.clone(featureRepresentations[chosenIdx].hiddenState), 
+      // memoryCell: tf.clone(featureRepresentations[chosenIdx].memoryCell)};
+      // const bestJoinIdx: number[] = possibelJoinIndexesUnSorted[chosenIdx];
 
-      return [bestQTensor, bestFeatureRep.hiddenState, bestFeatureRep.memoryCell, bestJoinIdx]
+      return [qValuesEstTensor[chosenIdx], featureRepresentations[chosenIdx].hiddenState, 
+      featureRepresentations[chosenIdx].memoryCell, possibelJoinIndexesUnSorted[chosenIdx]]
     });
 
     const featureRepresentation: ISingleResultSetRepresentation = {hiddenState: bestOutput[1], memoryCell: bestOutput[2]};

@@ -443,7 +443,6 @@ export class ModelTreeLSTM{
         }
         // This can
         this.qValueNetwork.saveNetwork(this.loadedConfig.qValueNetwork, this.weightsDir);
-
     }
 
     public async loadConfig(){
