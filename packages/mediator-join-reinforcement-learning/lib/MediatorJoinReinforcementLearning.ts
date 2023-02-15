@@ -28,7 +28,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
    * For actual we could make an actor that creates these vectors, but that would require a lot of work to make RDF2Vec work on javascript
    */
   public readPredicateVectors(){
-    const vectorLocation = path.join(__dirname, "..", "models/word-vectors-test-watdiv/vectors.txt");
+    const vectorLocation = path.join(__dirname, "..", "models/predicate-vectors-small/vectors.txt");
     this.predicateVectors = new Map();
     let keyedVectors = fs.readFileSync(vectorLocation, 'utf-8').split('\n');
     for (const vector of keyedVectors){
@@ -155,8 +155,9 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       // because we expect qValues for the same order to be consistent over a training episode due to the deterministic nature
       // of network forward passes
       if(!batchToUpdate.trainingExamples.get(key)){
-        batchToUpdate.trainingExamples.set(MediatorJoinReinforcementLearning.idxToKey(trainEpisode.joinsMade), {qValue: bestActorReply.predictedQValue, actualExecutionTime: -1, N: 0});
+        batchToUpdate.trainingExamples.set(MediatorJoinReinforcementLearning.idxToKey(trainEpisode.joinsMade), {qValue: bestActorReply.predictedQValue.dataSync()[0], actualExecutionTime: -1, N: 0});
       }
+      bestActorReply.predictedQValue.dispose();
     }
     if (!action.context.get(KeysRlTrain.batchedTrainingExamples)){
       throw new Error("Mediator did not receive a batched training example object");
@@ -186,7 +187,6 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       throw new Error("Action context does not contain any query operations");
     }    
     // Matrix of vectors that represent the triple pattern result sets in the query
-    // Type check toevoegen!!!
     const patterns: Operation[] = action.entries.map((x)=>{
       if (!this.isPattern(x.operation)){
         throw new Error("Found a non pattern during feature initialisation");

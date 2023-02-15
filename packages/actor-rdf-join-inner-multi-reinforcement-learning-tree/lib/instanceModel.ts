@@ -1,6 +1,7 @@
 import { IAggregateValues, IRunningMoments } from "@comunica/mediator-join-reinforcement-learning";
 import { ModelTreeLSTM } from "./treeLSTM";
 import * as fs from "fs";
+import * as path from "path";
 
 export class InstanceModel{
     private modelTreeLSTM: ModelTreeLSTM;
@@ -28,12 +29,13 @@ export class InstanceModel{
     };
 
     public saveRunningMoments(runningMoments: IRunningMoments, runningMomentsPath: string){
+        path.join(__dirname, runningMomentsPath);
         let serialiseObject: {[key: string|number]: any} = {};
         serialiseObject['indexes'] = runningMoments.indexes;
         for (const [key, value] of runningMoments.runningStats){
           serialiseObject[key] = value;
         }
-        fs.writeFile(runningMomentsPath, JSON.stringify(serialiseObject), function(err: any) {
+        fs.writeFile(path.join(__dirname, runningMomentsPath), JSON.stringify(serialiseObject), function(err: any) {
             if(err) {
                 return console.log(err);
             }

@@ -19,12 +19,12 @@ export class ModelTrainerOffline{
     }
 
     public trainOfflineBatched(partialJoinTree: number[][][], resultSetRepresentation: IResultSetRepresentation, 
-        qValues: tf.Tensor[], executionTimes: number[], model: ModelTreeLSTM, batchSize: number){
+        qValues: number[], executionTimes: number[], model: ModelTreeLSTM, batchSize: number){
         if (qValues.length!=executionTimes.length){
             throw new Error("Got unequal number of qVales and executionTimes");
         }
-        console.log("executionTimes")
-        console.log(executionTimes);
+        // console.log("executionTimes")
+        // console.log(executionTimes);
         return tf.tidy(()=>{
             const numBatches = Math.ceil(executionTimes.length/batchSize);
             let episodeLoss: number = 0;
@@ -36,24 +36,21 @@ export class ModelTrainerOffline{
                         qValuesRecursive.push(model.forwardPassRecursive(resultSetRepresentation, tree));
                     }
 
-                    const qValuesBatch: tf.Tensor[] = qValues.slice(b*batchSize, Math.min((b+1)*batchSize, qValues.length));
+                    const qValuesBatch: number[] = qValues.slice(b*batchSize, Math.min((b+1)*batchSize, qValues.length));
                     if (qValuesBatch.length!=qValuesRecursive.length){
                         throw new Error("The recursively obtained qValues list is not equal in length to query execution qValue list");
                     }
+                    
                     for (let i=0; i<qValuesBatch.length;i++){
                         if (!tf.equal(qValuesBatch[i], qValuesRecursive[i])){
                             throw new Error("The recursive and query execution qValues are not equal");
                         }
                     }
                     const executionTimesBatch: tf.Tensor[] = executionTimes.slice(b*batchSize, Math.min((b+1)*batchSize, qValues.length)).map(x=>tf.tensor(x));
-
                     const loss = tf.sum(squaredDifference(tf.concat(qValuesRecursive).squeeze(), tf.concat(executionTimesBatch).squeeze()));
                     return loss.squeeze();
-        
-                    // const batchLoss = this.meanSquaredError(tf.stack(qValuesRecursive).squeeze(), tf.stack(executionTimesBatch));
-                    // const scalarLoss: tf.Scalar = tf.squeeze(batchLoss);
-                    // return scalarLoss;
                 }, true);
+
                 if (loss==null){
                     throw new Error("Received null loss");
                 }
@@ -65,6 +62,10 @@ export class ModelTrainerOffline{
             }
             return episodeLoss/executionTimes.length;
         });
+    }
+
+    public validateModel(){
+        
     }
 
     public meanSquaredError(prediction: tf.Tensor, actual: tf.Tensor){

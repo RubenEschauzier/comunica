@@ -39,7 +39,7 @@ implements IQueryEngine<QueryContext> {
   public constructor(actorInitQuery: ActorInitQueryBase<QueryContext>) {
     this.actorInitQuery = actorInitQuery;
     this.defaultFunctionArgumentsCache = {};
-    this.trainEpisode = {joinsMade: [], estimatedQValues: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
+    this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
     this.runningMomentsFeatures = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
     // Hardcoded, should be config, but not sure how to incorporate
     this.modelInstance = new InstanceModel();
@@ -262,7 +262,7 @@ implements IQueryEngine<QueryContext> {
     // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
     // If we train
     if (!context!.train){
-      this.trainEpisode = {joinsMade: [], estimatedQValues: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
+      this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
     }
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
 
@@ -360,7 +360,7 @@ implements IQueryEngine<QueryContext> {
   }
   public async trainModel(batchedTrainingExamples: IBatchedTrainingExamples){
 
-    function shuffleData(executionTimes: number[], qValues: tf.Tensor[], partialJoinTree: number[][][]){
+    function shuffleData(executionTimes: number[], qValues: number[], partialJoinTree: number[][][]){
       let i, j, xE, xQ, xP;
       for (i=executionTimes.length-1;i>0;i--){
         j = Math.floor(Math.random()*(i+1));
@@ -375,7 +375,7 @@ implements IQueryEngine<QueryContext> {
       throw new Error("Empty map passed");
     }
     const actualExecutionTime: number[] = [];
-    const predictedQValues: tf.Tensor[] = [];
+    const predictedQValues: number[] = [];
     const partialJoinTree: number[][][] = [];
     for (const [joinKey, trainingExample] of batchedTrainingExamples.trainingExamples.entries()){
       actualExecutionTime.push(trainingExample.actualExecutionTime);
@@ -388,16 +388,18 @@ implements IQueryEngine<QueryContext> {
 
     /**
      * TODO For Results:
-     * 1. Implement train loss 
-     * 1.5 Fix memory leaks :/
-     * 2. Normalise features / y
-     * 3. Track Statistics (+ STD)
-     * 4. Create new vectors for watdiv!!
-     * 5. Query Encoding Implemented
+     * 1. Implement train loss  (done)
+     * 1.5 Fix memory leaks :/ (done)
+     * 2. Normalise features / y (done)
+     * 3. Track Statistics (+ STD) (done)
+     * 4. Create new vectors for watdiv!! (done)
+     * 5. Regularization using dropout (todo)
+     * 5. Query Encoding Implemented (todo use PCA with #PC equal to minimal number of joins to consider using multi join = 3)
      * (Optional for workshop)
-     * 6. Experience Replay (https://paperswithcode.com/method/experience-replay) 
+     * 1. Experience Replay (https://paperswithcode.com/method/experience-replay) 
      * (https://towardsdatascience.com/a-technical-introduction-to-experience-replay-for-off-policy-deep-reinforcement-learning-9812bc920a96)
-     * 7. Temperature scaling for bolzman softmax
+     * 2. Temperature scaling for bolzman softmax
+     * 3. Better memory management
      * 
      * Considerations:
      * When we use features that 'mean' something in leaf result sets and then let the model generate feature representations for
@@ -410,6 +412,8 @@ implements IQueryEngine<QueryContext> {
      * Hyperbolic embeddings
      * PCA on adjacency matrix
      * 
+     * 
+     * 
      * Lit review:
      * Comprehensive review of join order optimizers
      * https://www.vldb.org/pvldb/vol15/p1658-zhao.pdf 
@@ -420,7 +424,6 @@ implements IQueryEngine<QueryContext> {
   }
 
   public disposeTrainEpisode(){
-    // this.trainEpisode.estimatedQValues.map(x=>x.dispose());
     this.trainEpisode.featureTensor.hiddenStates.map(x=>x.dispose());
     this.trainEpisode.featureTensor.memoryCell.map(x=>x.dispose()); 
   }

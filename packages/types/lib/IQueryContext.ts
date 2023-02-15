@@ -23,7 +23,6 @@ export type FunctionArgumentsCache = Record<string, { func?: any; cache?: Functi
 
 export interface ITrainEpisode {
   joinsMade: number[][];
-  estimatedQValues: tf.Tensor[];
   featureTensor: IResultSetRepresentation;
   isEmpty: boolean;
 };
@@ -34,7 +33,7 @@ export interface IBatchedTrainingExamples{
 }
 
 export interface ITrainingExample{
-  qValue: tf.Tensor;
+  qValue: number;
   actualExecutionTime: number;
   N: number;
 }
