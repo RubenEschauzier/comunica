@@ -30,7 +30,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
   public readPredicateVectors(){
     const vectorLocation = path.join(__dirname, "..", "models/predicate-vectors-small/vectors.txt");
     this.predicateVectors = new Map();
-    let keyedVectors = fs.readFileSync(vectorLocation, 'utf-8').split('\n');
+    let keyedVectors = fs.readFileSync(vectorLocation, 'utf-8').trim().split('\n');
     for (const vector of keyedVectors){
       const keyVectorArray: string[] = vector.split('[sep]');
       const vectorRepresentation: number[] = keyVectorArray[1].trim().split(" ").map(Number);
@@ -109,7 +109,9 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
 
     // Return actor with lowest cost
     const bestActor = testResults[minIndex].actor;
-    
+    // console.log(bestActor.name);
+    // console.log(coefficients);
+  
     // If the actor gave us a next join to execute we update our action and proceed to update trainEpisode
     const bestActorReply: IMediatorTypeReinforcementLearning = await testResults[minIndex].reply
     if (bestActorReply.joinIndexes){

@@ -2,7 +2,7 @@ import * as tf from '@tensorflow/tfjs-node';
 import * as path from 'path';
 import * as fs from 'fs';
 import { input } from '@tensorflow/tfjs-node';
-import { ILayerConfig } from './treeLSTM';
+import { denseOptionsId, ILayerConfig } from './treeLSTM';
 
 export class DenseOwnImplementation extends tf.layers.Layer{
     heInitTerm: tf.Tensor;
@@ -24,7 +24,7 @@ export class DenseOwnImplementation extends tf.layers.Layer{
         this.modelDirectory = this.getModelDirectory();
     }
 
-    call(inputs: tf.Tensor){
+    call(inputs: tf.Tensor, kwargs: any){
         return tf.tidy(() => {
             return tf.add(tf.matMul(this.mWeights, inputs), this.mBias.broadcastTo([this.outputDim, 1]));
         });
@@ -82,17 +82,22 @@ export class DenseOwnImplementation extends tf.layers.Layer{
 
 export class QValueNetwork{
     // Hardcoded for easy  of testing, will change to config later!
+    networkLayersTest: ["dropout", number]|["activation"|"dense", DenseOwnImplementation|tf.layers.Layer][]
     networkLayers: (DenseOwnImplementation|tf.layers.Layer)[];
     public constructor(inputSize: number, outputSize: number){
         // Again hardcoded
         this.networkLayers = [];
     }
 
-    public forwardPassFromConfig(input: tf.Tensor){
+    public forwardPassFromConfig(input: tf.Tensor, kwargs: any){
+        // const testTensor: tf.Tensor = tf.tensor([1,2,2,1]);
+        // const dropOutLayer = tf.layers.dropout({rate: .75});
+        // const test = dropOutLayer.call(testTensor, {training: true}) as tf.Tensor;
+        // console.log(test.dataSync())
         return tf.tidy(()=>{
             let x: tf.Tensor = this.networkLayers[0].apply(input) as tf.Tensor;
             for (let i=1;i<this.networkLayers.length;i++){
-                x = this.networkLayers[i].apply(x) as tf.Tensor;
+                x = this.networkLayers[i].call(x, {training: kwargs.training==undefined? false : kwargs.training}) as tf.Tensor;
             }
             return x;    
         })
@@ -113,6 +118,9 @@ export class QValueNetwork{
             }
             if (qValueNetworkConfig.layers[k].type=='activation'){
                 this.networkLayers.push(tf.layers.activation({activation: qValueNetworkConfig.layers[k].activation!}));
+            }
+            if(qValueNetworkConfig.layers[k].type=='dropout'){
+                this.networkLayers.push(tf.layers.dropout({rate: qValueNetworkConfig.layers[k].rate!}));
             }
         }
     }

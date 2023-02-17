@@ -495,9 +495,13 @@ export class ModelTreeLSTM{
             // TODO: Query representation
 
             // Feed representation into dense layer to get Q-value
-            const test = childSumOutput[0].reshape([childSumOutput[0].shape[1]!, childSumOutput[0].shape[0]]);
-    
-            const qValue = this.qValueNetwork.forwardPassFromConfig(test);
+            const joinPlanRepresentation = childSumOutput[0].reshape([childSumOutput[0].shape[1]!, childSumOutput[0].shape[0]]);
+
+            // We don't do dropout in forwardpass for query execution, only include dropout in training, not sure if this is correct???
+            const kwargs = {}
+            // let kwargs = train ? {"training": train} : {};
+
+            const qValue = this.qValueNetwork.forwardPassFromConfig(joinPlanRepresentation, kwargs);
             return [qValue, joinHiddenState, joinMemoryCell];
         });
 
@@ -549,7 +553,10 @@ export class ModelTreeLSTM{
     
             // Feed representation into dense layer to get Q-value
             const test = childSumOutput[0].reshape([childSumOutput[0].shape[1]!, childSumOutput[0].shape[0]]);
-            const qValue = this.qValueNetwork.forwardPassFromConfig(test);
+
+            // We always use dropout in recursive forward pass because we use this for training, which requires dropout
+            const kwargs = {"training": true}
+            const qValue = this.qValueNetwork.forwardPassFromConfig(test, kwargs);
             return qValue 
         })         
     }
@@ -611,7 +618,7 @@ export class ModelTreeLSTM{
     public validateLayerConfigDense(layerConfigArray: ILayerDetailsConfig[]){
         const errs: Error[] = [];
         for (const layerConfigDense of layerConfigArray){
-            if (layerConfigDense.type != 'dense' && layerConfigDense.type != 'activation'){
+            if (layerConfigDense.type != 'dense' && layerConfigDense.type != 'activation' && layerConfigDense.type != 'dropout'){
                 errs.push(new Error(`Got invalid type parameter for Dense, got ${layerConfigDense.type}, expected 'dense', 'activation'`));
             }
             if(!layerConfigDense.inputSize||typeof(layerConfigDense.inputSize) != 'number'||
@@ -621,6 +628,9 @@ export class ModelTreeLSTM{
             }
             if (layerConfigDense.type=='activation'&& (!layerConfigDense.activation || !activationOptions.includes(layerConfigDense.activation))){
                 errs.push(new Error(`Got invalid activation parameter, got ${layerConfigDense.activation}, expected ${activationOptions}`));
+            }
+            if (layerConfigDense.type=='dropout'&& (!layerConfigDense.rate || layerConfigDense.rate > 1 || layerConfigDense.rate < 0)){
+                errs.push(new Error(`Got invalid rate parameter, got ${layerConfigDense.rate}`));
             }
         }
         return errs;
@@ -651,6 +661,7 @@ export interface ILayerDetailsConfig{
     "numUnits"?: number
     "inputSize"?: number
     "outputSize"?: number
+    "rate"?: number
 }
 
 export interface IModelOutput{
@@ -663,14 +674,14 @@ export function stringLiteralArray<T extends string>(a: T[]) {
     return a;
 }
 
-export const layerOptionsTreeLstm = stringLiteralArray(['childSumTreeLSTM', 'binaryTreeLSTM', 'dense', 'activation']);
-export const layerOptionsDense = stringLiteralArray(['dense', 'activation']);
+export const layerOptionsTreeLstm = stringLiteralArray(['childSumTreeLSTM', 'binaryTreeLSTM', 'dense', 'activation', 'dropout']);
+export const layerOptionsDense = stringLiteralArray(['dense', 'activation', 'dropout']);
 export const activationOptions = stringLiteralArray(['elu', 'hardSigmoid', 'linear', 'relu', 'relu6', 
 'selu', 'sigmoid', 'softmax', 'softplus', 'softsign', 'tanh', 'swish', 'mish']);
 export const layerOptionsModel = stringLiteralArray(['lstm', 'dense']);
 type treeLstmLayerId = typeof layerOptionsTreeLstm[number];
 type activationOptionsId = typeof activationOptions[number];
-type denseOptionsId = typeof layerOptionsDense[number];
+export type denseOptionsId = typeof layerOptionsDense[number];
 type layerOptionsModelId = typeof layerOptionsModel[number];
 
 // const testTreeLSTM = new BinaryTreeLSTM(3);

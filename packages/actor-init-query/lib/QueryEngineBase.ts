@@ -385,6 +385,7 @@ implements IQueryEngine<QueryContext> {
     const shuffled = shuffleData(actualExecutionTime, predictedQValues, partialJoinTree);
     const loss = this.modelTrainerOffline.trainOfflineBatched(partialJoinTree, batchedTrainingExamples.leafFeatures, 
       predictedQValues, actualExecutionTime, this.modelInstance.getModel(), 4);
+    return loss;
 
     /**
      * TODO For Results:
@@ -393,9 +394,12 @@ implements IQueryEngine<QueryContext> {
      * 2. Normalise features / y (done)
      * 3. Track Statistics (+ STD) (done)
      * 4. Create new vectors for watdiv!! (done)
-     * 5. Regularization using dropout (todo)
+     * 5. Regularization using dropout (done)
+     * NOTE: We use dropout only in the forwardpass recursive, this is because we only train on the forwardpass recursive. This might lead to mismatch between 
+     * training performance and actual query execution time?? Other hand it does make sense since we want the best possible model to execute joins 
+     * even during training
      * 5. Query Encoding Implemented (todo use PCA with #PC equal to minimal number of joins to consider using multi join = 3)
-     * (Optional for workshop)
+     * (Optional for workshop):
      * 1. Experience Replay (https://paperswithcode.com/method/experience-replay) 
      * (https://towardsdatascience.com/a-technical-introduction-to-experience-replay-for-off-policy-deep-reinforcement-learning-9812bc920a96)
      * 2. Temperature scaling for bolzman softmax
