@@ -46,6 +46,13 @@ implements IQueryEngine<QueryContext> {
     this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.005});
     
   }
+  // public async queryBindingsTrain<QueryFormatTypeInner extends QueryFormatType>(
+  //   query: QueryFormatTypeInner,
+  //   context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
+  // ): Promise<BindingsStream> {
+  //   const bindings = this.queryOfType<QueryFormatTypeInner, IQueryBindingsEnhanced>(query, context, 'bindings')
+  //   return bindings;
+  // }
 
   public async queryBindings<QueryFormatTypeInner extends QueryFormatType>(
     query: QueryFormatTypeInner,
@@ -265,7 +272,6 @@ implements IQueryEngine<QueryContext> {
       this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
     }
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
-
     // Output physical query plan after query exec if needed
     if (physicalQueryPlanLogger) {
       // Make sure the whole result is produced
@@ -290,7 +296,6 @@ implements IQueryEngine<QueryContext> {
         data: physicalQueryPlanLogger.toJson(),
       };
     }
-
     return finalOutput;
   }
 

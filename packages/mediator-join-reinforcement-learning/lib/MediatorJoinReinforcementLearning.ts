@@ -8,7 +8,6 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { Operation, Pattern } from 'sparqlalgebrajs/lib/algebra';
 import { ISingleResultSetRepresentation } from '../../actor-rdf-join-inner-multi-reinforcement-learning-tree/lib';
-
 /**
  * A comunica join-reinforcement-learning mediator.
  */
@@ -197,6 +196,8 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
           return x.operation;
       }
     });
+    // console.log(action.entries);
+    // const pca = require('pca-js');
     const leafFeatures: number[][] = [];
 
     for(let i=0;i<action.entries.length;i++){
@@ -217,8 +218,8 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
         // Zero vector represents unknown predicate
         predicateEmbedding = new Array(vectorSize).fill(0);
       }
-      leafFeatures.push([cardinalityLeaf].concat(isVariable[0]));
-      // leafFeatures.push([cardinalityLeaf].concat(isVariable, isNamedNode, isLiteral, [0], predicateEmbedding));
+      // leafFeatures.push([cardinalityLeaf].concat(isVariable[0]));
+      leafFeatures.push([cardinalityLeaf].concat(isVariable, isNamedNode, isLiteral, predicateEmbedding));
     }
     // Update running moments only at leaf
     const runningMomentsFeatures: IRunningMoments = action.context.get(KeysRlTrain.runningMomentsFeatures)!

@@ -149,7 +149,8 @@ export interface IActorInitQueryBaseArgs<QueryContext extends IQueryContextCommo
    *   "batchedTrainingExamples": "@comunica/actor-init-query:batchedTrainingExamples",
    *   "modelInstance": "@comunica/actor-rdf-join-inner-multi-reinforcement-learning:ModelInstance",
    *   "runningMomentsExecutionTime" : "@comunica/mediator-join-reinforcement-learning:runningMomentsExecutionTime",
-   *   "runningMomentsFeatureFile" : "@comunica/mediator-join-reinforcement-learning:runningMomentsFeatureFile"
+   *   "runningMomentsFeatureFile" : "@comunica/mediator-join-reinforcement-learning:runningMomentsFeatureFile",
+   *   "train": "@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:train"
    * }}
    */
 

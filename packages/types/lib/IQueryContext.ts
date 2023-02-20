@@ -9,6 +9,7 @@ import type { Logger } from './Logger';
 import * as tf from '@tensorflow/tfjs-node';
 import { IResultSetRepresentation, IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
 import { InstanceModel } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
+import { number } from 'yargs';
 
 /**
  * Query context when a string-based query was passed.
@@ -38,6 +39,7 @@ export interface ITrainingExample{
   N: number;
 }
 
+
 /**
  * Common query context interface
  */
@@ -49,6 +51,7 @@ export interface IQueryContextCommon {
   modelInstance?: InstanceModel;
   runningMomentsExecutionTime?: IRunningMoments;
   runningMomentsFeaturesFile?: string;
+  train?: boolean;
   source?: IDataSource;
   // Inherited from RDF.QueryStringContext: sources
   destination?: IDataDestination;

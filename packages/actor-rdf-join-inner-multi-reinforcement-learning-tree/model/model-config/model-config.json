@@ -6,7 +6,7 @@
         },
         "type": "lstm",
         "layers":[
-            {"type": "binaryTreeLSTM", "activation": "relu", "numUnits": 2}
+            {"type": "binaryTreeLSTM", "activation": "relu", "numUnits": 138}
         ]
 
     },
@@ -17,7 +17,7 @@
         },
         "type": "lstm",
         "layers":[
-            {"type": "childSumTreeLSTM", "activation": "relu", "numUnits": 2}
+            {"type": "childSumTreeLSTM", "activation": "relu", "numUnits": 138}
         ]
 
     },
@@ -30,14 +30,14 @@
         },
         "type": "dense",
         "layers":[
-            {"type": "dropout", "inputSize": 2, "outputSize": 2, "rate": 0.2},
-            {"type": "dense", "inputSize": 2, "outputSize": 4},
-            {"type": "activation", "activation": "relu", "inputSize": 4, "outputSize": 4},
-            {"type": "dropout", "inputSize":4, "outputSize":4, "rate": 0.6},
-            {"type": "dense", "inputSize": 4, "outputSize": 2},
-            {"type": "activation", "activation": "relu", "inputSize":2, "outputSize": 2},
-            {"type": "dropout", "inputSize": 2, "outputSize": 2, "rate": 0.6},
-            {"type": "dense", "inputSize": 2, "outputSize":1}
+            {"type": "dropout", "inputSize": 138, "outputSize": 138 , "rate": 0.2},
+            {"type": "dense", "inputSize": 138, "outputSize": 256},
+            {"type": "activation", "activation": "relu", "inputSize": 256, "outputSize": 256},
+            {"type": "dropout", "inputSize":256, "outputSize":256, "rate": 0.2},
+            {"type": "dense", "inputSize": 256, "outputSize": 128},
+            {"type": "activation", "activation": "relu", "inputSize":128, "outputSize": 128},
+            {"type": "dropout", "inputSize": 128, "outputSize": 128, "rate": 0.2},
+            {"type": "dense", "inputSize": 128, "outputSize":1}
         ]
     }
 

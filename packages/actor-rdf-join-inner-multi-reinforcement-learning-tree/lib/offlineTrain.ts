@@ -37,6 +37,9 @@ export class ModelTrainerOffline{
                     }
 
                     const qValuesBatch: number[] = qValues.slice(b*batchSize, Math.min((b+1)*batchSize, qValues.length));
+                    // console.log("Q Values -> Actual");
+                    // console.log(qValuesBatch)
+                    // console.log(executionTimes.slice(b*batchSize, Math.min((b+1)*batchSize, qValues.length)))
                     if (qValuesBatch.length!=qValuesRecursive.length){
                         throw new Error("The recursively obtained qValues list is not equal in length to query execution qValue list");
                     }

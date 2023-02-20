@@ -29,7 +29,8 @@
     "lib/**/*.js.map"
   ],
   "dependencies": {
-    "@comunica/core": "^2.5.1"
+    "@comunica/core": "^2.5.1",
+    "pca-js": "1.0.2"
   },
   "scripts": {
     "build": "npm run build:ts && npm run build:components",

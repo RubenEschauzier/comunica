@@ -289,5 +289,9 @@ export const KeysRlTrain = {
   /**
    * Location previously created running moments are stored
    */
-  runningMomentsFeatureFile: new ActionContextKey<string>('@comunica/mediator-join-reinforcement-learning:runningMomentsFeatureFile')
+  runningMomentsFeatureFile: new ActionContextKey<string>('@comunica/mediator-join-reinforcement-learning:runningMomentsFeatureFile'),
+  /**
+   * Indicating whether we are during training or inference
+   */
+  train: new ActionContextKey<boolean>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:train')
 }

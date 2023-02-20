@@ -10763,6 +10763,11 @@ pbkdf2@^3.0.3:
     safe-buffer "^5.0.1"
     sha.js "^2.4.8"
 
+pca-js@1.0.2:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/pca-js/-/pca-js-1.0.2.tgz#216639c897d731f4d21ff539d5afcb0cec8fc392"
+  integrity sha512-Y6a1RQ/pdNJnJq7ya9PHBW2RUXZCXDbbRpmpwclvuhOo7mttx1f80OKIQ0nPF6kCZ4a98G5TqIfRrIblk7R6Jg==
+
 performance-now@^2.1.0:
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/performance-now/-/performance-now-2.1.0.tgz#6309f4e0e5fa913ec1c69307ae364b4b377c9e7b"

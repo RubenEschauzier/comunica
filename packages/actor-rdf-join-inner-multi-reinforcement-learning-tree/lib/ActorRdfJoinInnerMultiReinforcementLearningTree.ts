@@ -55,7 +55,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     return orders;
   }
 
-  public chooseUsingProbability(probArray: Float32Array|number[]): number{
+  public chooseUsingProbability(probArray: Float32Array): number{
     // const cumsum = (arr: Float32Array|number[]) => arr.map((sum => value => sum += value)(0));
     let cumSumNew = [];
     let runningSum = 0;
@@ -79,6 +79,25 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     return cumSumNew.length-1;
 
   }
+
+  public indexOfMax(arr: Float32Array) {
+    if (arr.length === 0) {
+        return -1;
+    }
+
+    var max = arr[0];
+    var maxIndex = 0;
+
+    for (var i = 1; i < arr.length; i++) {
+        if (arr[i] > max) {
+            maxIndex = i;
+            max = arr[i];
+        }
+    }
+
+    return maxIndex;
+}
+
 
   protected async getOutput(action: IActionRdfJoinReinforcementLearning): Promise<IActorRdfJoinOutputInner> {
     // Determine the two smallest streams by sorting (e.g. via cardinality)
@@ -119,9 +138,8 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     action: IActionRdfJoin,
     metadatas: MetadataBindings[],
   ): Promise<IMediatorTypeReinforcementLearning> {
-    const startTensors: number = tf.memory().numTensors;
     const modelTreeLSTM: ModelTreeLSTM = (action.context.get(KeysRlTrain.modelInstance) as InstanceModel).getModel();
-
+    
     const bestOutput = tf.tidy(():[tf.Tensor, tf.Tensor, tf.Tensor, number[]]=>{
       // Get possible join indexes, this disregards order of joins, is that a good assumption for for example hash join?
       const trainEpisode: ITrainEpisode = action.context.get(KeysRlTrain.trainEpisode)!;
@@ -147,6 +165,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
         if (qValueScalar.dataSync().length>1){
           throw new Error("Non scalar returned as Q-value");
         }
+
         qValuesEst.push(qValueScalar.dataSync()[0]);
         qValuesEstTensor.push(qValueScalar);
         featureRepresentations.push({hiddenState: modelOutput.hiddenState, memoryCell: modelOutput.memoryCell})
@@ -154,14 +173,20 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
       }
       // Choose according to softmaxed probabilities
       const estProb = tf.softmax(tf.stack(qValuesEstTensor)).dataSync() as Float32Array;
-      const chosenIdx = this.chooseUsingProbability(estProb);
+      let chosenIdx = 0;
+      if(action.context.get(KeysRlTrain.train)){
+        chosenIdx = this.chooseUsingProbability(estProb);
+      }
+      else{
+        chosenIdx = this.indexOfMax(estProb);
+      }
 
       // Clone all tensors belonging to best join
       // const bestQTensor: tf.Tensor = tf.clone(qValuesEstTensor[chosenIdx]);
       // const bestFeatureRep: ISingleResultSetRepresentation = {hiddenState: tf.clone(featureRepresentations[chosenIdx].hiddenState), 
       // memoryCell: tf.clone(featureRepresentations[chosenIdx].memoryCell)};
       // const bestJoinIdx: number[] = possibelJoinIndexesUnSorted[chosenIdx];
-
+      // console.log(qValuesEst[chosenIdx])
       return [qValuesEstTensor[chosenIdx], featureRepresentations[chosenIdx].hiddenState, 
       featureRepresentations[chosenIdx].memoryCell, possibelJoinIndexesUnSorted[chosenIdx]]
     });
