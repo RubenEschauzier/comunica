@@ -25,6 +25,7 @@ import { InstanceModel } from './instanceModel';
 export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoin implements IActorRdfJoinInnerMultiReinforcementLearningTree {
   // public readonly mediatorJoinEntriesSort: MediatorRdfJoinEntriesSort;
   public readonly mediatorJoin: MediatorRdfJoin;
+  public readonly mediatorJoinEntriesSort: MediatorRdfJoinEntriesSort;
 
   public static readonly FACTORY = new Factory();
 
@@ -98,6 +99,13 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     return maxIndex;
 }
 
+public async sortJoinEntries(
+  entries: IJoinEntryWithMetadata[],
+  context: IActionContext,
+): Promise<IJoinEntryWithMetadata[]> {
+  return (await this.mediatorJoinEntriesSort.mediate({ entries, context })).entries;
+}
+
 
   protected async getOutput(action: IActionRdfJoinReinforcementLearning): Promise<IActorRdfJoinOutputInner> {
     // Determine the two smallest streams by sorting (e.g. via cardinality)
@@ -116,11 +124,17 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     const joinEntry2 = entries[idx[1]];
     entries.splice(idx[0], 1); entries.splice(idx[1], 1);
     // Join the two selected streams, and then join the result with the remaining streams
+    // Sort these entries on cardinality to ensure the left relation is smallest!
+    const sortedJoinCandidates: IJoinEntry[] = await this.sortJoinEntries(
+      await ActorRdfJoin.getEntriesWithMetadatas([ joinEntry1, joinEntry2 ]),
+      action.context,
+    );
+
     const firstEntry: IJoinEntry = {
       output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
-        .mediate({ type: action.type, entries: [ joinEntry1, joinEntry2 ], context: action.context })),
+        .mediate({ type: action.type, entries: [ sortedJoinCandidates[0], sortedJoinCandidates[1] ], context: action.context })),
       operation: ActorRdfJoinInnerMultiReinforcementLearningTree.FACTORY
-        .createJoin([ joinEntry1.operation, joinEntry2.operation ], false),
+        .createJoin([ sortedJoinCandidates[0].operation, sortedJoinCandidates[1].operation ], false),
     };
 
     // Important for model execution that new entry is always entered last
@@ -139,7 +153,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     metadatas: MetadataBindings[],
   ): Promise<IMediatorTypeReinforcementLearning> {
     const modelTreeLSTM: ModelTreeLSTM = (action.context.get(KeysRlTrain.modelInstance) as InstanceModel).getModel();
-    
     const bestOutput = tf.tidy(():[tf.Tensor, tf.Tensor, tf.Tensor, number[]]=>{
       // Get possible join indexes, this disregards order of joins, is that a good assumption for for example hash join?
       const trainEpisode: ITrainEpisode = action.context.get(KeysRlTrain.trainEpisode)!;
@@ -151,7 +164,9 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
       // All elements in these two lists should be disposed
       const qValuesEstTensor: tf.Tensor[] = [];
       const featureRepresentations: ISingleResultSetRepresentation[]=[];
-
+      // console.log("GetJoinCoeff: entries/hiddenStates length");
+      // console.log(action.entries.length);
+      // console.log(trainEpisode.featureTensor.hiddenStates.length)
       for (const joinCombination of possibleJoinIndexes){
   
         // Clone features to make our prediction
@@ -206,18 +221,19 @@ export interface ISingleResultSetRepresentation {
 
 export interface IActorRdfJoinInnerMultiReinforcementLearningTree extends IActorRdfJoinArgs {
   /**
+   * The join entries sort mediator
+   */
+  mediatorJoinEntriesSort: MediatorRdfJoinEntriesSort;
+
+  /**
    * A mediator for joining Bindings streams
    */
   mediatorJoin: MediatorRdfJoin;
 }
 
-export interface IActorRdfJoinMultiSmallestArgs extends IActorRdfJoinArgs {
-    /**
-   * The join entries sort mediator
-   */
-    mediatorJoinEntriesSort: MediatorRdfJoinEntriesSort;
-    /**
-     * A mediator for joining Bindings streams
-     */
-    mediatorJoin: MediatorRdfJoin;  
-}
+// export interface IActorRdfJoinMultiSmallestArgs extends IActorRdfJoinArgs {
+//     /**
+//      * A mediator for joining Bindings streams
+//      */
+//     mediatorJoin: MediatorRdfJoin;  
+// }

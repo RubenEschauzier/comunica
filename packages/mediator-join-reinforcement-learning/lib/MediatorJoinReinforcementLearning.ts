@@ -196,8 +196,10 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
           return x.operation;
       }
     });
-    // console.log(action.entries);
-    // const pca = require('pca-js');
+    // Experimental Query Encoding
+    const queryGraphSharedSubjectVar: number[][] = [];
+    const queryGraphSharedObjectVar: number[][] = []
+
     const leafFeatures: number[][] = [];
 
     for(let i=0;i<action.entries.length;i++){
@@ -220,6 +222,14 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       }
       // leafFeatures.push([cardinalityLeaf].concat(isVariable[0]));
       leafFeatures.push([cardinalityLeaf].concat(isVariable, isNamedNode, isLiteral, predicateEmbedding));
+
+      // Create query graphs for same subject (star-shape)
+      const sameObjectConnections = [];
+      for (let j=0;j<action.entries.length;j++){
+        if (isVariable[0]){
+          
+        }
+      }
     }
     // Update running moments only at leaf
     const runningMomentsFeatures: IRunningMoments = action.context.get(KeysRlTrain.runningMomentsFeatures)!

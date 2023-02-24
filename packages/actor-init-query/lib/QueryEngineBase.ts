@@ -20,7 +20,7 @@ import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
 import * as tf from '@tensorflow/tfjs-node';
 import { ModelTrainerOffline } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
-import { IAggregateValues, IRunningMoments, MediatorJoinReinforcementLearning } from '@comunica/mediator-join-reinforcement-learning';
+import { IAggregateValues, IResultSetRepresentation, IRunningMoments, MediatorJoinReinforcementLearning } from '@comunica/mediator-join-reinforcement-learning';
 import { InstanceModel } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
 import * as chalk from 'chalk';
 /**
@@ -268,7 +268,8 @@ implements IQueryEngine<QueryContext> {
     output.context = actionContext;
     // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
     // If we train
-    if (!context!.train){
+    if (!actionContext.get(KeysRlTrain.train)){
+      console.log("RESETTING!!")
       this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
     }
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
@@ -389,7 +390,7 @@ implements IQueryEngine<QueryContext> {
     }
     const shuffled = shuffleData(actualExecutionTime, predictedQValues, partialJoinTree);
     const loss = this.modelTrainerOffline.trainOfflineBatched(partialJoinTree, batchedTrainingExamples.leafFeatures, 
-      predictedQValues, actualExecutionTime, this.modelInstance.getModel(), 4);
+      actualExecutionTime, this.modelInstance.getModel(), 4);
     return loss;
 
     /**
@@ -430,6 +431,23 @@ implements IQueryEngine<QueryContext> {
      * https://www.vldb.org/pvldb/vol12/p1733-marcus.pdf
      */
 
+  }
+
+  public async trainModelExperienceReplay(experiences: IExperience[], leafFeatures: IResultSetRepresentation[]){
+
+
+    if (experiences.length==0){
+      throw new Error("Empty training batch passed");
+    }
+    const actualExecutionTimes: number[] = [];
+    const partialJoinTree: number[][][] = [];
+    for (const exp of experiences){
+      actualExecutionTimes.push(exp.actualExecutionTimeNorm);
+      partialJoinTree.push(exp.joinIndexes)
+    }
+    const loss = this.modelTrainerOffline.trainOfflineExperienceReplay(partialJoinTree, leafFeatures, 
+      actualExecutionTimes, this.modelInstance.getModel(), 4);
+    return loss;
   }
 
   public disposeTrainEpisode(){
@@ -502,5 +520,10 @@ implements IQueryEngine<QueryContext> {
         };
     }
   }
-
+}
+export interface IExperience{
+  actualExecutionTimeNorm: number;
+  actualExecutionTimeRaw: number;
+  joinIndexes: number[][]
+  N: number;
 }

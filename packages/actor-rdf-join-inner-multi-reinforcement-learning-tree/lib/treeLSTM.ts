@@ -461,8 +461,13 @@ export class ModelTreeLSTM{
 
     public forwardPass(resultSetFeatures: IResultSetRepresentation, idx: number[]): IModelOutput{
         const outputTensors = tf.tidy(() =>{       
+            // console.log(idx)
+            // console.trace();
+            // console.log(resultSetFeatures.hiddenStates.length);
 
             // Turn off for real use?
+            // console.log(idx);
+            // console.log(resultSetFeatures.hiddenStates.length);
             if (resultSetFeatures.hiddenStates.length!=resultSetFeatures.memoryCell.length){
                 throw new Error("Model given hiddenState and memoryCell arrays with different sizes");
             }
@@ -546,7 +551,6 @@ export class ModelTreeLSTM{
                 inputFeaturesCloned.hiddenStates.push(joinHiddenState); inputFeaturesCloned.memoryCell.push(joinMemoryCell);
     
             }
-    
             const childSumInput: tf.Tensor[] = [inputTensor, tf.stack(inputFeaturesCloned.hiddenStates), tf.stack(inputFeaturesCloned.memoryCell)];
             const childSumOutput: tf.Tensor[] = this.childSumTreeLSTMLayer[0].callTestWeird(childSumInput);
             // TODO: Query representation
