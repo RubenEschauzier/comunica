@@ -18,9 +18,8 @@ export class DenseOwnImplementation extends tf.layers.Layer{
         this.inputDim = inputDim;
         this.outputDim = outputDim;
         this.heInitTerm = tf.sqrt(tf.div(tf.tensor(2), tf.tensor(this.outputDim)));
-        this.mWeights = tf.variable(tf.mul(tf.randomNormal([this.outputDim, this.inputDim],0,1),this.heInitTerm), true, 
-        weightName);
-        this.mBias = tf.variable(tf.mul(tf.randomNormal([outputDim,1],0,1), this.heInitTerm), true, biasName);
+        this.mWeights = tf.variable(tf.mul(tf.randomNormal([this.outputDim, this.inputDim],0,1),this.heInitTerm), true);
+        this.mBias = tf.variable(tf.mul(tf.randomNormal([outputDim,1],0,1), this.heInitTerm), true);
         this.modelDirectory = this.getModelDirectory();
     }
 

@@ -49,38 +49,24 @@ export class BinaryTreeLSTM extends tf.layers.Layer{
         this.heInitTerm = tf.sqrt(tf.div(tf.tensor(2), tf.tensor(this.numUnits)));
 
         // Input Layers can probably be deleted
-        this.IWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "IWb");
-        this.FWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "FWb");
-        this.OWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "OWb");
-        this.UWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "UWb");
+        this.IWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.FWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.OWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.UWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
 
         // Weights for left and right side of binary tree lstm
-        this.lhIU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "lhIU");
-        this.lhOU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "lhOU");
-        this.lhUU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "lhUU");
-        this.rhIU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "rhIU");
-        this.rhOU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "rhOU");
-        this.rhUU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "rhUU");
+        this.lhIU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.lhOU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.lhUU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.rhIU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.rhOU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.rhUU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
 
         // Forget Gate Weights (4 total)
-        this.lhFUL = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "lhFUL");
-        this.rhFUL = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "rhFUL");
-        this.lhFUR = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "lhFUR");
-        this.rhFUR = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "rhFUR");
+        this.lhFUL = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.rhFUL = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.lhFUR = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.rhFUR = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
 
 
         // Bias vectors 
@@ -92,14 +78,10 @@ export class BinaryTreeLSTM extends tf.layers.Layer{
         // "bOb");
         // this.bU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
         // "bUb");
-        this.bI = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
-        "bIb");
-        this.bF = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
-        "bfb");
-        this.bO = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
-        "bOb");
-        this.bU = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
-        "bUb");
+        this.bI = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
+        this.bF = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
+        this.bO = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
+        this.bU = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
 
         this.allWeights = [ this.IWInput, this.FWInput, this.OWInput, this.UWInput, this.lhIU, this.rhIU, this.lhFUL, this.lhFUR, this.rhFUL, this.rhFUR, this.lhOU, this.rhOU,
             this.lhUU, this.rhUU, this.bI, this.bF, this.bO, this.bU]
@@ -231,23 +213,15 @@ export class ChildSumTreeLSTM extends tf.layers.Layer{
         this.activationLayer = tf.layers.activation({activation: activation});
 
         this.heInitTerm = tf.sqrt(tf.div(tf.tensor(2), tf.tensor(this.numUnits)));
-        this.IWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "IW");
-        this.FWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "FW");
-        this.OWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "OW");
-        this.UWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "UW");
+        this.IWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.FWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.OWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.UWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
 
-        this.IU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "IU");
-        this.FU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "FU");
-        this.OU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "OU");
-        this.UU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true,
-        "UU");
+        this.IU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.FU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.OU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
+        this.UU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
 
         // this.bI = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
         // "bI");
@@ -257,14 +231,10 @@ export class ChildSumTreeLSTM extends tf.layers.Layer{
         // "bO");
         // this.bU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
         // "bU");
-        this.bI = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
-        "bI");
-        this.bF = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
-        "bF");
-        this.bO = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
-        "bO");
-        this.bU = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true,
-        "bU");
+        this.bI = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
+        this.bF = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
+        this.bO = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
+        this.bU = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
 
         this.allWeights = [ this.IWInput, this.FWInput, this.OWInput, this.UWInput, this.IU, this.FU, this.OU, this.UU, this.bI, this.bF, this.bO, this.bU];
     }
