@@ -124,15 +124,18 @@ export class QValueNetwork{
         }
     }
 
-    public saveNetwork(qValueNetworkConfig: ILayerConfig, weightsDir: string ){
+    public saveNetwork(qValueNetworkConfig: ILayerConfig, weightsDir: string, saveLocation?: string ){
         let denseIdx = 0;
         for (let i = 0; i<qValueNetworkConfig.layers.length; i++){
             if (qValueNetworkConfig.layers[i].type=='dense'){
                 const layerToSave: DenseOwnImplementation = this.networkLayers[i] as DenseOwnImplementation;
+                if (saveLocation){
+                    layerToSave.saveWeights(weightsDir+saveLocation+"denseWeights/weight"+denseIdx+".txt");
+                    layerToSave.saveBias(weightsDir+saveLocation+"denseBias/weight"+denseIdx+".txt");
+                }
                 layerToSave.saveWeights(weightsDir+qValueNetworkConfig.weightsConfig.weightLocation+denseIdx+'.txt');
                 layerToSave.saveBias(weightsDir+qValueNetworkConfig.weightsConfig.weightLocationBias+denseIdx+'.txt');
                 denseIdx+=1;
-
             }
         }
     }

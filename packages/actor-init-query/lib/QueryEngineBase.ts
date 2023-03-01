@@ -11,7 +11,8 @@ import type {
   QueryAlgebraContext, QueryStringContext, IQueryBindingsEnhanced,
   IQueryQuadsEnhanced, QueryEnhanced, IQueryContextCommon, FunctionArgumentsCache,
   ITrainEpisode,
-  IBatchedTrainingExamples
+  IBatchedTrainingExamples,
+  ITrainingExample
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
@@ -23,6 +24,9 @@ import { ModelTrainerOffline } from '@comunica/actor-rdf-join-inner-multi-reinfo
 import { IAggregateValues, IResultSetRepresentation, IRunningMoments, MediatorJoinReinforcementLearning } from '@comunica/mediator-join-reinforcement-learning';
 import { InstanceModel } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
 import * as chalk from 'chalk';
+import { number } from 'yargs';
+import { ExperienceBuffer, IExperienceKey } from '../../model-trainer/lib/experienceBuffer';
+import * as _ from 'lodash';
 /**
  * Base implementation of a Comunica query engine.
  */
@@ -33,7 +37,8 @@ implements IQueryEngine<QueryContext> {
   public trainEpisode: ITrainEpisode;
   public modelTrainerOffline: ModelTrainerOffline;
   public modelInstance: InstanceModel;
-  public runningMomentsFeatures: IRunningMoments
+  public runningMomentsFeatures: IRunningMoments;
+  public batchedTrainExamples: IBatchedTrainingExamples;
 
 
   public constructor(actorInitQuery: ActorInitQueryBase<QueryContext>) {
@@ -44,15 +49,275 @@ implements IQueryEngine<QueryContext> {
     // Hardcoded, should be config, but not sure how to incorporate
     this.modelInstance = new InstanceModel();
     this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.005});
-    
+    this.batchedTrainExamples = {trainingExamples: new Map<string, ITrainingExample>, leafFeatures: {hiddenStates: [], memoryCell:[]}};
   }
-  // public async queryBindingsTrain<QueryFormatTypeInner extends QueryFormatType>(
-  //   query: QueryFormatTypeInner,
-  //   context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
-  // ): Promise<BindingsStream> {
-  //   const bindings = this.queryOfType<QueryFormatTypeInner, IQueryBindingsEnhanced>(query, context, 'bindings')
-  //   return bindings;
-  // }
+
+  public async queryBindingsTrain<QueryFormatTypeInner extends QueryFormatType>(
+    queries: QueryFormatTypeInner[][],
+    valQueries: QueryFormatTypeInner[][],
+    nSimTrain: number,
+    nSimVal: number,
+    nEpoch: number,
+    nExpPerSim: number,
+    sizeBuffer: number,
+    batchedTrainExamples: IBatchedTrainingExamples,
+    context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
+  ) {
+    const experienceBuffer: ExperienceBuffer = new ExperienceBuffer(sizeBuffer);
+    if (!batchedTrainExamples){
+      throw new Error("Undefined batchedTrainExample passed");
+    }
+    this.batchedTrainExamples = batchedTrainExamples!;
+    // Initialise training examples
+    // let batchedTrainingExamples = {trainingExamples: new Map<string, ITrainingExample>, leafFeatures: {hiddenStates: [], memoryCell:[]}};
+    // let batchedValidationExamples = {trainingExamples: new Map<string, ITrainingExample>, leafFeatures: {hiddenStates: [], memoryCell:[]}};
+
+    // Init running moments of execution time
+    const runningMomentsExecutionTime = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
+    for (const index of runningMomentsExecutionTime.indexes){
+        const startPoint: IAggregateValues = {N: 0, mean: 0, std: 1, M2: 1}
+        runningMomentsExecutionTime.runningStats.set(index, startPoint);
+    }
+    // Initialise statistics tracking
+    const totalEpochTrainLoss: number[] = [];
+    const epochValLoss: number[] = [];
+    const epochValExecutionTime: number[] = [];
+    const epochValStdLoss: number[] = [];
+    const averageSearchTime: number[] = [];
+
+    // Add info to context
+    context.batchedTrainingExamples = this.batchedTrainExamples;
+    context.train = true;
+    
+    // Init experience replay buffer with leaf features of each query
+    for (let l=0;l<queries.length;l++){
+      for(let z=0;z<queries[l].length;z++){
+        const queryKey: string = `${l}`+`${z}`;
+
+        // To ensure an unchanged context each time
+        const clonedContext = _.cloneDeep(context);
+        clonedContext.batchedTrainingExamples = this.batchedTrainExamples;
+
+        // Obtain leaf features and set in experiencebuffer to initialise
+        const leafFeatures = await this.executeQueryInitFeaturesBuffer(queries[l][z], clonedContext);
+        experienceBuffer.setLeafFeaturesQuery(queryKey, leafFeatures);
+        this.cleanBatchTrainingExamples()
+      }
+    }
+
+    // Main training loop
+    for (let epoch=0;epoch<nEpoch;epoch++){
+      let epochTrainLoss = [];
+      for (let i=0;i<queries.length;i++){
+        const searchTimes = [];
+        console.log(`Query Template ${i+1}/${queries.length}`);
+        for(let j=0;j<queries[i].length;j++){
+          const queryKey: string = `${i}`+`${j}`;
+          // const bindings = await this.queryOfType<QueryFormatTypeInner, IQueryBindingsEnhanced>(queries[i][j], context, 'bindings');
+          for (let k=0;k<nSimTrain;k++){
+            const clonedContext = _.cloneDeep(context);
+            clonedContext.batchedTrainingExamples = this.batchedTrainExamples;
+    
+            const searchTime = await this.executeTrainQuery(queries[i][j], clonedContext, queryKey, runningMomentsExecutionTime, experienceBuffer);
+            searchTimes.push(searchTime);
+  
+            const experiences: IExperience[] = [];
+            const features = []; 
+            // Sample experiences from the buffer if we have enough prior executions
+            if (experienceBuffer.getSize()>1){
+              for (let z=0;z<nExpPerSim;z++){
+                  const experience: [IExperience, IExperienceKey] = experienceBuffer.getRandomExperience();
+                  experiences.push(experience[0]);
+                  const feature = experienceBuffer.getFeatures(experience[1].query)!;
+                  features.push(feature);
+              }
+              const loss = await this.trainModelExperienceReplay(experiences, features);
+              epochTrainLoss.push(loss);
+          }
+          this.cleanBatchTrainingExamples();
+        }
+        averageSearchTime.push(searchTimes.reduce((a, b) => a + b, 0) / searchTimes.length);
+      }
+    }
+    const clonedContext = _.cloneDeep(context);
+    clonedContext.batchedTrainingExamples = this.batchedTrainExamples;
+    const [avgExecution, avgExecutionTemplate, stdExecutionTemplate, avgLoss, stdLoss] = await this.validatePerformance(valQueries, 
+      nSimVal, runningMomentsExecutionTime, experienceBuffer, clonedContext);
+    const avgLossTrain = epochTrainLoss.reduce((a, b) => a + b, 0) / epochTrainLoss.length;
+
+    console.log(`Epoch ${epoch+1}/${nEpoch}: Train Loss: ${avgLossTrain}, Validation Execution time: ${avgExecution}, Loss: ${avgLoss}, Std: ${stdLoss}`);
+  }
+}
+
+public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
+  queries: QueryFormatTypeInner[][], 
+  nSimVal: number, 
+  runningMomentsExecutionTime: IRunningMoments,
+  experienceBuffer: ExperienceBuffer,
+  context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext
+  ): Promise<[number, number[], number[], number, number]>{
+  
+  const rawExecutionTimesTemplate: number[][] = [];
+  for(let i=0;i<queries.length;i++){
+    const rawExecutionTimes: number[] = []
+    for (let j=0;j<queries[i].length;j++){
+        for (let k=0;k<nSimVal;k++){
+          const queryKey: string = `${i}`+`${j}`;
+
+          const clonedContext = _.cloneDeep(context);
+          clonedContext.batchedTrainingExamples = this.batchedTrainExamples;
+
+          const executionTimeRaw: number = await this.executeQueryValidation(queries[i][j], queryKey, clonedContext, runningMomentsExecutionTime, experienceBuffer);
+          rawExecutionTimes.push(executionTimeRaw);
+        }
+    }
+      rawExecutionTimesTemplate.push(rawExecutionTimes);
+  }
+  // Get raw validaiton execution time statistics
+  const flatExeTime: number[] = rawExecutionTimesTemplate.flat();
+  const avgExecutionTime = flatExeTime.reduce((a, b) => a + b, 0) / flatExeTime.length;
+  const avgExecutionTimeTemplate = rawExecutionTimesTemplate.map(x=>(x.reduce((a,b)=> a+b,0))/x.length);
+  const stdExecutionTimeTemplate = [];
+
+  for (let k=0;k<avgExecutionTimeTemplate.length;k++){
+      stdExecutionTimeTemplate.push(this.stdArray(rawExecutionTimesTemplate[k],avgExecutionTimeTemplate[k]))
+  }
+  // Get validation loss
+  const MSE: number[] = [];
+  for (const [_, trainExample] of this.batchedTrainExamples.trainingExamples.entries()){
+      const singleMSE = (trainExample.qValue - trainExample.actualExecutionTime)**2;
+      MSE.push(singleMSE);
+  }
+  const averageLoss = MSE.reduce((a,b)=> a+b,0)/MSE.length;
+  const stdLoss = this.stdArray(MSE, averageLoss);
+
+  // Clean training examples
+  this.cleanBatchTrainingExamples();
+
+  return [avgExecutionTime, avgExecutionTimeTemplate, stdExecutionTimeTemplate, averageLoss, stdLoss];
+  }
+
+
+  public async executeTrainQuery<QueryFormatTypeInner extends QueryFormatType>(
+    query: QueryFormatTypeInner, 
+    context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
+    queryKey: string,
+    runningMomentsExecutionTime: IRunningMoments,
+    experienceBuffer: ExperienceBuffer
+    ){
+    const startT = this.getTimeSeconds();
+    const binding = await this.queryOfType<QueryFormatTypeInner, IQueryBindingsEnhanced>(query, context, 'bindings');
+    const endTSearch = this.getTimeSeconds();
+    if(this.trainEpisode.joinsMade.length==0){
+      this.disposeTrainEpisode();
+      this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
+      return endTSearch - startT;
+    }
+    
+    const joinOrderKeys: string[] = [];
+    // Get joins made in this query to update
+    for (let i = 1; i <this.trainEpisode.joinsMade.length+1;i++){
+        const joinIndexId = this.trainEpisode.joinsMade.slice(0, i);
+        joinOrderKeys.push(MediatorJoinReinforcementLearning.idxToKey(joinIndexId));
+    }
+    const elapsed = await this.consumeStream(binding, runningMomentsExecutionTime, experienceBuffer, startT, joinOrderKeys, queryKey, false, true);
+    // Clear episode tensors
+    this.disposeTrainEpisode();
+    this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
+
+    return endTSearch-startT;
+  }
+
+  public async executeQueryValidation<QueryFormatTypeInner extends QueryFormatType>(
+    query: QueryFormatTypeInner, 
+    queryKey: string,
+    context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
+    runningMomentsExecutionTime: IRunningMoments,
+    experienceBuffer: ExperienceBuffer
+  ){
+    const startTime: number = this.getTimeSeconds();
+    const bindingsStream: BindingsStream = await this.queryOfType<QueryFormatTypeInner, IQueryBindingsEnhanced>(query, context, 'bindings');
+    const joinOrderKeys: string[] = [];
+    for (let i = 1; i <this.trainEpisode.joinsMade.length+1;i++){
+        const joinIndexId = this.trainEpisode.joinsMade.slice(0, i);
+        joinOrderKeys.push(MediatorJoinReinforcementLearning.idxToKey(joinIndexId));
+    }    
+    const executionTimeRaw: number = await this.consumeStream(bindingsStream, runningMomentsExecutionTime, experienceBuffer, 
+      startTime, joinOrderKeys, queryKey, true, false);
+    this.disposeTrainEpisode();
+    this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
+    return executionTimeRaw;
+}
+
+  public async consumeStream(bindingStream: BindingsStream, runningMomentsExecutionTime: IRunningMoments, 
+    experienceBuffer: ExperienceBuffer,
+    startTime: number, joinsMadeEpisode: string[], queryKey: string, 
+    validation: boolean, recordExperience: boolean){
+    
+    const consumedStream: Promise<number> = new Promise((resolve, reject)=>{
+      bindingStream.on('data', () =>{
+
+      });
+      bindingStream.on('end', () => {
+        const endTime: number = this.getTimeSeconds();
+        const elapsed: number = endTime-startTime;
+        const statsY: IAggregateValues = runningMomentsExecutionTime.runningStats.get(runningMomentsExecutionTime.indexes[0])!;
+
+        if (!validation){
+            this.updateRunningMoments(statsY, elapsed);
+        }
+        if (recordExperience){
+          const standardisedElapsed = (elapsed - statsY.mean) / statsY.std;
+          for (const joinMade of joinsMadeEpisode){
+            const newExperience: IExperience = {actualExecutionTimeRaw: elapsed, actualExecutionTimeNorm: standardisedElapsed, 
+              joinIndexes: MediatorJoinReinforcementLearning.keyToIdx(joinMade), N:1};
+              experienceBuffer.setExperience(queryKey, joinMade, newExperience, statsY);
+            }
+        }
+        resolve(elapsed)
+      })
+    });
+    return consumedStream;
+  }
+
+  public async executeQueryInitFeaturesBuffer<QueryFormatTypeInner extends QueryFormatType>(
+     query: QueryFormatTypeInner,
+     context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext, 
+    ){
+    const bindingsStream: BindingsStream = await this.queryBindings(query, context);
+    const leafFeatures: IResultSetRepresentation = {hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x=>x.clone()),
+    memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x=>x.clone())};
+    this.disposeTrainEpisode();
+    this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
+    return leafFeatures;
+}
+
+  public updateRunningMoments(toUpdateAggregate: IAggregateValues, newValue: number){
+    toUpdateAggregate.N +=1;
+    const delta = newValue - toUpdateAggregate.mean; 
+    toUpdateAggregate.mean += delta / toUpdateAggregate.N;
+    const newDelta = newValue - toUpdateAggregate.mean;
+    toUpdateAggregate.M2 += delta * newDelta;
+    toUpdateAggregate.std = Math.sqrt(toUpdateAggregate.M2 / toUpdateAggregate.N);
+  }
+
+  public cleanBatchTrainingExamples(){
+    // THIS IS NOT PROPERLY DISPOSING OF SHIT SHOULD MAKE THIS.BATCHEDEXAMPLES SO I CAN PROPERLY ASSIGN NEW STUFF!!
+    this.batchedTrainExamples.leafFeatures.hiddenStates.map(x =>x.dispose());
+    this.batchedTrainExamples.leafFeatures.memoryCell.map(x=>x.dispose());
+    this.batchedTrainExamples = {trainingExamples: new Map<string, ITrainingExample>, leafFeatures: {hiddenStates: [], memoryCell:[]}};
+  }
+
+  public stdArray(values: number[], mean: number){
+    const std: number = Math.sqrt((values.map(x=>(x-mean)**2).reduce((a, b)=>a+b,0) / values.length));
+    return std
+  }
+
+  public getTimeSeconds(){
+    const hrTime: number[] = process.hrtime();
+    const time: number = hrTime[0] + hrTime[1] / 1000000000;
+    return time
+  }
 
   public async queryBindings<QueryFormatTypeInner extends QueryFormatType>(
     query: QueryFormatTypeInner,
@@ -433,8 +698,6 @@ implements IQueryEngine<QueryContext> {
   }
 
   public async trainModelExperienceReplay(experiences: IExperience[], leafFeatures: IResultSetRepresentation[]){
-
-
     if (experiences.length==0){
       throw new Error("Empty training batch passed");
     }

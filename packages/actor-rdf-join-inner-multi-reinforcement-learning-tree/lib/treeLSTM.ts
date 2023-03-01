@@ -403,8 +403,20 @@ export class ModelTreeLSTM{
         this.initialised=true;
     }
 
-    public async saveModel(){
+    public async saveModel(saveLocation?: string){
         // THIS CAN NOT SAVE MULTIPLE LAYERS
+        if (saveLocation){
+            for (const layer of this.binaryTreeLSTMLayer){
+                layer.saveWeights(this.weightsDir+saveLocation+"binaryLstmWeights.txt")
+            }
+            for (const layer of this.childSumTreeLSTMLayer){
+                layer.saveWeights(this.weightsDir+saveLocation+"childSumLstmWeights.txt")
+            }
+            // This can
+            this.qValueNetwork.saveNetwork(this.loadedConfig.qValueNetwork, this.weightsDir, saveLocation);
+            return;
+        }
+
         for (const layer of this.binaryTreeLSTMLayer){
             layer.saveWeights(this.weightsDir+this.loadedConfig.binaryTreeLSTM.weightsConfig.weightLocation)
         }
@@ -495,8 +507,6 @@ export class ModelTreeLSTM{
      * @param treeState The feature indexes of made joins
      */
 
-    // TODO: TEST THIS!!!! Also fixed a bug possibly, in binaryLSTMInput = ... I used to do hiddenStates[0] and hiddenStates[1] instead of index,
-    // that was most likely incorrect
     public forwardPassRecursive(inputFeatures: IResultSetRepresentation, treeState: number[][]){   
         return tf.tidy(()=>{
             const inputFeaturesCloned: IResultSetRepresentation =   {hiddenStates: inputFeatures.hiddenStates.map(x=>x.clone()),

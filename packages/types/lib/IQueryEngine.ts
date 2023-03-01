@@ -4,7 +4,7 @@ import type { Algebra } from 'sparqlalgebrajs';
 import type { BindingsStream } from './Bindings';
 import type { IActionContext } from './IActionContext';
 import type { IDataSource } from './IDataSource';
-import type { IQueryContextCommon, QueryAlgebraContext, QueryStringContext } from './IQueryContext';
+import type { IBatchedTrainingExamples, IQueryContextCommon, QueryAlgebraContext, QueryStringContext } from './IQueryContext';
 import type { IQueryExplained, QueryEnhanced, QueryExplainMode } from './IQueryOperationResult';
 
 export type QueryFormatType = string | Algebra.Operation;
@@ -30,6 +30,17 @@ export interface IQueryEngine<QueryContext extends IQueryContextCommon = IQueryC
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
   ) => Promise<BindingsStream>;
 
+  queryBindingsTrain: <QueryFormatTypeInner extends QueryFormatType>(
+  queries: QueryFormatTypeInner[][],
+  valQueries: QueryFormatTypeInner[][],
+  nSimTrain: number,
+  nSimVal: number,
+  nEpoch: number,
+  nExpPerSim: number,
+  sizeBuffer: number,
+  batchedTrainExamples: IBatchedTrainingExamples,
+  context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
+  ) => Promise<void>;
   /**
    * Query the quad results of a CONSTRUCT or DESCRIBE query.
    * @param query A query string or algebra object.

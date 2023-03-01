@@ -81,7 +81,9 @@ export class HttpServiceSparqlEndpoint {
   ): Promise<void> {
     const options = await HttpServiceSparqlEndpoint
       .generateConstructorArguments(argv, moduleRootPath, env, defaultConfigPath, stderr, exit, cliArgsHandlers);
-
+    console.log(moduleRootPath);
+    console.log(defaultConfigPath)
+    console.log(options);
     return new Promise<void>(resolve => {
       new HttpServiceSparqlEndpoint(options || {}).run(stdout, stderr)
         .then(resolve)
@@ -263,6 +265,9 @@ export class HttpServiceSparqlEndpoint {
     process.on('message', async(message: string): Promise<void> => {
       if (message === 'shutdown') {
         stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
+        // Write model to file
+        // TODO
+        engine.saveModel("../../actor-rdf-join-inner-multi-reinforcement-learning-tree/model/moments/"+"runningMomentsFeatures"+1+".json");
 
         // Stop new connections from being accepted
         server.close();
