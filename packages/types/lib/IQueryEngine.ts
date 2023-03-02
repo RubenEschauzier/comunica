@@ -39,7 +39,9 @@ export interface IQueryEngine<QueryContext extends IQueryContextCommon = IQueryC
   nExpPerSim: number,
   sizeBuffer: number,
   batchedTrainExamples: IBatchedTrainingExamples,
-  context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
+  context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
+  nextModelLocation: string,
+  pathEpochInfos: string[]
   ) => Promise<void>;
   /**
    * Query the quad results of a CONSTRUCT or DESCRIBE query.

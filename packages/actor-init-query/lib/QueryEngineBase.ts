@@ -27,6 +27,8 @@ import * as chalk from 'chalk';
 import { number } from 'yargs';
 import { ExperienceBuffer, IExperienceKey } from '../../model-trainer/lib/experienceBuffer';
 import * as _ from 'lodash';
+import * as fs from 'fs';
+import * as path from 'path';
 /**
  * Base implementation of a Comunica query engine.
  */
@@ -62,6 +64,8 @@ implements IQueryEngine<QueryContext> {
     sizeBuffer: number,
     batchedTrainExamples: IBatchedTrainingExamples,
     context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
+    nextModelLocation: string,
+    pathEpochInfos: string[]
   ) {
     const experienceBuffer: ExperienceBuffer = new ExperienceBuffer(sizeBuffer);
     if (!batchedTrainExamples){
@@ -84,6 +88,8 @@ implements IQueryEngine<QueryContext> {
     const epochValExecutionTime: number[] = [];
     const epochValStdLoss: number[] = [];
     const averageSearchTime: number[] = [];
+    const averageSearchTimeTemplate: number[] = [];
+    
 
     // Add info to context
     context.batchedTrainingExamples = this.batchedTrainExamples;
@@ -133,19 +139,36 @@ implements IQueryEngine<QueryContext> {
               }
               const loss = await this.trainModelExperienceReplay(experiences, features);
               epochTrainLoss.push(loss);
-          }
+            }
           this.cleanBatchTrainingExamples();
+          }
+          averageSearchTime.push(searchTimes.reduce((a, b) => a + b, 0) / searchTimes.length);
         }
-        averageSearchTime.push(searchTimes.reduce((a, b) => a + b, 0) / searchTimes.length);
-      }
+      averageSearchTimeTemplate.push(searchTimes.reduce((a,b) => a+b, 0));
     }
     const clonedContext = _.cloneDeep(context);
     clonedContext.batchedTrainingExamples = this.batchedTrainExamples;
-    const [avgExecution, avgExecutionTemplate, stdExecutionTemplate, avgLoss, stdLoss] = await this.validatePerformance(valQueries, 
-      nSimVal, runningMomentsExecutionTime, experienceBuffer, clonedContext);
+
+    const [avgExecution, avgExecutionTemplate, stdExecutionTemplate, avgLoss, stdLoss, avgSearchTimeTemplate, stdSearchTimeTemplate] = 
+    await this.validatePerformance(valQueries, nSimVal, runningMomentsExecutionTime, experienceBuffer, clonedContext);
+
     const avgLossTrain = epochTrainLoss.reduce((a, b) => a + b, 0) / epochTrainLoss.length;
 
     console.log(`Epoch ${epoch+1}/${nEpoch}: Train Loss: ${avgLossTrain}, Validation Execution time: ${avgExecution}, Loss: ${avgLoss}, Std: ${stdLoss}`);
+    const checkPointLocation = path.join(nextModelLocation + "/chkp-"+epoch);
+
+    fs.mkdir(checkPointLocation, (err)=>{
+        if (err){
+            return console.error(err);
+        }
+    });
+
+    const epochStatisticsLocation = pathEpochInfos.map(x=>path.join(checkPointLocation, x));
+    console.log(epochStatisticsLocation)
+
+    totalEpochTrainLoss.push(avgLossTrain); epochValLoss.push(avgLoss); epochValExecutionTime.push(avgExecution); epochValStdLoss.push(stdLoss);    
+    this.writeEpochFiles(epochStatisticsLocation, [totalEpochTrainLoss, epochValLoss, epochValStdLoss, epochValExecutionTime, 
+      avgExecutionTemplate, stdExecutionTemplate, avgSearchTimeTemplate, stdSearchTimeTemplate]);
   }
 }
 
@@ -155,11 +178,13 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
   runningMomentsExecutionTime: IRunningMoments,
   experienceBuffer: ExperienceBuffer,
   context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext
-  ): Promise<[number, number[], number[], number, number]>{
+  ): Promise<[number, number[], number[], number, number, number[], number[]]>{
   
   const rawExecutionTimesTemplate: number[][] = [];
+  const searchTimesTemplate: number[][] = [];
   for(let i=0;i<queries.length;i++){
     const rawExecutionTimes: number[] = []
+    const searchTemplate: number[] = [];
     for (let j=0;j<queries[i].length;j++){
         for (let k=0;k<nSimVal;k++){
           const queryKey: string = `${i}`+`${j}`;
@@ -167,20 +192,26 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
           const clonedContext = _.cloneDeep(context);
           clonedContext.batchedTrainingExamples = this.batchedTrainExamples;
 
-          const executionTimeRaw: number = await this.executeQueryValidation(queries[i][j], queryKey, clonedContext, runningMomentsExecutionTime, experienceBuffer);
-          rawExecutionTimes.push(executionTimeRaw);
+          const valResults: number[] = await this.executeQueryValidation(queries[i][j], queryKey, clonedContext, runningMomentsExecutionTime, experienceBuffer);
+          rawExecutionTimes.push(valResults[0]);
+          searchTemplate.push(valResults[1])
         }
     }
       rawExecutionTimesTemplate.push(rawExecutionTimes);
+      searchTimesTemplate.push(searchTemplate);
   }
   // Get raw validaiton execution time statistics
   const flatExeTime: number[] = rawExecutionTimesTemplate.flat();
   const avgExecutionTime = flatExeTime.reduce((a, b) => a + b, 0) / flatExeTime.length;
   const avgExecutionTimeTemplate = rawExecutionTimesTemplate.map(x=>(x.reduce((a,b)=> a+b,0))/x.length);
+  const avgSearchTimeTemplate = searchTimesTemplate.map(x=>(x.reduce((a,b)=> a+b,0))/x.length);
+
   const stdExecutionTimeTemplate = [];
+  const stdSearchTimeTemplate = [];
 
   for (let k=0;k<avgExecutionTimeTemplate.length;k++){
       stdExecutionTimeTemplate.push(this.stdArray(rawExecutionTimesTemplate[k],avgExecutionTimeTemplate[k]))
+      stdSearchTimeTemplate.push(this.stdArray(searchTimesTemplate[k], avgSearchTimeTemplate[k]));
   }
   // Get validation loss
   const MSE: number[] = [];
@@ -194,7 +225,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
   // Clean training examples
   this.cleanBatchTrainingExamples();
 
-  return [avgExecutionTime, avgExecutionTimeTemplate, stdExecutionTimeTemplate, averageLoss, stdLoss];
+  return [avgExecutionTime, avgExecutionTimeTemplate, stdExecutionTimeTemplate, averageLoss, stdLoss, avgSearchTimeTemplate, stdSearchTimeTemplate];
   }
 
 
@@ -237,6 +268,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
   ){
     const startTime: number = this.getTimeSeconds();
     const bindingsStream: BindingsStream = await this.queryOfType<QueryFormatTypeInner, IQueryBindingsEnhanced>(query, context, 'bindings');
+    const endTimeSearch: number = this.getTimeSeconds();
     const joinOrderKeys: string[] = [];
     for (let i = 1; i <this.trainEpisode.joinsMade.length+1;i++){
         const joinIndexId = this.trainEpisode.joinsMade.slice(0, i);
@@ -246,7 +278,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
       startTime, joinOrderKeys, queryKey, true, false);
     this.disposeTrainEpisode();
     this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
-    return executionTimeRaw;
+    return [executionTimeRaw, endTimeSearch - startTime];
 }
 
   public async consumeStream(bindingStream: BindingsStream, runningMomentsExecutionTime: IRunningMoments, 
@@ -318,6 +350,13 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     const time: number = hrTime[0] + hrTime[1] / 1000000000;
     return time
   }
+
+  public writeEpochFiles(fileLocations: string[], epochInformation: number[][]){
+    for (let i=0;i<fileLocations.length;i++){
+        fs.writeFileSync(fileLocations[i], JSON.stringify([...epochInformation[i]]));
+    }
+  }
+
 
   public async queryBindings<QueryFormatTypeInner extends QueryFormatType>(
     query: QueryFormatTypeInner,
