@@ -267,7 +267,6 @@ export class HttpServiceSparqlEndpoint {
         stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
         // Write model to file
         // TODO
-        engine.saveModel("../../actor-rdf-join-inner-multi-reinforcement-learning-tree/model/moments/"+"runningMomentsFeatures"+1+".json");
 
         // Stop new connections from being accepted
         server.close();
@@ -423,7 +422,6 @@ export class HttpServiceSparqlEndpoint {
     if (!queryBody || !queryBody.value) {
       return this.writeServiceDescription(engine, stdout, stderr, request, response, mediaType, headOnly);
     }
-
     // Log the start of the query execution
     stdout.write(`[200] ${request.method} to ${request.url}\n`);
     stdout.write(`      Requested media type: ${mediaType}\n`);

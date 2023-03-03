@@ -107,12 +107,28 @@ export class QValueNetwork{
         for (let k=0;k<qValueNetworkConfig.layers.length;k++){
             if (qValueNetworkConfig.layers[k].type=='dense'){
                 const newLayer: DenseOwnImplementation = new DenseOwnImplementation(qValueNetworkConfig.layers[k].inputSize!, 
-                    qValueNetworkConfig.layers[k].outputSize!, 'dW'+k, 'dB'+k);
+                qValueNetworkConfig.layers[k].outputSize!, 'dW'+k, 'dB'+k);
                 if (qValueNetworkConfig.weightsConfig.loadWeights){
                     await newLayer.loadWeights(weightsDir+qValueNetworkConfig.weightsConfig.weightLocation+denseIdx+'.txt');
                     await newLayer.loadBias(weightsDir+qValueNetworkConfig.weightsConfig.weightLocationBias+denseIdx+'.txt');
                     denseIdx+=1;
-                }
+                }                   
+                this.networkLayers.push(newLayer)
+            }
+            if (qValueNetworkConfig.layers[k].type=='activation'){
+                this.networkLayers.push(tf.layers.activation({activation: qValueNetworkConfig.layers[k].activation!}));
+            }
+            if(qValueNetworkConfig.layers[k].type=='dropout'){
+                this.networkLayers.push(tf.layers.dropout({rate: qValueNetworkConfig.layers[k].rate!}));
+            }
+        }
+    }
+    public initRandom(qValueNetworkConfig: ILayerConfig, weightsDir: string){
+        let denseIdx = 0;
+        for (let k=0;k<qValueNetworkConfig.layers.length;k++){
+            if (qValueNetworkConfig.layers[k].type=='dense'){
+                const newLayer: DenseOwnImplementation = new DenseOwnImplementation(qValueNetworkConfig.layers[k].inputSize!, 
+                qValueNetworkConfig.layers[k].outputSize!, 'dW'+k, 'dB'+k);
                 this.networkLayers.push(newLayer)
             }
             if (qValueNetworkConfig.layers[k].type=='activation'){

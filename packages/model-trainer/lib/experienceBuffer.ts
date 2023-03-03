@@ -1,4 +1,7 @@
+import { transformFile } from "@babel/core";
 import { IAggregateValues, IResultSetRepresentation, MediatorJoinReinforcementLearning } from "@comunica/mediator-join-reinforcement-learning";
+import * as fs from 'graceful-fs';
+import * as tf from '@tensorflow/tfjs-node';
 
 export class ExperienceBuffer{
 
@@ -30,6 +33,7 @@ export class ExperienceBuffer{
         if (!this.getExperience(key.query, key.joinPlanKey)){
             this.printExperiences();
             console.error("Got invalid index or key");
+            console.log(key);
         }
 
         return [this.getExperience(key.query, key.joinPlanKey)!, key];
@@ -125,6 +129,74 @@ export class ExperienceBuffer{
 
     public getSize(){
         return this.experienceAgeTracker.length;
+    }
+
+    public saveBuffer(fileLocation: string){
+        this.saveLeafFeatures(fileLocation+'leafFeatures.txt');
+        this.saveExperienceTracking(fileLocation+'ageTracker.txt');
+        this.saveExperienceMap(fileLocation + 'experienceMap.txt');
+    }
+    
+    public loadBuffer(fileLocation:string){
+        this.loadLeafFeatures(fileLocation+'leafFeatures.txt');
+        this.loadExperienceTracking(fileLocation+'ageTracker.txt');
+        this.loadExperienceMap(fileLocation + 'experienceMap.txt');
+    }
+
+    public saveLeafFeatures(fileLocation: string){
+        const objToSave = new Map<string, number[][][][]>();
+        for (const [key,value] of this.queryLeafFeatures.entries()){
+            const featureArrayHS = value.hiddenStates.map(x=>x.arraySync() as number[][]);
+            const featureArrayMem = value.memoryCell.map(x=>x.arraySync() as number[][]);
+            objToSave.set(key,[featureArrayHS, featureArrayMem]); 
+        }
+        fs.writeFileSync(fileLocation, JSON.stringify([...objToSave]));
+    }
+
+    public loadLeafFeatures(fileLocation: string){
+        const data = JSON.parse(fs.readFileSync(fileLocation, 'utf-8'));
+        const newLeafFeatures: Map<string, IResultSetRepresentation> = new Map<string, IResultSetRepresentation>();
+        for (const entry of data){
+            const key = entry[0];
+            const features = entry[1];
+            const featureTensorHS = features[0].map((x: number[][]) =>tf.tensor(x));
+            const featureTensorMem = features[1].map((x: number[][]) =>tf.tensor(x));
+            newLeafFeatures.set(key, {hiddenStates: featureTensorHS, memoryCell: featureTensorMem});
+        }
+        this.queryLeafFeatures = newLeafFeatures;
+    }
+
+    public saveExperienceTracking(fileLocation: string){
+        fs.writeFileSync(fileLocation, JSON.stringify(this.experienceAgeTracker));
+    }
+
+    public loadExperienceTracking(fileLocation: string){
+        const data: IExperienceKey[] = JSON.parse(fs.readFileSync(fileLocation, 'utf-8'));
+        this.experienceAgeTracker = data;
+        // const newExpTracker: IExperienceKey[] = data.map((x: string[])=>{query: x[0], joinPlanKey: x[1]})
+    }
+
+    public saveExperienceMap(fileLocation: string){
+        const dataToSave = [];
+        for (const [key,value] of this.experienceBufferMap){
+            dataToSave.push([key, [...value]])
+        }
+        fs.writeFileSync(fileLocation, JSON.stringify(dataToSave));
+    }
+
+    public loadExperienceMap(fileLocation: string){
+        const data = JSON.parse(fs.readFileSync(fileLocation, 'utf-8'));
+        const newExperienceMap = new Map<string, Map<string, IExperience>>();
+        for (const expMap of data){
+            const queryTemplateMap = new Map<string, IExperience>();
+            const queryKey = expMap[0];
+            const joinPlans = expMap[1]
+            for (const joinPlan of joinPlans){
+                queryTemplateMap.set(joinPlan[0], joinPlan[1]);
+            }
+            newExperienceMap.set(queryKey, queryTemplateMap);
+        }
+        this.experienceBufferMap = newExperienceMap;
     }
 
     public printExperiences(){

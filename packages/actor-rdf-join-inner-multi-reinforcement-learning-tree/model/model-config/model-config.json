@@ -1,7 +1,7 @@
 {
     "binaryTreeLSTM":{
         "weightsConfig":{
-            "loadWeights": false,
+            "loadWeights": true,
             "weightLocation": "/binaryLstmWeights.txt"
         },
         "type": "lstm",
@@ -12,7 +12,7 @@
     },
     "childSumTreeLSTM":{
         "weightsConfig":{
-            "loadWeights": false,
+            "loadWeights": true,
             "weightLocation": "/childSumLstmWeights.txt"
         },
         "type": "lstm",
@@ -23,7 +23,7 @@
     },
     "qValueNetwork":{
         "weightsConfig":{
-            "loadWeights": false,
+            "loadWeights": true,
             "weightLocation": "/denseWeights/weight",
             "weightLocationBias":"/denseBias/weight"
             

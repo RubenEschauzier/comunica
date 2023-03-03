@@ -24,10 +24,9 @@ import { ModelTrainerOffline } from '@comunica/actor-rdf-join-inner-multi-reinfo
 import { IAggregateValues, IResultSetRepresentation, IRunningMoments, MediatorJoinReinforcementLearning } from '@comunica/mediator-join-reinforcement-learning';
 import { InstanceModel } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
 import * as chalk from 'chalk';
-import { number } from 'yargs';
-import { ExperienceBuffer, IExperienceKey } from '../../model-trainer/lib/experienceBuffer';
+import { ExperienceBuffer, IExperienceKey } from '@comunica/model-trainer';
 import * as _ from 'lodash';
-import * as fs from 'fs';
+import * as fs from 'graceful-fs';
 import * as path from 'path';
 /**
  * Base implementation of a Comunica query engine.
@@ -36,22 +35,125 @@ export class QueryEngineBase<QueryContext extends IQueryContextCommon = IQueryCo
 implements IQueryEngine<QueryContext> {
   private readonly actorInitQuery: ActorInitQueryBase;
   private readonly defaultFunctionArgumentsCache: FunctionArgumentsCache;
-  public trainEpisode: ITrainEpisode;
   public modelTrainerOffline: ModelTrainerOffline;
   public modelInstance: InstanceModel;
-  public runningMomentsFeatures: IRunningMoments;
   public batchedTrainExamples: IBatchedTrainingExamples;
+
+  // Values needed for endpoint training
+  public trainingStateInformationLocation: string;
+  public experienceBuffer: ExperienceBuffer;
+  public runningMomentsFeatures: IRunningMoments;
+  public runningMomentsExecution: IRunningMoments;
+  public trainEpisode: ITrainEpisode;
+  public nExpPerQuery: number;
 
 
   public constructor(actorInitQuery: ActorInitQueryBase<QueryContext>) {
     this.actorInitQuery = actorInitQuery;
     this.defaultFunctionArgumentsCache = {};
     this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
-    this.runningMomentsFeatures = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
     // Hardcoded, should be config, but not sure how to incorporate
     this.modelInstance = new InstanceModel();
     this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.005});
     this.batchedTrainExamples = {trainingExamples: new Map<string, ITrainingExample>, leafFeatures: {hiddenStates: [], memoryCell:[]}};
+    // End point training
+    this.trainingStateInformationLocation = __dirname + "/../trainingStateEngine/";
+    this.runningMomentsFeatures = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
+    this.runningMomentsExecution = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
+    for (const index of this.runningMomentsExecution.indexes){
+      const startPoint: IAggregateValues = {N: 0, mean: 0, std: 1, M2: 1}
+      this.runningMomentsExecution.runningStats.set(index, startPoint);
+    }
+    for (const index of this.runningMomentsFeatures.indexes){
+      const startPoint: IAggregateValues = {N: 0, mean: 0, std: 1, M2: 1}
+      this.runningMomentsFeatures.runningStats.set(index, startPoint);
+    }
+    this.experienceBuffer = new ExperienceBuffer(1500);
+    this.nExpPerQuery = 8;
+
+  }
+
+  public async querySingleTrainStep<QueryFormatTypeInner extends QueryFormatType>(
+    query: QueryFormatTypeInner,
+    context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
+  ){
+    // If buffer is empty, we must be at our first run or just timed out, so we reload state
+    let trainLoss: number[] = [];
+    try{
+      trainLoss = this.readTrainLoss(this.trainingStateInformationLocation+'trainLoss.txt');
+    }
+    catch{
+      console.log("No train loss array found")
+    }
+    if (this.experienceBuffer.getSize()==0){
+      await this.loadState();
+    }
+
+    const clonedContext = _.cloneDeep(context);
+    clonedContext.batchedTrainingExamples = this.batchedTrainExamples;
+    console.log("Query!")
+    const searchTime = await this.executeTrainQuery(query, clonedContext, clonedContext.queryKey, this.runningMomentsExecution, this.experienceBuffer);
+    const experiences: IExperience[] = [];
+    const features = []; 
+    // Sample experiences from the buffer if we have enough prior executions
+    if (this.experienceBuffer.getSize()>20){
+      for (let z=0;z<this.nExpPerQuery;z++){
+          const experience: [IExperience, IExperienceKey] = this.experienceBuffer.getRandomExperience();
+          experiences.push(experience[0]);
+          const feature = this.experienceBuffer.getFeatures(experience[1].query)!;
+          features.push(feature);
+      }
+      const loss = await this.trainModelExperienceReplay(experiences, features);
+      trainLoss.push(loss);
+    }
+    this.writeTrainLoss(trainLoss, this.trainingStateInformationLocation+'trainLoss.txt');
+  }
+
+  public async loadState(){
+    // Load running moments
+    try{
+      const runningMomentsFeatures = this.modelInstance.loadRunningMoments(this.trainingStateInformationLocation+'runningMomentsFeatures.txt');
+      const runningMomentsExecution = this.modelInstance.loadRunningMoments(this.trainingStateInformationLocation+'runningMomentsExecution.txt');
+      this.runningMomentsFeatures = runningMomentsFeatures;
+      this.runningMomentsExecution = runningMomentsExecution;
+    }
+    catch{
+      console.log("No running moments found");
+    }
+    // Load experience buffer
+    try{
+      this.experienceBuffer.loadBuffer(this.trainingStateInformationLocation);
+    }
+    catch(err){
+      console.log("No existing buffer found");
+    }
+    // Load model weights
+    try{
+      await this.modelInstance.initModel(this.trainingStateInformationLocation+'weights');
+    }
+    catch{
+      await this.modelInstance.initModelRandom();
+      console.log("No model weights found, random initialisation")
+    }
+  }
+  public saveState(){
+    // First add timedout experience to buffer with current execution time
+    this.experienceBuffer.saveBuffer(this.trainingStateInformationLocation);
+    this.modelInstance.saveModel(this.trainingStateInformationLocation+'weights');
+    this.modelInstance.saveRunningMoments(this.runningMomentsFeatures, 
+      this.trainingStateInformationLocation+'runningMomentsFeatures.txt');
+    this.modelInstance.saveRunningMoments(this.runningMomentsExecution, 
+      this.trainingStateInformationLocation+'runningMomentsExecution.txt');
+  
+  }
+  
+  public readTrainLoss(fileLocation: string){
+    const loss: number[] = JSON.parse(fs.readFileSync(fileLocation, 'utf-8'));
+    return loss;
+  }
+
+  public writeTrainLoss(loss: number[], fileLocation: string){
+    fs.writeFileSync(fileLocation, JSON.stringify(loss));
   }
 
   public async queryBindingsTrain<QueryFormatTypeInner extends QueryFormatType>(
@@ -111,6 +213,7 @@ implements IQueryEngine<QueryContext> {
       }
     }
 
+
     // Main training loop
     for (let epoch=0;epoch<nEpoch;epoch++){
       let epochTrainLoss = [];
@@ -126,7 +229,7 @@ implements IQueryEngine<QueryContext> {
     
             const searchTime = await this.executeTrainQuery(queries[i][j], clonedContext, queryKey, runningMomentsExecutionTime, experienceBuffer);
             searchTimes.push(searchTime);
-  
+        
             const experiences: IExperience[] = [];
             const features = []; 
             // Sample experiences from the buffer if we have enough prior executions
@@ -288,15 +391,14 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     
     const consumedStream: Promise<number> = new Promise((resolve, reject)=>{
       bindingStream.on('data', () =>{
-
       });
       bindingStream.on('end', () => {
         const endTime: number = this.getTimeSeconds();
         const elapsed: number = endTime-startTime;
-        const statsY: IAggregateValues = runningMomentsExecutionTime.runningStats.get(runningMomentsExecutionTime.indexes[0])!;
+        const statsY: IAggregateValues = this.runningMomentsExecution.runningStats.get(runningMomentsExecutionTime.indexes[0])!;
 
         if (!validation){
-            this.updateRunningMoments(statsY, elapsed);
+          this.updateRunningMoments(statsY, elapsed);
         }
         if (recordExperience){
           const standardisedElapsed = (elapsed - statsY.mean) / statsY.std;
@@ -488,7 +590,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     }
 
     const baseIRI: string | undefined = actionContext.get(KeysInitQuery.baseIRI);
-    this.modelInstance.initModel();
+    await this.modelInstance.initModelRandom();
     actionContext = actionContext
       .setDefault(KeysInitQuery.queryTimestamp, new Date())
       .setDefault(KeysRdfResolveQuadPattern.sourceIds, new Map())
@@ -573,6 +675,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
     // If we train
     if (!actionContext.get(KeysRlTrain.train)){
+      console.log("Resetting episode")
       this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
     }
     const finalOutput = QueryEngineBase.internalToFinalResult(output);

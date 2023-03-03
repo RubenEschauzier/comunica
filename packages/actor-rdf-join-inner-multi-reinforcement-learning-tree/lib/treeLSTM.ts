@@ -379,7 +379,10 @@ export class ModelTreeLSTM{
         this.initialised = false;
     }
 
-    public async initModel(){
+    public async initModel(weightsDir?: string){
+        if (weightsDir){
+            this.weightsDir = weightsDir;
+        }
         const modelConfig = await this.loadConfig();
         this.loadedConfig = modelConfig;
 
@@ -388,7 +391,7 @@ export class ModelTreeLSTM{
             const newLayer: BinaryTreeLSTM = new BinaryTreeLSTM(binaryLSTMConfig.layers[i].numUnits!,binaryLSTMConfig.layers[i].activation!);
             if (binaryLSTMConfig.weightsConfig.loadWeights){
                 newLayer.loadWeights(this.weightsDir+binaryLSTMConfig.weightsConfig.weightLocation);
-            }
+            }    
             this.binaryTreeLSTMLayer.push(newLayer);
         }
         const childSumConfig = modelConfig.childSumTreeLSTM;
@@ -396,25 +399,46 @@ export class ModelTreeLSTM{
             const newLayer: ChildSumTreeLSTM = new ChildSumTreeLSTM(childSumConfig.layers[j].numUnits!, childSumConfig.layers[j].activation!);
             if (childSumConfig.weightsConfig.loadWeights){
                 newLayer.loadWeights(this.weightsDir+childSumConfig.weightsConfig.weightLocation);
-            }
+            }    
             this.childSumTreeLSTMLayer.push(newLayer);
         }
         await this.qValueNetwork.init(modelConfig.qValueNetwork, this.weightsDir);
-        this.initialised=true;
+        this.initialised=true;    
+    }
+    public async initModelRandom(){
+        const modelConfig = await this.loadConfig();
+        this.loadedConfig = modelConfig;
+
+        const binaryLSTMConfig = modelConfig.binaryTreeLSTM;
+        for(let i=0;i<binaryLSTMConfig.layers.length;i++){
+            const newLayer: BinaryTreeLSTM = new BinaryTreeLSTM(binaryLSTMConfig.layers[i].numUnits!,binaryLSTMConfig.layers[i].activation!);
+            this.binaryTreeLSTMLayer.push(newLayer);
+        }
+        const childSumConfig = modelConfig.childSumTreeLSTM;
+        for (let j=0;j<childSumConfig.layers.length;j++){
+            const newLayer: ChildSumTreeLSTM = new ChildSumTreeLSTM(childSumConfig.layers[j].numUnits!, childSumConfig.layers[j].activation!);
+            this.childSumTreeLSTMLayer.push(newLayer);
+        }
+        await this.qValueNetwork.initRandom(modelConfig.qValueNetwork, this.weightsDir);
+        this.initialised=true;    
+
     }
 
-    public async saveModel(saveLocation?: string){
+    public async saveModel(weightsDir?: string){
         // THIS CAN NOT SAVE MULTIPLE LAYERS
-        if (saveLocation){
-            for (const layer of this.binaryTreeLSTMLayer){
-                layer.saveWeights(this.weightsDir+saveLocation+"binaryLstmWeights.txt")
-            }
-            for (const layer of this.childSumTreeLSTMLayer){
-                layer.saveWeights(this.weightsDir+saveLocation+"childSumLstmWeights.txt")
-            }
-            // This can
-            this.qValueNetwork.saveNetwork(this.loadedConfig.qValueNetwork, this.weightsDir, saveLocation);
-            return;
+        // if (saveLocation){
+        //     for (const layer of this.binaryTreeLSTMLayer){
+        //         layer.saveWeights(this.weightsDir+saveLocation+"binaryLstmWeights.txt")
+        //     }
+        //     for (const layer of this.childSumTreeLSTMLayer){
+        //         layer.saveWeights(this.weightsDir+saveLocation+"childSumLstmWeights.txt")
+        //     }
+        //     // This can
+        //     this.qValueNetwork.saveNetwork(this.loadedConfig.qValueNetwork, this.weightsDir, saveLocation);
+        //     return;
+        // }
+        if (weightsDir){
+            this.weightsDir = weightsDir;
         }
 
         for (const layer of this.binaryTreeLSTMLayer){
@@ -443,13 +467,6 @@ export class ModelTreeLSTM{
 
     public forwardPass(resultSetFeatures: IResultSetRepresentation, idx: number[]): IModelOutput{
         const outputTensors = tf.tidy(() =>{       
-            // console.log(idx)
-            // console.trace();
-            // console.log(resultSetFeatures.hiddenStates.length);
-
-            // Turn off for real use?
-            // console.log(idx);
-            // console.log(resultSetFeatures.hiddenStates.length);
             if (resultSetFeatures.hiddenStates.length!=resultSetFeatures.memoryCell.length){
                 throw new Error("Model given hiddenState and memoryCell arrays with different sizes");
             }
@@ -474,6 +491,7 @@ export class ModelTreeLSTM{
                 // Remove features associated with index
                 resultSetFeatures.hiddenStates.splice(i,1); resultSetFeatures.memoryCell.splice(i,1);
             }
+
             // Add join features
             resultSetFeatures.hiddenStates.push(joinHiddenState); resultSetFeatures.memoryCell.push(joinMemoryCell);
             const childSumInput: tf.Tensor[] = [inputTensor, tf.stack(resultSetFeatures.hiddenStates), tf.stack(resultSetFeatures.memoryCell)];
@@ -487,8 +505,8 @@ export class ModelTreeLSTM{
             // We don't do dropout in forwardpass for query execution, only include dropout in training, not sure if this is correct???
             const kwargs = {}
             // let kwargs = train ? {"training": train} : {};
-
             const qValue = this.qValueNetwork.forwardPassFromConfig(joinPlanRepresentation, kwargs);
+
             return [qValue, joinHiddenState, joinMemoryCell];
         });
 

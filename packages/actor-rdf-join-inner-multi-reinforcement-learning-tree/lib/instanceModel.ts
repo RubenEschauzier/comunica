@@ -13,19 +13,27 @@ export class InstanceModel{
         this.initMoments = false;
     };
 
-    public async initModel(){
+    public async initModel(weightsDir?: string){
         if (!this.modelTreeLSTM.initialised){
-            await this.modelTreeLSTM.initModel();
+            await this.modelTreeLSTM.initModel(weightsDir);
+            this.init=true;
+            this.modelTreeLSTM.initialised=true;
         }
-        this.init=true;
     };
+    public async initModelRandom(){
+        if (!this.modelTreeLSTM.initialised){
+            await this.modelTreeLSTM.initModelRandom();
+            this.modelTreeLSTM.initialised=true;
+            this.init = true    
+        }
+    }
 
     public getModel(): ModelTreeLSTM{
         return this.modelTreeLSTM
     };
 
-    public saveModel(){
-        this.modelTreeLSTM.saveModel();
+    public saveModel(weightsDir?: string){
+        this.modelTreeLSTM.saveModel(weightsDir);
     };
 
     public saveRunningMoments(runningMoments: IRunningMoments, runningMomentsPath: string){
@@ -42,7 +50,6 @@ export class InstanceModel{
         }); 
     };
     
-
     public loadRunningMoments(runningMomentsPath: string){
         const data = JSON.parse(fs.readFileSync(runningMomentsPath, 'utf8'));
         const indexes = data.indexes

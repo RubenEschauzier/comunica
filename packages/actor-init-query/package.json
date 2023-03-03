@@ -45,6 +45,7 @@
     "@comunica/logger-pretty": "^2.5.1",
     "@comunica/runner": "^2.5.1",
     "@comunica/types": "^2.5.1",
+    "@comunica/model-trainer": "^1.0.0",
     "@rdfjs/types": "*",
     "@types/yargs": "^17.0.13",
     "asynciterator": "^3.8.0",

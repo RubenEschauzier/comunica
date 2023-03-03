@@ -28,6 +28,7 @@
       "lib/**/*.js"
     ],
     "dependencies": {
+      "graceful-fs": "4.2.10"
     },
     "scripts": {
       "build": "npm run build:ts && npm run build:components",
