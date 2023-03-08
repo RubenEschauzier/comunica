@@ -471,6 +471,9 @@ export class ModelTreeLSTM{
                 throw new Error("Model given hiddenState and memoryCell arrays with different sizes");
             }
             if (Math.max(...idx) > resultSetFeatures.hiddenStates.length - 1|| Math.min(...idx) < 0){
+                console.log("Wrong!!");
+                console.log(resultSetFeatures.hiddenStates.length);
+                console.log(idx);
                 throw new Error("Model given join indexes out of range of array");
             }
             // Input to binary Tree LSTM

@@ -18,6 +18,8 @@ import { QueryEngineBase, QueryEngineFactoryBase } from '..';
 import type { IDynamicQueryEngineOptions } from '..';
 import { CliArgsHandlerBase } from './cli/CliArgsHandlerBase';
 import { CliArgsHandlerHttp } from './cli/CliArgsHandlerHttp';
+import { timeStamp } from 'console';
+import * as _ from 'lodash'
 
 const quad = require('rdf-quad');
 
@@ -49,7 +51,9 @@ export class HttpServiceSparqlEndpoint {
     this.invalidateCacheBeforeQuery = Boolean(args.invalidateCacheBeforeQuery);
     this.freshWorkerPerQuery = Boolean(args.freshWorkerPerQuery);
     this.contextOverride = Boolean(args.contextOverride);
-
+    // MY OWN CODE FOR TRAINING VERY HACKY!!
+    this.invalidateCacheBeforeQuery = true;
+    this.contextOverride = true;
     this.engine = new QueryEngineFactoryBase(
       args.moduleRootPath,
       args.defaultConfigPath,
@@ -81,9 +85,6 @@ export class HttpServiceSparqlEndpoint {
   ): Promise<void> {
     const options = await HttpServiceSparqlEndpoint
       .generateConstructorArguments(argv, moduleRootPath, env, defaultConfigPath, stderr, exit, cliArgsHandlers);
-    console.log(moduleRootPath);
-    console.log(defaultConfigPath)
-    console.log(options);
     return new Promise<void>(resolve => {
       new HttpServiceSparqlEndpoint(options || {}).run(stdout, stderr)
         .then(resolve)
@@ -267,6 +268,7 @@ export class HttpServiceSparqlEndpoint {
         stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
         // Write model to file
         // TODO
+        console.log("Timeout reached!!")
 
         // Stop new connections from being accepted
         server.close();
@@ -322,7 +324,6 @@ export class HttpServiceSparqlEndpoint {
     // Require qts strictly larger than 2, as 1 and 2 respectively allow * and */* matching.
     // For qts 0, 1, and 2, we fallback to our built-in media type defaults, for which we pass null.
     const mediaType: string = variant && variant.qts > 2 ? variant.type : null;
-
     // Verify the path
     const requestUrl = url.parse(request.url ?? '', true);
     if (requestUrl.pathname === '/' || request.url === '/') {
@@ -372,7 +373,7 @@ export class HttpServiceSparqlEndpoint {
         const queryValue = <string> requestUrl.query.query;
         queryBody = queryValue ? { type: 'query', value: queryValue, context: undefined } : undefined;
         // eslint-disable-next-line no-case-declarations
-        const headOnly = request.method === 'HEAD';
+        const headOnly = request.method === 'HEAD';        
         await this.writeQueryResult(
           engine,
           stdout,
@@ -430,11 +431,12 @@ export class HttpServiceSparqlEndpoint {
     // Send message to master process to indicate the start of an execution
     process.send!({ type: 'start', queryId });
 
-    // Determine context
+    // Determine context (Added deepclone for training purposes)
     let context = {
       ...this.context,
       ...this.contextOverride ? queryBody.context : undefined,
     };
+
     if (readOnly) {
       context = { ...context, [KeysQueryOperation.readOnly.name]: readOnly };
     }
@@ -442,7 +444,6 @@ export class HttpServiceSparqlEndpoint {
     let result: QueryType;
     try {
       result = await engine.query(queryBody.value, context);
-
       // For update queries, also await the result
       if (result.resultType === 'void') {
         await result.execute();

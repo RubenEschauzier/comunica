@@ -91,8 +91,9 @@ implements IQueryEngine<QueryContext> {
 
     const clonedContext = _.cloneDeep(context);
     clonedContext.batchedTrainingExamples = this.batchedTrainExamples;
-    console.log("Query!")
-    const searchTime = await this.executeTrainQuery(query, clonedContext, clonedContext.queryKey, this.runningMomentsExecution, this.experienceBuffer);
+    clonedContext.trainingExecution = true;
+    const readQueryKey: string = fs.readFileSync('/home/reschauz/projects/terribleWorkAroundForQueryKey/currentKey', 'utf-8');
+    const trainResult = await this.executeTrainQuery(query, clonedContext, readQueryKey, this.runningMomentsExecution, this.experienceBuffer);
     const experiences: IExperience[] = [];
     const features = []; 
     // Sample experiences from the buffer if we have enough prior executions
@@ -106,7 +107,9 @@ implements IQueryEngine<QueryContext> {
       const loss = await this.trainModelExperienceReplay(experiences, features);
       trainLoss.push(loss);
     }
+    this.experienceBuffer.printExperiences();
     this.writeTrainLoss(trainLoss, this.trainingStateInformationLocation+'trainLoss.txt');
+    return trainResult[1];
   }
 
   public async loadState(){
@@ -227,8 +230,8 @@ implements IQueryEngine<QueryContext> {
             const clonedContext = _.cloneDeep(context);
             clonedContext.batchedTrainingExamples = this.batchedTrainExamples;
     
-            const searchTime = await this.executeTrainQuery(queries[i][j], clonedContext, queryKey, runningMomentsExecutionTime, experienceBuffer);
-            searchTimes.push(searchTime);
+            const trainResult = await this.executeTrainQuery(queries[i][j], clonedContext, queryKey, runningMomentsExecutionTime, experienceBuffer);
+            searchTimes.push(trainResult[0]);
         
             const experiences: IExperience[] = [];
             const features = []; 
@@ -239,19 +242,19 @@ implements IQueryEngine<QueryContext> {
                   experiences.push(experience[0]);
                   const feature = experienceBuffer.getFeatures(experience[1].query)!;
                   features.push(feature);
+                }
+                const loss = await this.trainModelExperienceReplay(experiences, features);
+                epochTrainLoss.push(loss);
               }
-              const loss = await this.trainModelExperienceReplay(experiences, features);
-              epochTrainLoss.push(loss);
+            this.cleanBatchTrainingExamples();
             }
-          this.cleanBatchTrainingExamples();
+            // averageSearchTime.push(searchTimes.reduce((a, b) => a + b, 0) / searchTimes.length);
           }
-          averageSearchTime.push(searchTimes.reduce((a, b) => a + b, 0) / searchTimes.length);
-        }
-      averageSearchTimeTemplate.push(searchTimes.reduce((a,b) => a+b, 0));
-    }
+        averageSearchTimeTemplate.push(searchTimes.reduce((a,b) => a+b, 0) / searchTimes.length);
+      }
     const clonedContext = _.cloneDeep(context);
     clonedContext.batchedTrainingExamples = this.batchedTrainExamples;
-
+    console.log(averageSearchTimeTemplate);
     const [avgExecution, avgExecutionTemplate, stdExecutionTemplate, avgLoss, stdLoss, avgSearchTimeTemplate, stdSearchTimeTemplate] = 
     await this.validatePerformance(valQueries, nSimVal, runningMomentsExecutionTime, experienceBuffer, clonedContext);
 
@@ -338,14 +341,16 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     queryKey: string,
     runningMomentsExecutionTime: IRunningMoments,
     experienceBuffer: ExperienceBuffer
-    ){
+    ):Promise<[number, BindingsStream]>{
     const startT = this.getTimeSeconds();
     const binding = await this.queryOfType<QueryFormatTypeInner, IQueryBindingsEnhanced>(query, context, 'bindings');
     const endTSearch = this.getTimeSeconds();
     if(this.trainEpisode.joinsMade.length==0){
+      // console.log("Bad train ep");
+      // console.log(this.trainEpisode);
       this.disposeTrainEpisode();
       this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
-      return endTSearch - startT;
+      return [endTSearch - startT, binding];
     }
     
     const joinOrderKeys: string[] = [];
@@ -359,7 +364,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     this.disposeTrainEpisode();
     this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
 
-    return endTSearch-startT;
+    return [endTSearch-startT, binding];
   }
 
   public async executeQueryValidation<QueryFormatTypeInner extends QueryFormatType>(
@@ -548,6 +553,16 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
   ): Promise<QueryType | IQueryExplained> {
     context = context || <any>{};
+
+    // We set execution characteristics for training run
+    let trainingMode = false;
+    if (context && context.trainEndPoint){
+      trainingMode = true;
+    }
+    if (context && context.trainEndPoint && !context.trainingExecution){
+      const trainQueryOutput = await this.querySingleTrainStep(query, context);
+      context.batchedTrainingExamples = this.batchedTrainExamples;
+    }
     // Expand shortcuts
     for (const key in context) {
       if (this.actorInitQuery.contextKeyShortcuts[key]) {
@@ -667,6 +682,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     }
 
     // Execute query
+
     const output = await this.actorInitQuery.mediatorQueryOperation.mediate({
       context: actionContext,
       operation,
@@ -674,8 +690,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     output.context = actionContext;
     // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
     // If we train
-    if (!actionContext.get(KeysRlTrain.train)){
-      console.log("Resetting episode")
+    if (!actionContext.get(KeysRlTrain.train) && !trainingMode){
       this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
     }
     const finalOutput = QueryEngineBase.internalToFinalResult(output);

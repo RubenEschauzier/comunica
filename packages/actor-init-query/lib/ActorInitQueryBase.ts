@@ -150,7 +150,8 @@ export interface IActorInitQueryBaseArgs<QueryContext extends IQueryContextCommo
    *   "modelInstance": "@comunica/actor-rdf-join-inner-multi-reinforcement-learning:ModelInstance",
    *   "runningMomentsExecutionTime" : "@comunica/mediator-join-reinforcement-learning:runningMomentsExecutionTime",
    *   "runningMomentsFeatureFile" : "@comunica/mediator-join-reinforcement-learning:runningMomentsFeatureFile",
-   *   "train": "@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:train"
+   *   "train": "@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:train",
+   *   "queryKey": "@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:queryKey"
    * }}
    */
 

@@ -175,8 +175,9 @@ public async sortJoinEntries(
 
         const joinCombinationUnsorted: number[] = [...joinCombination];
         const modelOutput: IModelOutput = modelTreeLSTM.forwardPass(clonedFeatures, joinCombination);
-        
-        const qValueScalar: tf.Scalar = tf.squeeze(modelOutput.qValue);
+
+        // Negative of Q-value so we minimize execution time
+        const qValueScalar: tf.Scalar = tf.sub(0, tf.squeeze(modelOutput.qValue));
         if (qValueScalar.dataSync().length>1){
           throw new Error("Non scalar returned as Q-value");
         }

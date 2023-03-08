@@ -1,11 +1,12 @@
 import type { IActionHttp, IActorHttpOutput, IActorHttpArgs } from '@comunica/bus-http';
 import { ActorHttp } from '@comunica/bus-http';
-import { KeysHttp } from '@comunica/context-entries';
+import { KeysHttp, KeysRlTrain } from '@comunica/context-entries';
 import type { IMediatorTypeTime } from '@comunica/mediatortype-time';
 import type { Readable } from 'readable-stream';
 import 'cross-fetch/polyfill';
 import { FetchInitPreprocessor } from './FetchInitPreprocessor';
 import type { IFetchInitPreprocessor } from './IFetchInitPreprocessor';
+import { ActionContext } from '@comunica/core';
 
 /**
  * A node-fetch actor that listens on the 'init' bus.
@@ -52,7 +53,6 @@ export class ActorHttpFetch extends ActorHttp {
     let lastError: unknown;
     // The retryCount is 0-based. Therefore, add 1 to triesLeft.
     let triesLeft = retryCount + 1;
-
     // When retry count is greater than 0, repeat fetch.
     while (triesLeft-- > 0) {
       try {
@@ -134,6 +134,12 @@ export class ActorHttpFetch extends ActorHttp {
 
     try {
       requestInit = await this.fetchInitPreprocessor.handle(requestInit);
+
+      // Own code to inject queryKey into request
+      // const changeHeader = requestInit.headers as Headers;
+      // changeHeader.set(KeysRlTrain.queryKey.name, action.context!.get(KeysRlTrain.queryKey)!);
+      // End own code
+
       // Number of retries to perform after a failed fetch.
       const retryCount: number = action.context?.get(KeysHttp.httpRetryCount) ?? 0;
       const retryDelay: number = action.context?.get(KeysHttp.httpRetryDelay) ?? 0;

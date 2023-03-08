@@ -52,6 +52,7 @@ export interface IQueryContextCommon {
   runningMomentsExecutionTime?: IRunningMoments;
   runningMomentsFeaturesFile?: string;
   train?: boolean;
+  queryKey?: string;
   source?: IDataSource;
   // Inherited from RDF.QueryStringContext: sources
   destination?: IDataDestination;

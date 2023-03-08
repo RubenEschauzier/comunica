@@ -293,5 +293,6 @@ export const KeysRlTrain = {
   /**
    * Indicating whether we are during training or inference
    */
-  train: new ActionContextKey<boolean>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:train')
+  train: new ActionContextKey<boolean>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:train'),
+  queryKey: new ActionContextKey<string>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:queryKey')
 }
