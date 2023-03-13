@@ -78,6 +78,9 @@ implements IQueryEngine<QueryContext> {
     context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
   ){
     // If buffer is empty, we must be at our first run or just timed out, so we reload state
+    if (!context.queryKey){
+      console.error("Query training context missing queryKey");
+    }
     let trainLoss: number[] = [];
     try{
       trainLoss = this.readTrainLoss(this.trainingStateInformationLocation+'trainLoss.txt');
@@ -91,9 +94,8 @@ implements IQueryEngine<QueryContext> {
 
     const clonedContext = _.cloneDeep(context);
     clonedContext.batchedTrainingExamples = this.batchedTrainExamples;
-    clonedContext.trainingExecution = true;
-    const readQueryKey: string = fs.readFileSync('/home/reschauz/projects/terribleWorkAroundForQueryKey/currentKey', 'utf-8');
-    const trainResult = await this.executeTrainQuery(query, clonedContext, readQueryKey, this.runningMomentsExecution, this.experienceBuffer);
+    clonedContext.trainingExecution = true;    
+    const trainResult = await this.executeTrainQuery(query, clonedContext, clonedContext.queryKey!, this.runningMomentsExecution, this.experienceBuffer);
     const experiences: IExperience[] = [];
     const features = []; 
     // Sample experiences from the buffer if we have enough prior executions
@@ -363,7 +365,6 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     // Clear episode tensors
     this.disposeTrainEpisode();
     this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
-
     return [endTSearch-startT, binding];
   }
 
@@ -387,7 +388,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     this.disposeTrainEpisode();
     this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
     return [executionTimeRaw, endTimeSearch - startTime];
-}
+  }
 
   public async consumeStream(bindingStream: BindingsStream, runningMomentsExecutionTime: IRunningMoments, 
     experienceBuffer: ExperienceBuffer,
@@ -559,10 +560,13 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     if (context && context.trainEndPoint){
       trainingMode = true;
     }
+
     if (context && context.trainEndPoint && !context.trainingExecution){
+      console.log("RUNNING THIS BABY");
       const trainQueryOutput = await this.querySingleTrainStep(query, context);
       context.batchedTrainingExamples = this.batchedTrainExamples;
     }
+    // console.log(this.batchedTrainExamples.leafFeatures.memoryCell.length);
     // Expand shortcuts
     for (const key in context) {
       if (this.actorInitQuery.contextKeyShortcuts[key]) {
@@ -618,7 +622,6 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
 
     // Pre-processing the context
     actionContext = (await this.actorInitQuery.mediatorContextPreprocess.mediate({ context: actionContext })).context;
-
     // Determine explain mode
     const explainMode: QueryExplainMode = actionContext.get(KeysInitQuery.explain)!;
 
@@ -682,7 +685,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     }
 
     // Execute query
-
+    // const testB: IBatchedTrainingExamples|undefined = actionContext.get(KeysRlTrain.batchedTrainingExamples)
     const output = await this.actorInitQuery.mediatorQueryOperation.mediate({
       context: actionContext,
       operation,
@@ -690,7 +693,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     output.context = actionContext;
     // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
     // If we train
-    if (!actionContext.get(KeysRlTrain.train) && !trainingMode){
+    if (!actionContext.get(KeysRlTrain.train) && !trainingMode || context!.trainEndPoint){
       this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
     }
     const finalOutput = QueryEngineBase.internalToFinalResult(output);

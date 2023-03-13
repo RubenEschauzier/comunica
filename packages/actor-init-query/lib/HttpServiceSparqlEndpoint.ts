@@ -51,9 +51,10 @@ export class HttpServiceSparqlEndpoint {
     this.invalidateCacheBeforeQuery = Boolean(args.invalidateCacheBeforeQuery);
     this.freshWorkerPerQuery = Boolean(args.freshWorkerPerQuery);
     this.contextOverride = Boolean(args.contextOverride);
-    // MY OWN CODE FOR TRAINING VERY HACKY!!
+    // TODO MY OWN CODE FOR TRAINING VERY HACKY!!
     this.invalidateCacheBeforeQuery = true;
     this.contextOverride = true;
+    // TODO REMOVE
     this.engine = new QueryEngineFactoryBase(
       args.moduleRootPath,
       args.defaultConfigPath,
@@ -267,8 +268,8 @@ export class HttpServiceSparqlEndpoint {
       if (message === 'shutdown') {
         stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
         // Write model to file
-        // TODO
-        console.log("Timeout reached!!")
+        // TODO Make saveFile functionality on shutdown
+      
 
         // Stop new connections from being accepted
         server.close();
@@ -431,12 +432,11 @@ export class HttpServiceSparqlEndpoint {
     // Send message to master process to indicate the start of an execution
     process.send!({ type: 'start', queryId });
 
-    // Determine context (Added deepclone for training purposes)
+    // Determine context 
     let context = {
       ...this.context,
       ...this.contextOverride ? queryBody.context : undefined,
     };
-
     if (readOnly) {
       context = { ...context, [KeysQueryOperation.readOnly.name]: readOnly };
     }

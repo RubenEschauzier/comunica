@@ -92,9 +92,11 @@ export class ActorHttpFetch extends ActorHttp {
 
   public async run(action: IActionHttp): Promise<IActorHttpOutput> {
     // Prepare headers
+
     const initHeaders = action.init?.headers ?? {};
     action.init = action.init ?? {};
     action.init.headers = new Headers(initHeaders);
+
     if (!action.init.headers.has('user-agent')) {
       action.init.headers.append('user-agent', this.userAgent);
     }
@@ -116,6 +118,20 @@ export class ActorHttpFetch extends ActorHttp {
       action.init.headers = ActorHttp.headersToHash(action.init.headers);
     }
 
+    // Own code to inject queryKey into request, prob breaks a lot of stuff and is ugly
+    let requestBody = action.init.body as URLSearchParams
+    if (!requestBody.get('context')){
+      const newContext = JSON.stringify({queryKey: "00"});
+      requestBody.append('context', newContext);
+    }
+    else{
+      const existingContext = JSON.parse(requestBody.get('context')!);
+      existingContext['queryKey'] = "00";      
+      requestBody.delete('context');
+      requestBody.append('context', JSON.stringify(existingContext));
+    }
+    // End own code
+
     let requestInit = { ...action.init };
 
     if (action.context.get(KeysHttp.includeCredentials)) {
@@ -134,12 +150,6 @@ export class ActorHttpFetch extends ActorHttp {
 
     try {
       requestInit = await this.fetchInitPreprocessor.handle(requestInit);
-
-      // Own code to inject queryKey into request
-      // const changeHeader = requestInit.headers as Headers;
-      // changeHeader.set(KeysRlTrain.queryKey.name, action.context!.get(KeysRlTrain.queryKey)!);
-      // End own code
-
       // Number of retries to perform after a failed fetch.
       const retryCount: number = action.context?.get(KeysHttp.httpRetryCount) ?? 0;
       const retryDelay: number = action.context?.get(KeysHttp.httpRetryDelay) ?? 0;
