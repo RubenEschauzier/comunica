@@ -92,7 +92,6 @@ export class ActorHttpFetch extends ActorHttp {
 
   public async run(action: IActionHttp): Promise<IActorHttpOutput> {
     // Prepare headers
-
     const initHeaders = action.init?.headers ?? {};
     action.init = action.init ?? {};
     action.init.headers = new Headers(initHeaders);
@@ -100,6 +99,7 @@ export class ActorHttpFetch extends ActorHttp {
     if (!action.init.headers.has('user-agent')) {
       action.init.headers.append('user-agent', this.userAgent);
     }
+
     const authString: string | undefined = action.context.get(KeysHttp.auth);
     if (authString) {
       action.init.headers.append('Authorization', `Basic ${Buffer.from(authString).toString('base64')}`);
@@ -113,11 +113,6 @@ export class ActorHttpFetch extends ActorHttp {
       method: action.init!.method || 'GET',
     }));
 
-    // TODO: remove this workaround once this has a fix: https://github.com/inrupt/solid-client-authn-js/issues/1708
-    if (action.init?.headers && 'append' in action.init.headers && action.context.has(KeysHttp.fetch)) {
-      action.init.headers = ActorHttp.headersToHash(action.init.headers);
-    }
-
     // Own code to inject queryKey into request, prob breaks a lot of stuff and is ugly
     let requestBody = action.init.body as URLSearchParams
     if (!requestBody.get('context')){
@@ -130,7 +125,17 @@ export class ActorHttpFetch extends ActorHttp {
       requestBody.delete('context');
       requestBody.append('context', JSON.stringify(existingContext));
     }
+
+    if(action.init.body){
+      action.init.headers.set('content-length', action.init.body.toString().length.toString());
+    }
     // End own code
+
+
+    // TODO: remove this workaround once this has a fix: https://github.com/inrupt/solid-client-authn-js/issues/1708
+    if (action.init?.headers && 'append' in action.init.headers && action.context.has(KeysHttp.fetch)) {
+      action.init.headers = ActorHttp.headersToHash(action.init.headers);
+    }
 
     let requestInit = { ...action.init };
 

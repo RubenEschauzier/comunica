@@ -108,8 +108,6 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
 
     // Return actor with lowest cost
     const bestActor = testResults[minIndex].actor;
-    // console.log(bestActor.name);
-    // console.log(coefficients);
   
     // If the actor gave us a next join to execute we update our action and proceed to update trainEpisode
     const bestActorReply: IMediatorTypeReinforcementLearning = await testResults[minIndex].reply

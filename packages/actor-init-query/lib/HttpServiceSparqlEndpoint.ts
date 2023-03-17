@@ -18,7 +18,6 @@ import { QueryEngineBase, QueryEngineFactoryBase } from '..';
 import type { IDynamicQueryEngineOptions } from '..';
 import { CliArgsHandlerBase } from './cli/CliArgsHandlerBase';
 import { CliArgsHandlerHttp } from './cli/CliArgsHandlerHttp';
-import { timeStamp } from 'console';
 import * as _ from 'lodash'
 
 const quad = require('rdf-quad');
@@ -269,7 +268,7 @@ export class HttpServiceSparqlEndpoint {
         stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
         // Write model to file
         // TODO Make saveFile functionality on shutdown
-      
+        engine.saveState(this.timeout);
 
         // Stop new connections from being accepted
         server.close();

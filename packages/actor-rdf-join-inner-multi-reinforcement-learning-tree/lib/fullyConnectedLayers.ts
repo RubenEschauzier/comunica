@@ -89,10 +89,6 @@ export class QValueNetwork{
     }
 
     public forwardPassFromConfig(input: tf.Tensor, kwargs: any){
-        // const testTensor: tf.Tensor = tf.tensor([1,2,2,1]);
-        // const dropOutLayer = tf.layers.dropout({rate: .75});
-        // const test = dropOutLayer.call(testTensor, {training: true}) as tf.Tensor;
-        // console.log(test.dataSync())
         return tf.tidy(()=>{
             let x: tf.Tensor = this.networkLayers[0].apply(input) as tf.Tensor;
             for (let i=1;i<this.networkLayers.length;i++){

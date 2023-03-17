@@ -164,16 +164,13 @@ public async sortJoinEntries(
       // All elements in these two lists should be disposed
       const qValuesEstTensor: tf.Tensor[] = [];
       const featureRepresentations: ISingleResultSetRepresentation[]=[];
-      // console.log("GetJoinCoeff: entries/hiddenStates length");
-      // console.log(action.entries.length);
-      // console.log(trainEpisode.featureTensor.hiddenStates.length)
       for (const joinCombination of possibleJoinIndexes){
   
         // Clone features to make our prediction
         const clonedFeatures: IResultSetRepresentation = {hiddenStates: trainEpisode.featureTensor.hiddenStates.map(x=>tf.clone(x)),
         memoryCell: trainEpisode.featureTensor.memoryCell.map(x=>tf.clone(x))};
 
-        const joinCombinationUnsorted: number[] = [...joinCombination];
+        // const joinCombinationUnsorted: number[] = [...joinCombination];
         const modelOutput: IModelOutput = modelTreeLSTM.forwardPass(clonedFeatures, joinCombination);
 
         // Negative of Q-value so we minimize execution time
@@ -197,12 +194,6 @@ public async sortJoinEntries(
         chosenIdx = this.indexOfMax(estProb);
       }
 
-      // Clone all tensors belonging to best join
-      // const bestQTensor: tf.Tensor = tf.clone(qValuesEstTensor[chosenIdx]);
-      // const bestFeatureRep: ISingleResultSetRepresentation = {hiddenState: tf.clone(featureRepresentations[chosenIdx].hiddenState), 
-      // memoryCell: tf.clone(featureRepresentations[chosenIdx].memoryCell)};
-      // const bestJoinIdx: number[] = possibelJoinIndexesUnSorted[chosenIdx];
-      // console.log(qValuesEst[chosenIdx])
       return [qValuesEstTensor[chosenIdx], featureRepresentations[chosenIdx].hiddenState, 
       featureRepresentations[chosenIdx].memoryCell, possibelJoinIndexesUnSorted[chosenIdx]]
     });
