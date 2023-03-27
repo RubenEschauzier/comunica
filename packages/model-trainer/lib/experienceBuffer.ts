@@ -4,11 +4,14 @@ import * as fs from 'graceful-fs';
 import * as tf from '@tensorflow/tfjs-node';
 
 export class ExperienceBuffer{
-
+    // Data structures to make fifo buffer
     experienceBufferMap: Map<string,Map<string,IExperience>>;
     queryLeafFeatures: Map<string, IResultSetRepresentation>;
     experienceAgeTracker: IExperienceKey[];
     maxSize: number;
+    // Data structures to keep track of queries and their keys
+    queryToKey: Map<string, string>;
+    numUniqueKeys: number;
 
     /**
      * FIFO query execution buffer. We use this for periodical training. This allows for better data efficiency since the model is incredibly light weight
@@ -21,6 +24,9 @@ export class ExperienceBuffer{
         this.queryLeafFeatures = new Map<string, IResultSetRepresentation>();
         this.experienceAgeTracker = [];
         this.maxSize = maxSize;
+
+        this.queryToKey = new Map<string,string>();
+        this.numUniqueKeys = 0;
     }
 
     public getExperience(queryKey: string, joinPlanKey: string){
@@ -113,12 +119,31 @@ export class ExperienceBuffer{
         return;
     }
     
-    public refreshExistingExperience(){
-
+    /**
+     * Function to check initialisation of query string in experienceBuffer
+     * @param queryString The query string we want to check
+     * @returns Boolean indicating if query is initialised in experienceBuffer
+     */
+    public queryExists(queryString: string){
+        return this.queryToKey.get(queryString)? true: false;
     }
 
-    public initFromFile(){
+    public initQueryInformation(queryString: string, leafFeatures: IResultSetRepresentation){
+        // First we convert to string key
+        const queryStringKey = this.numUniqueKeys.toString();
 
+        // We record this queryString in our query to key map
+        this.queryToKey.set(queryString, queryStringKey);
+
+        // Update our leaf features
+        this.setLeafFeaturesQuery(queryStringKey, leafFeatures);
+
+        // Increment our string keys
+        this.numUniqueKeys += 1;
+        console.log("Here is queryToKey map");
+        console.log(this.queryToKey);
+        console.log("Here is leaf features")
+        console.log(this.queryLeafFeatures);
     }
 
     public setLeafFeaturesQuery(queryKey: string, leafFeatures: IResultSetRepresentation){
@@ -200,6 +225,15 @@ export class ExperienceBuffer{
             newExperienceMap.set(queryKey, queryTemplateMap);
         }
         this.experienceBufferMap = newExperienceMap;
+    }
+
+    public saveInitTracking(fileLocation: string){
+        const toSaveMap = JSON.stringify(this.queryToKey);
+        const uniqueKeys = JSON.stringify(this.numUniqueKeys);
+    }
+
+    public loadInitTracking(fileLocation: string){
+
     }
 
     public printExperiences(){

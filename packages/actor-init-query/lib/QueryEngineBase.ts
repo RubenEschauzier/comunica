@@ -127,14 +127,14 @@ implements IQueryEngine<QueryContext> {
       this.runningMomentsExecution = runningMomentsExecution;
     }
     catch{
-      console.log("No running moments found");
+      console.warn(chalk.red("INFO: No running moments found"));
     }
     // Load experience buffer
     try{
       this.experienceBuffer.loadBuffer(this.trainingStateInformationLocation);
     }
     catch(err){
-      console.log("No existing buffer found");
+      console.warn(chalk.red("INFO: No existing buffer found"));
     }
     // Load model weights
     try{
@@ -142,7 +142,7 @@ implements IQueryEngine<QueryContext> {
     }
     catch{
       await this.modelInstance.initModelRandom();
-      console.log("No model weights found, random initialisation")
+      console.warn(chalk.red("INFO: No model weights found, randomly initialising model weights"));
     }
   }
 
@@ -157,7 +157,7 @@ implements IQueryEngine<QueryContext> {
     if (this.trainEpisode.joinsMade.length==0){
       // We have no joins in our episode, so we just save buffer as is and exit
       this.experienceBuffer.saveBuffer(this.trainingStateInformationLocation);
-      console.warn("Empty trainEpisode when saving training state");
+      console.warn(chalk.red("Empty trainEpisode when saving training state"));
       return;
     }
     // If we have episode information we save it to buffer and then exit
@@ -451,7 +451,8 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     const leafFeatures: IResultSetRepresentation = {hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x=>x.clone()),
     memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x=>x.clone())};
     this.disposeTrainEpisode();
-    this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
+    this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
+    this.cleanBatchTrainingExamples();    
     return leafFeatures;
 }
 
@@ -465,7 +466,6 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
   }
 
   public cleanBatchTrainingExamples(){
-    // THIS IS NOT PROPERLY DISPOSING OF SHIT SHOULD MAKE THIS.BATCHEDEXAMPLES SO I CAN PROPERLY ASSIGN NEW STUFF!!
     this.batchedTrainExamples.leafFeatures.hiddenStates.map(x =>x.dispose());
     this.batchedTrainExamples.leafFeatures.memoryCell.map(x=>x.dispose());
     this.batchedTrainExamples = {trainingExamples: new Map<string, ITrainingExample>, leafFeatures: {hiddenStates: [], memoryCell:[]}};
@@ -577,14 +577,28 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
   ): Promise<QueryType | IQueryExplained> {
     context = context || <any>{};
-
+    // Flag to determine if we should perform an initialisation query
+    const initQuery = this.experienceBuffer.queryExists(query.toString())? false : true;
+    // Prepare batchedTrainExamples so we can store our leaf features
+    if (initQuery && context){
+      context.batchedTrainingExamples = this.batchedTrainExamples;
+    }
     // We set execution characteristics for training run
     let trainingMode = false;
     if (context && context.trainEndPoint){
       trainingMode = true;
     }
-
-    if (context && context.trainEndPoint && !this.breakRecursion){
+    
+    /**
+     * We execute training step on endpoint if we
+     * 1. Get a context
+     * 2. The context says we are doing endpoint training
+     * 3. If we haven't already called this.querySingleTrainStep (To prevent infinite recursion)
+     * 4. If the query already is initialised in the experienceBuffer
+     */
+    console.log(`This is a init query: ${initQuery}`);
+    if (context && context.trainEndPoint && !this.breakRecursion && !initQuery){
+      console.log("Train Step!")
       // Execute query step with given query
       this.breakRecursion = true;
       await this.querySingleTrainStep(query, context);
@@ -593,18 +607,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
       // Reset train episode
       this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
 
-      // return empty binding stream
-      const nop: IQueryOperationResult = {
-        bindingsStream: new SingletonIterator(this.BF.bindings()),
-        metadata: () => Promise.resolve({
-          cardinality: { type: 'exact', value: 1 },
-          canContainUndefs: false,
-          variables: [],
-        }),
-        type: 'bindings',
-      };
-      return QueryEngineBase.internalToFinalResult(nop)
-
+      return this.returnNop()
     }
 
     // Expand shortcuts
@@ -628,7 +631,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     // Initialise the running moments from file (The running moments file should only be passed on first execution)
     if(actionContext.get(KeysRlTrain.runningMomentsFeatureFile)){
       if (this.modelInstance.initMoments){
-        console.warn("WARNING: Reloading Moments When They Are Already Initialised");
+        console.warn(chalk.red("WARNING: Reloading Moments When They Are Already Initialised"));
       }
 
       const loadedRunningMomentsFeature: IRunningMoments = 
@@ -640,7 +643,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
 
     // If no path was passed and the moments are not initialised we create mean 0 std 1 moments
     else if (!this.modelInstance.initMoments){
-      console.warn(chalk.red("WARNING: Running Query Without Initialised Running Moments"));
+      console.warn(chalk.red("INFO: Running Query Without Initialised Running Moments"));
       for (const index of this.runningMomentsFeatures.indexes){
         const startPoint: IAggregateValues = {N: 0, mean: 0, std: 1, M2: 1}
         this.runningMomentsFeatures.runningStats.set(index, startPoint);
@@ -730,6 +733,21 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
       operation,
     });
     output.context = actionContext;
+    // If we are in initialisation run, we initialise the query with its features and return empty bindings
+    if (initQuery){
+      // Get the leaf features resulting from query
+      const leafFeatures: IResultSetRepresentation = {hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x=>x.clone()),
+        memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x=>x.clone())};
+      
+      // Clean the examples
+      this.cleanBatchTrainingExamples();
+      this.disposeTrainEpisode();
+      this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
+      this.experienceBuffer.initQueryInformation(query.toString(), leafFeatures);    
+      
+      return this.returnNop();
+    }
+
     // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
     // If we train
     if (!actionContext.get(KeysRlTrain.train) && !trainingMode){
@@ -914,6 +932,22 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
   public disposeTrainEpisode(){
     this.trainEpisode.featureTensor.hiddenStates.map(x=>x.dispose());
     this.trainEpisode.featureTensor.memoryCell.map(x=>x.dispose()); 
+  }
+  /**
+   * 
+   * @returns Empty binding stream
+   */
+  public returnNop(){
+    const nop: IQueryOperationResult = {
+      bindingsStream: new SingletonIterator(this.BF.bindings()),
+      metadata: () => Promise.resolve({
+        cardinality: { type: 'exact', value: 1 },
+        canContainUndefs: false,
+        variables: [],
+      }),
+      type: 'bindings',
+    };
+    return QueryEngineBase.internalToFinalResult(nop)
   }
 
   /**
