@@ -27,6 +27,9 @@ import * as _ from 'lodash';
 import * as fs from 'graceful-fs';
 import * as path from 'path';
 import { BindingsFactory } from '@comunica/bindings-factory';
+
+import * as process from 'process';
+
 /**
  * Base implementation of a Comunica query engine.
  */
@@ -48,6 +51,9 @@ implements IQueryEngine<QueryContext> {
   public BF: BindingsFactory;
   public breakRecursion: boolean;
   public currentQueryKey: string;
+  
+  // Some test values, should be removed when it works
+  public numQueryCalls: number;
 
 
 
@@ -75,6 +81,7 @@ implements IQueryEngine<QueryContext> {
     }
     this.experienceBuffer = new ExperienceBuffer(1500);
     this.nExpPerQuery = 8;
+    this.numQueryCalls = 0;
 
   }
 
@@ -82,25 +89,21 @@ implements IQueryEngine<QueryContext> {
     query: QueryFormatTypeInner,
     context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
   ){
-    if (!context.queryKey){
-      console.error("Query training context missing queryKey");
-    }
-    this.currentQueryKey = context.queryKey!;
     let trainLoss: number[] = [];
     try{
       trainLoss = this.readTrainLoss(this.trainingStateInformationLocation+'trainLoss.txt');
     }
     catch{
-      console.log("No train loss array found")
-    }
-    // If buffer is empty, we must be at our first run or just timed out, so we reload state
-    if (this.experienceBuffer.getSize()==0){
-      await this.loadState();
+      console.warn(chalk.red("No train loss array found"));
     }
 
     const clonedContext = _.cloneDeep(context);
     clonedContext.batchedTrainingExamples = this.batchedTrainExamples;
-    const trainResult = await this.executeTrainQuery(query, clonedContext, clonedContext.queryKey!, this.experienceBuffer);
+
+    const queryKey = this.experienceBuffer.getQueryKey(query.toString());
+    this.currentQueryKey = queryKey;
+
+    const trainResult = await this.executeTrainQuery(query, clonedContext, queryKey, this.experienceBuffer);
     const experiences: IExperience[] = [];
     const features = []; 
     // Sample experiences from the buffer if we have enough prior executions
@@ -134,25 +137,30 @@ implements IQueryEngine<QueryContext> {
       this.experienceBuffer.loadBuffer(this.trainingStateInformationLocation);
     }
     catch(err){
-      console.warn(chalk.red("INFO: No existing buffer found"));
+      // If we can't find a certain file, we initialise an empty buffer
+      this.experienceBuffer = new ExperienceBuffer(this.experienceBuffer.maxSize);
+      console.warn(chalk.red("INFO: No existing or incomplete buffer found"));
     }
     // Load model weights
     try{
       await this.modelInstance.initModel(this.trainingStateInformationLocation+'weights');
     }
-    catch{
+    catch(err){
+      // Flush any initialisation that went through to start from fresh model
+      this.modelInstance.flushModel()
+      // Initialise random model
       await this.modelInstance.initModelRandom();
-      console.warn(chalk.red("INFO: No model weights found, randomly initialising model weights"));
+      console.warn(chalk.red("INFO: Failed to load model weights, randomly initialising model weights"));
     }
   }
 
   public saveState(timeOutValue: number){
-    this.modelInstance.saveModel(this.trainingStateInformationLocation+'weights');
-    this.modelInstance.saveRunningMoments(this.runningMomentsFeatures, 
-      this.trainingStateInformationLocation+'runningMomentsFeatures.txt');
-    this.modelInstance.saveRunningMoments(this.runningMomentsExecution, 
-      this.trainingStateInformationLocation+'runningMomentsExecution.txt');
-
+    try{
+      this.modelInstance.saveModel(this.trainingStateInformationLocation+'weights');
+    }
+    catch{
+      console.warn(chalk.red("Failed to save model"));
+    }
     // First add timedout experience to buffer with current execution time
     if (this.trainEpisode.joinsMade.length==0){
       // We have no joins in our episode, so we just save buffer as is and exit
@@ -177,6 +185,15 @@ implements IQueryEngine<QueryContext> {
         this.experienceBuffer.setExperience(this.currentQueryKey, MediatorJoinReinforcementLearning.idxToKey([...partialJoinPlan]), newExperience, statsY);
     }
     this.experienceBuffer.saveBuffer(this.trainingStateInformationLocation);
+    try{
+      this.modelInstance.saveRunningMoments(this.runningMomentsFeatures, 
+        this.trainingStateInformationLocation+'runningMomentsFeatures.txt');
+      this.modelInstance.saveRunningMoments(this.runningMomentsExecution, 
+        this.trainingStateInformationLocation+'runningMomentsExecution.txt');  
+    }
+    catch{
+      console.warn(chalk.red("Failed to save running moments"));
+    }
   }
   
   public readTrainLoss(fileLocation: string){
@@ -371,8 +388,11 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     experienceBuffer: ExperienceBuffer
     ):Promise<[number, BindingsStream]>{
     const startT = this.getTimeSeconds();
+    console.log("Starting query execution");
     const binding = await this.queryOfType<QueryFormatTypeInner, IQueryBindingsEnhanced>(query, context, 'bindings');
+    console.log("Got binding");
     const endTSearch = this.getTimeSeconds();
+    
     if(this.trainEpisode.joinsMade.length==0){
       console.log("We got an empty episode.. :(");
       this.disposeTrainEpisode();
@@ -386,7 +406,9 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
         const joinIndexId = this.trainEpisode.joinsMade.slice(0, i);
         joinOrderKeys.push(MediatorJoinReinforcementLearning.idxToKey(joinIndexId));
     }
+    console.log("Waiting for this")
     const elapsed = await this.consumeStream(binding, experienceBuffer, startT, joinOrderKeys, queryKey, false, true);
+    console.log(`Done: elapsed = ${elapsed}`);
     // Clear episode tensors
     this.disposeTrainEpisode();
     this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
@@ -414,7 +436,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     return [executionTimeRaw, endTimeSearch - startTime];
   }
 
-  public async consumeStream(bindingStream: BindingsStream, 
+  public consumeStream(bindingStream: BindingsStream, 
     experienceBuffer: ExperienceBuffer,
     startTime: number, joinsMadeEpisode: string[], queryKey: string, 
     validation: boolean, recordExperience: boolean){
@@ -430,6 +452,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
           this.updateRunningMoments(statsY, elapsed);
         }
         if (recordExperience){
+          console.log("Recording experience!!")
           const standardisedElapsed = (elapsed - statsY.mean) / statsY.std;
           for (const joinMade of joinsMadeEpisode){
             const newExperience: IExperience = {actualExecutionTimeRaw: elapsed, actualExecutionTimeNorm: standardisedElapsed, 
@@ -577,16 +600,23 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
   ): Promise<QueryType | IQueryExplained> {
     context = context || <any>{};
+    /**
+     * If there are no entries in queryToKey map we are at first run or after time-out, thus reload the model state.
+     * We do this at start query to prevent unnecessary initialisation of features
+     *  */    
+    this.numQueryCalls += 1;
+
+    if (context && this.experienceBuffer.queryToKey.size==0 && context.trainEndPoint){
+      await this.loadState();
+    }
+
     // Flag to determine if we should perform an initialisation query
     const initQuery = this.experienceBuffer.queryExists(query.toString())? false : true;
+    console.log(`This is an init query ${initQuery}`)
+    console.log(`Start query, number of query calls: ${this.numQueryCalls}`);
     // Prepare batchedTrainExamples so we can store our leaf features
     if (initQuery && context){
       context.batchedTrainingExamples = this.batchedTrainExamples;
-    }
-    // We set execution characteristics for training run
-    let trainingMode = false;
-    if (context && context.trainEndPoint){
-      trainingMode = true;
     }
     
     /**
@@ -596,9 +626,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
      * 3. If we haven't already called this.querySingleTrainStep (To prevent infinite recursion)
      * 4. If the query already is initialised in the experienceBuffer
      */
-    console.log(`This is a init query: ${initQuery}`);
     if (context && context.trainEndPoint && !this.breakRecursion && !initQuery){
-      console.log("Train Step!")
       // Execute query step with given query
       this.breakRecursion = true;
       await this.querySingleTrainStep(query, context);
@@ -606,7 +634,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
       context.batchedTrainingExamples = this.batchedTrainExamples;
       // Reset train episode
       this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
-
+      console.log(`End of training step, num query calls: ${this.numQueryCalls}`);
       return this.returnNop()
     }
 
@@ -728,14 +756,22 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     }
 
     // Execute query
+    console.log("Episode before exeuction")
+    console.log(this.trainEpisode);
     const output = await this.actorInitQuery.mediatorQueryOperation.mediate({
       context: actionContext,
       operation,
     });
+    
+    console.log("Episode after exeuction")
+    console.log(this.trainEpisode);
+
     output.context = actionContext;
     // If we are in initialisation run, we initialise the query with its features and return empty bindings
     if (initQuery){
       // Get the leaf features resulting from query
+      console.log("Here is our train episode on init query:");
+      console.log(this.trainEpisode)
       const leafFeatures: IResultSetRepresentation = {hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x=>x.clone()),
         memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x=>x.clone())};
       
@@ -744,15 +780,16 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
       this.disposeTrainEpisode();
       this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
       this.experienceBuffer.initQueryInformation(query.toString(), leafFeatures);    
-      
+      console.log(`Finished our init query, nQueryCalls: ${this.numQueryCalls}`);
       return this.returnNop();
     }
 
     // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
     // If we train
-    if (!actionContext.get(KeysRlTrain.train) && !trainingMode){
+    if (!actionContext.get(KeysRlTrain.train) && context && !context.trainEndPoint){
       this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
     }
+    console.log("We are at end of 'normal' exection during train episode");
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
     // Output physical query plan after query exec if needed
     if (physicalQueryPlanLogger) {

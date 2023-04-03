@@ -70,6 +70,7 @@ export class ExperienceBuffer{
         if (!fullJoinPlanKeyLength){
             console.log(queryKey)
             console.log(this.queryLeafFeatures)
+            console.trace();
             throw new Error("Uninitialised query key");
         }
 
@@ -118,6 +119,14 @@ export class ExperienceBuffer{
         }
         return;
     }
+    public getQueryKey(queryString: string){
+        const queryKey = this.queryToKey.get(queryString)
+        if (!queryKey){
+            console.trace()
+            throw new Error("Requesting query that is not registered");
+        }
+        return queryKey;
+    }
     
     /**
      * Function to check initialisation of query string in experienceBuffer
@@ -140,10 +149,6 @@ export class ExperienceBuffer{
 
         // Increment our string keys
         this.numUniqueKeys += 1;
-        console.log("Here is queryToKey map");
-        console.log(this.queryToKey);
-        console.log("Here is leaf features")
-        console.log(this.queryLeafFeatures);
     }
 
     public setLeafFeaturesQuery(queryKey: string, leafFeatures: IResultSetRepresentation){
@@ -163,12 +168,15 @@ export class ExperienceBuffer{
         this.saveLeafFeatures(fileLocation+'leafFeatures.txt');
         this.saveExperienceTracking(fileLocation+'ageTracker.txt');
         this.saveExperienceMap(fileLocation + 'experienceMap.txt');
+        this.saveInitTracking(fileLocation + 'queryToKey.txt', fileLocation + 'numUnique.txt');
     }
     
     public loadBuffer(fileLocation:string){
         this.loadLeafFeatures(fileLocation+'leafFeatures.txt');
         this.loadExperienceTracking(fileLocation+'ageTracker.txt');
         this.loadExperienceMap(fileLocation + 'experienceMap.txt');
+        this.loadInitTracking(fileLocation + 'queryToKey.txt', fileLocation + 'numUnique.txt');
+
     }
 
     public saveLeafFeatures(fileLocation: string){
@@ -227,12 +235,20 @@ export class ExperienceBuffer{
         this.experienceBufferMap = newExperienceMap;
     }
 
-    public saveInitTracking(fileLocation: string){
-        const toSaveMap = JSON.stringify(this.queryToKey);
-        const uniqueKeys = JSON.stringify(this.numUniqueKeys);
+    public saveInitTracking(fileLocationMap: string, fileLocationUnique: string){
+        fs.writeFileSync(fileLocationMap, JSON.stringify([...this.queryToKey]));
+        fs.writeFileSync(fileLocationUnique, JSON.stringify(this.numUniqueKeys));
     }
 
-    public loadInitTracking(fileLocation: string){
+    public loadInitTracking(fileLocationMap: string, fileLocationUnique: string){
+        const loadedQueryToKeyMap: Map<string, string> = new Map<string, string>();
+        const queryToKeyMapArray: string[] = JSON.parse(fs.readFileSync(fileLocationMap, 'utf-8'));
+        for (let i=0;i<queryToKeyMapArray.length;i++){
+            loadedQueryToKeyMap.set(queryToKeyMapArray[i][0], queryToKeyMapArray[i][1]);
+        }
+        this.queryToKey = loadedQueryToKeyMap;
+        const uniqueKeys: number = JSON.parse(fs.readFileSync(fileLocationUnique, 'utf-8'));
+        this.numUniqueKeys = uniqueKeys;
 
     }
 

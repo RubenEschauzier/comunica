@@ -28,6 +28,14 @@ export class InstanceModel{
         }
     }
 
+    /**
+     * Method to flush any loaded model weights from the model
+     * This is used when during model instantiation something goes wrong and we want to start `clean`
+     */
+    public flushModel(){
+        this.modelTreeLSTM.flushModel();
+    }
+
     public getModel(): ModelTreeLSTM{
         return this.modelTreeLSTM
     };
@@ -37,17 +45,12 @@ export class InstanceModel{
     };
 
     public saveRunningMoments(runningMoments: IRunningMoments, runningMomentsPath: string){
-        path.join(__dirname, runningMomentsPath);
         let serialiseObject: {[key: string|number]: any} = {};
         serialiseObject['indexes'] = runningMoments.indexes;
         for (const [key, value] of runningMoments.runningStats){
           serialiseObject[key] = value;
         }
-        fs.writeFile(path.join(__dirname, runningMomentsPath), JSON.stringify(serialiseObject), function(err: any) {
-            if(err) {
-                return console.log(err);
-            }
-        }); 
+        fs.writeFileSync(runningMomentsPath, JSON.stringify(serialiseObject));
     };
     
     public loadRunningMoments(runningMomentsPath: string){

@@ -46,7 +46,7 @@ export class BinaryTreeLSTM extends tf.layers.Layer{
         this.activationLayer = tf.layers.activation({activation: activation});
 
         // Initialisation term
-        this.heInitTerm = tf.sqrt(tf.div(tf.tensor(2), tf.tensor(this.numUnits)));
+        this.heInitTerm = this.getHeInitTerm(numUnits);
 
         // Input Layers can probably be deleted
         this.IWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
@@ -70,14 +70,6 @@ export class BinaryTreeLSTM extends tf.layers.Layer{
 
 
         // Bias vectors 
-        // this.bI = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
-        // "bIb");
-        // this.bF = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
-        // "bfb");
-        // this.bO = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
-        // "bOb");
-        // this.bU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
-        // "bUb");
         this.bI = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
         this.bF = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
         this.bO = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
@@ -86,8 +78,12 @@ export class BinaryTreeLSTM extends tf.layers.Layer{
         this.allWeights = [ this.IWInput, this.FWInput, this.OWInput, this.UWInput, this.lhIU, this.rhIU, this.lhFUL, this.lhFUR, this.rhFUL, this.rhFUR, this.lhOU, this.rhOU,
             this.lhUU, this.rhUU, this.bI, this.bF, this.bO, this.bU]
 
-        // Dispose after usage
-        this.heInitTerm.dispose();
+    }
+    
+    public getHeInitTerm(numUnits: number){
+        return tf.tidy(()=>{
+           return tf.sqrt(tf.div(tf.tensor(2), tf.tensor(numUnits)));
+        });
     }
 
     setWeights(weights: tf.Tensor<tf.Rank>[]): void {
@@ -124,17 +120,6 @@ export class BinaryTreeLSTM extends tf.layers.Layer{
         });
     }
 
-    // getGate(input:tf.Tensor, lhs:tf.Tensor, rhs: tf.Tensor, inputWeight: tf.Variable, lhUWeight: tf.Variable, rhUWeight: tf.Variable, biasVec: tf.Variable){
-    //     // Calculate i_{j} = W_{input} * x_{j} + \sum_{k=1}^{2} U_{k}^{i} h_{jk} + b^{i}
-    //     // W_{input} * x_{j} = inRepI, \sum_{k=1}^{2} U_{k}^{i} h_{jk}=hsRepI, i_{j} = inputGate
-
-    //     return tf.tidy(()=>{
-    //         const inRepG: tf.Tensor = tf.matMul(inputWeight, input);
-    //         const hsRepG: tf.Tensor = tf.add(tf.matMul(lhUWeight, lhs), tf.matMul(rhUWeight, rhs));
-    //         const gateRep: tf.Tensor = tf.add(tf.add(inRepG, hsRepG), biasVec);
-    //         return gateRep    
-    //     });
-    // }
     getGate(input:tf.Tensor, lhs:tf.Tensor, rhs: tf.Tensor, inputWeight: tf.Variable, lhUWeight: tf.Variable, rhUWeight: tf.Variable, biasVec: tf.Variable){
         // Calculate i_{j} = W_{input} * x_{j} + \sum_{k=1}^{2} U_{k}^{i} h_{jk} + b^{i}
         // W_{input} * x_{j} = inRepI, \sum_{k=1}^{2} U_{k}^{i} h_{jk}=hsRepI, i_{j} = inputGate
@@ -157,16 +142,6 @@ export class BinaryTreeLSTM extends tf.layers.Layer{
         });
     }
 
-    // getMemoryCell(inputGate:tf.Tensor, uGate: tf.Tensor, forgetGateL: tf.Tensor, forgetGateR: tf.Tensor, lmc: tf.Tensor, rmc: tf.Tensor){
-    //     return tf.tidy(()=>{
-    //         return tf.add(tf.mul(inputGate, uGate), tf.add(tf.mul(forgetGateL, lmc), tf.mul(forgetGateR,rmc)));
-    //     });
-    // }
-    // getHiddenState(outputGate:tf.Tensor, memoryCell:tf.Tensor){
-    //     return tf.tidy(()=>{
-    //         return tf.mul(outputGate, tf.tanh(memoryCell));
-    //     });
-    // }
     public loadWeights(fileLocation: string){
         const weightValues: number[][][] = JSON.parse(fs.readFileSync(fileLocation, 'utf8'));
         for (let i = 0;i<weightValues.length;i++){
@@ -179,6 +154,11 @@ export class BinaryTreeLSTM extends tf.layers.Layer{
             return x.arraySync();
         }) as number[][][];
         fs.writeFileSync(fileLocation, JSON.stringify(weightValues));
+    }
+
+    public disposeLayer(){
+        this.heInitTerm.dispose();
+        this.allWeights.map(x=>x.dispose());
     }
 
 }
@@ -207,12 +187,13 @@ export class ChildSumTreeLSTM extends tf.layers.Layer{
 
     public static className: string = 'childSumLSTM'; 
 
-    constructor(numUnits: number, activation: activationOptionsId, layerName?: string){
+    constructor(numUnits: number, activation: activationOptionsId){
         super({});
         this.numUnits=numUnits;
         this.activationLayer = tf.layers.activation({activation: activation});
 
-        this.heInitTerm = tf.sqrt(tf.div(tf.tensor(2), tf.tensor(this.numUnits)));
+        this.heInitTerm = this.getHeInitTerm(numUnits);
+
         this.IWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
         this.FWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
         this.OWInput = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
@@ -223,14 +204,6 @@ export class ChildSumTreeLSTM extends tf.layers.Layer{
         this.OU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
         this.UU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, this.numUnits],0,1),this.heInitTerm), true);
 
-        // this.bI = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
-        // "bI");
-        // this.bF = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
-        // "bF");
-        // this.bO = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
-        // "bO");
-        // this.bU = tf.variable(tf.mul(tf.randomNormal([this.numUnits, 1],0,1),this.heInitTerm), true,
-        // "bU");
         this.bI = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
         this.bF = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
         this.bO = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
@@ -238,49 +211,25 @@ export class ChildSumTreeLSTM extends tf.layers.Layer{
 
         this.allWeights = [ this.IWInput, this.FWInput, this.OWInput, this.UWInput, this.IU, this.FU, this.OU, this.UU, this.bI, this.bF, this.bO, this.bU];
     }
-    // /**
-    //  * 
-    //  * @param inputs Inputs a list of stacked tensors as follows: [inputFeature, child hidden states, child memory cells]
-    //  * 
-    //  */
-    
-    // call(inputs: tf.Tensor[]){
-    //     return tf.tidy(()=>{
-            
-    //         const inputFeature: tf.Tensor = inputs[0]; const hiddenStatesChildren: tf.Tensor = inputs[1]; const memoryCellsChildren: tf.Tensor = inputs[2];
-    //         // Shapes: [ 4, 1 ] [ 2, 4, 1 ] [ 2, 4, 1 ]
 
-    //         const hiddenStateTilde: tf.Tensor = tf.sum(hiddenStatesChildren, 0);
-    
-    //         const inputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.IWInput, this.IU, this.bU));
-    //         const forgetGates: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStatesChildren, this.FWInput, this.FU, this.bF));
-    //         const outputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.OWInput, this.OU, this.bO));
-    //         const uGate: tf.Tensor = tf.tanh(this.getGate(inputFeature, hiddenStateTilde, this.UWInput, this.UU, this.bU));
-    
-    //         const memoryCellCurrent: tf.Tensor = this.getMemoryCell(inputGate, uGate, forgetGates, memoryCellsChildren);
-    //         const hiddenStateCurrent: tf.Tensor = this.getHiddenState(outputGate, memoryCellCurrent);
-            
-    //         return [hiddenStateCurrent, memoryCellCurrent];
-    //     });
-    // }
-    callTestWeird(inputs: tf.Tensor[]){
+    public getHeInitTerm(numUnits: number){
+        return tf.tidy(()=>{
+           return tf.sqrt(tf.div(tf.tensor(2), tf.tensor(numUnits)));
+        });
+    }
+
+    callForRecurisive(inputs: tf.Tensor[]){
         return tf.tidy(()=>{
             const inputFeature: tf.Tensor = inputs[0]; const hiddenStatesChildren: tf.Tensor = inputs[1]; const memoryCellsChildren: tf.Tensor = inputs[2];
-            // // Shapes: [ 4, 1 ] [ 2, 4, 1 ] [ 2, 4, 1 ]
-
             const hiddenStateTilde: tf.Tensor = tf.sum(hiddenStatesChildren, 0);
     
             const inputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.IWInput, this.IU, this.bU));
-            // const forgetGates: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStatesChildren, this.FWInput, this.FU, this.bF));
-            // const test = tf.reshape(this.FU, hiddenStatesChildren.shape);
-            // const inputFeatureForget: tf.Tensor = inputFeature.reshape([1, inputFeature.shape[0]]);
             const forgetGatesCollapsed: tf.Tensor = this.activationLayer.apply(this.getGateForget(inputFeature, hiddenStatesChildren.squeeze(), this.FWInput, this.FU, this.bF));
-            // const forgetGatesCollapsed: tf.Tensor = this.activationLayer.apply(tf.sum(tf.matMul(hiddenStatesChildren.squeeze(), this.FU),0));
             const outputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.OWInput, this.OU, this.bO));
             const uGate: tf.Tensor = tf.tanh(this.getGate(inputFeature, hiddenStateTilde, this.UWInput, this.UU, this.bU));
-
             const memoryCellCurrent: tf.Tensor = this.getMemoryCellTest(inputGate, uGate, forgetGatesCollapsed, memoryCellsChildren.squeeze());
             const hiddenStateCurrent: tf.Tensor = this.getHiddenState(outputGate, memoryCellCurrent);
+
             return [hiddenStateCurrent, memoryCellCurrent];
         });
     }
@@ -289,12 +238,9 @@ export class ChildSumTreeLSTM extends tf.layers.Layer{
      * @param inputs Inputs a list of stacked tensors as follows: [inputFeature, child hidden states, child memory cells]
      * 
      */
-    
     call(inputs: tf.Tensor[]){
         return tf.tidy(()=>{
             const inputFeature: tf.Tensor = inputs[0]; const hiddenStatesChildren: tf.Tensor = inputs[1]; const memoryCellsChildren: tf.Tensor = inputs[2];
-            // Shapes: [ 4, 1 ] [ 2, 4, 1 ] [ 2, 4, 1 ]
-
             const hiddenStateTilde: tf.Tensor = tf.sum(hiddenStatesChildren, 0);
     
             const inputGate: tf.Tensor = this.activationLayer.apply(this.getGate(inputFeature, hiddenStateTilde, this.IWInput, this.IU, this.bU));
@@ -306,24 +252,11 @@ export class ChildSumTreeLSTM extends tf.layers.Layer{
             
             return [hiddenStateCurrent, memoryCellCurrent];
         });
-    }    /**
-     * 
-     * @param inputs Inputs a list of tensors as follows: [inputFeature, child hidden states, child memory cells]
-     * 
-     */
-    
+    }    
 
-    // private getGate(inputNode: tf.Tensor, inputHiddenState: tf.Tensor, inputWeight: tf.Variable, hiddenStateWeight: tf.Variable, biasVec: tf.Variable){
-    //     return tf.add(tf.add(tf.matMul(inputWeight, inputNode), tf.matMul(hiddenStateWeight, inputHiddenState)), biasVec);
-    // }
     private getGate(inputNode: tf.Tensor, inputHiddenState: tf.Tensor, inputWeight: tf.Variable, hiddenStateWeight: tf.Variable, biasVec: tf.Variable){
         return tf.add(tf.add(tf.matMul(inputNode, inputWeight), tf.matMul(inputHiddenState, hiddenStateWeight)), biasVec);
     }
-
-    private getGateUpdated(inputNode: tf.Tensor, inputHiddenState: tf.Tensor, inputWeight: tf.Variable, 
-        hiddenStateWeight: tf.Variable, biasVec: tf.Variable){
-            return tf.add(tf.add(tf.matMul(inputNode, inputWeight), tf.matMul(inputHiddenState, hiddenStateWeight)), biasVec);
-        }
 
     private getGateForget(inputNode: tf.Tensor, inputHiddenStates: tf.Tensor, inputWeight: tf.Variable, hiddenStateWeight: tf.Variable, biasVec: tf.Variable){
         const intermediate: tf.Tensor = tf.add(tf.matMul(inputNode, inputWeight), tf.matMul(inputHiddenStates, hiddenStateWeight));
@@ -357,9 +290,16 @@ export class ChildSumTreeLSTM extends tf.layers.Layer{
         fs.writeFileSync(fileLocation, JSON.stringify(weightValues));
     }
 
+    public disposeLayer(){
+        this.heInitTerm.dispose();
+        this.allWeights.map(x => x.dispose());
+    }
+
 }
 
 export class ModelTreeLSTM{
+    inputSize: number;
+
     binaryTreeLSTMLayer: BinaryTreeLSTM[];
     childSumTreeLSTMLayer: ChildSumTreeLSTM[];
     qValueNetwork: QValueNetwork;
@@ -371,6 +311,7 @@ export class ModelTreeLSTM{
     loadedConfig: IModelConfig;
 
     public constructor(inputSize: number){
+        this.inputSize = inputSize
         this.binaryTreeLSTMLayer = [];
         this.childSumTreeLSTMLayer = [];
         this.qValueNetwork = new QValueNetwork(inputSize,1);
@@ -421,22 +362,27 @@ export class ModelTreeLSTM{
         }
         await this.qValueNetwork.initRandom(modelConfig.qValueNetwork, this.weightsDir);
         this.initialised=true;    
-
     }
 
+    public flushModel(){
+        // Dispose all weights
+        for (let i = 0; i<this.binaryTreeLSTMLayer.length;i++){
+            this.binaryTreeLSTMLayer[i].disposeLayer();
+        }
+        for (let j = 0; j<this.childSumTreeLSTMLayer.length;j++){
+            this.childSumTreeLSTMLayer[j].disposeLayer();
+        }
+        this.qValueNetwork.flushQNetwork();
+
+        // Empty the model
+        this.binaryTreeLSTMLayer = [];
+        this.childSumTreeLSTMLayer = [];
+        this.qValueNetwork = new QValueNetwork(this.inputSize,1);
+
+    }
     public async saveModel(weightsDir?: string){
         // THIS CAN NOT SAVE MULTIPLE LAYERS
-        // if (saveLocation){
-        //     for (const layer of this.binaryTreeLSTMLayer){
-        //         layer.saveWeights(this.weightsDir+saveLocation+"binaryLstmWeights.txt")
-        //     }
-        //     for (const layer of this.childSumTreeLSTMLayer){
-        //         layer.saveWeights(this.weightsDir+saveLocation+"childSumLstmWeights.txt")
-        //     }
-        //     // This can
-        //     this.qValueNetwork.saveNetwork(this.loadedConfig.qValueNetwork, this.weightsDir, saveLocation);
-        //     return;
-        // }
+
         if (weightsDir){
             this.weightsDir = weightsDir;
         }
@@ -550,7 +496,7 @@ export class ModelTreeLSTM{
     
             }
             const childSumInput: tf.Tensor[] = [inputTensor, tf.stack(inputFeaturesCloned.hiddenStates), tf.stack(inputFeaturesCloned.memoryCell)];
-            const childSumOutput: tf.Tensor[] = this.childSumTreeLSTMLayer[0].callTestWeird(childSumInput);
+            const childSumOutput: tf.Tensor[] = this.childSumTreeLSTMLayer[0].callForRecurisive(childSumInput);
             // TODO: Query representation
     
             // Feed representation into dense layer to get Q-value

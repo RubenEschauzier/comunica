@@ -54,6 +54,8 @@ export class HttpServiceSparqlEndpoint {
     this.invalidateCacheBeforeQuery = true;
     this.contextOverride = true;
     // TODO REMOVE
+    console.log("Here are the args:")
+    console.log(args)
     this.engine = new QueryEngineFactoryBase(
       args.moduleRootPath,
       args.defaultConfigPath,
@@ -268,7 +270,7 @@ export class HttpServiceSparqlEndpoint {
         stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
         // Write model to file
         // TODO Make saveFile functionality on shutdown
-        engine.saveState(this.timeout);
+        // engine.saveState(this.timeout);
 
         // Stop new connections from being accepted
         server.close();

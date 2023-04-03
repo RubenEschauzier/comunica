@@ -19,6 +19,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
   public predicateVectors: Map<string,number[]>;
 
   public constructor(args: IMediatorJoinCoefficientsFixedArgs) {
+    console.log("THIS IS BEING MADE SO USE IT?")
     super(args);
     this.readPredicateVectors()
   }
@@ -157,6 +158,8 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
         batchToUpdate.trainingExamples.set(MediatorJoinReinforcementLearning.idxToKey(trainEpisode.joinsMade), {qValue: bestActorReply.predictedQValue.dataSync()[0], actualExecutionTime: -1, N: 0});
       }
       bestActorReply.predictedQValue.dispose();
+      console.log(`After mediator call, trainEp`);
+      console.log(trainEpisode);
     }
     if (!action.context.get(KeysRlTrain.batchedTrainingExamples)){
       throw new Error("Mediator did not receive a batched training example object");
@@ -178,6 +181,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
         ])),
       });
     }
+    
     return bestActor;
   }
 
