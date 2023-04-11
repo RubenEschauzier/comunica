@@ -37,6 +37,8 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Debug
+        run: echo ${DOCKER_USERNAME}
       - name: Build and push
         run: ~/.lerna-docker/bin/lerna-docker comunica push
         env:
