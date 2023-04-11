@@ -40,8 +40,8 @@ jobs:
       - name: Build and push
         run: ~/.lerna-docker/bin/lerna-docker comunica push
         env:
-          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          DOCKER_USERNAME: ${{ github.actor }}
+          DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy Docker images
         if: startsWith(github.ref, 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
