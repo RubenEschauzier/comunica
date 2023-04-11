@@ -47,8 +47,10 @@ jobs:
         run: sh -c "`curl -fsSl https://raw.githubusercontent.com/rubensworks/lerna-docker/master/install.sh`"
       - name: Build Docker images
         run: ~/.lerna-docker/bin/lerna-docker comunica build
+      - name: Tag Docker Image
+        run: docker tag comunica/query-sparql:dev rubeneschauzier/test-dockerfile-rl-comunica
       - name: Push to docker
-        run: docker push comunica/query-sparql:dev
+        run: docker push rubeneschauzier/test-dockerfile-rl-comunica
       - name: Build and push
         run: ~/.lerna-docker/bin/lerna-docker comunica push
         env:
