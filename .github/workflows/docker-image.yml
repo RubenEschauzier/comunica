@@ -9,7 +9,8 @@ on:
 jobs:
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest   
+    if: github.ref == 'refs/heads/feature/rl-based-join-optimizer'
     steps:
       - name: Use Node.js
         uses: actions/setup-node@v3
