@@ -27,17 +27,22 @@ jobs:
           key: ${{ runner.os }}-docker-modules-${{ secrets.CACHE_VERSION }}-${{ hashFiles('**/yarn.lock') }}
       - name: Install dependencies
         run: yarn install --pure-lockfile
+        
       - name: Debug
-        run: echo ${testVar}
+        run: echo $testVar
         env:
           testVar: ${{secrets.DOCKER_USERNAME}}
       - name: Debug
-        run: echo ${testVar}
+        run: echo $testVar
         env:
           testVar: ${{secrets.DOCKER_PASSWORD}}
 
       - name: Login to Docker
         run: docker login -u=secrets.DOCKER_USERNAME -p=secrets.DOCKER_PASSWORD
+        env:
+          DOCKER_USERNAME: ${{secrets.DOCKER_USERNAME}}
+          DOCKER_PASSWORD: ${{secrets.DOCKER_PASSWORD}}
+          
       - name: Install Lerna Docker
         run: sh -c "`curl -fsSl https://raw.githubusercontent.com/rubensworks/lerna-docker/master/install.sh`"
       - name: Build Docker images
