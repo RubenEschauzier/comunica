@@ -48,7 +48,7 @@ jobs:
       - name: Build Docker images
         run: ~/.lerna-docker/bin/lerna-docker comunica build
       - name: Tag Docker Image
-        run: docker tag comunica/query-sparql:dev rubeneschauzier/test-dockerfile-rl-comunica
+        run: docker tag comunica/query-sparql-file:dev rubeneschauzier/test-dockerfile-rl-comunica
       - name: Push to docker
         run: docker push rubeneschauzier/test-dockerfile-rl-comunica
       - name: Build and push
