@@ -51,11 +51,7 @@ export class HttpServiceSparqlEndpoint {
     this.freshWorkerPerQuery = Boolean(args.freshWorkerPerQuery);
     this.contextOverride = Boolean(args.contextOverride);
     // TODO MY OWN CODE FOR TRAINING VERY HACKY!!
-    this.invalidateCacheBeforeQuery = true;
-    this.contextOverride = true;
     // TODO REMOVE
-    console.log("Here are the args:")
-    console.log(args)
     this.engine = new QueryEngineFactoryBase(
       args.moduleRootPath,
       args.defaultConfigPath,

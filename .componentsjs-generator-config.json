@@ -72,6 +72,7 @@
     "@comunica/actor-dereference-fallback": "cadf",
     "@comunica/actor-rdf-join-inner-multi-sequential": "carjimse",
     "@comunica/actor-rdf-join-inner-multi-smallest": "carjimsm",
+    "@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree": "carjimsmrl",
     "@comunica/actor-rdf-join-inner-none": "carjino",
     "@comunica/actor-rdf-join-inner-single": "carjisi",
     "@comunica/actor-rdf-join-inner-symmetrichash": "carjish",

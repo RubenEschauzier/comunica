@@ -35,10 +35,6 @@ export class QueryEngineFactoryBase<Q extends QueryEngineBase> {
     const runnerInstanceUri: string = options.runnerInstanceUri ?? 'urn:comunica:default:Runner';
 
     // This needs to happen before any promise gets generated
-    console.log("Options for making engine")
-    console.log(configResourceUrl)
-    console.log(runnerInstanceUri)
-    console.log(options)
     const runner: Runner = await instantiateComponent(configResourceUrl, runnerInstanceUri, options);
     const actorInitQuery = <ActorInitQueryBase> runner.collectActors({ engine: instanceUri }).engine;
     return this.queryEngineWrapper(actorInitQuery);

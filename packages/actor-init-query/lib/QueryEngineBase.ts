@@ -604,6 +604,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
      * If there are no entries in queryToKey map we are at first run or after time-out, thus reload the model state.
      * We do this at start query to prevent unnecessary initialisation of features
      *  */    
+    console.log("Start here!")
     this.numQueryCalls += 1;
 
     if (context && this.experienceBuffer.queryToKey.size==0 && context.trainEndPoint){
@@ -628,8 +629,10 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
      */
     if (context && context.trainEndPoint && !this.breakRecursion && !initQuery){
       // Execute query step with given query
+      console.log("Training step start");
       this.breakRecursion = true;
       await this.querySingleTrainStep(query, context);
+      console.log("Training step end");
       this.breakRecursion = false;
       context.batchedTrainingExamples = this.batchedTrainExamples;
       // Reset train episode
@@ -756,22 +759,21 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     }
 
     // Execute query
-    console.log("Episode before exeuction")
+    console.log(`This is an init query: ${initQuery}`);
+    console.log("Episode before execution")
     console.log(this.trainEpisode);
     const output = await this.actorInitQuery.mediatorQueryOperation.mediate({
       context: actionContext,
       operation,
     });
-    
-    console.log("Episode after exeuction")
+    console.log("Episode after execution")
     console.log(this.trainEpisode);
 
+    
     output.context = actionContext;
     // If we are in initialisation run, we initialise the query with its features and return empty bindings
     if (initQuery){
       // Get the leaf features resulting from query
-      console.log("Here is our train episode on init query:");
-      console.log(this.trainEpisode)
       const leafFeatures: IResultSetRepresentation = {hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x=>x.clone()),
         memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x=>x.clone())};
       
@@ -780,7 +782,6 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
       this.disposeTrainEpisode();
       this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
       this.experienceBuffer.initQueryInformation(query.toString(), leafFeatures);    
-      console.log(`Finished our init query, nQueryCalls: ${this.numQueryCalls}`);
       return this.returnNop();
     }
 
@@ -940,7 +941,10 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
      * Hyperbolic embeddings
      * PCA on adjacency matrix
      * 
-     * 
+     * Triple pattern encoding:
+     * Replace RDF2Vec with BERTesque model
+     * This way we can learn contextual encodings of named nodes AND instantly have access to a [MASK] token embedding which can represent variables in a triple pattern
+     * We can consider training the BERT model together with the optimizer or pretrain BERT only.
      * 
      * Lit review:
      * Comprehensive review of join order optimizers

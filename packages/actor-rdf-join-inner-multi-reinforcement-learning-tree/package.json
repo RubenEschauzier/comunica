@@ -29,7 +29,8 @@
     "components",
     "lib/**/*.d.ts",
     "lib/**/*.js",
-    "lib/**/*.js.map"
+    "lib/**/*.js.map",
+    "model"
   ],
   "dependencies": {
     "@comunica/core": "^2.5.1",
