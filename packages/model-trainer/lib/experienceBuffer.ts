@@ -65,7 +65,6 @@ export class ExperienceBuffer{
      * @returns 
      */
     public setExperience(queryKey: string, joinPlanKey: string, experience: IExperience, runningMomentsY: IAggregateValues){
-        
         const fullJoinPlanKeyLength = this.getNumJoinsQuery(queryKey);
         if (!fullJoinPlanKeyLength){
             console.log(queryKey)

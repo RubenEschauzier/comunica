@@ -50,8 +50,6 @@ export class HttpServiceSparqlEndpoint {
     this.invalidateCacheBeforeQuery = Boolean(args.invalidateCacheBeforeQuery);
     this.freshWorkerPerQuery = Boolean(args.freshWorkerPerQuery);
     this.contextOverride = Boolean(args.contextOverride);
-    // TODO MY OWN CODE FOR TRAINING VERY HACKY!!
-    // TODO REMOVE
     this.engine = new QueryEngineFactoryBase(
       args.moduleRootPath,
       args.defaultConfigPath,
@@ -266,7 +264,8 @@ export class HttpServiceSparqlEndpoint {
         stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
         // Write model to file
         // TODO Make saveFile functionality on shutdown
-        // engine.saveState(this.timeout);
+        console.info("Engine shutdown; Saving state")
+        engine.saveState(this.timeout);
 
         // Stop new connections from being accepted
         server.close();
