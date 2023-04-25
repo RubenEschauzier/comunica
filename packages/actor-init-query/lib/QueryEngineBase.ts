@@ -56,6 +56,7 @@ implements IQueryEngine<QueryContext> {
   // Values for epoch checkpointing
   public numTrainSteps: number;
   public numQueries: number;
+  public totalEpochsDone: number;
 
 
 
@@ -86,8 +87,8 @@ implements IQueryEngine<QueryContext> {
     this.experienceBuffer = new ExperienceBuffer(1500);
     this.nExpPerQuery = 8;
     this.numTrainSteps = 0;
-    // We try to make 1 'epoch' after all queries have been passed, but don't take into account
     this.numQueries = 126;
+    this.totalEpochsDone = 0;
 
   }
 
@@ -122,9 +123,19 @@ implements IQueryEngine<QueryContext> {
       }
       const loss = await this.trainModelExperienceReplay(experiences, features);
       trainLoss.push(loss);
+      this.numTrainSteps += 1;
     }
     this.writeTrainLoss(trainLoss, this.trainingStateInformationLocation+'trainLoss.txt');
     this.cleanBatchTrainingExamples();
+    // When the number of train steps is equal or larger to the number of queries, we count 1 epoch, record statistics and checkpoint the model
+    if (this.numTrainSteps >= this.numQueries){
+      this.totalEpochsDone += 1;
+      
+      const trainLossEpoch: number[] = trainLoss.slice((this.totalEpochsDone-1)*this.numQueries, this.totalEpochsDone*this.numQueries);
+      const avgTrainLossEpoch: number = trainLossEpoch.reduce((a,b)=>a+b,0)/trainLossEpoch.length||0; 
+      console.log(`Epoch ${this.totalEpochsDone}: Avg train loss: ${avgTrainLossEpoch}`);
+      this.numTrainSteps = 0;
+    }
     return trainResult[1];
   }
 
@@ -140,8 +151,9 @@ implements IQueryEngine<QueryContext> {
       console.warn(chalk.red("INFO: No running moments found"));
     }
     try{
-      const data = readFileSync(this.trainingStateInformationLocation+'numTrainSteps.txt', 'utf-8');
-      this.numTrainSteps = +data;
+      const data = JSON.parse(readFileSync(this.trainingStateInformationLocation+'numTrainStepsEpochs.txt', 'utf-8'));
+      this.numTrainSteps = +data[0];
+      this.totalEpochsDone = +data[1];
     }
     catch{
       console.warn(chalk.red("Failed to read number of training steps executed"));
@@ -176,7 +188,7 @@ implements IQueryEngine<QueryContext> {
       console.warn(chalk.red("Failed to save model"));
     }
     try{
-      writeFileSync(this.trainingStateInformationLocation+'numTrainSteps.txt', JSON.stringify(this.numTrainSteps));
+      writeFileSync(this.trainingStateInformationLocation+'numTrainStepsEpochs.txt', JSON.stringify([this.numTrainSteps, this.totalEpochsDone]));
     }
     catch{
       console.warn(chalk.red("Failed to save number of training steps executed"))
@@ -408,24 +420,28 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     experienceBuffer: ExperienceBuffer
     ):Promise<[number, BindingsStream]>{
     const startT = this.getTimeSeconds();
+    // Let the RL model optimize the query
     const binding = await this.queryOfType<QueryFormatTypeInner, IQueryBindingsEnhanced>(query, context, 'bindings');
     const endTSearch = this.getTimeSeconds();
     
+    // If there are no joins in query we do not record the experience for the model to train
     if(this.trainEpisode.joinsMade.length==0){
       this.disposeTrainEpisode();
       this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
       return [endTSearch - startT, binding];
     }
-    const joinOrderKeys: string[] = [];
 
-    // Get joins made in this query to update
+    // Get all query optimization steps made by model
+    const joinOrderKeys: string[] = [];
     for (let i = 1; i <this.trainEpisode.joinsMade.length+1;i++){
-        
         const joinIndexId = this.trainEpisode.joinsMade.slice(0, i);
         joinOrderKeys.push(MediatorJoinReinforcementLearning.idxToKey(joinIndexId));
     }
+
+    // Consume the query plan to obtain query execution time
     const elapsed = await this.consumeStream(binding, experienceBuffer, startT, joinOrderKeys, queryKey, false, true);
-    // Clear episode tensors
+
+    // Clear episode tensors to reset the model state
     this.disposeTrainEpisode();
     this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
     return [endTSearch-startT, binding];

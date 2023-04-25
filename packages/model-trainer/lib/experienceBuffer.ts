@@ -1,4 +1,3 @@
-import { transformFile } from "@babel/core";
 import { IAggregateValues, IResultSetRepresentation, MediatorJoinReinforcementLearning } from "@comunica/mediator-join-reinforcement-learning";
 import * as fs from 'graceful-fs';
 import * as tf from '@tensorflow/tfjs-node';

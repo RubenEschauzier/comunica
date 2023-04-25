@@ -13,6 +13,7 @@ export class ActorDereferenceFile extends ActorDereference {
   }
 
   public async test({ url }: IActionDereference): Promise<IActorTest> {
+    console.log("THIS IS BEING TESTEEEDDD");
     try {
       accessSync(getPath(url), constants.F_OK);
     } catch (error: unknown) {
