@@ -28,7 +28,10 @@
       "lib/**/*.js"
     ],
     "dependencies": {
-      "graceful-fs": "4.2.10"
+      "graceful-fs": "4.2.10",
+      "@comunica/mediator-join-reinforcement-learning": "^1.0.0",
+      "@tensorflow/tfjs-node": "4.2.0"
+
     },
     "scripts": {
       "build": "npm run build:ts && npm run build:components",
