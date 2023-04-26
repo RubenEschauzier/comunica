@@ -70,7 +70,9 @@ implements IQueryEngine<QueryContext> {
     // End point training
     this.BF = new BindingsFactory();
     this.breakRecursion = false;
-    this.trainingStateInformationLocation = __dirname + "/../trainingStateEngine/";
+    // Hardcoded location for training state, either for within local files or within docker
+    // this.trainingStateInformationLocation = __dirname + "/../trainingStateEngine/";
+    this.trainingStateInformationLocation = "/tmp/trainingStateEngine/"
     this.runningMomentsFeatures = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
     this.runningMomentsExecution = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
     for (const index of this.runningMomentsExecution.indexes){
@@ -123,6 +125,7 @@ implements IQueryEngine<QueryContext> {
       const loss = await this.trainModelExperienceReplay(experiences, features);
       trainLoss.push(loss);
     }
+    
     this.writeTrainLoss(trainLoss, this.trainingStateInformationLocation+'trainLoss.txt');
     this.cleanBatchTrainingExamples();
     return trainResult[1];
@@ -166,6 +169,10 @@ implements IQueryEngine<QueryContext> {
       await this.modelInstance.initModelRandom();
       console.warn(chalk.red("INFO: Failed to load model weights, randomly initialising model weights"));
     }
+    console.log("After loading");
+    console.log(this.runningMomentsFeatures)
+    console.log(this.runningMomentsExecution)
+    console.log(this.experienceBuffer.getSize());
   }
 
   public saveState(timeOutValue: number){
@@ -456,10 +463,13 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     experienceBuffer: ExperienceBuffer,
     startTime: number, joinsMadeEpisode: string[], queryKey: string, 
     validation: boolean, recordExperience: boolean){
+    let numBindings = 0;
     const consumedStream: Promise<number> = new Promise((resolve, reject)=>{
       bindingStream.on('data', () =>{
+        numBindings+=1;
       });
       bindingStream.on('end', () => {
+        console.log(`Query has ${numBindings} results`);
         const endTime: number = this.getTimeSeconds();
         const elapsed: number = endTime-startTime;
         const statsY: IAggregateValues = this.runningMomentsExecution.runningStats.get(this.runningMomentsExecution.indexes[0])!;
@@ -632,7 +642,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     // Flag to determine if we should perform an initialisation query
     const initQuery = this.experienceBuffer.queryExists(query.toString())? false : true;
     // Prepare batchedTrainExamples so we can store our leaf features
-    if (initQuery && context){
+    if (context){
       context.batchedTrainingExamples = this.batchedTrainExamples;
     }
     

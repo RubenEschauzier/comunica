@@ -31,6 +31,7 @@
   ],
   "dependencies": {
     "@comunica/core": "^2.5.1",
+    "@comunica/context-entries": "^2.5.1",
     "pca-js": "1.0.2"
   },
   "scripts": {

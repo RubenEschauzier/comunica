@@ -18,7 +18,7 @@ import { IRunningMoments } from '@comunica/mediator-join-reinforcement-learning'
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
- * ActorIniQueryBase in @comunica/actor-init-query if it makes sense to use this entry externally.
+ * ActorInitQueryBase in @comunica/actor-init-query if it makes sense to use this entry externally.
  * Also, add this shortcut to IQueryContextCommon in @comunica/types.
  */
 

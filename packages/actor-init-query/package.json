@@ -29,7 +29,8 @@
     "components",
     "lib/**/*.d.ts",
     "lib/**/*.js",
-    "lib/**/*.js.map"
+    "lib/**/*.js.map",
+    "trainingStateEngine"
   ],
   "dependencies": {
     "@comunica/actor-http-proxy": "^2.5.1",

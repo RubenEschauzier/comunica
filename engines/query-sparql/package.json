@@ -164,6 +164,7 @@
     "@comunica/config-query-sparql": "^2.5.1",
     "@comunica/bus-query-operation": "^2.5.1",
     "@comunica/core": "^2.5.1",
+    "@comunica/context-entries": "^2.5.1",
     "@comunica/logger-void": "^2.5.1",
     "@comunica/mediator-all": "^2.5.1",
     "@comunica/mediator-combine-pipeline": "^2.5.1",
