@@ -163,17 +163,17 @@ export class ExperienceBuffer{
     }
 
     public saveBuffer(fileLocation: string){
-        this.saveLeafFeatures(fileLocation+'leafFeatures.txt');
-        this.saveExperienceTracking(fileLocation+'ageTracker.txt');
-        this.saveExperienceMap(fileLocation + 'experienceMap.txt');
-        this.saveInitTracking(fileLocation + 'queryToKey.txt', fileLocation + 'numUnique.txt');
+        this.saveLeafFeatures(fileLocation+'/leafFeatures.txt');
+        this.saveExperienceTracking(fileLocation+'/ageTracker.txt');
+        this.saveExperienceMap(fileLocation + '/experienceMap.txt');
+        this.saveInitTracking(fileLocation + '/queryToKey.txt', fileLocation + '/numUnique.txt');
     }
     
     public loadBuffer(fileLocation:string){
-        this.loadLeafFeatures(fileLocation+'leafFeatures.txt');
-        this.loadExperienceTracking(fileLocation+'ageTracker.txt');
-        this.loadExperienceMap(fileLocation + 'experienceMap.txt');
-        this.loadInitTracking(fileLocation + 'queryToKey.txt', fileLocation + 'numUnique.txt');
+        this.loadLeafFeatures(fileLocation+'/leafFeatures.txt');
+        this.loadExperienceTracking(fileLocation+'/ageTracker.txt');
+        this.loadExperienceMap(fileLocation + '/experienceMap.txt');
+        this.loadInitTracking(fileLocation + '/queryToKey.txt', fileLocation + '/numUnique.txt');
 
     }
 

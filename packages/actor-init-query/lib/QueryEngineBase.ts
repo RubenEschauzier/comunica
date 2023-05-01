@@ -72,8 +72,8 @@ implements IQueryEngine<QueryContext> {
     this.BF = new BindingsFactory();
     this.breakRecursion = false;
     // Hardcoded location for training state, either for within local files or within docker
-    // this.trainingStateInformationLocation = __dirname + "/../trainingStateEngine/";
-    this.trainingStateInformationLocation = "/tmp/trainingStateEngine/"
+    // this.trainingStateInformationLocation = __dirname + "/../trainingStateEngine";
+    this.trainingStateInformationLocation = "/tmp/trainingStateEngine"
     this.runningMomentsFeatures = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
     this.runningMomentsExecution = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
     for (const index of this.runningMomentsExecution.indexes){
@@ -155,8 +155,8 @@ implements IQueryEngine<QueryContext> {
   public async loadState(baseDir: string){
     // Load running moments
     try{
-      const runningMomentsFeatures = this.modelInstance.loadRunningMoments(baseDir+'runningMomentsFeatures.txt');
-      const runningMomentsExecution = this.modelInstance.loadRunningMoments(baseDir+'runningMomentsExecution.txt');
+      const runningMomentsFeatures = this.modelInstance.loadRunningMoments(baseDir+'/runningMomentsFeatures.txt');
+      const runningMomentsExecution = this.modelInstance.loadRunningMoments(baseDir+'/runningMomentsExecution.txt');
       this.runningMomentsFeatures = runningMomentsFeatures;
       this.runningMomentsExecution = runningMomentsExecution;
     }
@@ -164,7 +164,7 @@ implements IQueryEngine<QueryContext> {
       console.warn(chalk.red("INFO: No running moments found"));
     }
     try{
-      const data = JSON.parse(readFileSync(baseDir+'numTrainStepsEpochs.txt', 'utf-8'));
+      const data = JSON.parse(readFileSync(baseDir+'/numTrainStepsEpochs.txt', 'utf-8'));
       this.numTrainSteps = +data[0];
       this.totalEpochsDone = +data[1];
     }
@@ -182,7 +182,7 @@ implements IQueryEngine<QueryContext> {
     }
     // Load model weights
     try{
-      await this.modelInstance.initModel(baseDir+'weights');
+      await this.modelInstance.initModel(baseDir+'/weights');
     }
     catch(err){
       // Flush any initialisation that went through to start from fresh model
@@ -196,13 +196,13 @@ implements IQueryEngine<QueryContext> {
 
   public saveState(timeOutValue: number, baseDir: string){
     try{
-      this.modelInstance.saveModel(baseDir+'weights');
+      this.modelInstance.saveModel(baseDir+'/weights');
     }
     catch{
       console.warn(chalk.red("Failed to save model"));
     }
     try{
-      writeFileSync(baseDir+'numTrainStepsEpochs.txt', JSON.stringify([this.numTrainSteps, this.totalEpochsDone]));
+      writeFileSync(baseDir+'/numTrainStepsEpochs.txt', JSON.stringify([this.numTrainSteps, this.totalEpochsDone]));
     }
     catch{
       console.warn(chalk.red("Failed to save number of training steps executed"))
@@ -210,9 +210,9 @@ implements IQueryEngine<QueryContext> {
 
     try{
       this.modelInstance.saveRunningMoments(this.runningMomentsFeatures, 
-        baseDir+'runningMomentsFeatures.txt');
+        baseDir+'/runningMomentsFeatures.txt');
       this.modelInstance.saveRunningMoments(this.runningMomentsExecution, 
-        baseDir+'runningMomentsExecution.txt');  
+        baseDir+'/runningMomentsExecution.txt');  
     }
     catch{
       console.warn(chalk.red("Failed to save running moments"));
