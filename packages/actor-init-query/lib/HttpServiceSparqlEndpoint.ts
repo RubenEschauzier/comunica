@@ -177,7 +177,7 @@ export class HttpServiceSparqlEndpoint {
    * @param {module:stream.internal.Writable} stderr The error stream to log errors to.
    */
   public async runMaster(stdout: Writable, stderr: Writable): Promise<void> {
-    stderr.write(`Server running on http://localhost:${this.port}/sparql\n`);
+    // stderr.write(`Server running on http://localhost:${this.port}/sparql\n`);
 
     // Create workers
     for (let i = 0; i < this.workers; i++) {
@@ -203,7 +203,7 @@ export class HttpServiceSparqlEndpoint {
       const workerTimeouts: Record<number, NodeJS.Timeout> = {};
       worker.on('message', ({ type, queryId }) => {
         if (type === 'start') {
-          stderr.write(`Worker ${worker.process.pid} got assigned a new query (${queryId}).\n`);
+          // stderr.write(`Worker ${worker.process.pid} got assigned a new query (${queryId}).\n`);
           workerTimeouts[queryId] = setTimeout(() => {
             try {
               if (worker.isConnected()) {
@@ -216,7 +216,7 @@ export class HttpServiceSparqlEndpoint {
             delete workerTimeouts[queryId];
           }, this.timeout);
         } else if (type === 'end' && workerTimeouts[queryId]) {
-          stderr.write(`Worker ${worker.process.pid} has completed query ${queryId}.\n`);
+          // stderr.write(`Worker ${worker.process.pid} has completed query ${queryId}.\n`);
           clearTimeout(workerTimeouts[queryId]);
           delete workerTimeouts[queryId];
         }
@@ -247,7 +247,7 @@ export class HttpServiceSparqlEndpoint {
     // Start the server
     const server = http.createServer(this.handleRequest.bind(this, engine, variants, stdout, stderr));
     server.listen(this.port);
-    stderr.write(`Server worker (${process.pid}) running on http://localhost:${this.port}/sparql\n`);
+    // stderr.write(`Server worker (${process.pid}) running on http://localhost:${this.port}/sparql\n`);
 
     // Keep track of all open connections
     const openConnections: Set<ServerResponse> = new Set();
@@ -261,11 +261,11 @@ export class HttpServiceSparqlEndpoint {
     // Subscribe to shutdown messages
     process.on('message', async(message: string): Promise<void> => {
       if (message === 'shutdown') {
-        stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
+        // stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
         // Write model to file
         // TODO Make saveFile functionality on shutdown
         console.info("Engine shutdown; Saving state")
-        engine.saveState(this.timeout);
+        engine.saveState(this.timeout, engine.trainingStateInformationLocation);
 
         // Stop new connections from being accepted
         server.close();
@@ -421,9 +421,9 @@ export class HttpServiceSparqlEndpoint {
       return this.writeServiceDescription(engine, stdout, stderr, request, response, mediaType, headOnly);
     }
     // Log the start of the query execution
-    stdout.write(`[200] ${request.method} to ${request.url}\n`);
-    stdout.write(`      Requested media type: ${mediaType}\n`);
-    stdout.write(`      Received ${queryBody.type} query: ${queryBody.value}\n`);
+    // stdout.write(`[200] ${request.method} to ${request.url}\n`);
+    // stdout.write(`      Requested media type: ${mediaType}\n`);
+    // stdout.write(`      Received ${queryBody.type} query: ${queryBody.value}\n`);
 
     // Send message to master process to indicate the start of an execution
     process.send!({ type: 'start', queryId });
@@ -469,7 +469,7 @@ export class HttpServiceSparqlEndpoint {
 
     // Write header of response
     response.writeHead(200, { 'content-type': mediaType, 'Access-Control-Allow-Origin': '*' });
-    stdout.write(`      Resolved to result media type: ${mediaType}\n`);
+    // stdout.write(`      Resolved to result media type: ${mediaType}\n`);
 
     // Stop further processing for HEAD requests
     if (headOnly) {

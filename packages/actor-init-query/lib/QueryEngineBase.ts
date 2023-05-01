@@ -138,15 +138,25 @@ implements IQueryEngine<QueryContext> {
       const avgTrainLossEpoch: number = trainLossEpoch.reduce((a,b)=>a+b,0)/trainLossEpoch.length||0; 
       console.log(`Epoch ${this.totalEpochsDone}: Avg train loss: ${avgTrainLossEpoch}`);
       this.numTrainSteps = 0;
+      if (!fs.existsSync(this.trainingStateInformationLocation+"/chk"+this.totalEpochsDone)){
+        fs.mkdirSync(this.trainingStateInformationLocation+"/chk"+this.totalEpochsDone);
+        fs.mkdirSync(this.trainingStateInformationLocation+"/chk"+this.totalEpochsDone+"/weights"); 
+        fs.mkdirSync(this.trainingStateInformationLocation+"/chk"+this.totalEpochsDone+"/weights/denseBias"); 
+        fs.mkdirSync(this.trainingStateInformationLocation+"/chk"+this.totalEpochsDone+"/weights/denseWeights"); 
+      }
+      else{
+        console.warn("Overriding previous checkpoint during training");
+      }
+      this.saveState(0, this.trainingStateInformationLocation+"/chk"+this.totalEpochsDone);
     }
     return trainResult[1];
   }
 
-  public async loadState(){
+  public async loadState(baseDir: string){
     // Load running moments
     try{
-      const runningMomentsFeatures = this.modelInstance.loadRunningMoments(this.trainingStateInformationLocation+'runningMomentsFeatures.txt');
-      const runningMomentsExecution = this.modelInstance.loadRunningMoments(this.trainingStateInformationLocation+'runningMomentsExecution.txt');
+      const runningMomentsFeatures = this.modelInstance.loadRunningMoments(baseDir+'runningMomentsFeatures.txt');
+      const runningMomentsExecution = this.modelInstance.loadRunningMoments(baseDir+'runningMomentsExecution.txt');
       this.runningMomentsFeatures = runningMomentsFeatures;
       this.runningMomentsExecution = runningMomentsExecution;
     }
@@ -154,7 +164,7 @@ implements IQueryEngine<QueryContext> {
       console.warn(chalk.red("INFO: No running moments found"));
     }
     try{
-      const data = JSON.parse(readFileSync(this.trainingStateInformationLocation+'numTrainStepsEpochs.txt', 'utf-8'));
+      const data = JSON.parse(readFileSync(baseDir+'numTrainStepsEpochs.txt', 'utf-8'));
       this.numTrainSteps = +data[0];
       this.totalEpochsDone = +data[1];
     }
@@ -163,7 +173,7 @@ implements IQueryEngine<QueryContext> {
     }
     // Load experience buffer
     try{
-      this.experienceBuffer.loadBuffer(this.trainingStateInformationLocation);
+      this.experienceBuffer.loadBuffer(baseDir);
     }
     catch(err){
       // If we can't find a certain file, we initialise an empty buffer
@@ -172,7 +182,7 @@ implements IQueryEngine<QueryContext> {
     }
     // Load model weights
     try{
-      await this.modelInstance.initModel(this.trainingStateInformationLocation+'weights');
+      await this.modelInstance.initModel(baseDir+'weights');
     }
     catch(err){
       // Flush any initialisation that went through to start from fresh model
@@ -181,34 +191,41 @@ implements IQueryEngine<QueryContext> {
       await this.modelInstance.initModelRandom();
       console.warn(chalk.red("INFO: Failed to load model weights, randomly initialising model weights"));
     }
-    console.log("After loading");
-    console.log(this.runningMomentsFeatures)
-    console.log(this.runningMomentsExecution)
-    console.log(this.experienceBuffer.getSize());
+    console.log(`Size Buffer after Loading: ${this.experienceBuffer.getSize()}`);
   }
 
-  public saveState(timeOutValue: number){
+  public saveState(timeOutValue: number, baseDir: string){
     try{
-      this.modelInstance.saveModel(this.trainingStateInformationLocation+'weights');
+      this.modelInstance.saveModel(baseDir+'weights');
     }
     catch{
       console.warn(chalk.red("Failed to save model"));
     }
     try{
-      writeFileSync(this.trainingStateInformationLocation+'numTrainStepsEpochs.txt', JSON.stringify([this.numTrainSteps, this.totalEpochsDone]));
+      writeFileSync(baseDir+'numTrainStepsEpochs.txt', JSON.stringify([this.numTrainSteps, this.totalEpochsDone]));
     }
     catch{
       console.warn(chalk.red("Failed to save number of training steps executed"))
     }
+
+    try{
+      this.modelInstance.saveRunningMoments(this.runningMomentsFeatures, 
+        baseDir+'runningMomentsFeatures.txt');
+      this.modelInstance.saveRunningMoments(this.runningMomentsExecution, 
+        baseDir+'runningMomentsExecution.txt');  
+    }
+    catch{
+      console.warn(chalk.red("Failed to save running moments"));
+    }
+
     // First add timedout experience to buffer with current execution time
     if (this.trainEpisode.joinsMade.length==0){
       // We have no joins in our episode, so we just save buffer as is and exit
-      this.experienceBuffer.saveBuffer(this.trainingStateInformationLocation);
+      this.experienceBuffer.saveBuffer(baseDir);
       console.warn(chalk.red("Empty trainEpisode when saving training state"));
       return;
     }
     // If we have episode information we save it to buffer and then exit
-
     const elapsed = timeOutValue / 1000;
     const statsY: IAggregateValues = this.runningMomentsExecution.runningStats.get(this.runningMomentsExecution.indexes[0])!;
 
@@ -223,16 +240,7 @@ implements IQueryEngine<QueryContext> {
         joinIndexes: [...partialJoinPlan], N:1};
         this.experienceBuffer.setExperience(this.currentQueryKey, MediatorJoinReinforcementLearning.idxToKey([...partialJoinPlan]), newExperience, statsY);
     }
-    this.experienceBuffer.saveBuffer(this.trainingStateInformationLocation);
-    try{
-      this.modelInstance.saveRunningMoments(this.runningMomentsFeatures, 
-        this.trainingStateInformationLocation+'runningMomentsFeatures.txt');
-      this.modelInstance.saveRunningMoments(this.runningMomentsExecution, 
-        this.trainingStateInformationLocation+'runningMomentsExecution.txt');  
-    }
-    catch{
-      console.warn(chalk.red("Failed to save running moments"));
-    }
+    this.experienceBuffer.saveBuffer(baseDir);
   }
   
   public readTrainLoss(fileLocation: string){
@@ -485,7 +493,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
         numBindings+=1;
       });
       bindingStream.on('end', () => {
-        console.log(`Query has ${numBindings} results`);
+        // console.log(`Query has ${numBindings} results`);
         const endTime: number = this.getTimeSeconds();
         const elapsed: number = endTime-startTime;
         const statsY: IAggregateValues = this.runningMomentsExecution.runningStats.get(this.runningMomentsExecution.indexes[0])!;
@@ -652,7 +660,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     // }
 
     if (context && this.experienceBuffer.queryToKey.size==0 && context.trainEndPoint){
-      await this.loadState();
+      await this.loadState(this.trainingStateInformationLocation);
     }
 
     // Flag to determine if we should perform an initialisation query
