@@ -6,7 +6,7 @@
         },
         "type": "lstm",
         "layers":[
-            {"type": "binaryTreeLSTM", "activation": "relu", "numUnits": 138}
+            {"type": "binaryTreeLSTM", "activation": "sigmoid", "numUnits": 138}
         ]
 
     },
@@ -17,7 +17,7 @@
         },
         "type": "lstm",
         "layers":[
-            {"type": "childSumTreeLSTM", "activation": "relu", "numUnits": 138}
+            {"type": "childSumTreeLSTM", "activation": "sigmoid", "numUnits": 138}
         ]
 
     },
@@ -31,7 +31,16 @@
         "type": "dense",
         "layers":[
             {"type": "dropout", "inputSize": 138, "outputSize": 138 , "rate": 0.2},
-            {"type": "dense", "inputSize": 138, "outputSize": 256},
+            {"type": "dense", "inputSize": 138, "outputSize": 512},
+            {"type": "activation", "activation": "relu", "inputSize": 512, "outputSize": 512},
+            {"type": "dropout", "inputSize": 512, "outputSize": 512 , "rate": 0.2},
+            {"type": "dense", "inputSize": 512, "outputSize": 1024},
+            {"type": "activation", "activation": "relu", "inputSize": 1024, "outputSize": 1024},
+            {"type": "dropout", "inputSize": 1024, "outputSize": 1024 , "rate": 0.2},
+            {"type": "dense", "inputSize": 1024, "outputSize": 512},
+            {"type": "activation", "activation": "relu", "inputSize": 512, "outputSize": 512},
+            {"type": "dropout", "inputSize": 512, "outputSize": 512 , "rate": 0.2},
+            {"type": "dense", "inputSize": 512, "outputSize": 256},
             {"type": "activation", "activation": "relu", "inputSize": 256, "outputSize": 256},
             {"type": "dropout", "inputSize":256, "outputSize":256, "rate": 0.2},
             {"type": "dense", "inputSize": 256, "outputSize": 64},

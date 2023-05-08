@@ -66,7 +66,7 @@ implements IQueryEngine<QueryContext> {
     this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
     // Hardcoded, should be config, but not sure how to incorporate
     this.modelInstance = new InstanceModel();
-    this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.005});
+    this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.01});
     this.batchedTrainExamples = {trainingExamples: new Map<string, ITrainingExample>, leafFeatures: {hiddenStates: [], memoryCell:[]}};
     // End point training
     this.BF = new BindingsFactory();
@@ -89,7 +89,7 @@ implements IQueryEngine<QueryContext> {
     this.experienceBuffer = new ExperienceBuffer(1500);
     this.nExpPerQuery = 8;
     this.numTrainSteps = 0;
-    this.numQueries = 126;
+    this.numQueries = 100;
     this.totalEpochsDone = 0;
 
   }
@@ -100,7 +100,7 @@ implements IQueryEngine<QueryContext> {
   ){
     let trainLoss: number[] = [];
     try{
-      trainLoss = this.readTrainLoss(this.trainingStateInformationLocation+'trainLoss.txt');
+      trainLoss = this.readTrainLoss(this.trainingStateInformationLocation+'/trainLoss.txt');
     }
     catch{
       console.warn(chalk.red("No train loss array found"));
@@ -128,7 +128,7 @@ implements IQueryEngine<QueryContext> {
       this.numTrainSteps += 1;
     }
     
-    this.writeTrainLoss(trainLoss, this.trainingStateInformationLocation+'trainLoss.txt');
+    this.writeTrainLoss(trainLoss, this.trainingStateInformationLocation+'/trainLoss.txt');
     this.cleanBatchTrainingExamples();
     // When the number of train steps is equal or larger to the number of queries, we count 1 epoch, record statistics and checkpoint the model
     if (this.numTrainSteps >= this.numQueries){
@@ -148,6 +148,16 @@ implements IQueryEngine<QueryContext> {
         console.warn("Overriding previous checkpoint during training");
       }
       this.saveState(0, this.trainingStateInformationLocation+"/chk"+this.totalEpochsDone);
+      let epochTrainLoss: number[] = []
+      try{
+        // Read epoch loss from previous chkpoint to append to
+        epochTrainLoss = this.readTrainLoss(this.trainingStateInformationLocation+"/chk"+(this.totalEpochsDone-1)+"/epochTrainLoss.txt")
+      }
+      catch{
+        console.warn("Couldn't find epoch train loss information");
+      }
+      epochTrainLoss.push(avgTrainLossEpoch);
+      this.writeTrainLoss(epochTrainLoss, this.trainingStateInformationLocation + "/chk" + this.totalEpochsDone + "/epochTrainLoss.txt");
     }
     return trainResult[1];
   }
@@ -653,11 +663,6 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
      * If there are no entries in queryToKey map we are at first run or after time-out, thus reload the model state.
      * We do this at start query to prevent unnecessary initialisation of features
      *  */    
-    // let noJoinsInQuery = false;
-    // const joinsInQuery = (query.match(/ .\n/g) || []).length - 1;
-    // if (joinsInQuery < 3){
-    //   noJoinsInQuery = true;
-    // }
 
     if (context && this.experienceBuffer.queryToKey.size==0 && context.trainEndPoint){
       await this.loadState(this.trainingStateInformationLocation);
@@ -668,6 +673,10 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     // Prepare batchedTrainExamples so we can store our leaf features
     if (context){
       context.batchedTrainingExamples = this.batchedTrainExamples;
+    }
+
+    if (context && context.trainEndPoint){
+      context.train = true;
     }
     
     /**

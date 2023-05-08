@@ -64,6 +64,8 @@ export class ExperienceBuffer{
      * @returns 
      */
     public setExperience(queryKey: string, joinPlanKey: string, experience: IExperience, runningMomentsY: IAggregateValues){
+        console.log(`Before adding experience ${this.getSize()}`)
+
         const fullJoinPlanKeyLength = this.getNumJoinsQuery(queryKey);
         if (!fullJoinPlanKeyLength){
             console.log(queryKey)
@@ -71,7 +73,7 @@ export class ExperienceBuffer{
             console.trace();
             throw new Error("Uninitialised query key");
         }
-
+        
         const existingExperience = this.getExperience(queryKey, joinPlanKey);
         const joinPlanKeyArray = MediatorJoinReinforcementLearning.keyToIdx(joinPlanKey);
 
@@ -79,6 +81,9 @@ export class ExperienceBuffer{
         const fullJoinPlan: boolean = joinPlanKeyArray.length == fullJoinPlanKeyLength
         
         if (existingExperience){
+            console.log("Existing experience");
+            console.log(queryKey);
+            console.log(joinPlanKey);
             /**
              * Note that this function is not entirely correct, if the average execution time goes up due to chance it is not reflected in the execution time
              *of partial join plans that use the execution time of a complete join plan. This difference should be small though.
@@ -103,6 +108,7 @@ export class ExperienceBuffer{
             existingExperience.actualExecutionTimeNorm = (existingExperience.actualExecutionTimeRaw - runningMomentsY.mean)/runningMomentsY.std;
             return;
         }
+        console.log("New experience!")
 
         // If it doesn't exist we set new experience
         this.experienceBufferMap.get(queryKey)!.set(joinPlanKey, experience);
@@ -115,6 +121,7 @@ export class ExperienceBuffer{
             this.experienceBufferMap.get(removedElement.query)!.delete(removedElement.joinPlanKey);
 
         }
+        console.log(`After adding experience ${this.getSize()}`)
         return;
     }
     public getQueryKey(queryString: string){

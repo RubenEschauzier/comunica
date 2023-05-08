@@ -17,6 +17,7 @@ import * as tf from '@tensorflow/tfjs-node';
 import { IActionRdfJoinReinforcementLearning, IMediatorTypeReinforcementLearning, IResultSetRepresentation } from '@comunica/mediator-join-reinforcement-learning';
 import { IModelOutput, ModelTreeLSTM } from './treeLSTM';
 import { InstanceModel } from './instanceModel';
+import { Operation } from 'sparqlalgebrajs/lib/algebra';
 
 /**
  * A Multi Smallest RDF Join Actor.
@@ -39,13 +40,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     });
   }
 
-  /**
-   * Order the given join entries using the join-entries-sort bus.
-   * @param {IJoinEntryWithMetadata[]} entries An array of join entries.
-   * @param context The action context.
-   * @return {IJoinEntryWithMetadata[]} The sorted join entries.
-  */
-
   public getPossibleJoins(numJoinable: number){
     let orders: number[][] = [];
     for (let i=0; i<numJoinable;i++){
@@ -56,6 +50,39 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     return orders;
   }
 
+  protected isPattern(inputInterface: any){
+    return ('subject' in inputInterface && 'predicate' in inputInterface && 'object' in inputInterface);
+  }
+
+  public async getSharedVariableTriplePatterns(action: IActionRdfJoinReinforcementLearning){
+    const patterns: Operation[] = action.entries.map((x)=>{
+      if (!this.isPattern(x.operation)){
+        throw new Error("Found a non pattern during construction of shared variables in RL actor");
+      }
+      else{
+          return x.operation;
+      }
+    });
+    const sharedVariables: number[][] = [];
+    for(let i=0;i<action.entries.length;i++){
+      const outerEntryConnections: number[] = new Array(action.entries.length).fill(0);
+      // Get the 'outer' triple we use to compare
+      const tripleOuter = [patterns[i].subject, patterns[i].predicate, patterns[i].object];
+      const variablesFull = tripleOuter.filter(x => x.termType=='Variable');
+      const variables = variablesFull.map(x=>x.value);
+      for (let j=0;j<action.entries.length;j++){
+        const tripleInner = [patterns[j].subject.value, patterns[j].predicate.value, patterns[j].object.value];
+        for (const term of tripleInner){
+          if (variables.includes(term)){
+            outerEntryConnections[j] = 1;
+          }
+        }
+      }
+      sharedVariables.push([...outerEntryConnections])
+    }
+    return sharedVariables;
+  }
+
   public chooseUsingProbability(probArray: Float32Array): number{
     // const cumsum = (arr: Float32Array|number[]) => arr.map((sum => value => sum += value)(0));
     let cumSumNew = [];
@@ -64,15 +91,10 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
       runningSum+= probArray[j];
       cumSumNew.push(runningSum);
     }
-
-    // const cumProb: Float32Array|number[] = cumsum(probArray);
-
     const pick: number = Math.random();
-
     for (let i=0;i<cumSumNew.length;i++){
       /* If we land at our draw, we return the index of the draw*/
-      if(pick > cumSumNew[i]){
-      }
+      if(pick > cumSumNew[i]){}
       else{
         return i;
       }
@@ -85,29 +107,33 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     if (arr.length === 0) {
         return -1;
     }
-
-    var max = arr[0];
-    var maxIndex = 0;
-
+    let max = arr[0];
+    let maxIndex = 0;
     for (var i = 1; i < arr.length; i++) {
         if (arr[i] > max) {
             maxIndex = i;
             max = arr[i];
         }
     }
-
     return maxIndex;
-}
+  }
 
-public async sortJoinEntries(
-  entries: IJoinEntryWithMetadata[],
-  context: IActionContext,
-): Promise<IJoinEntryWithMetadata[]> {
-  return (await this.mediatorJoinEntriesSort.mediate({ entries, context })).entries;
-}
+  /**
+   * Order the given join entries using the join-entries-sort bus.
+   * @param {IJoinEntryWithMetadata[]} entries An array of join entries.
+   * @param context The action context.
+   * @return {IJoinEntryWithMetadata[]} The sorted join entries.
+  */
+  public async sortJoinEntries(
+    entries: IJoinEntryWithMetadata[],
+    context: IActionContext,
+  ): Promise<IJoinEntryWithMetadata[]> {
+    return (await this.mediatorJoinEntriesSort.mediate({ entries, context })).entries;
+  }
 
 
   protected async getOutput(action: IActionRdfJoinReinforcementLearning): Promise<IActorRdfJoinOutputInner> {
+    await this.getSharedVariableTriplePatterns(action);
     // Determine the two smallest streams by sorting (e.g. via cardinality)
     const entries = [...action.entries];
     if (!action.nextJoinIndexes){
@@ -189,9 +215,14 @@ public async sortJoinEntries(
       let chosenIdx = 0;
       if(action.context.get(KeysRlTrain.train)){
         chosenIdx = this.chooseUsingProbability(estProb);
+        console.log(qValuesEst);
+        console.log(`Chosen index: ${chosenIdx}`);
+
       }
       else{
+        console.log(`Choosing using max: ${estProb}`)
         chosenIdx = this.indexOfMax(estProb);
+        console.log(`Chosen index: ${chosenIdx}`);
       }
 
       return [qValuesEstTensor[chosenIdx], featureRepresentations[chosenIdx].hiddenState, 
