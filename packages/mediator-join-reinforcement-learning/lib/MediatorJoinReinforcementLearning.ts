@@ -195,12 +195,9 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
           return x.operation;
       }
     });
-    // Experimental Query Encoding
-    const queryGraphSharedSubjectVar: number[][] = [];
-    const queryGraphSharedObjectVar: number[][] = []
 
+    // Initialise leaf features obtained from triple patterns
     const leafFeatures: number[][] = [];
-
     for(let i=0;i<action.entries.length;i++){
       // Encode triple pattern information
       const triple = [patterns[i].subject, patterns[i].predicate, patterns[i].object];
@@ -221,24 +218,19 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       }
       // leafFeatures.push([cardinalityLeaf].concat(isVariable[0]));
       leafFeatures.push([cardinalityLeaf].concat(isVariable, isNamedNode, isLiteral, predicateEmbedding));
-
-      // Create query graphs for same subject (star-shape)
-      const sameObjectConnections = [];
-      for (let j=0;j<action.entries.length;j++){
-        if (isVariable[0]){
-          
-        }
-      }
     }
+    
+    const sharedVariables = await this.getSharedVariableTriplePatterns(action);
+
     // Update running moments only at leaf
-    const runningMomentsFeatures: IRunningMoments = action.context.get(KeysRlTrain.runningMomentsFeatures)!
+    const runningMomentsFeatures: IRunningMoments = action.context.get(KeysRlTrain.runningMomentsFeatures)!;
     this.updateAllMoments(runningMomentsFeatures, leafFeatures);
     this.standardiseFeatures(runningMomentsFeatures, leafFeatures);
     // Feature tensors created here, after no longer needed (corresponding result sets are joined) they need to be disposed
-    // const featureTensorLeaf: tf.Tensor[] = leafFeatures.map(x=>tf.tensor(x).reshape([x.length,1]));
     const featureTensorLeaf: tf.Tensor[] = leafFeatures.map(x=>tf.tensor(x,[1, x.length]));
     const memoryCellLeaf: tf.Tensor[] = featureTensorLeaf.map(x=>tf.zeros(x.shape));
-    const resultSetRepresentationLeaf: IResultSetRepresentation = {hiddenStates: featureTensorLeaf, memoryCell: memoryCellLeaf}
+    const resultSetRepresentationLeaf: IResultSetRepresentation = {hiddenStates: featureTensorLeaf, memoryCell: memoryCellLeaf};
+
     if (!action.context.get(KeysRlTrain.trainEpisode)){
       throw new Error("No train episode given in context");
     }
@@ -255,7 +247,37 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     }
 
     episode.featureTensor=resultSetRepresentationLeaf;
+    episode.sharedVariables=sharedVariables;
     episode.isEmpty = false;
+  }
+
+  public async getSharedVariableTriplePatterns(action: IActionRdfJoinReinforcementLearning){
+    const patterns: Operation[] = action.entries.map((x)=>{
+      if (!this.isPattern(x.operation)){
+        throw new Error("Found a non pattern during construction of shared variables in RL actor");
+      }
+      else{
+          return x.operation;
+      }
+    });
+    const sharedVariables: number[][] = [];
+    for(let i=0;i<action.entries.length;i++){
+      const outerEntryConnections: number[] = new Array(action.entries.length).fill(0);
+      // Get the 'outer' triple we use to compare
+      const tripleOuter = [patterns[i].subject, patterns[i].predicate, patterns[i].object];
+      const variablesFull = tripleOuter.filter(x => x.termType=='Variable');
+      const variables = variablesFull.map(x=>x.value);
+      for (let j=0;j<action.entries.length;j++){
+        const tripleInner = [patterns[j].subject.value, patterns[j].predicate.value, patterns[j].object.value];
+        for (const term of tripleInner){
+          if (variables.includes(term)){
+            outerEntryConnections[j] = 1;
+          }
+        }
+      }
+      sharedVariables.push([...outerEntryConnections])
+    }
+    return sharedVariables;
   }
 
   protected isPattern(inputInterface: any){

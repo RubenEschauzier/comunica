@@ -25,6 +25,7 @@ export type FunctionArgumentsCache = Record<string, { func?: any; cache?: Functi
 export interface ITrainEpisode {
   joinsMade: number[][];
   featureTensor: IResultSetRepresentation;
+  sharedVariables: number[][];
   isEmpty: boolean;
 };
 

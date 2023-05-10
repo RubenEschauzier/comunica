@@ -40,47 +40,17 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     });
   }
 
-  public getPossibleJoins(numJoinable: number){
+  public getPossibleJoins(numJoinable: number, sharedVariables: number[][]){
     let orders: number[][] = [];
     for (let i=0; i<numJoinable;i++){
       for (let j=i+1; j<numJoinable;j++){
-        orders.push([i,j]);
+        // Only allow joins with shared variables
+        if (sharedVariables[i][j]==1 || sharedVariables[j][i]==1){
+          orders.push([i,j]);
+        }
       }
     }
     return orders;
-  }
-
-  protected isPattern(inputInterface: any){
-    return ('subject' in inputInterface && 'predicate' in inputInterface && 'object' in inputInterface);
-  }
-
-  public async getSharedVariableTriplePatterns(action: IActionRdfJoinReinforcementLearning){
-    const patterns: Operation[] = action.entries.map((x)=>{
-      if (!this.isPattern(x.operation)){
-        throw new Error("Found a non pattern during construction of shared variables in RL actor");
-      }
-      else{
-          return x.operation;
-      }
-    });
-    const sharedVariables: number[][] = [];
-    for(let i=0;i<action.entries.length;i++){
-      const outerEntryConnections: number[] = new Array(action.entries.length).fill(0);
-      // Get the 'outer' triple we use to compare
-      const tripleOuter = [patterns[i].subject, patterns[i].predicate, patterns[i].object];
-      const variablesFull = tripleOuter.filter(x => x.termType=='Variable');
-      const variables = variablesFull.map(x=>x.value);
-      for (let j=0;j<action.entries.length;j++){
-        const tripleInner = [patterns[j].subject.value, patterns[j].predicate.value, patterns[j].object.value];
-        for (const term of tripleInner){
-          if (variables.includes(term)){
-            outerEntryConnections[j] = 1;
-          }
-        }
-      }
-      sharedVariables.push([...outerEntryConnections])
-    }
-    return sharedVariables;
   }
 
   public chooseUsingProbability(probArray: Float32Array): number{
@@ -118,6 +88,32 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     return maxIndex;
   }
 
+  public updateSharedVariables(sharedVariables: number[][], idx: number[]){
+    // 1. First we add shared variables for result set of join
+    const newSharedVariables = [];
+    for (let k=0; k<sharedVariables[idx[0]].length;k++){
+      newSharedVariables.push(Math.max(sharedVariables[idx[0]][k], sharedVariables[idx[1]][k]))
+    }
+    // 2. Remove variables involved in join
+    newSharedVariables.splice(idx[0], 1); newSharedVariables.splice(idx[1], 1);
+
+    // 3. Remove triple patterns in sharedVariables that are involved in the join
+    sharedVariables.splice(idx[0], 1); sharedVariables.splice(idx[1], 1);
+
+    // 4. Then we remove result sets involved in join in 2d and add 1 or 0 based on connection in new join entry
+    for (let i=0; i<sharedVariables.length; i++){
+      sharedVariables[i].splice(idx[0], 1); sharedVariables[i].splice(idx[1], 1);
+      // Add zero or one based on connectivity result set join
+      sharedVariables[i].push(newSharedVariables[i]);
+    }
+    // 5. Add self connection to result set shared variables, note that self-connections shouldn't be necessary, but seems nice to include
+    newSharedVariables.push(1);
+
+    // 6. Add shared variables of result set of join to all result set connectivities
+    sharedVariables.push(newSharedVariables);
+    return sharedVariables;
+  }
+
   /**
    * Order the given join entries using the join-entries-sort bus.
    * @param {IJoinEntryWithMetadata[]} entries An array of join entries.
@@ -132,10 +128,14 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
   }
 
 
-  protected async getOutput(action: IActionRdfJoinReinforcementLearning): Promise<IActorRdfJoinOutputInner> {
-    await this.getSharedVariableTriplePatterns(action);
+  protected async getOutput(action: IActionRdfJoinReinforcementLearning): Promise<IActorRdfJoinOutputInner> {    
     // Determine the two smallest streams by sorting (e.g. via cardinality)
     const entries = [...action.entries];
+
+    const trainEpisode: ITrainEpisode|undefined = action.context.get(KeysRlTrain.trainEpisode);
+    if (!trainEpisode){
+      throw new Error("Found undefined trainEpisode in RL actor")
+    }
     if (!action.nextJoinIndexes){
       throw new Error("Indexes to join are not defined");
     }
@@ -149,6 +149,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     const joinEntry1 = entries[idx[0]];
     const joinEntry2 = entries[idx[1]];
     entries.splice(idx[0], 1); entries.splice(idx[1], 1);
+
     // Join the two selected streams, and then join the result with the remaining streams
     // Sort these entries on cardinality to ensure the left relation is smallest!
     const sortedJoinCandidates: IJoinEntry[] = await this.sortJoinEntries(
@@ -165,6 +166,9 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
 
     // Important for model execution that new entry is always entered last
     entries.push(firstEntry);
+    // Update shared variables to reflect executed join
+    trainEpisode.sharedVariables = this.updateSharedVariables(trainEpisode.sharedVariables, idx);
+    
     return {
       result: await this.mediatorJoin.mediate({
         type: action.type,
@@ -178,12 +182,15 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     action: IActionRdfJoin,
     metadatas: MetadataBindings[],
   ): Promise<IMediatorTypeReinforcementLearning> {
+    // If we have leq 2 entries in our action then we are either: At first execution, last execution or we don't call this actor. To ensure the actor initialises and
+    // resets properly we have to initialise sharedVariables
+
     const modelTreeLSTM: ModelTreeLSTM = (action.context.get(KeysRlTrain.modelInstance) as InstanceModel).getModel();
     const bestOutput = tf.tidy(():[tf.Tensor, tf.Tensor, tf.Tensor, number[]]=>{
       // Get possible join indexes, this disregards order of joins, is that a good assumption for for example hash join?
       const trainEpisode: ITrainEpisode = action.context.get(KeysRlTrain.trainEpisode)!;
     
-      const possibleJoinIndexes = this.getPossibleJoins(action.entries.length);
+      const possibleJoinIndexes = this.getPossibleJoins(action.entries.length, trainEpisode.sharedVariables);
       const possibelJoinIndexesUnSorted = [...possibleJoinIndexes];
 
       const qValuesEst: number[] = [];
@@ -215,14 +222,9 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
       let chosenIdx = 0;
       if(action.context.get(KeysRlTrain.train)){
         chosenIdx = this.chooseUsingProbability(estProb);
-        console.log(qValuesEst);
-        console.log(`Chosen index: ${chosenIdx}`);
-
       }
       else{
-        console.log(`Choosing using max: ${estProb}`)
         chosenIdx = this.indexOfMax(estProb);
-        console.log(`Chosen index: ${chosenIdx}`);
       }
 
       return [qValuesEstTensor[chosenIdx], featureRepresentations[chosenIdx].hiddenState, 

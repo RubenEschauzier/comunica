@@ -63,7 +63,7 @@ implements IQueryEngine<QueryContext> {
   public constructor(actorInitQuery: ActorInitQueryBase<QueryContext>) {
     this.actorInitQuery = actorInitQuery;
     this.defaultFunctionArgumentsCache = {};
-    this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
+    this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], isEmpty:true};
     // Hardcoded, should be config, but not sure how to incorporate
     this.modelInstance = new InstanceModel();
     this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.01});
@@ -452,7 +452,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     // If there are no joins in query we do not record the experience for the model to train
     if(this.trainEpisode.joinsMade.length==0){
       this.disposeTrainEpisode();
-      this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
+      this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], isEmpty:true};    
       return [endTSearch - startT, binding];
     }
 
@@ -468,7 +468,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
 
     // Clear episode tensors to reset the model state
     this.disposeTrainEpisode();
-    this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
+    this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [],isEmpty:true};    
     return [endTSearch-startT, binding];
   }
 
@@ -489,7 +489,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     const executionTimeRaw: number = await this.consumeStream(bindingsStream, experienceBuffer, 
       startTime, joinOrderKeys, queryKey, true, false);
     this.disposeTrainEpisode();
-    this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};    
+    this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], isEmpty:true};    
     return [executionTimeRaw, endTimeSearch - startTime];
   }
 
@@ -533,7 +533,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     const leafFeatures: IResultSetRepresentation = {hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x=>x.clone()),
     memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x=>x.clone())};
     this.disposeTrainEpisode();
-    this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
+    this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], isEmpty:true};
     this.cleanBatchTrainingExamples();    
     return leafFeatures;
 }
@@ -695,7 +695,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
       this.breakRecursion = false;
       context.batchedTrainingExamples = this.batchedTrainExamples;
       // Reset train episode
-      this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
+      this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], isEmpty:true};
       return this.returnNop()
     }
 
@@ -832,7 +832,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
       // Clean the examples
       this.cleanBatchTrainingExamples();
       this.disposeTrainEpisode();
-      this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
+      this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], isEmpty:true};
       this.experienceBuffer.initQueryInformation(query.toString(), leafFeatures);   
       return this.returnNop();
     }
@@ -840,7 +840,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
     // If we train
     if (!actionContext.get(KeysRlTrain.train) && context && !context.trainEndPoint){
-      this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, isEmpty:true};
+      this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], isEmpty:true};
     }
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
     // Output physical query plan after query exec if needed
