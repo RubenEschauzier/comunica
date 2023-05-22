@@ -260,6 +260,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
           return x.operation;
       }
     });
+    
     const sharedVariables: number[][] = [];
     for(let i=0;i<action.entries.length;i++){
       const outerEntryConnections: number[] = new Array(action.entries.length).fill(0);

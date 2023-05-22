@@ -66,7 +66,7 @@ implements IQueryEngine<QueryContext> {
     this.trainEpisode = {joinsMade: [], featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], isEmpty:true};
     // Hardcoded, should be config, but not sure how to incorporate
     this.modelInstance = new InstanceModel();
-    this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.01});
+    this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.0001});
     this.batchedTrainExamples = {trainingExamples: new Map<string, ITrainingExample>, leafFeatures: {hiddenStates: [], memoryCell:[]}};
     // End point training
     this.BF = new BindingsFactory();
