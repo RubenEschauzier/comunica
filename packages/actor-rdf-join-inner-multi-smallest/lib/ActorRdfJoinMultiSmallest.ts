@@ -11,6 +11,7 @@ import { ActorRdfJoin } from '@comunica/bus-rdf-join';
 import type { MediatorRdfJoinEntriesSort } from '@comunica/bus-rdf-join-entries-sort';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
 import type { MetadataBindings, IJoinEntry, IActionContext, IJoinEntryWithMetadata } from '@comunica/types';
+import arrayifyStream from 'arrayify-stream';
 import { Factory } from 'sparqlalgebrajs';
 
 /**
@@ -30,6 +31,85 @@ export class ActorRdfJoinMultiSmallest extends ActorRdfJoin {
       limitEntries: 3,
       limitEntriesMin: true,
     });
+  }
+  /**
+   * Returns true if the array of entries contains entries that have common variables
+   * @param entries Array of entries with metadata to check for common variables
+   * @returns 
+   */
+  // public hasCommonVariables(entries: IJoinEntryWithMetadata[]){
+  //   const variableOccurrences: Record<string, number> = {};
+  //   for (const entry of entries) {
+  //     for (const variable of entry.metadata.variables) {
+  //       let counter = variableOccurrences[variable.value];
+  //       if (!counter) {
+  //         counter = 0;
+  //       }
+  //       variableOccurrences[variable.value] = ++counter;
+  //     }
+  //   }
+
+  //   // Determine variables that occur in at least two join entries
+  //   const multiOccurrenceVariables: string[] = [];
+  //   for (const [ variable, count ] of Object.entries(variableOccurrences)) {
+  //     if (count >= 2) {
+  //       multiOccurrenceVariables.push(variable);
+  //     }
+  //   }
+  //   return multiOccurrenceVariables.length == 0
+  // }
+
+  /**
+   * Finds join indexes of lowest cardinality result sets, with priority on result sets that have common variables
+   * @param entries A sorted array of entries, sorted on cardinality
+   */
+  public getJoinIndexes(entries: IJoinEntryWithMetadata[]){
+    // Iterate over all combinations of join indexes, return the first combination that does not lead to a cartesian product
+    for (let i = 0; i<entries.length; i++){
+      for (let j = i+1; j<entries.length; j++){
+        if (this.hasCommonVariables(entries[i], entries[j])){
+          return [i,j];
+        }
+      }
+    }
+    // If all result sets are disjoint we just want the sets with lowest cardinality
+    return [0,1];
+  }
+  /**
+   * Finds join indexes of lowest product of cardinalities of result sets, with priority on result sets that have common variables
+   * @param entries A sorted array of entries, sorted on cardinality
+   */
+  public getFirstValidJoinWithMinimalCardinalityProduct(entries: IJoinEntryWithMetadata[]){
+    const cardinalityProducts: Map<number, number[]> = new Map<number, number[]>();
+    // Get cardinality products
+    for (let i = 0; i<entries.length; i++){
+      for (let j = 0; j<entries.length; j++){
+        if (i != j){
+          cardinalityProducts.set(entries[i].metadata.cardinality.value*entries[j].metadata.cardinality.value, [i,j]);
+        }
+      }
+    }
+    // Sort cardinality products
+    let keys: number[] = [...cardinalityProducts.keys()];
+    keys.sort((a, b)=> a-b);
+    // Get sorted entry indexes
+    const sortedCardinalityProductsJoinIndexes = keys.map(x=>cardinalityProducts.get(x)!);
+    // Iterate over sorted entry indexes and select first index that is not cartesian join
+    for (const joinIndexes of sortedCardinalityProductsJoinIndexes){
+      if (this.hasCommonVariables(entries[joinIndexes[0]], entries[joinIndexes[1]])){
+        return joinIndexes;
+      }
+    }
+  }
+
+  /**
+   * Function to check for common variables
+   * @param entry1 
+   * @param entry2 
+   * @returns 
+   */
+  public hasCommonVariables(entry1: IJoinEntryWithMetadata, entry2: IJoinEntryWithMetadata): boolean{
+    return entry1.metadata.variables.some(v => entry2.metadata.variables.includes(v));
   }
 
   /**
@@ -51,9 +131,21 @@ export class ActorRdfJoinMultiSmallest extends ActorRdfJoin {
       await ActorRdfJoin.getEntriesWithMetadatas([ ...action.entries ]),
       action.context,
     );
-    const smallestEntry1 = entries[0];
-    const smallestEntry2 = entries[1];
-    entries.splice(0, 2);
+
+    const entriesMetaData = await ActorRdfJoin.getEntriesWithMetadatas(entries);
+    const bestJoinIndexes = this.getJoinIndexes(entriesMetaData);
+
+    const smallestEntry1 = entries[bestJoinIndexes[0]];
+    const smallestEntry2 = entries[bestJoinIndexes[1]];
+
+    // TEST CODE:
+    if (bestJoinIndexes[0] > bestJoinIndexes[1]){
+      throw new Error("Invalid combination of join indexes, first element larger than second")
+    }
+    // END TEST CODE
+    
+    entries.splice(bestJoinIndexes[1], 1);
+    entries.splice(bestJoinIndexes[0], 1);
 
     // Join the two selected streams, and then join the result with the remaining streams
     const firstEntry: IJoinEntry = {
@@ -62,6 +154,7 @@ export class ActorRdfJoinMultiSmallest extends ActorRdfJoin {
       operation: ActorRdfJoinMultiSmallest.FACTORY
         .createJoin([ smallestEntry1.operation, smallestEntry2.operation ], false),
     };
+
     entries.push(firstEntry);
     return {
       result: await this.mediatorJoin.mediate({
