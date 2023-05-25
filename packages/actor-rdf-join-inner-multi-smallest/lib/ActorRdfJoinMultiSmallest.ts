@@ -11,7 +11,6 @@ import { ActorRdfJoin } from '@comunica/bus-rdf-join';
 import type { MediatorRdfJoinEntriesSort } from '@comunica/bus-rdf-join-entries-sort';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
 import type { MetadataBindings, IJoinEntry, IActionContext, IJoinEntryWithMetadata } from '@comunica/types';
-import arrayifyStream from 'arrayify-stream';
 import { Factory } from 'sparqlalgebrajs';
 
 /**
@@ -32,32 +31,6 @@ export class ActorRdfJoinMultiSmallest extends ActorRdfJoin {
       limitEntriesMin: true,
     });
   }
-  /**
-   * Returns true if the array of entries contains entries that have common variables
-   * @param entries Array of entries with metadata to check for common variables
-   * @returns 
-   */
-  // public hasCommonVariables(entries: IJoinEntryWithMetadata[]){
-  //   const variableOccurrences: Record<string, number> = {};
-  //   for (const entry of entries) {
-  //     for (const variable of entry.metadata.variables) {
-  //       let counter = variableOccurrences[variable.value];
-  //       if (!counter) {
-  //         counter = 0;
-  //       }
-  //       variableOccurrences[variable.value] = ++counter;
-  //     }
-  //   }
-
-  //   // Determine variables that occur in at least two join entries
-  //   const multiOccurrenceVariables: string[] = [];
-  //   for (const [ variable, count ] of Object.entries(variableOccurrences)) {
-  //     if (count >= 2) {
-  //       multiOccurrenceVariables.push(variable);
-  //     }
-  //   }
-  //   return multiOccurrenceVariables.length == 0
-  // }
 
   /**
    * Finds join indexes of lowest cardinality result sets, with priority on result sets that have common variables
@@ -138,11 +111,9 @@ export class ActorRdfJoinMultiSmallest extends ActorRdfJoin {
     const smallestEntry1 = entries[bestJoinIndexes[0]];
     const smallestEntry2 = entries[bestJoinIndexes[1]];
 
-    // TEST CODE:
     if (bestJoinIndexes[0] > bestJoinIndexes[1]){
       throw new Error("Invalid combination of join indexes, first element larger than second")
     }
-    // END TEST CODE
     
     entries.splice(bestJoinIndexes[1], 1);
     entries.splice(bestJoinIndexes[0], 1);
