@@ -217,7 +217,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
         predicateEmbedding = new Array(vectorSize).fill(0);
       }
       // leafFeatures.push([cardinalityLeaf].concat(isVariable[0]));
-      leafFeatures.push([cardinalityLeaf].concat(isVariable, isNamedNode, isLiteral, predicateEmbedding));
+      leafFeatures.push([cardinalityLeaf].concat(isVariable, isNamedNode, isLiteral, action.entries.length, predicateEmbedding));
     }
     
     const sharedVariables = await this.getSharedVariableTriplePatterns(action);

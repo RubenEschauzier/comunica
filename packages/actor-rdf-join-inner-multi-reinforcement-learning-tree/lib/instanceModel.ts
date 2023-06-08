@@ -1,7 +1,6 @@
 import { IAggregateValues, IRunningMoments } from "@comunica/mediator-join-reinforcement-learning";
 import { ModelTreeLSTM } from "./treeLSTM";
 import * as fs from "fs";
-import * as path from "path";
 
 export class InstanceModel{
     private modelTreeLSTM: ModelTreeLSTM;

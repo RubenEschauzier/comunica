@@ -1,9 +1,7 @@
 import { IResultSetRepresentation } from '@comunica/mediator-join-reinforcement-learning';
-import { DenseOwnImplementation, QValueNetwork } from './fullyConnectedLayers';
 import * as tf from '@tensorflow/tfjs-node';
-import * as path from 'path';
 import * as fs from 'fs';
-import { ISingleResultSetRepresentation } from './ActorRdfJoinInnerMultiReinforcementLearningTree';
+import { QValueNetwork } from './fullyConnectedLayers';
 
 export class BinaryTreeLSTM extends tf.layers.Layer{
     IWInput: tf.Variable;
@@ -310,14 +308,17 @@ export class ModelTreeLSTM{
     initialised: boolean;
     loadedConfig: IModelConfig;
 
-    public constructor(inputSize: number){
-        this.inputSize = inputSize
+    /**
+     * Function to create full LSTM model, all config files should be a paramter of actor such that it can easily be changed between training executions
+     * @param configLocation Location of model configuration file
+     */
+    public constructor(configLocation: string){
+
         this.binaryTreeLSTMLayer = [];
         this.childSumTreeLSTMLayer = [];
-        this.qValueNetwork = new QValueNetwork(inputSize,1);
-        this.configLocation = path.join(__dirname, '../model/model-config/model-config.json');
-        this.weightsDir = path.join(__dirname, '../model/weights');
-        this.initialised = false;
+        this.configLocation = configLocation
+        this.loadedConfig = this.loadConfigSync();
+        this.qValueNetwork = new QValueNetwork();
     }
 
     public async initModel(weightsDir?: string){
@@ -347,9 +348,45 @@ export class ModelTreeLSTM{
         this.initialised=true;    
     }
 
-    public loadConfigSync(){
-        fs.readFileSync(this.configLocation)
+    public initModelSync(config: IModelConfig, weightsDir: string){
+        const binaryLSTMConfig = config.binaryTreeLSTM;
+        for(let i=0;i<binaryLSTMConfig.layers.length;i++){
+            const newLayer: BinaryTreeLSTM = new BinaryTreeLSTM(binaryLSTMConfig.layers[i].numUnits!,binaryLSTMConfig.layers[i].activation!);
+            newLayer.loadWeights(weightsDir+binaryLSTMConfig.weightsConfig.weightLocation);
+            
+            this.binaryTreeLSTMLayer.push(newLayer);
+        }
+        const childSumConfig = config.childSumTreeLSTM;
+        for (let j=0;j<childSumConfig.layers.length;j++){
+            const newLayer: ChildSumTreeLSTM = new ChildSumTreeLSTM(childSumConfig.layers[j].numUnits!, childSumConfig.layers[j].activation!);
+            newLayer.loadWeights(weightsDir+childSumConfig.weightsConfig.weightLocation);
+            this.childSumTreeLSTMLayer.push(newLayer);
+        }
+        this.qValueNetwork.init(config.qValueNetwork, this.weightsDir);
+
     }
+
+    public initModelRandomSync(config: IModelConfig){
+        const binaryLSTMConfig = config.binaryTreeLSTM;
+        for(let i=0;i<binaryLSTMConfig.layers.length;i++){
+            const newLayer: BinaryTreeLSTM = new BinaryTreeLSTM(binaryLSTMConfig.layers[i].numUnits!,binaryLSTMConfig.layers[i].activation!);
+            this.binaryTreeLSTMLayer.push(newLayer);
+        }
+        const childSumConfig = config.childSumTreeLSTM;
+        for (let j=0;j<childSumConfig.layers.length;j++){
+            const newLayer: ChildSumTreeLSTM = new ChildSumTreeLSTM(childSumConfig.layers[j].numUnits!, childSumConfig.layers[j].activation!);
+            this.childSumTreeLSTMLayer.push(newLayer);
+        }
+        this.qValueNetwork.initRandom(config.qValueNetwork, this.weightsDir);
+        this.initialised=true;    
+    }
+
+    public loadConfigSync(): IModelConfig{
+        const data = fs.readFileSync(this.configLocation,'utf-8');
+        const parsedConfig: IModelConfig = JSON.parse(data);
+        return parsedConfig;
+    }
+
     public async initModelRandom(){
         const modelConfig = await this.loadConfig();
         this.loadedConfig = modelConfig;
@@ -381,7 +418,7 @@ export class ModelTreeLSTM{
         // Empty the model
         this.binaryTreeLSTMLayer = [];
         this.childSumTreeLSTMLayer = [];
-        this.qValueNetwork = new QValueNetwork(this.inputSize,1);
+        this.qValueNetwork = new QValueNetwork();
 
     }
     public async saveModel(weightsDir?: string){
@@ -590,6 +627,7 @@ export class ModelTreeLSTM{
 }
 
 export interface IModelConfig{
+    "inputSize": number;
     "binaryTreeLSTM": ILayerConfig
     "childSumTreeLSTM": ILayerConfig
     "qValueNetwork": ILayerConfig

@@ -220,6 +220,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
       // Choose according to softmaxed probabilities
       const estProb = tf.softmax(tf.stack(qValuesEstTensor)).dataSync() as Float32Array;
       let chosenIdx = 0;
+      // Interesting exploration idea: https://arxiv.org/pdf/1612.05628.pdf
       if(action.context.get(KeysRlTrain.train)){
         chosenIdx = this.chooseUsingProbability(estProb);
       }

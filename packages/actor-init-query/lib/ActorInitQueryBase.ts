@@ -16,6 +16,7 @@ import type { IQueryContextCommon, Logger } from '@comunica/types';
  */
 export class ActorInitQueryBase<QueryContext extends IQueryContextCommon = IQueryContextCommon>
   extends ActorInit implements IActorInitQueryBaseArgs<QueryContext> {
+
   public readonly mediatorOptimizeQueryOperation: MediatorOptimizeQueryOperation;
   public readonly mediatorQueryOperation: MediatorQueryOperation;
   public readonly mediatorQueryParse: MediatorQueryParse;

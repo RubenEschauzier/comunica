@@ -49,6 +49,7 @@ implements IQueryEngine<QueryContext> {
   public runningMomentsExecution: IRunningMoments;
   public trainEpisode: ITrainEpisode;
   public nExpPerQuery: number;
+  public startTemperature: number;
   public BF: BindingsFactory;
   public breakRecursion: boolean;
   public currentQueryKey: string;
@@ -67,6 +68,7 @@ implements IQueryEngine<QueryContext> {
     // Hardcoded, should be config, but not sure how to incorporate
     this.modelInstance = new InstanceModel();
     this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.0001});
+    this.startTemperature = 0;
     this.batchedTrainExamples = {trainingExamples: new Map<string, ITrainingExample>, leafFeatures: {hiddenStates: [], memoryCell:[]}};
     // End point training
     this.BF = new BindingsFactory();
@@ -76,6 +78,7 @@ implements IQueryEngine<QueryContext> {
     this.trainingStateInformationLocation = "/tmp/trainingStateEngine"
     this.runningMomentsFeatures = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
     this.runningMomentsExecution = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
+
     for (const index of this.runningMomentsExecution.indexes){
       const startPoint: IAggregateValues = {N: 0, mean: 0, std: 1, M2: 1}
       this.runningMomentsExecution.runningStats.set(index, startPoint);
@@ -661,9 +664,8 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     context = context || <any>{};
     /**
      * If there are no entries in queryToKey map we are at first run or after time-out, thus reload the model state.
-     * We do this at start query to prevent unnecessary initialisation of features
-     *  */    
-
+     * We do this at start query to prevent unnecessary initialisation of features  
+    */    
     if (context && this.experienceBuffer.queryToKey.size==0 && context.trainEndPoint){
       await this.loadState(this.trainingStateInformationLocation);
     }

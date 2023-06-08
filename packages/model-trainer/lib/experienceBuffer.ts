@@ -2,6 +2,9 @@ import { IAggregateValues, IResultSetRepresentation, MediatorJoinReinforcementLe
 import * as fs from 'graceful-fs';
 import * as tf from '@tensorflow/tfjs-node';
 
+// Add prioritized experience replay, so we sample using some importance measure derived from error in model training
+// Just read paper
+
 export class ExperienceBuffer{
     // Data structures to make fifo buffer
     experienceBufferMap: Map<string,Map<string,IExperience>>;

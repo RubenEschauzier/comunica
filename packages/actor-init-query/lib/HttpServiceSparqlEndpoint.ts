@@ -43,6 +43,7 @@ export class HttpServiceSparqlEndpoint {
   public lastQueryId = 0;
 
   public constructor(args: IHttpServiceSparqlEndpointArgs) {
+    console.log("This is being called for creation!!");
     this.context = args.context || {};
     this.timeout = args.timeout ?? 60_000;
     this.port = args.port ?? 3_000;
