@@ -1,22 +1,19 @@
 import { IAggregateValues, IRunningMoments } from "@comunica/mediator-join-reinforcement-learning";
 import { ModelTreeLSTM } from "./treeLSTM";
 import * as fs from "fs";
-import * as path from "path";
 
 export class InstanceModel{
     private modelTreeLSTM: ModelTreeLSTM;
-    init: boolean;
     initMoments: boolean;
     public constructor(){
         this.modelTreeLSTM = new ModelTreeLSTM(0);
-        this.init = false;
         this.initMoments = false;
     };
 
     public async initModel(weightsDir?: string){
         if (!this.modelTreeLSTM.initialised){
+            console.log("Initialising model!");
             await this.modelTreeLSTM.initModel(weightsDir);
-            this.init=true;
             this.modelTreeLSTM.initialised=true;
         }
     };
@@ -24,7 +21,6 @@ export class InstanceModel{
         if (!this.modelTreeLSTM.initialised){
             await this.modelTreeLSTM.initModelRandom();
             this.modelTreeLSTM.initialised=true;
-            this.init = true    
         }
     }
 
@@ -34,6 +30,7 @@ export class InstanceModel{
      */
     public flushModel(){
         this.modelTreeLSTM.flushModel();
+        this.modelTreeLSTM.initialised=false;
     }
 
     public getModel(): ModelTreeLSTM{

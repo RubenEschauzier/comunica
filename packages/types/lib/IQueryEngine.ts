@@ -30,19 +30,6 @@ export interface IQueryEngine<QueryContext extends IQueryContextCommon = IQueryC
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
   ) => Promise<BindingsStream>;
 
-  queryBindingsTrain: <QueryFormatTypeInner extends QueryFormatType>(
-  queries: QueryFormatTypeInner[][],
-  valQueries: QueryFormatTypeInner[][],
-  nSimTrain: number,
-  nSimVal: number,
-  nEpoch: number,
-  nExpPerSim: number,
-  sizeBuffer: number,
-  batchedTrainExamples: IBatchedTrainingExamples,
-  context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
-  nextModelLocation: string,
-  pathEpochInfos: string[]
-  ) => Promise<void>;
   /**
    * Query the quad results of a CONSTRUCT or DESCRIBE query.
    * @param query A query string or algebra object.

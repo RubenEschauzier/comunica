@@ -7,7 +7,7 @@ import type { QueryExplainMode } from './IQueryOperationResult';
 import type { Logger } from './Logger';
 
 import * as tf from '@tensorflow/tfjs-node';
-import { IResultSetRepresentation, IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
+import { IQueryGraphViews, IResultSetRepresentation, IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
 import { InstanceModel } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
 import { number } from 'yargs';
 
@@ -26,6 +26,7 @@ export interface ITrainEpisode {
   joinsMade: number[][];
   featureTensor: IResultSetRepresentation;
   sharedVariables: number[][];
+  graphViews: IQueryGraphViews
   isEmpty: boolean;
 };
 

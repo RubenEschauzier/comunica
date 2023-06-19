@@ -205,7 +205,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
 
         // const joinCombinationUnsorted: number[] = [...joinCombination];
         const modelOutput: IModelOutput = modelTreeLSTM.forwardPass(clonedFeatures, joinCombination);
-
         // Negative of Q-value so we minimize execution time
         const qValueScalar: tf.Scalar = tf.sub(0, tf.squeeze(modelOutput.qValue));
         if (qValueScalar.dataSync().length>1){
@@ -221,9 +220,11 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
       const estProb = tf.softmax(tf.stack(qValuesEstTensor)).dataSync() as Float32Array;
       let chosenIdx = 0;
       if(action.context.get(KeysRlTrain.train)){
+        console.log(`Max Est Prob: ${Math.max(...Array.from(estProb))}, Prob if everything equal ${1/estProb.length}`);
         chosenIdx = this.chooseUsingProbability(estProb);
       }
       else{
+  
         chosenIdx = this.indexOfMax(estProb);
       }
 

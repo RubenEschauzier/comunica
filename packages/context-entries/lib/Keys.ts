@@ -294,5 +294,14 @@ export const KeysRlTrain = {
    * Indicating whether we are during training or inference
    */
   train: new ActionContextKey<boolean>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:train'),
-  queryKey: new ActionContextKey<string>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:queryKey')
+  queryKey: new ActionContextKey<string>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:queryKey'),
+
+  /**
+   * File directory with configurations used to automatically change hyperparameters during experiment executions
+   */
+  configFileDirectory: new ActionContextKey<string>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:configFileDirectory'),
+  /**
+   * Temperature of training
+   */
+  temperature: new ActionContextKey<number>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:temperature')
 }

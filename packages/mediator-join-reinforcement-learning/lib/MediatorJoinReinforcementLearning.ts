@@ -1,6 +1,6 @@
 import { ActorRdfJoin, IActionRdfJoin } from '@comunica/bus-rdf-join';
 import { KeysQueryOperation, KeysRlTrain } from '@comunica/context-entries';
-import { ActionContext, Actor, IAction, IActorOutput, IActorReply, IActorTest, IMediatorArgs, Mediator } from '@comunica/core';
+import { Actor, IActorReply, IMediatorArgs, Mediator } from '@comunica/core';
 import { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
 import { IBatchedTrainingExamples, IQueryOperationResult, ITrainEpisode } from '@comunica/types';
 import * as tf from '@tensorflow/tfjs-node';
@@ -8,6 +8,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { Operation, Pattern } from 'sparqlalgebrajs/lib/algebra';
 import { ISingleResultSetRepresentation } from '../../actor-rdf-join-inner-multi-reinforcement-learning-tree/lib';
+import * as rdfjs from '@rdfjs/types';
+import { graphConvolutionModel } from './graphConvolution';
 /**
  * A comunica join-reinforcement-learning mediator.
  */
@@ -27,7 +29,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
    * For actual we could make an actor that creates these vectors, but that would require a lot of work to make RDF2Vec work on javascript
    */
   public readPredicateVectors(){
-    const vectorLocation = path.join(__dirname, "..", "models/predicate-vectors-small/vectors.txt");
+    const vectorLocation = path.join(__dirname, "..", "models/predicate-vectors-depth-1/vectors_depth_1.txt");
     this.predicateVectors = new Map();
     let keyedVectors = fs.readFileSync(vectorLocation, 'utf-8').trim().split('\n');
     for (const vector of keyedVectors){
@@ -186,46 +188,18 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     if (!action.context.get(KeysQueryOperation.operation)){
       throw new Error("Action context does not contain any query operations");
     }    
-    // Matrix of vectors that represent the triple pattern result sets in the query
-    const patterns: Operation[] = action.entries.map((x)=>{
-      if (!this.isPattern(x.operation)){
-        throw new Error("Found a non pattern during feature initialisation");
-      }
-      else{
-          return x.operation;
-      }
-    });
+    const vectorSize: number = 128;
 
-    // Initialise leaf features obtained from triple patterns
-    const leafFeatures: number[][] = [];
-    for(let i=0;i<action.entries.length;i++){
-      // Encode triple pattern information
-      const triple = [patterns[i].subject, patterns[i].predicate, patterns[i].object];
-      const isVariable: number[] = triple.map(x => x.termType=='Variable' ? 1 : 0);
-      const isNamedNode: number[] = triple.map(x => x.termType=='NamedNode' ? 1 : 0)
-      const isLiteral: number[] = triple.map(x=> x.termType=='Literal' ? 1 : 0);
-      const cardinalityLeaf: number = (await action.entries[i].output.metadata()).cardinality.value;
-
-      // Get predicate embedding
-      let predicateEmbedding: number[] = [];
-      const vectorSize: number = this.predicateVectors.keys().next().value;
-      if (this.predicateVectors.get(patterns[i].predicate.value)){
-        predicateEmbedding = this.predicateVectors.get(patterns[i].predicate.value)!;
-      }
-      else{
-        // Zero vector represents unknown predicate
-        predicateEmbedding = new Array(vectorSize).fill(0);
-      }
-      // leafFeatures.push([cardinalityLeaf].concat(isVariable[0]));
-      leafFeatures.push([cardinalityLeaf].concat(isVariable, isNamedNode, isLiteral, predicateEmbedding));
-    }
-    
+    const leafFeatures = await this.getLeafFeatures(action, vectorSize);    
     const sharedVariables = await this.getSharedVariableTriplePatterns(action);
+    const graphViews: IQueryGraphViews = this.createQueryGraphViews(action);
 
+    const test = new graphConvolutionModel();
     // Update running moments only at leaf
     const runningMomentsFeatures: IRunningMoments = action.context.get(KeysRlTrain.runningMomentsFeatures)!;
     this.updateAllMoments(runningMomentsFeatures, leafFeatures);
     this.standardiseFeatures(runningMomentsFeatures, leafFeatures);
+
     // Feature tensors created here, after no longer needed (corresponding result sets are joined) they need to be disposed
     const featureTensorLeaf: tf.Tensor[] = leafFeatures.map(x=>tf.tensor(x,[1, x.length]));
     const memoryCellLeaf: tf.Tensor[] = featureTensorLeaf.map(x=>tf.zeros(x.shape));
@@ -245,10 +219,151 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       batchToUpdate.leafFeatures = {hiddenStates: resultSetRepresentationLeaf.hiddenStates.map(x=>x.clone()), 
         memoryCell: resultSetRepresentationLeaf.memoryCell.map(x=>x.clone())};  
     }
-
+    test.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objObjView));
     episode.featureTensor=resultSetRepresentationLeaf;
     episode.sharedVariables=sharedVariables;
     episode.isEmpty = false;
+    episode.graphViews = graphViews;
+  }
+
+  public createQueryGraphViews(action: IActionRdfJoinReinforcementLearning){
+    // Duplicate code, remove for refactor
+    const patterns: Operation[] = action.entries.map((x)=>{
+      if (!this.isPattern(x.operation)){
+        throw new Error("Found a non pattern during feature initialisation");
+      }
+      else{
+          return x.operation;
+      }
+    });
+    const subjectObjects: rdfjs.Term[][] = patterns.map(x => [x.subject, x.object]);
+
+    const subObjGraph = this.createSubjectObjectView(subjectObjects);
+    const objSubGraph = this.createObjectSubjectView(subjectObjects);
+    const subSubGraph = this.createSubjectSubjectView(subjectObjects);
+    const objObjGraph = this.createObjectObjectView(subjectObjects);
+    const graphViews: IQueryGraphViews = {subSubView: subSubGraph, objObjView: objObjGraph, 
+      subObjView: subObjGraph, objSubView: objSubGraph};
+    return graphViews;
+  }
+
+  public createSubjectObjectView(subjectObjects: rdfjs.Term[][]){
+    const adjMatrixSubObj = new Array(subjectObjects.length).fill(0).map(x=>new Array(subjectObjects.length).fill(0));
+    for (let i = 0; i<subjectObjects.length; i++){
+      // Add self connection
+      adjMatrixSubObj[i][i] = 1;
+      // Set subject->object (or object->subject) connections
+      const outerTerm = subjectObjects[i][0];
+      // Only valid if we have Variables
+      if (outerTerm.termType == 'Variable'){
+        for (let j = i; j<subjectObjects.length; j++){
+          const innerTerm = subjectObjects[j][1];
+          if (innerTerm.termType== 'Variable' && outerTerm.value == innerTerm.value){
+            adjMatrixSubObj[i][j] = 1;
+            adjMatrixSubObj[j][i] = 1;
+          }
+        }
+      }
+    }
+    return adjMatrixSubObj;
+  }
+
+  public createObjectSubjectView(subjectObjects: rdfjs.Term[][]){
+    const adjMatrixObjSub = new Array(subjectObjects.length).fill(0).map(x=>new Array(subjectObjects.length).fill(0));
+    for (let i = 0; i<subjectObjects.length; i++){
+      // Add self connection
+      adjMatrixObjSub[i][i] = 1;
+      // Set subject->object (or object->subject) connections
+      const outerTerm = subjectObjects[i][1];
+      // Only valid if we have Variables
+      if (outerTerm.termType == 'Variable'){
+        for (let j = i; j<subjectObjects.length; j++){
+          const innerTerm = subjectObjects[j][0];
+          if (innerTerm.termType== 'Variable' && outerTerm.value == innerTerm.value){
+            adjMatrixObjSub[i][j] = 1;
+            adjMatrixObjSub[j][i] = 1;
+          }
+        }
+      }
+    }
+    return adjMatrixObjSub;
+
+  }
+
+  public createSubjectSubjectView(subjectObjects: rdfjs.Term[][]){
+    const adjMatrixSubSub = new Array(subjectObjects.length).fill(0).map(x=>new Array(subjectObjects.length).fill(0));
+    for (let i = 0; i<subjectObjects.length; i++){
+      // Add self connection
+      adjMatrixSubSub[i][i] = 1;
+      // Set subject->subject connections
+      const outerTerm = subjectObjects[i][0];
+      // Only valid if we have Variables
+      if (outerTerm.termType == 'Variable'){
+        for (let j = i; j<subjectObjects.length; j++){
+          const innerTerm = subjectObjects[j][0];
+          if (innerTerm.termType== 'Variable' && outerTerm.value == innerTerm.value){
+            adjMatrixSubSub[i][j] = 1;
+            adjMatrixSubSub[j][i] = 1;
+          }
+        }
+      }
+    }
+    return adjMatrixSubSub;
+  }
+
+  public createObjectObjectView(subjectObjects: rdfjs.Term[][]){
+    const adjMatrixObjObj = new Array(subjectObjects.length).fill(0).map(x=>new Array(subjectObjects.length).fill(0));
+    for (let i = 0; i<subjectObjects.length; i++){
+      // Add self connection
+      adjMatrixObjObj[i][i] = 1;
+      // Set subject->subject connections
+      const outerTerm = subjectObjects[i][1];
+      // Only valid if we have Variables
+      if (outerTerm.termType == 'Variable'){
+        for (let j = i; j<subjectObjects.length; j++){
+          const innerTerm = subjectObjects[j][1];
+          if (innerTerm.termType== 'Variable' && outerTerm.value == innerTerm.value){
+            adjMatrixObjObj[i][j] = 1;
+            adjMatrixObjObj[j][i] = 1;
+          }
+        }
+      }
+    }
+    return adjMatrixObjObj;
+  }
+
+  public async getLeafFeatures(action: IActionRdfJoinReinforcementLearning, vectorSize: number){
+    const patterns: Operation[] = action.entries.map((x)=>{
+      if (!this.isPattern(x.operation)){
+        throw new Error("Found a non pattern during feature initialisation");
+      }
+      else{
+          return x.operation;
+      }
+    });
+
+    const leafFeatures: number[][] = [];
+    for(let i=0;i<action.entries.length;i++){
+      // Encode triple pattern information
+      const triple = [patterns[i].subject, patterns[i].predicate, patterns[i].object];
+      const isVariable: number[] = triple.map(x => x.termType=='Variable' ? 1 : 0);
+      const isNamedNode: number[] = triple.map(x => x.termType=='NamedNode' ? 1 : 0)
+      const isLiteral: number[] = triple.map(x=> x.termType=='Literal' ? 1 : 0);
+      const cardinalityLeaf: number = (await action.entries[i].output.metadata()).cardinality.value;
+
+      // Get predicate embedding
+      let predicateEmbedding: number[] = [];
+      if (this.predicateVectors.get(patterns[i].predicate.value)){
+        predicateEmbedding = this.predicateVectors.get(patterns[i].predicate.value)!;
+      }
+      else{
+        // Zero vector represents unknown predicate
+        predicateEmbedding = new Array(vectorSize).fill(0);
+      }
+      // leafFeatures.push([cardinalityLeaf].concat(isVariable[0]));
+      leafFeatures.push([cardinalityLeaf].concat(isVariable, isNamedNode, isLiteral, predicateEmbedding));
+    }
+    return leafFeatures;
   }
 
   public async getSharedVariableTriplePatterns(action: IActionRdfJoinReinforcementLearning){
@@ -379,6 +494,12 @@ export interface IResultSetRepresentation{
   memoryCell: tf.Tensor[];
 }
 
+export interface IResultSetRepresentationGraph{
+  hiddenStates: tf.Tensor[];
+  memoryCell: tf.Tensor[];
+  graphViews: IQueryGraphViews;
+}
+
 export interface IRunningMoments{
   /*
   * Indexes of features to normalise and track
@@ -405,4 +526,23 @@ export interface IAggregateValues{
   * Aggregate M2
   */
   M2: number;
+}
+
+export interface IQueryGraphViews{
+  /**
+   * Adjacency matrix for Subject to Subject connections of triple patterns
+   */
+  subSubView: number[][];
+  /**
+   * Adjacency matrix for Object to Object connections of triple patterns
+   */
+  objObjView: number[][];
+  /**
+   * Adjacency matrix for Subject to Ojbect connections of triple patterns
+   */
+  subObjView: number[][];
+  /**
+   * Adjacency matrix for Object to Subject connections of triple patterns
+   */
+  objSubView: number[][];
 }

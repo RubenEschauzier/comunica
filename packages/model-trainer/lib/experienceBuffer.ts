@@ -1,11 +1,11 @@
-import { IAggregateValues, IResultSetRepresentation, MediatorJoinReinforcementLearning } from "@comunica/mediator-join-reinforcement-learning";
+import { IAggregateValues, IResultSetRepresentation, IResultSetRepresentationGraph, MediatorJoinReinforcementLearning } from "@comunica/mediator-join-reinforcement-learning";
 import * as fs from 'graceful-fs';
 import * as tf from '@tensorflow/tfjs-node';
 
 export class ExperienceBuffer{
     // Data structures to make fifo buffer
     experienceBufferMap: Map<string,Map<string,IExperience>>;
-    queryLeafFeatures: Map<string, IResultSetRepresentation>;
+    queryLeafFeatures: Map<string, IResultSetRepresentationGraph>;
     experienceAgeTracker: IExperienceKey[];
     maxSize: number;
     // Data structures to keep track of queries and their keys
@@ -20,7 +20,7 @@ export class ExperienceBuffer{
     */
     constructor(maxSize: number){
         this.experienceBufferMap = new Map<string, Map<string, IExperience>>();
-        this.queryLeafFeatures = new Map<string, IResultSetRepresentation>();
+        this.queryLeafFeatures = new Map<string, IResultSetRepresentationGraph>();
         this.experienceAgeTracker = [];
         this.maxSize = maxSize;
 
@@ -64,7 +64,6 @@ export class ExperienceBuffer{
      * @returns 
      */
     public setExperience(queryKey: string, joinPlanKey: string, experience: IExperience, runningMomentsY: IAggregateValues){
-        console.log(`Before adding experience ${this.getSize()}`)
 
         const fullJoinPlanKeyLength = this.getNumJoinsQuery(queryKey);
         if (!fullJoinPlanKeyLength){
@@ -81,9 +80,6 @@ export class ExperienceBuffer{
         const fullJoinPlan: boolean = joinPlanKeyArray.length == fullJoinPlanKeyLength
         
         if (existingExperience){
-            console.log("Existing experience");
-            console.log(queryKey);
-            console.log(joinPlanKey);
             /**
              * Note that this function is not entirely correct, if the average execution time goes up due to chance it is not reflected in the execution time
              *of partial join plans that use the execution time of a complete join plan. This difference should be small though.
@@ -108,8 +104,6 @@ export class ExperienceBuffer{
             existingExperience.actualExecutionTimeNorm = (existingExperience.actualExecutionTimeRaw - runningMomentsY.mean)/runningMomentsY.std;
             return;
         }
-        console.log("New experience!")
-
         // If it doesn't exist we set new experience
         this.experienceBufferMap.get(queryKey)!.set(joinPlanKey, experience);
         // Add it to the 'queue' to keep track of age
@@ -121,7 +115,6 @@ export class ExperienceBuffer{
             this.experienceBufferMap.get(removedElement.query)!.delete(removedElement.joinPlanKey);
 
         }
-        console.log(`After adding experience ${this.getSize()}`)
         return;
     }
     public getQueryKey(queryString: string){
@@ -142,7 +135,7 @@ export class ExperienceBuffer{
         return this.queryToKey.get(queryString)? true: false;
     }
 
-    public initQueryInformation(queryString: string, leafFeatures: IResultSetRepresentation){
+    public initQueryInformation(queryString: string, leafFeatures: IResultSetRepresentationGraph){
         // First we convert to string key
         const queryStringKey = this.numUniqueKeys.toString();
 
@@ -156,7 +149,7 @@ export class ExperienceBuffer{
         this.numUniqueKeys += 1;
     }
 
-    public setLeafFeaturesQuery(queryKey: string, leafFeatures: IResultSetRepresentation){
+    public setLeafFeaturesQuery(queryKey: string, leafFeatures: IResultSetRepresentationGraph){
         this.queryLeafFeatures.set(queryKey, leafFeatures);
         this.experienceBufferMap.set(queryKey, new Map<string, IExperience>());
     }
@@ -195,14 +188,17 @@ export class ExperienceBuffer{
     }
 
     public loadLeafFeatures(fileLocation: string){
+        console.log("Loading not yet CHANGED")
         const data = JSON.parse(fs.readFileSync(fileLocation, 'utf-8'));
-        const newLeafFeatures: Map<string, IResultSetRepresentation> = new Map<string, IResultSetRepresentation>();
+        const newLeafFeatures: Map<string, IResultSetRepresentationGraph> = new Map<string, IResultSetRepresentationGraph>();
         for (const entry of data){
             const key = entry[0];
             const features = entry[1];
             const featureTensorHS = features[0].map((x: number[][]) =>tf.tensor(x));
             const featureTensorMem = features[1].map((x: number[][]) =>tf.tensor(x));
-            newLeafFeatures.set(key, {hiddenStates: featureTensorHS, memoryCell: featureTensorMem});
+            
+            newLeafFeatures.set(key, {hiddenStates: featureTensorHS, memoryCell: featureTensorMem, 
+                graphViews: {subSubView: [], objObjView: [], subObjView: [], objSubView: []}});
         }
         this.queryLeafFeatures = newLeafFeatures;
     }

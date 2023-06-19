@@ -325,7 +325,7 @@ export class ModelTreeLSTM{
             this.weightsDir = weightsDir;
         }
         const modelConfig = await this.loadConfig();
-        this.loadedConfig = modelConfig;
+        this.loadedConfig = modelConfig;        
 
         const binaryLSTMConfig = modelConfig.binaryTreeLSTM;
         for(let i=0;i<binaryLSTMConfig.layers.length;i++){

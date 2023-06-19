@@ -24,3 +24,4 @@ earl.ttl
 componentsjs-error-state.json
 engines/*/components
 packages/*/components
+packages/mediator-join-reinforcement-learning/models
