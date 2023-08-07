@@ -179,7 +179,8 @@
     "@comunica/runner": "^2.8.1",
     "@comunica/runner-cli": "^2.8.1",
     "@comunica/types": "^2.8.1",
-    "process": "^0.11.10"
+    "process": "^0.11.10",
+    "@comunica/actor-merge-binding-factory-source-binding-union": "^2.0.0"
   },
   "scripts": {
     "build": "npm run build:ts",
