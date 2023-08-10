@@ -35,6 +35,7 @@
     "@comunica/actor-abstract-path": "^2.8.1",
     "@comunica/bindings-factory": "^2.7.0",
     "@comunica/bus-query-operation": "^2.8.1",
+    "@comunica/bus-merge-binding-factory": "^2.0.0",
     "@comunica/types": "^2.8.1",
     "asynciterator": "^3.8.1",
     "sparqlalgebrajs": "^4.2.0"
