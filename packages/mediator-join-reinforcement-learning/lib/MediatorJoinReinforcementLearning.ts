@@ -238,17 +238,17 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     });
     const subjectObjects: rdfjs.Term[][] = patterns.map(x => [x.subject, x.object]);
     console.log(subjectObjects)
-    const subObjGraph = MediatorJoinReinforcementLearning.createSubjectObjectView(subjectObjects);
+    // const subObjGraph = MediatorJoinReinforcementLearning.createSubjectObjectView(subjectObjects);
     const objSubGraph = MediatorJoinReinforcementLearning.createObjectSubjectView(subjectObjects);
     const subSubGraph = MediatorJoinReinforcementLearning.createSubjectSubjectView(subjectObjects);
     const objObjGraph = MediatorJoinReinforcementLearning.createObjectObjectView(subjectObjects);
     const graphViews: IQueryGraphViews = {subSubView: subSubGraph, objObjView: objObjGraph, 
-      subObjView: subObjGraph, objSubView: objSubGraph};
+     objSubView: objSubGraph};
     return graphViews;
   }
 
   // This is a directed graph where if triple pattern $i$ subject is triple pattern $j$ object, we have A_{ij} = 1, but A_{ji} = 0
-  // So row i column j = 1, but row j column i = 0. This denotes linear queries.
+  // So row i column j = 1, but row j column i = 0. This denotes linear queries. I believe this is currently redundant
   public static createSubjectObjectView(subjectObjects: rdfjs.Term[][]): number[][]{
     const adjMatrixSubObj = new Array(subjectObjects.length).fill(0).map(x=>new Array(subjectObjects.length).fill(0));
     for (let i = 0; i<subjectObjects.length; i++){
@@ -262,7 +262,6 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
           const innerTerm = subjectObjects[j][1];
           if (innerTerm.termType== 'Variable' && outerTerm.value == innerTerm.value){
             adjMatrixSubObj[i][j] = 1;
-            adjMatrixSubObj[j][i] = 1;
           }
         }
       }
@@ -270,6 +269,8 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     return adjMatrixSubObj;
   }
 
+  // This is a directed graph where if triple pattern $i$ object is triple pattern $j$ subject, we have A_{ij} = 1, but A_{ji} = 0
+  // So row i column j = 1, but row j column i = 0. This denotes linear queries.
   public static createObjectSubjectView(subjectObjects: rdfjs.Term[][]): number[][]{
     const adjMatrixObjSub = new Array(subjectObjects.length).fill(0).map(x=>new Array(subjectObjects.length).fill(0));
     for (let i = 0; i<subjectObjects.length; i++){
@@ -540,10 +541,6 @@ export interface IQueryGraphViews{
    * Adjacency matrix for Object to Object connections of triple patterns
    */
   objObjView: number[][];
-  /**
-   * Adjacency matrix for Subject to Ojbect connections of triple patterns
-   */
-  subObjView: number[][];
   /**
    * Adjacency matrix for Object to Subject connections of triple patterns
    */
