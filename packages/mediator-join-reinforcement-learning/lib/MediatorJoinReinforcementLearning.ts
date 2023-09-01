@@ -247,7 +247,9 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     return graphViews;
   }
 
-  public static createSubjectObjectView(subjectObjects: rdfjs.Term[][]){
+  // This is a directed graph where if triple pattern $i$ subject is triple pattern $j$ object, we have A_{ij} = 1, but A_{ji} = 0
+  // So row i column j = 1, but row j column i = 0. This denotes linear queries.
+  public static createSubjectObjectView(subjectObjects: rdfjs.Term[][]): number[][]{
     const adjMatrixSubObj = new Array(subjectObjects.length).fill(0).map(x=>new Array(subjectObjects.length).fill(0));
     for (let i = 0; i<subjectObjects.length; i++){
       // Add self connection
@@ -268,7 +270,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     return adjMatrixSubObj;
   }
 
-  public static createObjectSubjectView(subjectObjects: rdfjs.Term[][]){
+  public static createObjectSubjectView(subjectObjects: rdfjs.Term[][]): number[][]{
     const adjMatrixObjSub = new Array(subjectObjects.length).fill(0).map(x=>new Array(subjectObjects.length).fill(0));
     for (let i = 0; i<subjectObjects.length; i++){
       // Add self connection
@@ -281,7 +283,6 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
           const innerTerm = subjectObjects[j][0];
           if (innerTerm.termType== 'Variable' && outerTerm.value == innerTerm.value){
             adjMatrixObjSub[i][j] = 1;
-            adjMatrixObjSub[j][i] = 1;
           }
         }
       }
@@ -290,7 +291,8 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
 
   }
 
-  public static createSubjectSubjectView(subjectObjects: rdfjs.Term[][]){
+  // Represent star-shaped queries, where if triple pattern i and j share a subject, we have A_{ij} = A_{ji} = 1
+  public static createSubjectSubjectView(subjectObjects: rdfjs.Term[][]): number[][]{
     const adjMatrixSubSub = new Array(subjectObjects.length).fill(0).map(x=>new Array(subjectObjects.length).fill(0));
     for (let i = 0; i<subjectObjects.length; i++){
       // Add self connection
@@ -311,7 +313,8 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     return adjMatrixSubSub;
   }
 
-  public static createObjectObjectView(subjectObjects: rdfjs.Term[][]){
+  // Represents inverse star shaped queries, where if triple pattern i and j share an object, we have A_{ij} = A_{ji} = 1
+  public static createObjectObjectView(subjectObjects: rdfjs.Term[][]): number[][]{
     const adjMatrixObjObj = new Array(subjectObjects.length).fill(0).map(x=>new Array(subjectObjects.length).fill(0));
     for (let i = 0; i<subjectObjects.length; i++){
       // Add self connection

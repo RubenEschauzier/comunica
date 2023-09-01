@@ -1,11 +1,12 @@
 import { Actor, Bus, IAction, IActorOutput, IActorTest, Mediator } from '@comunica/core';
-import { GraphConvolutionLayer, GraphConvolutionModel } from '../lib/GraphConvolution';
+import { GraphConvolutionLayer, GraphConvolutionLayerDirected, GraphConvolutionModel } from '../lib/GraphConvolution';
 import * as tf from '@tensorflow/tfjs-node';
 import * as fs from 'fs';
 import { DenseOwnImplementation } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree/lib/fullyConnectedLayers';
 
 describe('GraphConvolution', () => {
   let graphConvolutionLayer: GraphConvolutionLayer;
+  let graphConvolutionLayerDirected: GraphConvolutionLayerDirected;
   let graphConvolutionModel: GraphConvolutionModel
   beforeEach(() => {
   });
@@ -14,7 +15,9 @@ describe('GraphConvolution', () => {
 
     beforeEach(() => {
         graphConvolutionLayer = new GraphConvolutionLayer(3, 4, 'relu', undefined, __dirname)
+        graphConvolutionLayerDirected = new GraphConvolutionLayerDirected(3, 4, 'relu', undefined, __dirname)
         graphConvolutionLayer.loadWeights("weights-test/weightsLayerTest.txt"); 
+        graphConvolutionLayerDirected.loadWeights("weights-test/weightsLayerTest.txt");
     });
 
     it('should correctly load weights', () => {
@@ -42,6 +45,21 @@ describe('GraphConvolution', () => {
         }
         return expect(outputLayer[1][3]).toBeCloseTo(expectedResult[1][3], 2);
     });
+    it('should correctly perform directed forward pass', () => {
+        const input = tf.tensor([[1, 2, -2], [-1, 1, 1]]);
+        const adjacency = tf.tensor([[1, 1], [ 0, 1 ]]);
+        const expectedResult = [[2.5000, 2.0000, 2.5000, 2.0000], [2.0000, 2.0000, 0.0000, 0.0000]];
+
+        const outputLayer: number[][] = graphConvolutionLayerDirected.call(input, adjacency).arraySync() as number[][];
+
+        for (let i = 0; i<expectedResult.length; i++){
+            for (let j = 0; j<expectedResult[0].length; j++){
+                expect(outputLayer[i][j]).toBeCloseTo(expectedResult[i][j], 2)
+            }
+        }
+        return expect(outputLayer[1][3]).toBeCloseTo(expectedResult[1][3], 2);
+    });
+
   });
 
   describe('A GraphConvolution Model', () => {

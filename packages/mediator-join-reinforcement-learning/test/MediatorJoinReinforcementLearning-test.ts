@@ -10,41 +10,66 @@ describe('MediatorJoinReinforcementLearning', () => {
   });
 
   describe('An MediatorJoinReinforcementLearning instance', () => {
-    let mediator: MediatorJoinReinforcementLearning<DummyActor, IAction, IDummyTest, IDummyTest>;
-
-    beforeEach(() => {
-      mediator = new MediatorJoinReinforcementLearning({ name: 'mediator', bus });
-    });
-
-    beforeEach(() => {
-      bus.subscribe(new DummyActor(10, bus));
-      bus.subscribe(new DummyActor(100, bus));
-      bus.subscribe(new DummyActor(1, bus));
-    });
-
-    it('should mediate', () => {
-      return expect(mediator.mediate({})).resolves.toEqual({ todo: true });
-    });
   });
   describe('Creating graph views', () =>{
-
+    let subjectObjects: rdfjs.Term[][]
     beforeEach(()=>{
-      const subjectObjects: rdfjs.Term[][] = 
+      // Query graph of WatDiv Complex Query 1
+      subjectObjects = 
       [
-        [ { termType: 'Variable', value: 'v0', equals: () =>{return true;} }, { termType: 'Variable', value: 'v1'  , equals: ()=>{return true}}],
-        [ { termType: 'Variable', value: 'v0' }, { termType: 'Variable', value: 'v2' } ],
-        [ { termType: 'Variable', value: 'v0' }, { termType: 'Variable', value: 'v3' } ],
-        [ { termType: 'Variable', value: 'v0' }, { termType: 'Variable', value: 'v4' } ],
-        [ { termType: 'Variable', value: 'v4' }, { termType: 'Variable', value: 'v5' } ],
-        [ { termType: 'Variable', value: 'v4' }, { termType: 'Variable', value: 'v6' } ],
-        [ { termType: 'Variable', value: 'v7' }, { termType: 'Variable', value: 'v6' } ],
-        [ { termType: 'Variable', value: 'v7' }, { termType: 'Variable', value: 'v8' } ]
+        [ { termType: 'Variable', value: 'v0', equals: () =>{return true;} }, { termType: 'Variable', value: 'v1', equals: () =>{return true;} } ],
+        [ { termType: 'Variable', value: 'v0', equals: () =>{return true;} }, { termType: 'Variable', value: 'v2', equals: () =>{return true;} } ],
+        [ { termType: 'Variable', value: 'v0', equals: () =>{return true;} }, { termType: 'Variable', value: 'v3', equals: () =>{return true;} } ],
+        [ { termType: 'Variable', value: 'v0', equals: () =>{return true;} }, { termType: 'Variable', value: 'v4', equals: () =>{return true;} } ],
+        [ { termType: 'Variable', value: 'v4', equals: () =>{return true;} }, { termType: 'Variable', value: 'v5', equals: () =>{return true;} } ],
+        [ { termType: 'Variable', value: 'v4', equals: () =>{return true;} }, { termType: 'Variable', value: 'v6', equals: () =>{return true;} } ],
+        [ { termType: 'Variable', value: 'v7', equals: () =>{return true;} }, { termType: 'Variable', value: 'v6', equals: () =>{return true;} } ],
+        [ { termType: 'Variable', value: 'v7', equals: () =>{return true;} }, { termType: 'Variable', value: 'v8', equals: () =>{return true;} } ]
       ]
       MediatorJoinReinforcementLearning.createObjectObjectView(subjectObjects)
     });
     it('should create subject-subject view', () =>{
+      const expectedOutput: number[][] = [
+      [1,1,1,1,0,0,0,0],
+      [1,1,1,1,0,0,0,0],
+      [1,1,1,1,0,0,0,0],
+      [1,1,1,1,0,0,0,0],
+      [0,0,0,0,1,1,0,0],
+      [0,0,0,0,1,1,0,0],
+      [0,0,0,0,0,0,1,1],
+      [0,0,0,0,0,0,1,1]]
+      const subjectSubjectGraph = MediatorJoinReinforcementLearning.createSubjectSubjectView(subjectObjects);
+      return expect(subjectSubjectGraph).toEqual(expectedOutput);
+    });
+    it('should create object-object view', () =>{
+      const expectedOutput: number[][] = [
+        [1,0,0,0,0,0,0,0],
+        [0,1,0,0,0,0,0,0],
+        [0,0,1,0,0,0,0,0],
+        [0,0,0,1,0,0,0,0],
+        [0,0,0,0,1,0,0,0],
+        [0,0,0,0,0,1,1,0],
+        [0,0,0,0,0,1,1,0],
+        [0,0,0,0,0,0,0,1]]
+      const objectObjectGraph = MediatorJoinReinforcementLearning.createObjectObjectView(subjectObjects);
+      return expect(objectObjectGraph).toEqual(expectedOutput);
+    });
+    it('should create object-subject view', () =>{
+      const expectedOutput: number[][] = [
+        [1,0,0,0,0,0,0,0],
+        [0,1,0,0,0,0,0,0],
+        [0,0,1,0,0,0,0,0],
+        [0,0,0,1,1,1,0,0],
+        [0,0,0,0,1,0,0,0],
+        [0,0,0,0,0,1,0,0],
+        [0,0,0,0,0,0,1,0],
+        [0,0,0,0,0,0,0,1]]
+      const objectSubjectGraph = MediatorJoinReinforcementLearning.createObjectSubjectView(subjectObjects);
+      console.log(objectSubjectGraph)
+      return expect(objectSubjectGraph).toEqual(expectedOutput);
+    });
 
-    })
+
   })
 });
 
