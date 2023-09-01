@@ -14,7 +14,7 @@ export class DenseOwnImplementation extends tf.layers.Layer{
     modelDirectory: string;
 
 
-    public constructor(inputDim: number, outputDim: number, weightName?: string, biasName?: string){
+    public constructor(inputDim: number, outputDim: number, weightName?: string, biasName?: string, modelDirectory?: string){
         super({});
         this.inputDim = inputDim;
         this.outputDim = outputDim;
@@ -23,49 +23,58 @@ export class DenseOwnImplementation extends tf.layers.Layer{
         this.heInitTerm = tf.sqrt(this.intermediateHeInit);
         this.mWeights = tf.variable(tf.mul(tf.randomNormal([this.outputDim, this.inputDim],0,1),this.heInitTerm), true);
         this.mBias = tf.variable(tf.mul(tf.randomNormal([outputDim,1],0,1), this.heInitTerm), true);
-        this.modelDirectory = this.getModelDirectory();
+        this.modelDirectory = (modelDirectory != undefined ? modelDirectory : this.getModelDirectory());
     }
 
 
     call(inputs: tf.Tensor, kwargs: any){
+        console.log(this.mWeights.shape)
+        console.log(inputs.shape)
         return tf.tidy(() => {
-            return tf.add(tf.matMul(this.mWeights, inputs), this.mBias.broadcastTo([this.outputDim, 1]));
+            return tf.add(tf.matMul(this.mWeights, tf.transpose(inputs)), this.mBias.broadcastTo([this.outputDim, 1]));
         });
     }
     getClassName() {
         return 'Dense Own';
     }
 
-    public saveWeights(fileLocation: string){
+    public saveWeights(loadPath: string){
+        const fileLocation = path.join(this.modelDirectory, loadPath);
         const weights = this.mWeights.arraySync();
         fs.writeFileSync(fileLocation, JSON.stringify(weights));
     }
 
-    public saveBias(fileLocation: string) {
+    public saveBias(loadPath: string) {
+        const fileLocation = path.join(this.modelDirectory, loadPath);
         const weights = this.mBias.arraySync();
         fs.writeFileSync(fileLocation, JSON.stringify(weights));
     }
 
-    public async loadWeights(fileLocation: string): Promise<void>{
+    public loadWeights(loadPath: string): void{
         try{
+            const fileLocation = path.join(this.modelDirectory, loadPath);
             const weights = this.readWeightFile(fileLocation);
             this.mWeights.assign(weights);
         }
-        catch{
-            throw new Error("Failed to load dense weights");
+        catch(err){
+            throw err;
         }
     }
 
-    public async loadBias(fileLocation: string): Promise<void>{
+    public loadBias(loadPath: string): void{
         try{
+            const fileLocation = path.join(this.modelDirectory, loadPath);
             const weights = this.readWeightFile(fileLocation);
             this.mBias.assign(weights);    
         }
-        catch{
-            throw new Error("Failed to load bias weights");
+        catch(err){
+            throw err
         }
     }
 
+    public getWeights(trainableOnly?: boolean | undefined): tf.Tensor<tf.Rank>[] {
+        return [this.mWeights, this.mBias];
+    }
     public disposeLayer(){
         // Dispose all weights in layer
         this.intermediateHeInit.dispose(); this.heInitTerm.dispose(); 
@@ -115,15 +124,15 @@ export class QValueNetwork{
         })
     }
 
-    public async init(qValueNetworkConfig: ILayerConfig, weightsDir: string ){
+    public init(qValueNetworkConfig: ILayerConfig, weightsDir: string ){
         let denseIdx = 0;
         for (let k=0;k<qValueNetworkConfig.layers.length;k++){
             if (qValueNetworkConfig.layers[k].type=='dense'){
                 const newLayer: DenseOwnImplementation = new DenseOwnImplementation(qValueNetworkConfig.layers[k].inputSize!, 
                 qValueNetworkConfig.layers[k].outputSize!, 'dW'+k, 'dB'+k);
                 if (qValueNetworkConfig.weightsConfig.loadWeights){
-                    await newLayer.loadWeights(weightsDir+qValueNetworkConfig.weightsConfig.weightLocation+denseIdx+'.txt');
-                    await newLayer.loadBias(weightsDir+qValueNetworkConfig.weightsConfig.weightLocationBias+denseIdx+'.txt');
+                    newLayer.loadWeights(weightsDir+qValueNetworkConfig.weightsConfig.weightLocation+denseIdx+'.txt');
+                    newLayer.loadBias(weightsDir+qValueNetworkConfig.weightsConfig.weightLocationBias+denseIdx+'.txt');
                     denseIdx+=1;
                 }                   
                 this.networkLayers.push(newLayer)

@@ -1,7 +1,7 @@
 {
     "weightLocation": "/test",
     "layers":[
-        {"type": "gcn", "inputSize": 138, "outputSize": 256},
+        {"type": "gcn", "inputSize": 138, "outputSize": 256, "activation": "relu"},
         {"type": "activation", "activation": "relu", "inputSize": 256, "outputSize": 256},
         {"type": "dropout", "inputSize": 256, "outputSize": 256 , "rate": 0.2},
         {"type": "gcn", "inputSize": 256, "outputSize": 512},

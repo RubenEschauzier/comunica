@@ -9,7 +9,7 @@ import * as fs from 'fs';
 import { Operation, Pattern } from 'sparqlalgebrajs/lib/algebra';
 import { ISingleResultSetRepresentation } from '../../actor-rdf-join-inner-multi-reinforcement-learning-tree/lib';
 import * as rdfjs from '@rdfjs/types';
-import { graphConvolutionModel } from './graphConvolution';
+import { GraphConvolutionModel } from './GraphConvolution';
 /**
  * A comunica join-reinforcement-learning mediator.
  */
@@ -192,9 +192,9 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
 
     const leafFeatures = await this.getLeafFeatures(action, vectorSize);    
     const sharedVariables = await this.getSharedVariableTriplePatterns(action);
-    const graphViews: IQueryGraphViews = this.createQueryGraphViews(action);
+    const graphViews: IQueryGraphViews = MediatorJoinReinforcementLearning.createQueryGraphViews(action);
 
-    const test = new graphConvolutionModel();
+    const test = new GraphConvolutionModel();
     // Update running moments only at leaf
     const runningMomentsFeatures: IRunningMoments = action.context.get(KeysRlTrain.runningMomentsFeatures)!;
     this.updateAllMoments(runningMomentsFeatures, leafFeatures);
@@ -226,10 +226,10 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     episode.graphViews = graphViews;
   }
 
-  public createQueryGraphViews(action: IActionRdfJoinReinforcementLearning){
+  public static createQueryGraphViews(action: IActionRdfJoinReinforcementLearning){
     // Duplicate code, remove for refactor
     const patterns: Operation[] = action.entries.map((x)=>{
-      if (!this.isPattern(x.operation)){
+      if (!MediatorJoinReinforcementLearning.isPattern(x.operation)){
         throw new Error("Found a non pattern during feature initialisation");
       }
       else{
@@ -237,17 +237,17 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       }
     });
     const subjectObjects: rdfjs.Term[][] = patterns.map(x => [x.subject, x.object]);
-
-    const subObjGraph = this.createSubjectObjectView(subjectObjects);
-    const objSubGraph = this.createObjectSubjectView(subjectObjects);
-    const subSubGraph = this.createSubjectSubjectView(subjectObjects);
-    const objObjGraph = this.createObjectObjectView(subjectObjects);
+    console.log(subjectObjects)
+    const subObjGraph = MediatorJoinReinforcementLearning.createSubjectObjectView(subjectObjects);
+    const objSubGraph = MediatorJoinReinforcementLearning.createObjectSubjectView(subjectObjects);
+    const subSubGraph = MediatorJoinReinforcementLearning.createSubjectSubjectView(subjectObjects);
+    const objObjGraph = MediatorJoinReinforcementLearning.createObjectObjectView(subjectObjects);
     const graphViews: IQueryGraphViews = {subSubView: subSubGraph, objObjView: objObjGraph, 
       subObjView: subObjGraph, objSubView: objSubGraph};
     return graphViews;
   }
 
-  public createSubjectObjectView(subjectObjects: rdfjs.Term[][]){
+  public static createSubjectObjectView(subjectObjects: rdfjs.Term[][]){
     const adjMatrixSubObj = new Array(subjectObjects.length).fill(0).map(x=>new Array(subjectObjects.length).fill(0));
     for (let i = 0; i<subjectObjects.length; i++){
       // Add self connection
@@ -268,7 +268,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     return adjMatrixSubObj;
   }
 
-  public createObjectSubjectView(subjectObjects: rdfjs.Term[][]){
+  public static createObjectSubjectView(subjectObjects: rdfjs.Term[][]){
     const adjMatrixObjSub = new Array(subjectObjects.length).fill(0).map(x=>new Array(subjectObjects.length).fill(0));
     for (let i = 0; i<subjectObjects.length; i++){
       // Add self connection
@@ -290,7 +290,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
 
   }
 
-  public createSubjectSubjectView(subjectObjects: rdfjs.Term[][]){
+  public static createSubjectSubjectView(subjectObjects: rdfjs.Term[][]){
     const adjMatrixSubSub = new Array(subjectObjects.length).fill(0).map(x=>new Array(subjectObjects.length).fill(0));
     for (let i = 0; i<subjectObjects.length; i++){
       // Add self connection
@@ -311,7 +311,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     return adjMatrixSubSub;
   }
 
-  public createObjectObjectView(subjectObjects: rdfjs.Term[][]){
+  public static createObjectObjectView(subjectObjects: rdfjs.Term[][]){
     const adjMatrixObjObj = new Array(subjectObjects.length).fill(0).map(x=>new Array(subjectObjects.length).fill(0));
     for (let i = 0; i<subjectObjects.length; i++){
       // Add self connection
@@ -334,7 +334,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
 
   public async getLeafFeatures(action: IActionRdfJoinReinforcementLearning, vectorSize: number){
     const patterns: Operation[] = action.entries.map((x)=>{
-      if (!this.isPattern(x.operation)){
+      if (!MediatorJoinReinforcementLearning.isPattern(x.operation)){
         throw new Error("Found a non pattern during feature initialisation");
       }
       else{
@@ -368,7 +368,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
 
   public async getSharedVariableTriplePatterns(action: IActionRdfJoinReinforcementLearning){
     const patterns: Operation[] = action.entries.map((x)=>{
-      if (!this.isPattern(x.operation)){
+      if (!MediatorJoinReinforcementLearning.isPattern(x.operation)){
         throw new Error("Found a non pattern during construction of shared variables in RL actor");
       }
       else{
@@ -396,7 +396,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     return sharedVariables;
   }
 
-  protected isPattern(inputInterface: any){
+  protected static isPattern(inputInterface: any){
     return ('subject' in inputInterface && 'predicate' in inputInterface && 'object' in inputInterface);
   }
 

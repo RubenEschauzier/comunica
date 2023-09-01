@@ -1,0 +1,8 @@
+{
+    "weightLocation": "model-from-config-weights-test",
+    "layers":[
+        {"type": "gcn", "inputSize": 3, "outputSize": 4, "activation": "relu", "weightLocation":"gcn-weights-test-1.txt"},
+        {"type": "dense", "inputSize": 4, "outputSize": 1, "weightLocation":"dense-weights-test-1.txt", "biasLocation": "dense-bias-test-1.txt"},
+        {"type": "activation", "activation": "relu", "inputSize": 1, "outputSize": 1}
+    ]
+}
