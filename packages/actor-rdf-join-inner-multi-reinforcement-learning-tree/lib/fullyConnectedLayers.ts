@@ -26,14 +26,12 @@ export class DenseOwnImplementation extends tf.layers.Layer{
         this.modelDirectory = (modelDirectory != undefined ? modelDirectory : this.getModelDirectory());
     }
 
-
     call(inputs: tf.Tensor, kwargs: any){
-        console.log(this.mWeights.shape)
-        console.log(inputs.shape)
         return tf.tidy(() => {
-            return tf.add(tf.matMul(this.mWeights, tf.transpose(inputs)), this.mBias.broadcastTo([this.outputDim, 1]));
+            return tf.add(tf.matMul(this.mWeights, inputs), this.mBias.broadcastTo([this.outputDim, 1]));
         });
     }
+
     getClassName() {
         return 'Dense Own';
     }

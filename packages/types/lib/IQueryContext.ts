@@ -22,14 +22,47 @@ export type QueryAlgebraContext = RDF.QueryAlgebraContext & RDF.QuerySourceConte
 
 export type FunctionArgumentsCache = Record<string, { func?: any; cache?: FunctionArgumentsCache }>;
 
+/**
+ * Interface for a single query training step, this interface keeps track of:
+ * 1. {@link ITrainEpisode.joinsMade} The order joins made during query optimization, so during backprop we can retrace
+ * these steps to get gradients. The order is decided by {@link ActorRdfJoinInnerMultiReinforcementLearningTree} and added 
+ * to the episode in {@link MediatorJoinReinforcementLearning.mediateWith}. 
+ * 
+ * 2. {@link ITrainEpisode.learnedFeatureTensor} The feature tensors used for prediction. These are initialised in 
+ * {@link MediatorJoinReinforcementLearning.initialiseFeatures} when the {@link ITrainEpisode.isEmpty} flag is set to true.
+ * During join optimization this is updated to reflect the added joins. Updates happen in 
+ * {@link MediatorJoinReinforcementLearning.mediateWith}
+ * 
+ * 3. {@link ITrainEpisode.leafFeatureTensor} The starting features that represent the information in the triple pattern. 
+ * Initialised in {@link MediatorJoinReinforcementLearning.initialiseFeatures} and used to recreate the optimization 
+ * steps for backprop
+ * 
+ * 4. {@link ITrainEpisode.sharedVariables} Matrix that shows what triple patterns share variables, initialised in 
+ * {@link MediatorJoinReinforcementLearning.initialiseFeatures} and updated in 
+ * {@link ActorRdfJoinInnerMultiReinforcementLearningTree} when a join is executed. This is to prevent cartesian
+ * products
+ * 
+ * 5. {@link ITrainEpisode.graphViews} Three views of query graph to use for optimization step recreation during
+ * backprop. Initialised in {@link MediatorJoinReinforcementLearning.initialiseFeatures}
+ * 
+ * 6. {@link ITrainEpisode.isEmpty} If the train episode is empty, set to false after execution of
+ * {@link MediatorJoinReinforcementLearning.initialiseFeatures} and then set to true when it is emptied after 
+ * query execution.
+ * 
+ * The episode is emptied if various conditions are satisfied at the end of a query execution.
+ */
 export interface ITrainEpisode {
   joinsMade: number[][];
-  featureTensor: IResultSetRepresentation;
+  learnedFeatureTensor: IResultSetRepresentation;
+  leafFeatureTensor: tf.Tensor[];
   sharedVariables: number[][];
   graphViews: IQueryGraphViews
   isEmpty: boolean;
 };
 
+/**
+ * TODO: Why is this needed with experiencebuffers?
+ */
 export interface IBatchedTrainingExamples{
   trainingExamples: Map<string, ITrainingExample>;
   leafFeatures: IResultSetRepresentation;

@@ -209,7 +209,7 @@ export class ChildSumTreeLSTM extends tf.layers.Layer{
         this.bO = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
         this.bU = tf.variable(tf.mul(tf.randomNormal([1, this.numUnits],0,1),this.heInitTerm), true);
 
-        this.allWeights = [ this.IWInput, this.FWInput, this.OWInput, this.UWInput, this.IU, this.FU, this.OU, this.UU, this.bI, this.bF, this.bO, this.bU];
+        this.allWeights = [ this.IWInput, this.FWInput, this.OWInput, this.UWInput, this.IU, this.FU, this.OU, this.UU, this.bI, this.bF, this.bO, this.bU ];
     }
 
     public getHeInitTerm(numUnits: number){
@@ -343,7 +343,7 @@ export class ModelTreeLSTM{
             }    
             this.childSumTreeLSTMLayer.push(newLayer);
         }
-        await this.qValueNetwork.init(modelConfig.qValueNetwork, this.weightsDir);
+        this.qValueNetwork.init(modelConfig.qValueNetwork, this.weightsDir);
         this.initialised=true;    
     }
     public async initModelRandom(){

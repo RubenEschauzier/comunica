@@ -63,13 +63,9 @@ implements IQueryEngine<QueryContext> {
   public constructor(actorInitQuery: ActorInitQueryBase<QueryContext>) {
     this.actorInitQuery = actorInitQuery;
     this.defaultFunctionArgumentsCache = {};
-    this.trainEpisode = {
-      joinsMade: [], 
-      featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], 
-      graphViews: {subSubView: [], objObjView: [], subObjView: [], objSubView: []},
-      isEmpty:true
-    };
-    // Hardcoded, should be config, but not sure how to incorporate
+    // Initialise empty episode on creation
+    this.emptyTrainEpisode();
+    // Hardcoded type of model, should be config
     this.modelInstance = new InstanceModel();
     // Moved this to first execution of query, because we want to initiate this from config, honestly should work more with components.js for this
     this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.0001});
@@ -79,7 +75,9 @@ implements IQueryEngine<QueryContext> {
     this.breakRecursion = false;
     // Hardcoded location for training state, either for within local files or within docker
     // this.trainingStateInformationLocation = __dirname + "/../trainingStateEngine";
-    this.trainingStateInformationLocation = "/tmp/trainingStateEngine"
+    this.trainingStateInformationLocation = "/tmp/trainingStateEngine";
+
+    // Initialise empty running moments
     this.runningMomentsFeatures = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
     this.runningMomentsExecution = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
     for (const index of this.runningMomentsExecution.indexes){
@@ -91,7 +89,7 @@ implements IQueryEngine<QueryContext> {
       this.runningMomentsFeatures.runningStats.set(index, startPoint);
     }
 
-    // Some hardcoded magic numbers
+    // Some hardcoded magic numbers for training
     this.experienceBuffer = new ExperienceBuffer(1500);
     this.nExpPerQuery = 8;
     this.numTrainSteps = 0;
@@ -345,12 +343,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     // If there are no joins in query we do not record the experience for the model to train
     if(this.trainEpisode.joinsMade.length==0){
       this.disposeTrainEpisode();
-      this.trainEpisode = {
-        joinsMade: [], 
-        featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], 
-        graphViews: {subSubView: [], objObjView: [], subObjView: [], objSubView: []},
-        isEmpty:true
-      };    
+      this.emptyTrainEpisode();
       return [endTSearch - startT, binding];
     }
 
@@ -366,12 +359,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
 
     // Clear episode tensors to reset the model state
     this.disposeTrainEpisode();
-    this.trainEpisode = {
-      joinsMade: [], 
-      featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], 
-      graphViews: {subSubView: [], objObjView: [], subObjView: [], objSubView: []},
-      isEmpty:true
-    };    
+    this.emptyTrainEpisode();
     return [endTSearch-startT, binding];
   }
 
@@ -392,12 +380,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     const executionTimeRaw: number = await this.consumeStream(bindingsStream, experienceBuffer, 
       startTime, joinOrderKeys, queryKey, true, false);
     this.disposeTrainEpisode();
-    this.trainEpisode = {
-      joinsMade: [], 
-      featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], 
-      graphViews: {subSubView: [], objObjView: [], subObjView: [], objSubView: []},
-      isEmpty:true
-    };   
+    this.emptyTrainEpisode();
     return [executionTimeRaw, endTimeSearch - startTime];
   }
 
@@ -441,12 +424,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     const leafFeatures: IResultSetRepresentation = {hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x=>x.clone()),
     memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x=>x.clone())};
     this.disposeTrainEpisode();
-    this.trainEpisode = {
-      joinsMade: [], 
-      featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], 
-      graphViews: {subSubView: [], objObjView: [], subObjView: [], objSubView: []},
-      isEmpty:true
-    };
+    this.emptyTrainEpisode();
     this.cleanBatchTrainingExamples();    
     return leafFeatures;
 }
@@ -575,8 +553,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     /**
      * If there are no entries in queryToKey map we are at first run or after time-out, thus reload the model state.
      * We do this at start query to prevent unnecessary initialisation of features
-     *  */    
-    console.log("Received query!");
+    */    
 
     if (context && this.experienceBuffer.queryToKey.size==0 && context.trainEndPoint){
       await this.loadState(this.trainingStateInformationLocation);
@@ -584,6 +561,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
 
     // Flag to determine if we should perform an initialisation query
     const initQuery = this.experienceBuffer.queryExists(query.toString())? false : true;
+
     // Prepare batchedTrainExamples so we can store our leaf features
     if (context){
       context.batchedTrainingExamples = this.batchedTrainExamples;
@@ -609,12 +587,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
       this.breakRecursion = false;
       context.batchedTrainingExamples = this.batchedTrainExamples;
       // Reset train episode
-      this.trainEpisode = {
-        joinsMade: [], 
-        featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], 
-        graphViews: {subSubView: [], objObjView: [], subObjView: [], objSubView: []},
-        isEmpty:true
-      };
+      this.emptyTrainEpisode();
       return this.returnNop()
     }
 
@@ -660,7 +633,9 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     }
 
     const baseIRI: string | undefined = actionContext.get(KeysInitQuery.baseIRI);
+    // Why are we doing this?
     await this.modelInstance.initModelRandom();
+
     actionContext = actionContext
       .setDefault(KeysInitQuery.queryTimestamp, new Date())
       .setDefault(KeysRdfResolveQuadPattern.sourceIds, new Map())
@@ -751,12 +726,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
       // Clean the examples
       this.cleanBatchTrainingExamples();
       this.disposeTrainEpisode();
-      this.trainEpisode = {
-        joinsMade: [], 
-        featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], 
-        graphViews: {subSubView: [], objObjView: [], subObjView: [], objSubView: []},
-        isEmpty:true
-      };
+      this.emptyTrainEpisode();
       this.experienceBuffer.initQueryInformation(query.toString(), leafFeaturesExpanded);   
       return this.returnNop();
     }
@@ -764,12 +734,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
     // If we train
     if (!actionContext.get(KeysRlTrain.train) && context && !context.trainEndPoint){
-      this.trainEpisode = {
-        joinsMade: [], 
-        featureTensor: {hiddenStates:[], memoryCell:[]}, sharedVariables: [], 
-        graphViews: {subSubView: [], objObjView: [], subObjView: [], objSubView: []},
-        isEmpty:true
-      };
+      this.emptyTrainEpisode();
     }
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
     // Output physical query plan after query exec if needed
@@ -951,8 +916,19 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
   }
 
   public disposeTrainEpisode(){
-    this.trainEpisode.featureTensor.hiddenStates.map(x=>x.dispose());
-    this.trainEpisode.featureTensor.memoryCell.map(x=>x.dispose()); 
+    this.trainEpisode.learnedFeatureTensor.hiddenStates.map(x=>x.dispose());
+    this.trainEpisode.learnedFeatureTensor.memoryCell.map(x=>x.dispose()); 
+  }
+
+  public emptyTrainEpisode(){
+    this.trainEpisode = {
+      joinsMade: [], 
+      learnedFeatureTensor: {hiddenStates:[], memoryCell:[]}, 
+      sharedVariables: [], 
+      leafFeatureTensor: [],
+      graphViews: {subSubView: [], objObjView: [], objSubView: []},
+      isEmpty:true
+    };    
   }
   /**
    * 

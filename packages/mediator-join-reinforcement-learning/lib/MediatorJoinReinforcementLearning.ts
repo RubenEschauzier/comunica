@@ -132,14 +132,14 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       trainEpisode.joinsMade.push(unsortedIndexes);
       for (const i of idx){
           // Dispose tensors before removing pointer to avoid "floating" tensors
-          trainEpisode.featureTensor.hiddenStates[i].dispose(); trainEpisode.featureTensor.memoryCell[i].dispose();
+          trainEpisode.learnedFeatureTensor.hiddenStates[i].dispose(); trainEpisode.learnedFeatureTensor.memoryCell[i].dispose();
           // Remove features associated with index
-          trainEpisode.featureTensor.hiddenStates.splice(i,1); trainEpisode.featureTensor.memoryCell.splice(i,1);
+          trainEpisode.learnedFeatureTensor.hiddenStates.splice(i,1); trainEpisode.learnedFeatureTensor.memoryCell.splice(i,1);
       }
       // Add new join representation
       // trainEpisode.estimatedQValues.push(bestActorReply.predictedQValue);
-      trainEpisode.featureTensor.hiddenStates.push(bestActorReply.representation.hiddenState);
-      trainEpisode.featureTensor.memoryCell.push(bestActorReply.representation.memoryCell);
+      trainEpisode.learnedFeatureTensor.hiddenStates.push(bestActorReply.representation.hiddenState);
+      trainEpisode.learnedFeatureTensor.memoryCell.push(bestActorReply.representation.memoryCell);
 
       // Update training data batch
       // TODO: turn checks off for benchmarking and actual execution!!
@@ -194,7 +194,14 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     const sharedVariables = await this.getSharedVariableTriplePatterns(action);
     const graphViews: IQueryGraphViews = MediatorJoinReinforcementLearning.createQueryGraphViews(action);
 
-    const test = new GraphConvolutionModel();
+    // Initialise to be used models
+    const modelSubjSubj = new GraphConvolutionModel(path.join(__dirname, '../models/gcn-model-subj-subj'));
+    modelSubjSubj.initModelWeights();
+    const modelObjObj = new GraphConvolutionModel(path.join(__dirname, '../models/gcn-model-obj-obj'));
+    modelObjObj.initModelWeights();
+    const modelObjSubj = new GraphConvolutionModel(path.join(__dirname, '../models/gcn-model-obj-subj'));
+    modelObjSubj.initModelWeights();
+
     // Update running moments only at leaf
     const runningMomentsFeatures: IRunningMoments = action.context.get(KeysRlTrain.runningMomentsFeatures)!;
     this.updateAllMoments(runningMomentsFeatures, leafFeatures);
@@ -202,25 +209,44 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
 
     // Feature tensors created here, after no longer needed (corresponding result sets are joined) they need to be disposed
     const featureTensorLeaf: tf.Tensor[] = leafFeatures.map(x=>tf.tensor(x,[1, x.length]));
-    const memoryCellLeaf: tf.Tensor[] = featureTensorLeaf.map(x=>tf.zeros(x.shape));
+    const memoryCellLeaf: tf.Tensor[] = featureTensorLeaf.map(x=>tf.zeros(x.shape))
+
     const resultSetRepresentationLeaf: IResultSetRepresentation = {hiddenStates: featureTensorLeaf, memoryCell: memoryCellLeaf};
 
     if (!action.context.get(KeysRlTrain.trainEpisode)){
       throw new Error("No train episode given in context");
     }
+
     const episode: ITrainEpisode = action.context.get(KeysRlTrain.trainEpisode)!;
     const batchToUpdate: IBatchedTrainingExamples|undefined = action.context.get(KeysRlTrain.batchedTrainingExamples)!;
 
     if (!batchToUpdate){
       throw new Error("Mediator is passed undefined as BatchedTrainingExamples object");
     }
+
     // Clone of tensors, will prob make memory leaks!
+    // Outdated, investigate if batchedTrainEpisode is even necessary
     if (batchToUpdate.leafFeatures.hiddenStates.length==0){
       batchToUpdate.leafFeatures = {hiddenStates: resultSetRepresentationLeaf.hiddenStates.map(x=>x.clone()), 
         memoryCell: resultSetRepresentationLeaf.memoryCell.map(x=>x.clone())};  
     }
-    test.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objObjView));
-    episode.featureTensor=resultSetRepresentationLeaf;
+
+    // Obtain different query graph representations using GCN
+    const subjSubjRepresentation = modelSubjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.subSubView));
+    const objObjRepresentation = modelObjObj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objObjView));
+    const objSubjRepresentation = modelObjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objSubView));
+
+    // Concatinate all representations 
+    const learnedRepresentation = tf.concat([subjSubjRepresentation, objObjRepresentation, objSubjRepresentation], 1);
+    const learnedRepresentationList = tf.split(learnedRepresentation, learnedRepresentation.shape[0]);
+    const learnedRepresentationResultSet: IResultSetRepresentation = {
+      hiddenStates: learnedRepresentationList,
+      memoryCell: learnedRepresentationList.map(x=>tf.zeros(x.shape))
+    };
+
+    // Initialise episode
+    episode.learnedFeatureTensor = learnedRepresentationResultSet;
+    episode.leafFeatureTensor = featureTensorLeaf
     episode.sharedVariables=sharedVariables;
     episode.isEmpty = false;
     episode.graphViews = graphViews;
@@ -237,7 +263,6 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       }
     });
     const subjectObjects: rdfjs.Term[][] = patterns.map(x => [x.subject, x.object]);
-    console.log(subjectObjects)
     // const subObjGraph = MediatorJoinReinforcementLearning.createSubjectObjectView(subjectObjects);
     const objSubGraph = MediatorJoinReinforcementLearning.createObjectSubjectView(subjectObjects);
     const subSubGraph = MediatorJoinReinforcementLearning.createSubjectSubjectView(subjectObjects);

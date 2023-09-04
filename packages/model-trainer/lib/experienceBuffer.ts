@@ -198,7 +198,7 @@ export class ExperienceBuffer{
             const featureTensorMem = features[1].map((x: number[][]) =>tf.tensor(x));
             
             newLeafFeatures.set(key, {hiddenStates: featureTensorHS, memoryCell: featureTensorMem, 
-                graphViews: {subSubView: [], objObjView: [], subObjView: [], objSubView: []}});
+                graphViews: {subSubView: [], objObjView: [], objSubView: []}});
         }
         this.queryLeafFeatures = newLeafFeatures;
     }

@@ -10,14 +10,12 @@ import type {
 import { ActorRdfJoin } from '@comunica/bus-rdf-join';
 import type { MediatorRdfJoinEntriesSort } from '@comunica/bus-rdf-join-entries-sort';
 import { KeysRlTrain } from '@comunica/context-entries';
-import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
 import type { MetadataBindings, IJoinEntry, IActionContext, IJoinEntryWithMetadata, ITrainEpisode } from '@comunica/types';
 import { Factory } from 'sparqlalgebrajs';
 import * as tf from '@tensorflow/tfjs-node';
 import { IActionRdfJoinReinforcementLearning, IMediatorTypeReinforcementLearning, IResultSetRepresentation } from '@comunica/mediator-join-reinforcement-learning';
 import { IModelOutput, ModelTreeLSTM } from './treeLSTM';
 import { InstanceModel } from './instanceModel';
-import { Operation } from 'sparqlalgebrajs/lib/algebra';
 
 /**
  * A Multi Smallest RDF Join Actor.
@@ -200,11 +198,12 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
       for (const joinCombination of possibleJoinIndexes){
   
         // Clone features to make our prediction
-        const clonedFeatures: IResultSetRepresentation = {hiddenStates: trainEpisode.featureTensor.hiddenStates.map(x=>tf.clone(x)),
-        memoryCell: trainEpisode.featureTensor.memoryCell.map(x=>tf.clone(x))};
+        const clonedFeatures: IResultSetRepresentation = {hiddenStates: trainEpisode.learnedFeatureTensor.hiddenStates.map(x=>tf.clone(x)),
+        memoryCell: trainEpisode.learnedFeatureTensor.memoryCell.map(x=>tf.clone(x))};
 
         // const joinCombinationUnsorted: number[] = [...joinCombination];
         const modelOutput: IModelOutput = modelTreeLSTM.forwardPass(clonedFeatures, joinCombination);
+
         // Negative of Q-value so we minimize execution time
         const qValueScalar: tf.Scalar = tf.sub(0, tf.squeeze(modelOutput.qValue));
         if (qValueScalar.dataSync().length>1){
@@ -217,15 +216,14 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
 
       }
       // Choose according to softmaxed probabilities
-      const estProb = tf.softmax(tf.stack(qValuesEstTensor)).dataSync() as Float32Array;
       let chosenIdx = 0;
       if(action.context.get(KeysRlTrain.train)){
+        const estProb = <Float32Array> tf.softmax(tf.stack(qValuesEstTensor)).dataSync();
         console.log(`Max Est Prob: ${Math.max(...Array.from(estProb))}, Prob if everything equal ${1/estProb.length}`);
         chosenIdx = this.chooseUsingProbability(estProb);
       }
       else{
-  
-        chosenIdx = this.indexOfMax(estProb);
+        chosenIdx = this.indexOfMax(<Float32Array>tf.stack(qValuesEstTensor).dataSync());
       }
 
       return [qValuesEstTensor[chosenIdx], featureRepresentations[chosenIdx].hiddenState, 

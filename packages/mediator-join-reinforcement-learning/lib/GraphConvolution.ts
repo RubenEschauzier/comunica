@@ -81,7 +81,12 @@ export class GraphConvolutionLayer extends tf.layers.Layer{
         return [this.mWeights];
     }
 
-    getClassName() {
+    public disposeLayer(){
+        // Dispose all weights before endpoint shutdown
+        this.mWeights.dispose()
+    }
+
+    public getClassName() {
         return 'Graph Convolution';
     }
 
@@ -173,8 +178,13 @@ export class GraphConvolutionLayerDirected extends tf.layers.Layer{
         return [this.mWeights];
     }
 
-    getClassName() {
+    public getClassName() {
         return 'Graph Convolution Directed';
+    }
+
+    public disposeLayer(){
+        // Dispose all weights before endpoint shutdown
+        this.mWeights.dispose()
     }
 
     private getModelDirectory(){          
@@ -274,13 +284,13 @@ export class GraphConvolutionModel{
 
     public forwardPass(input: tf.Tensor, mAdjacency: tf.Tensor){
         let x = input;
-        for (let i = 0; i<this.layers.length; i++){
-            if (this.layers[i][1]=='gcn'){
+        for (let i = 0; i< this.layers.length; i++){
+            if (this.layers[i][1]=='gcn'||this.layers[i][1]=='gcndirected'){
                 x = this.layers[i][0].call(x, mAdjacency) as tf.Tensor;
             }
             else{
                 const nonGraphLayer: DenseOwnImplementation | tf.layers.Layer = this.layers[i][0];
-                x = nonGraphLayer.call(x, {}) as tf.Tensor;
+                x = nonGraphLayer.call(tf.transpose(x), {}) as tf.Tensor;
             }
         }
         return x;
@@ -297,6 +307,22 @@ export class GraphConvolutionModel{
 
     public getLayers(){
         return this.layers;
+    }
+
+    public flushModel(): void{
+        for (const layer of this.layers){
+            if (layer[1] == 'gcn'){
+                (<GraphConvolutionLayer> layer[0]).disposeLayer();
+            }
+            if (layer[1] == 'gcndirected'){
+                (<GraphConvolutionLayerDirected> layer[0]).disposeLayer();
+            }
+
+            if (layer[1] == 'dense' || 'gcn' || 'gcndirected'){
+                (<DenseOwnImplementation> layer[0]).disposeLayer()
+            }
+
+        }
     }
 
     /**
