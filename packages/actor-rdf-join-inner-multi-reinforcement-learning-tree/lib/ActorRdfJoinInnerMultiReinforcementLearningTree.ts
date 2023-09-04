@@ -15,7 +15,7 @@ import { Factory } from 'sparqlalgebrajs';
 import * as tf from '@tensorflow/tfjs-node';
 import { IActionRdfJoinReinforcementLearning, IMediatorTypeReinforcementLearning, IResultSetRepresentation } from '@comunica/mediator-join-reinforcement-learning';
 import { IModelOutput, ModelTreeLSTM } from './treeLSTM';
-import { InstanceModel } from './instanceModel';
+import { InstanceModelLSTM } from './instanceModel';
 
 /**
  * A Multi Smallest RDF Join Actor.
@@ -183,7 +183,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     // If we have leq 2 entries in our action then we are either: At first execution, last execution or we don't call this actor. To ensure the actor initialises and
     // resets properly we have to initialise sharedVariables
 
-    const modelTreeLSTM: ModelTreeLSTM = (action.context.get(KeysRlTrain.modelInstance) as InstanceModel).getModel();
+    const modelTreeLSTM: ModelTreeLSTM = (action.context.get(KeysRlTrain.modelInstanceLSTM) as InstanceModelLSTM).getModel();
     const bestOutput = tf.tidy(():[tf.Tensor, tf.Tensor, tf.Tensor, number[]]=>{
       // Get possible join indexes, this disregards order of joins, is that a good assumption for for example hash join?
       const trainEpisode: ITrainEpisode = action.context.get(KeysRlTrain.trainEpisode)!;

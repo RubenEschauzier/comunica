@@ -13,7 +13,7 @@ import type {
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
 import type { Algebra } from 'sparqlalgebrajs';
-import {InstanceModel} from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree'
+import {InstanceModelGCN, InstanceModelLSTM} from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree'
 import { IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
 
 /**
@@ -277,9 +277,13 @@ export const KeysRlTrain = {
    */
   batchedTrainingExamples: new ActionContextKey<IBatchedTrainingExamples>('@comunica/actor-init-query:batchedTrainingExamples'),
   /**
-   * Container for model to ensure the same model is used during training and query execution
+   * Container for LSTM model to ensure the same model is used during training and query execution
    */
-  modelInstance: new ActionContextKey<InstanceModel>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning:ModelInstance'),
+  modelInstanceLSTM: new ActionContextKey<InstanceModelLSTM>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning:ModelInstanceLSTM'),
+  /**
+  * Container for GCN model to ensure the same model is used during training and query execution
+  */
+  modelInstanceGCN: new ActionContextKey<InstanceModelGCN>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning:ModelInstanceGCN'),
   /**
    * Context entries related to the runningMoments used to standardise both features and execution times to 
    * standard normal variable

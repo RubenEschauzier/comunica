@@ -20,7 +20,7 @@ import type { Algebra } from 'sparqlalgebrajs';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
 import { IAggregateValues, IResultSetRepresentation, IResultSetRepresentationGraph, IRunningMoments, MediatorJoinReinforcementLearning } from '@comunica/mediator-join-reinforcement-learning';
-import { InstanceModel, ModelTrainerOffline } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
+import { InstanceModelGCN, InstanceModelLSTM, ModelTrainerOffline } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
 import * as chalk from 'chalk';
 import { ExperienceBuffer, IExperienceKey } from '@comunica/model-trainer';
 import * as _ from 'lodash';
@@ -39,7 +39,8 @@ implements IQueryEngine<QueryContext> {
   private readonly actorInitQuery: ActorInitQueryBase;
   private readonly defaultFunctionArgumentsCache: FunctionArgumentsCache;
   public modelTrainerOffline: ModelTrainerOffline;
-  public modelInstance: InstanceModel;
+  public modelInstanceLSTM: InstanceModelLSTM;
+  public modelInstanceGCN: InstanceModelGCN;
   public batchedTrainExamples: IBatchedTrainingExamples;
 
   // Values needed for endpoint training
@@ -65,8 +66,10 @@ implements IQueryEngine<QueryContext> {
     this.defaultFunctionArgumentsCache = {};
     // Initialise empty episode on creation
     this.emptyTrainEpisode();
-    // Hardcoded type of model, should be config
-    this.modelInstance = new InstanceModel();
+    // Instantiate used models
+    this.modelInstanceLSTM = new InstanceModelLSTM();
+    this.modelInstanceGCN = new InstanceModelGCN();
+    this.modelInstanceGCN.initModel();
     // Moved this to first execution of query, because we want to initiate this from config, honestly should work more with components.js for this
     this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.0001});
     this.batchedTrainExamples = {trainingExamples: new Map<string, ITrainingExample>, leafFeatures: {hiddenStates: [], memoryCell:[]}};
@@ -169,14 +172,16 @@ implements IQueryEngine<QueryContext> {
   public async loadState(baseDir: string){
     // Load running moments
     try{
-      const runningMomentsFeatures = this.modelInstance.loadRunningMoments(baseDir+'/runningMomentsFeatures.txt');
-      const runningMomentsExecution = this.modelInstance.loadRunningMoments(baseDir+'/runningMomentsExecution.txt');
+      const runningMomentsFeatures = this.modelInstanceLSTM.loadRunningMoments(baseDir+'/runningMomentsFeatures.txt');
+      const runningMomentsExecution = this.modelInstanceLSTM.loadRunningMoments(baseDir+'/runningMomentsExecution.txt');
       this.runningMomentsFeatures = runningMomentsFeatures;
       this.runningMomentsExecution = runningMomentsExecution;
     }
     catch{
       console.warn(chalk.red("INFO: No running moments found"));
     }
+
+    // Load training statistics
     try{
       const data = JSON.parse(readFileSync(baseDir+'/numTrainStepsEpochs.txt', 'utf-8'));
       this.numTrainSteps = +data[0];
@@ -194,27 +199,36 @@ implements IQueryEngine<QueryContext> {
       this.experienceBuffer = new ExperienceBuffer(this.experienceBuffer.maxSize);
       console.warn(chalk.red("INFO: No existing or incomplete buffer found"));
     }
-    // Load model weights
+    // Load LSTM model weights
     try{
-      await this.modelInstance.initModel(baseDir+'/weights');
+      await this.modelInstanceLSTM.initModel(baseDir+'/weights');
       console.log("Succeeded");
     }
     catch(err){
       // Flush any initialisation that went through to start from fresh model
-      this.modelInstance.flushModel()
+      this.modelInstanceLSTM.flushModel()
       // Initialise random model
-      await this.modelInstance.initModelRandom();
+      await this.modelInstanceLSTM.initModelRandom();
       console.warn(chalk.red("INFO: Failed to load model weights, randomly initialising model weights"));
     }
+    // Load GCN model weights, this shouldn't fail so no error handling
+    this.modelInstanceGCN.initModel();
+
     console.log(`Size Buffer after Loading: ${this.experienceBuffer.getSize()}`);
   }
 
   public saveState(timeOutValue: number, baseDir: string){
     try{
-      this.modelInstance.saveModel(baseDir+'/weights');
+      this.modelInstanceLSTM.saveModel(baseDir+'/weights');
     }
     catch{
-      console.warn(chalk.red("INFO: Failed to save model"));
+      console.warn(chalk.red("INFO: Failed to save LSTM model"));
+    }
+    try{
+      this.modelInstanceGCN.saveModel();
+    }
+    catch{
+      console.warn(chalk.red("INFO: Failed to save GCN model"))
     }
     try{
       writeFileSync(baseDir+'/numTrainStepsEpochs.txt', JSON.stringify([this.numTrainSteps, this.totalEpochsDone]));
@@ -224,9 +238,9 @@ implements IQueryEngine<QueryContext> {
     }
 
     try{
-      this.modelInstance.saveRunningMoments(this.runningMomentsFeatures, 
+      this.modelInstanceLSTM.saveRunningMoments(this.runningMomentsFeatures, 
         baseDir+'/runningMomentsFeatures.txt');
-      this.modelInstance.saveRunningMoments(this.runningMomentsExecution, 
+      this.modelInstanceLSTM.saveRunningMoments(this.runningMomentsExecution, 
         baseDir+'/runningMomentsExecution.txt');  
     }
     catch{
@@ -258,10 +272,6 @@ implements IQueryEngine<QueryContext> {
     this.experienceBuffer.saveBuffer(baseDir);
   }
 
-  public flushModelWeights(){
-    this.modelInstance.flushModel();
-  }
-  
   public readTrainLoss(fileLocation: string){
     const loss: number[] = JSON.parse(fs.readFileSync(fileLocation, 'utf-8'));
     return loss;
@@ -270,64 +280,6 @@ implements IQueryEngine<QueryContext> {
   public writeTrainLoss(loss: number[], fileLocation: string){
     fs.writeFileSync(fileLocation, JSON.stringify(loss));
   }
-
-
-public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
-  queries: QueryFormatTypeInner[][], 
-  nSimVal: number, 
-  runningMomentsExecutionTime: IRunningMoments,
-  experienceBuffer: ExperienceBuffer,
-  context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext
-  ): Promise<[number, number[], number[], number, number, number[], number[]]>{
-  
-  const rawExecutionTimesTemplate: number[][] = [];
-  const searchTimesTemplate: number[][] = [];
-  for(let i=0;i<queries.length;i++){
-    const rawExecutionTimes: number[] = []
-    const searchTemplate: number[] = [];
-    for (let j=0;j<queries[i].length;j++){
-        for (let k=0;k<nSimVal;k++){
-          const queryKey: string = `${i}`+`${j}`;
-
-          const clonedContext = _.cloneDeep(context);
-          clonedContext.batchedTrainingExamples = this.batchedTrainExamples;
-
-          const valResults: number[] = await this.executeQueryValidation(queries[i][j], queryKey, clonedContext, experienceBuffer);
-          rawExecutionTimes.push(valResults[0]);
-          searchTemplate.push(valResults[1])
-        }
-    }
-      rawExecutionTimesTemplate.push(rawExecutionTimes);
-      searchTimesTemplate.push(searchTemplate);
-  }
-  // Get raw validaiton execution time statistics
-  const flatExeTime: number[] = rawExecutionTimesTemplate.flat();
-  const avgExecutionTime = flatExeTime.reduce((a, b) => a + b, 0) / flatExeTime.length;
-  const avgExecutionTimeTemplate = rawExecutionTimesTemplate.map(x=>(x.reduce((a,b)=> a+b,0))/x.length);
-  const avgSearchTimeTemplate = searchTimesTemplate.map(x=>(x.reduce((a,b)=> a+b,0))/x.length);
-
-  const stdExecutionTimeTemplate = [];
-  const stdSearchTimeTemplate = [];
-
-  for (let k=0;k<avgExecutionTimeTemplate.length;k++){
-      stdExecutionTimeTemplate.push(this.stdArray(rawExecutionTimesTemplate[k],avgExecutionTimeTemplate[k]))
-      stdSearchTimeTemplate.push(this.stdArray(searchTimesTemplate[k], avgSearchTimeTemplate[k]));
-  }
-  // Get validation loss
-  const MSE: number[] = [];
-  for (const [_, trainExample] of this.batchedTrainExamples.trainingExamples.entries()){
-      const singleMSE = (trainExample.qValue - trainExample.actualExecutionTime)**2;
-      MSE.push(singleMSE);
-  }
-  const averageLoss = MSE.reduce((a,b)=> a+b,0)/MSE.length;
-  const stdLoss = this.stdArray(MSE, averageLoss);
-
-  // Clean training examples
-  this.cleanBatchTrainingExamples();
-
-  return [avgExecutionTime, avgExecutionTimeTemplate, stdExecutionTimeTemplate, averageLoss, stdLoss, avgSearchTimeTemplate, stdSearchTimeTemplate];
-  }
-
 
   public async executeTrainQuery<QueryFormatTypeInner extends QueryFormatType>(
     query: QueryFormatTypeInner, 
@@ -611,30 +563,30 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     }
     // Initialise the running moments from file (The running moments file should only be passed on first execution)
     if(actionContext.get(KeysRlTrain.runningMomentsFeatureFile)){
-      if (this.modelInstance.initMoments){
+      if (this.modelInstanceLSTM.initMoments){
         console.warn(chalk.red("WARNING: Reloading Moments When They Are Already Initialised"));
       }
 
       const loadedRunningMomentsFeature: IRunningMoments = 
-      this.modelInstance.loadRunningMoments(actionContext.get(KeysRlTrain.runningMomentsFeatureFile)!);
+      this.modelInstanceLSTM.loadRunningMoments(actionContext.get(KeysRlTrain.runningMomentsFeatureFile)!);
       this.runningMomentsFeatures = loadedRunningMomentsFeature;
       // Signal we loaded the moments
-      this.modelInstance.initMoments=true;
+      this.modelInstanceLSTM.initMoments=true;
     }
 
     // If no path was passed and the moments are not initialised we create mean 0 std 1 moments
-    else if (!this.modelInstance.initMoments){
+    else if (!this.modelInstanceLSTM.initMoments){
       console.warn(chalk.red("INFO: Running Query Without Initialised Running Moments"));
       for (const index of this.runningMomentsFeatures.indexes){
         const startPoint: IAggregateValues = {N: 0, mean: 0, std: 1, M2: 1}
         this.runningMomentsFeatures.runningStats.set(index, startPoint);
       }
-      this.modelInstance.initMoments=true;
+      this.modelInstanceLSTM.initMoments=true;
     }
 
     const baseIRI: string | undefined = actionContext.get(KeysInitQuery.baseIRI);
     // Why are we doing this?
-    await this.modelInstance.initModelRandom();
+    await this.modelInstanceLSTM.initModelRandom();
 
     actionContext = actionContext
       .setDefault(KeysInitQuery.queryTimestamp, new Date())
@@ -643,7 +595,8 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
       .setDefault(KeysCore.log, this.actorInitQuery.logger)
       .setDefault(KeysInitQuery.functionArgumentsCache, this.defaultFunctionArgumentsCache)
       .setDefault(KeysRlTrain.trainEpisode, this.trainEpisode)
-      .setDefault(KeysRlTrain.modelInstance, this.modelInstance)
+      .setDefault(KeysRlTrain.modelInstanceLSTM, this.modelInstanceLSTM)
+      .setDefault(KeysRlTrain.modelInstanceGCN, this.modelInstanceGCN)
       .setDefault(KeysRlTrain.runningMomentsFeatures, this.runningMomentsFeatures);
 
     // Pre-processing the context
@@ -823,13 +776,8 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     context = ActionContext.ensureActionContext(context);
     return this.actorInitQuery.mediatorHttpInvalidate.mediate({ url, context });
   }
-  public saveModel(runningMomentsPath: string){
-    this.modelInstance.saveModel();
-    this.modelInstance.saveRunningMoments(this.runningMomentsFeatures, runningMomentsPath);
 
-  }
   public async trainModel(batchedTrainingExamples: IBatchedTrainingExamples){
-
     function shuffleData(executionTimes: number[], qValues: number[], partialJoinTree: number[][][]){
       let i, j, xE, xQ, xP;
       for (i=executionTimes.length-1;i>0;i--){
@@ -854,7 +802,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
     }
     const shuffled = shuffleData(actualExecutionTime, predictedQValues, partialJoinTree);
     const loss = this.modelTrainerOffline.trainOfflineBatched(partialJoinTree, batchedTrainingExamples.leafFeatures, 
-      actualExecutionTime, this.modelInstance.getModel(), 4);
+      actualExecutionTime, this.modelInstanceLSTM.getModel(), 4);
     return loss;
 
     /**
@@ -911,7 +859,7 @@ public async validatePerformance<QueryFormatTypeInner extends QueryFormatType>(
       partialJoinTree.push(exp.joinIndexes)
     }
     const loss = this.modelTrainerOffline.trainOfflineExperienceReplay(partialJoinTree, leafFeatures, 
-      actualExecutionTimes, this.modelInstance.getModel(), 4);
+      actualExecutionTimes, this.modelInstanceLSTM.getModel(), 4);
     return loss;
   }
 

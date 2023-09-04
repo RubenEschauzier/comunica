@@ -1,8 +1,7 @@
 import * as tf from '@tensorflow/tfjs-node';
 import * as path from 'path';
 import * as fs from 'fs';
-import { input } from '@tensorflow/tfjs-node';
-import { denseOptionsId, ILayerConfig } from './treeLSTM';
+import { ILayerConfig } from './treeLSTM';
 
 export class DenseOwnImplementation extends tf.layers.Layer{
     intermediateHeInit: tf.Tensor;

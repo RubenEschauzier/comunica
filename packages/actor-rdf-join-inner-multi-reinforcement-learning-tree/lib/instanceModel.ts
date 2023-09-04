@@ -1,8 +1,10 @@
 import { IAggregateValues, IRunningMoments } from "@comunica/mediator-join-reinforcement-learning";
 import { ModelTreeLSTM } from "./treeLSTM";
 import * as fs from "fs";
+import { GraphConvolutionModel } from "@comunica/mediator-join-reinforcement-learning/lib/GraphConvolution";
+import * as path from "path";
 
-export class InstanceModel{
+export class InstanceModelLSTM{
     private modelTreeLSTM: ModelTreeLSTM;
     initMoments: boolean;
     public constructor(){
@@ -12,11 +14,11 @@ export class InstanceModel{
 
     public async initModel(weightsDir?: string){
         if (!this.modelTreeLSTM.initialised){
-            console.log("Initialising model!");
             await this.modelTreeLSTM.initModel(weightsDir);
             this.modelTreeLSTM.initialised=true;
         }
     };
+
     public async initModelRandom(){
         if (!this.modelTreeLSTM.initialised){
             await this.modelTreeLSTM.initModelRandom();
@@ -34,7 +36,7 @@ export class InstanceModel{
     }
 
     public getModel(): ModelTreeLSTM{
-        return this.modelTreeLSTM
+        return this.modelTreeLSTM;
     };
 
     public saveModel(weightsDir?: string){
@@ -59,16 +61,57 @@ export class InstanceModel{
             const strIndex = index.toString()
             runningIndexStats.set(index, data[strIndex]);
         }
+
         const loadedRunningMoments: IRunningMoments = {indexes: indexes, runningStats: runningIndexStats}
         this.initMoments = true;
-    return loadedRunningMoments;
+        return loadedRunningMoments;
+    };
+}
+
+
+export class InstanceModelGCN{
+    private modelSubjSubj: GraphConvolutionModel;
+    private modelObjObj: GraphConvolutionModel;
+    private modelObjSubj: GraphConvolutionModel;
+
+    initMoments: boolean;
+    public constructor(){
+        this.modelSubjSubj = new GraphConvolutionModel(path.join(__dirname, '../model/gcn-model-subj-subj'));
+        this.modelObjObj = new GraphConvolutionModel(path.join(__dirname, '../model/gcn-model-obj-obj'));
+        this.modelObjSubj = new GraphConvolutionModel(path.join(__dirname, '../model/gcn-model-obj-subj'));
+
+        this.initMoments = false;
     };
 
-    // public loadRunningMoments(){
+    public initModel(){
+        // Try to load weights if available, else initialise random and give warning
+        this.modelSubjSubj.initModelWeights();
+        this.modelObjObj.initModelWeights();
+        this.modelObjSubj.initModelWeights();
+    };
 
-    // }
+    /**
+     * Method to flush any loaded model weights from the model
+     * This is used when during model instantiation something goes wrong and we want to start `clean`
+     */
 
-    // public saveRunningMoments(){
+    public getModels(): IQueryGraphEncodingModels{
+        return {
+            modelSubjSubj: this.modelSubjSubj,
+            modelObjObj: this.modelObjObj,
+            modelObjSubj: this.modelObjSubj
+        }
+    };
 
-    // }
+    public saveModel(){
+        this.modelSubjSubj.saveModel();
+        this.modelObjObj.saveModel();
+        this.modelObjSubj.saveModel();
+    };
+}
+
+export interface IQueryGraphEncodingModels{
+    modelSubjSubj: GraphConvolutionModel;
+    modelObjObj: GraphConvolutionModel;
+    modelObjSubj: GraphConvolutionModel;
 }

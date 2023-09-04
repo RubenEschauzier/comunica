@@ -39,6 +39,7 @@ export class ModelTrainerOffline{
                 }
                 episodeLoss += lossArray[0];
             }
+            
             return episodeLoss/executionTimes.length;
         });
     }

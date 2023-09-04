@@ -8,7 +8,7 @@ import type { Logger } from './Logger';
 
 import * as tf from '@tensorflow/tfjs-node';
 import { IQueryGraphViews, IResultSetRepresentation, IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
-import { InstanceModel } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
+import { InstanceModelGCN, InstanceModelLSTM } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
 import { number } from 'yargs';
 
 /**
@@ -83,7 +83,8 @@ export interface IQueryContextCommon {
   // and Keys in @comunica/context-entries
   trainEpisode?: ITrainEpisode;
   batchedTrainingExamples?: IBatchedTrainingExamples;
-  modelInstance?: InstanceModel;
+  modelInstanceLSTM?: InstanceModelLSTM;
+  modelInstanceGCN?: InstanceModelGCN;
   runningMomentsExecutionTime?: IRunningMoments;
   runningMomentsFeaturesFile?: string;
   train?: boolean;

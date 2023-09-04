@@ -6,10 +6,9 @@ import { IBatchedTrainingExamples, IQueryOperationResult, ITrainEpisode } from '
 import * as tf from '@tensorflow/tfjs-node';
 import * as path from 'path';
 import * as fs from 'fs';
-import { Operation, Pattern } from 'sparqlalgebrajs/lib/algebra';
-import { ISingleResultSetRepresentation } from '../../actor-rdf-join-inner-multi-reinforcement-learning-tree/lib';
+import { Operation } from 'sparqlalgebrajs/lib/algebra';
+import { ISingleResultSetRepresentation, InstanceModelGCN } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
 import * as rdfjs from '@rdfjs/types';
-import { GraphConvolutionModel } from './GraphConvolution';
 /**
  * A comunica join-reinforcement-learning mediator.
  */
@@ -194,13 +193,8 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     const sharedVariables = await this.getSharedVariableTriplePatterns(action);
     const graphViews: IQueryGraphViews = MediatorJoinReinforcementLearning.createQueryGraphViews(action);
 
-    // Initialise to be used models
-    const modelSubjSubj = new GraphConvolutionModel(path.join(__dirname, '../models/gcn-model-subj-subj'));
-    modelSubjSubj.initModelWeights();
-    const modelObjObj = new GraphConvolutionModel(path.join(__dirname, '../models/gcn-model-obj-obj'));
-    modelObjObj.initModelWeights();
-    const modelObjSubj = new GraphConvolutionModel(path.join(__dirname, '../models/gcn-model-obj-subj'));
-    modelObjSubj.initModelWeights();
+    // Take models from context
+    const models = (action.context.get(KeysRlTrain.modelInstanceGCN) as InstanceModelGCN).getModels();
 
     // Update running moments only at leaf
     const runningMomentsFeatures: IRunningMoments = action.context.get(KeysRlTrain.runningMomentsFeatures)!;
@@ -232,9 +226,10 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     }
 
     // Obtain different query graph representations using GCN
-    const subjSubjRepresentation = modelSubjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.subSubView));
-    const objObjRepresentation = modelObjObj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objObjView));
-    const objSubjRepresentation = modelObjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objSubView));
+    const subjSubjRepresentation = models.modelSubjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.subSubView));
+    subjSubjRepresentation.print();
+    const objObjRepresentation = models.modelObjObj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objObjView));
+    const objSubjRepresentation = models.modelObjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objSubView));
 
     // Concatinate all representations 
     const learnedRepresentation = tf.concat([subjSubjRepresentation, objObjRepresentation, objSubjRepresentation], 1);

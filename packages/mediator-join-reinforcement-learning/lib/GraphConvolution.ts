@@ -197,6 +197,7 @@ export class GraphConvolutionLayerDirected extends tf.layers.Layer{
 export class GraphConvolutionModel{
     public layers: [DenseOwnImplementation | tf.layers.Layer | GraphConvolutionLayer, layerIdentifier][];
     public config: IModelConfig;
+    public initialised: boolean;
     public modelDirectory: string;
 
     public constructor(modelDirectory?: string){
