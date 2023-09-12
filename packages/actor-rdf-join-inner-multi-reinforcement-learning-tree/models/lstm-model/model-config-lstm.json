@@ -1,0 +1,58 @@
+{
+    "binaryTreeLSTM":{
+        "weightsConfig":{
+            "loadWeights": true,
+            "weightLocation": "/binaryLstmWeights.txt"
+        },
+        "type": "lstm",
+        "layers":[
+            {"type": "binaryTreeLSTM", "activation": "sigmoid", "numUnits": 384}
+        ]
+
+    },
+    "childSumTreeLSTM":{
+        "weightsConfig":{
+            "loadWeights": true,
+            "weightLocation": "/childSumLstmWeights.txt"
+        },
+        "type": "lstm",
+        "layers":[
+            {"type": "childSumTreeLSTM", "activation": "sigmoid", "numUnits": 384}
+        ]
+
+    },
+    "qValueNetwork":{
+        "weightsConfig":{
+            "loadWeights": true,
+            "weightLocation": "dense-weight",
+            "weightLocationBias":"dense-bias"
+            
+        },
+        "type": "dense",
+        "layers":[
+            {"type": "dropout", "inputSize": 384, "outputSize": 384 , "rate": 0.2},
+            {"type": "dense", "inputSize": 384, "outputSize": 512},
+            {"type": "activation", "activation": "relu", "inputSize": 512, "outputSize": 512},
+            {"type": "dropout", "inputSize": 512, "outputSize": 512 , "rate": 0.2},
+            {"type": "dense", "inputSize": 512, "outputSize": 1024},
+            {"type": "activation", "activation": "relu", "inputSize": 1024, "outputSize": 1024},
+            {"type": "dropout", "inputSize": 1024, "outputSize": 1024 , "rate": 0.2},
+            {"type": "dense", "inputSize": 1024, "outputSize": 512},
+            {"type": "activation", "activation": "relu", "inputSize": 512, "outputSize": 512},
+            {"type": "dropout", "inputSize": 512, "outputSize": 512 , "rate": 0.2},
+            {"type": "dense", "inputSize": 512, "outputSize": 256},
+            {"type": "activation", "activation": "relu", "inputSize": 256, "outputSize": 256},
+            {"type": "dropout", "inputSize":256, "outputSize":256, "rate": 0.2},
+            {"type": "dense", "inputSize": 256, "outputSize": 64},
+            {"type": "activation", "activation": "relu", "inputSize":64, "outputSize": 64},
+            {"type": "dropout", "inputSize":64, "outputSize":64, "rate": 0.2},
+            {"type": "dense", "inputSize": 64, "outputSize": 128},
+            {"type": "activation", "activation": "relu", "inputSize":128, "outputSize": 128},
+            {"type": "dropout", "inputSize": 128, "outputSize": 128, "rate": 0.2},
+            {"type": "dense", "inputSize": 128, "outputSize": 64},
+            {"type": "activation", "activation": "relu", "inputSize":64, "outputSize": 64},
+            {"type": "dropout", "inputSize": 64, "outputSize": 64, "rate": 0.2},
+            {"type": "dense", "inputSize": 64, "outputSize": 1}
+        ]
+    }
+}

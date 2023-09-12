@@ -1,4 +1,4 @@
-import { IAggregateValues, IResultSetRepresentation, IResultSetRepresentationGraph, MediatorJoinReinforcementLearning } from "@comunica/mediator-join-reinforcement-learning";
+import { IAggregateValues, IQueryGraphViews, IResultSetRepresentation, IResultSetRepresentationGraph, MediatorJoinReinforcementLearning } from "@comunica/mediator-join-reinforcement-learning";
 import * as fs from 'graceful-fs';
 import * as tf from '@tensorflow/tfjs-node';
 
@@ -82,7 +82,7 @@ export class ExperienceBuffer{
         if (existingExperience){
             /**
              * Note that this function is not entirely correct, if the average execution time goes up due to chance it is not reflected in the execution time
-             *of partial join plans that use the execution time of a complete join plan. This difference should be small though.
+             * of partial join plans that use the execution time of a complete join plan. This difference should be small though.
              */
             if (fullJoinPlan){
                 // Update unnormalized execution time average
@@ -113,10 +113,10 @@ export class ExperienceBuffer{
         if (this.getSize()>this.maxSize){
             const removedElement: IExperienceKey = this.experienceAgeTracker.shift()!;
             this.experienceBufferMap.get(removedElement.query)!.delete(removedElement.joinPlanKey);
-
         }
         return;
     }
+
     public getQueryKey(queryString: string){
         const queryKey = this.queryToKey.get(queryString)
         if (!queryKey){
@@ -182,13 +182,13 @@ export class ExperienceBuffer{
         for (const [key,value] of this.queryLeafFeatures.entries()){
             const featureArrayHS = value.hiddenStates.map(x=>x.arraySync() as number[][]);
             const featureArrayMem = value.memoryCell.map(x=>x.arraySync() as number[][]);
-            objToSave.set(key,[featureArrayHS, featureArrayMem]); 
+            const featureArrayGraphViews = [value.graphViews.subSubView, value.graphViews.objObjView, value.graphViews.objSubView];
+            objToSave.set(key,[featureArrayHS, featureArrayMem, featureArrayGraphViews]); 
         }
         fs.writeFileSync(fileLocation, JSON.stringify([...objToSave]));
     }
 
     public loadLeafFeatures(fileLocation: string){
-        console.log("Loading not yet CHANGED")
         const data = JSON.parse(fs.readFileSync(fileLocation, 'utf-8'));
         const newLeafFeatures: Map<string, IResultSetRepresentationGraph> = new Map<string, IResultSetRepresentationGraph>();
         for (const entry of data){
@@ -196,9 +196,11 @@ export class ExperienceBuffer{
             const features = entry[1];
             const featureTensorHS = features[0].map((x: number[][]) =>tf.tensor(x));
             const featureTensorMem = features[1].map((x: number[][]) =>tf.tensor(x));
+            const featureGraphViews: IQueryGraphViews = {subSubView: features[2][0], 
+                objObjView: features[2][1], objSubView: features[2][2]};
             
             newLeafFeatures.set(key, {hiddenStates: featureTensorHS, memoryCell: featureTensorMem, 
-                graphViews: {subSubView: [], objObjView: [], objSubView: []}});
+                graphViews: featureGraphViews});
         }
         this.queryLeafFeatures = newLeafFeatures;
     }

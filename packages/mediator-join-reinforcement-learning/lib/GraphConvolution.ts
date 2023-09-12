@@ -17,16 +17,11 @@ export class GraphConvolutionLayer extends tf.layers.Layer{
     mWeights: tf.Variable;
     heInitTerm: tf.Tensor;
     testWeights: tf.layers.Layer;
-    modelDirectory: string;
 
     public static className: string = 'graphConvolutionLayer'; 
 
     constructor(inputSize: number, outputSize: number, activationName: string, layerName?: string, modelDirectory?: string) {
         super({});
-        this.modelDirectory = this.getModelDirectory();
-        if (!(modelDirectory == undefined)){
-            this.modelDirectory = modelDirectory
-        }
         // Define the activation layer used in this layer
         this.activationLayer = tf.layers.activation(<any>{activation: activationName});
         // Define input feature size
@@ -42,8 +37,7 @@ export class GraphConvolutionLayer extends tf.layers.Layer{
 
     }
     public loadWeights(loadPath: string): void{
-        const fileLocation = path.join(this.modelDirectory, loadPath);
-        const weights = this.readWeightFile(fileLocation);
+        const weights = this.readWeightFile(loadPath);
         this.mWeights.assign(weights);
     }
 
@@ -55,9 +49,8 @@ export class GraphConvolutionLayer extends tf.layers.Layer{
     }
 
     public saveWeights(savePath: string){
-        const fileLocation = path.join(this.modelDirectory, savePath);
         const weights =  this.mWeights.arraySync();
-        fs.writeFileSync(fileLocation, JSON.stringify(weights));
+        fs.writeFileSync(savePath, JSON.stringify(weights));
     }
 
     call(input: tf.Tensor,  mAdjacency: tf.Tensor, kwargs?: any): tf.Tensor {
@@ -90,11 +83,6 @@ export class GraphConvolutionLayer extends tf.layers.Layer{
         return 'Graph Convolution';
     }
 
-    private getModelDirectory(){          
-        const modelDir: string = path.join(__dirname, '../../actor-rdf-join-inner-multi-reinforcement-learning/model');
-        return modelDir;
-    }
-
 }
 // According to the author, GCN on directed graphs should use $D^{-1}*A$ instead of $D^{-1/2}*A*D^{-1/2}
 // https://github.com/tkipf/gcn/issues/91
@@ -102,6 +90,7 @@ export class GraphConvolutionLayer extends tf.layers.Layer{
 // Furthermore, the degree matrix becomes [[2,0], [0,1]]. Then from this, 
 // we get that the feature of A will be combination of A and B, and B only B. 
 // This is counterintuitive, so maybe it should be changed. Note that this is not a problem on the undirected version.
+
 export class GraphConvolutionLayerDirected extends tf.layers.Layer{
     activationLayer: any;
     mInput: tf.Tensor2D;
@@ -113,16 +102,11 @@ export class GraphConvolutionLayerDirected extends tf.layers.Layer{
     mWeights: tf.Variable;
     heInitTerm: tf.Tensor;
     testWeights: tf.layers.Layer;
-    modelDirectory: string;
 
     public static className: string = 'graphConvolutionLayerDirected'; 
 
     constructor(inputSize: number, outputSize: number, activationName: string, layerName?: string, modelDirectory?: string) {
         super({});
-        this.modelDirectory = this.getModelDirectory();
-        if (!(modelDirectory == undefined)){
-            this.modelDirectory = modelDirectory
-        }
         // Define the activation layer used in this layer
         this.activationLayer = tf.layers.activation(<any>{activation: activationName});
         // Define input feature size
@@ -137,8 +121,7 @@ export class GraphConvolutionLayerDirected extends tf.layers.Layer{
             
 
     }
-    public loadWeights(loadPath: string): void{
-        const fileLocation = path.join(this.modelDirectory, loadPath);
+    public loadWeights(fileLocation: string): void{
         const weights = this.readWeightFile(fileLocation);
         this.mWeights.assign(weights);
     }
@@ -150,8 +133,7 @@ export class GraphConvolutionLayerDirected extends tf.layers.Layer{
         return weights;
     }
 
-    public saveWeights(savePath: string){
-        const fileLocation = path.join(this.modelDirectory, savePath);
+    public saveWeights(fileLocation: string){
         const weights =  this.mWeights.arraySync();
         fs.writeFileSync(fileLocation, JSON.stringify(weights));
     }
@@ -186,11 +168,6 @@ export class GraphConvolutionLayerDirected extends tf.layers.Layer{
         // Dispose all weights before endpoint shutdown
         this.mWeights.dispose()
     }
-
-    private getModelDirectory(){          
-        const modelDir: string = path.join(__dirname, '../../actor-rdf-join-inner-multi-reinforcement-learning/model');
-        return modelDir;
-    }
 }
 
 
@@ -198,13 +175,12 @@ export class GraphConvolutionModel{
     public layers: [DenseOwnImplementation | tf.layers.Layer | GraphConvolutionLayer, layerIdentifier][];
     public config: IModelConfig;
     public initialised: boolean;
-    public modelDirectory: string;
+    public static configName: string = 'model-config-gcn.json';
 
-    public constructor(modelDirectory?: string){
+    public constructor(modelDirectory: string){
         this.layers = [];
-        this.modelDirectory = (modelDirectory != undefined ? modelDirectory : this.getModelDirectory());
-        const fileLocation = modelDirectory + '/model-config/model-config-gcn.json';
-        this.config = this.loadConfig(fileLocation);
+        const configLocation = path.join(modelDirectory, GraphConvolutionModel.configName);
+        this.config = this.loadConfig(configLocation);
     }
 
     public initModelRandom(){
@@ -227,39 +203,50 @@ export class GraphConvolutionModel{
         }
     }
 
-    public initModelWeights(){
+    public initModelWeights(modelDirectory: string){
+        let gcnIndex = 0;
+        let gcnDirectedIndex = 0;
+        let denseIndex = 0
         for (const layerConfig of this.config.layers){
             if (layerConfig.type == 'gcn'){
-                const newGcnLayer = new GraphConvolutionLayer(layerConfig.inputSize, layerConfig.outputSize, layerConfig.activation!, undefined, this.modelDirectory);
+                const newGcnLayer = new GraphConvolutionLayer(layerConfig.inputSize, layerConfig.outputSize, layerConfig.activation!, undefined, modelDirectory);
                 try{
-                    newGcnLayer.loadWeights(`${this.config.weightLocation}/gcn-weights-test/${layerConfig.weightLocation}`);
+                    newGcnLayer.loadWeights(path.join(modelDirectory, this.config.weightLocationGcn, `gcn-weight-${gcnIndex}.txt`));
                 }
                 catch(err: any){
-                    console.warn(`Failed to load weights from weightfile ${layerConfig.weightLocation}: error: ${err.message}`)
+                    console.warn(`Failed to load weights from weightfile, error: ${err.message}`)
                 }
                 this.layers.push([newGcnLayer, layerConfig.type]);
+                gcnIndex += 1;
             }
             if (layerConfig.type == 'gcndirected'){
-                const newGcnLayer = new GraphConvolutionLayerDirected(layerConfig.inputSize, layerConfig.outputSize, layerConfig.activation!, undefined, this.modelDirectory);
+                const newGcnLayer = new GraphConvolutionLayerDirected(layerConfig.inputSize, layerConfig.outputSize, layerConfig.activation!, undefined, modelDirectory);
                 try{
-                    newGcnLayer.loadWeights(`${this.config.weightLocation}/gcn-weights-test/${layerConfig.weightLocation}`);
+                    newGcnLayer.loadWeights(path.join(modelDirectory, this.config.weightLocationGcnDirected, `gcn-weight-${gcnDirectedIndex}.txt`));
                 }
                 catch(err: any){
-                    console.warn(`Failed to load weights from weightfile ${layerConfig.weightLocation}: error: ${err.message}`)
+                    console.warn(`Failed to load weights from weightfile, error: ${err.message}`)
                 }
                 this.layers.push([newGcnLayer, layerConfig.type]);
+                gcnDirectedIndex += 1;
             }
             if (layerConfig.type == 'dense'){
-                const newDenseLayer = new DenseOwnImplementation(layerConfig.inputSize, layerConfig.outputSize, undefined, undefined, this.modelDirectory);
+                const newDenseLayer = new DenseOwnImplementation(layerConfig.inputSize, layerConfig.outputSize, undefined, undefined, modelDirectory);
                 try{
-                    newDenseLayer.loadWeights(`${this.config.weightLocation}/dense-weights-test/${layerConfig.weightLocation}`);
-                    newDenseLayer.loadBias(`${this.config.weightLocation}/dense-weights-test/${layerConfig.biasLocation}`);
+                    newDenseLayer.loadWeights(
+                        path.join(modelDirectory, this.config.weightLocationDense, `dense`, `dense-weight-${denseIndex}.txt`
+                    ));
+                    newDenseLayer.loadBias(
+                        path.join(modelDirectory, this.config.weightLocationDense, `bias`, `dense-bias-${denseIndex}.txt`
+                    ));
                 }
                 catch(err: any){
-                    console.warn(`Failed to load weights from weightfile ${layerConfig.weightLocation} and biasFile ${layerConfig.biasLocation}: error ${err.message}`);
+                    console.warn(`Failed to load weights from weightfile, error ${err.message}`);
                 }
                 this.layers.push([newDenseLayer, layerConfig.type]);
+                denseIndex += 1;
             }
+
             if (layerConfig.type == 'activation'){
                 this.layers.push([tf.layers.activation({activation: layerConfig.activation!, inputShape: [layerConfig.inputSize]}), layerConfig.type]);
             }
@@ -268,17 +255,63 @@ export class GraphConvolutionModel{
             }
         }
     }
+    /**
+     * Creates directory structure that the layer weights will be saved in, standard structure looks like this:
+     * model-dir/
+     *  |- model-config-gcn.json
+     *  |- weights-gcn/
+     *  |- weights-gcn-directed/
+     *  |- weights-dense/
+     *    |- bias/
+     *    |- dense/
+     */
+    public createGcnDirectoryStructure(modelDirectory: string){
+        if (!fs.existsSync(path.join(modelDirectory, this.config.weightLocationGcn))){
+            fs.mkdirSync(path.join(modelDirectory, this.config.weightLocationGcn));
+        }
+        if (!fs.existsSync(path.join(modelDirectory, this.config.weightLocationGcnDirected))){
+            fs.mkdirSync(path.join(modelDirectory, this.config.weightLocationGcnDirected));
+        }
+        if (!fs.existsSync(path.join(modelDirectory, this.config.weightLocationDense))){
+            fs.mkdirSync(path.join(modelDirectory, this.config.weightLocationDense));
+        }
+        if (!fs.existsSync(path.join(modelDirectory, this.config.weightLocationDense, "bias"))){
+            fs.mkdirSync(path.join(modelDirectory, this.config.weightLocationDense, "bias"));
+        }
+        if (!fs.existsSync(path.join(modelDirectory, this.config.weightLocationDense, "dense"))){
+            fs.mkdirSync(path.join(modelDirectory, this.config.weightLocationDense, "dense"));
+        }
+    }
 
-    public saveModel(){
+    /**
+     * Saves the model state and config to specified location. Follows a predetermined file structure from weight location directory.
+     * @param modelDirectory model directory absolute path, this allows the user to specify where the save must happen.
+     * This can be used to save checkpoints to a different location than where the model config is initially defined.
+     */
+    public saveModel(modelDirectory: string){
+        this.createGcnDirectoryStructure(modelDirectory);
+        this.saveConfig(path.join(modelDirectory, GraphConvolutionModel.configName));
+        let numGcn = 0;
+        let numGcnDirected = 0;
+        let numDense = 0;
         for (let i = 0; i<this.layers.length; i++){
             if (this.layers[i][1] == 'gcn'){
                 const gcnLayer = <GraphConvolutionLayer> this.layers[i][0];
-                gcnLayer.saveWeights(`${this.config.weightLocation}/gcn-saved-weights-test/${this.config.layers[i].weightLocation}`);
+                gcnLayer.saveWeights(path.join(modelDirectory, this.config.weightLocationGcn, `gcn-weight-${numGcn}.txt`));
+                numGcn += 1;
             }
+
+            if (this.layers[i][1] == 'gcndirected'){
+                const gcnLayer = <GraphConvolutionLayerDirected> this.layers[i][0];
+                gcnLayer.saveWeights(path.join(modelDirectory, this.config.weightLocationGcnDirected, `gcn-weight-${numGcnDirected}.txt`));
+                numGcnDirected += 1;
+            }
+
             if (this.layers[i][1] == 'dense'){
                 const denseLayer = <DenseOwnImplementation> this.layers[i][0];
-                denseLayer.saveWeights(`${this.config.weightLocation}/dense-saved-weights-test/${this.config.layers[i].weightLocation}`);
-                denseLayer.saveBias(`${this.config.weightLocation}/dense-saved-weights-test/${this.config.layers[i].biasLocation}`)
+                denseLayer.saveWeights(path.join(modelDirectory, this.config.weightLocationDense, "dense",  `dense-weight-${numDense}.txt`));
+                denseLayer.saveBias(path.join(modelDirectory, this.config.weightLocationDense, "bias",  `dense-bias-${numDense}.txt`));
+                numDense += 1;
             }
         }
     }
@@ -302,6 +335,10 @@ export class GraphConvolutionModel{
         return parsedConfig;
     }
 
+    public saveConfig(fileLocation: string){
+        fs.writeFileSync(fileLocation, JSON.stringify(this.config));
+    }
+
     public getConfig(){
         return this.config;
     }
@@ -322,19 +359,8 @@ export class GraphConvolutionModel{
             if (layer[1] == 'dense' || 'gcn' || 'gcndirected'){
                 (<DenseOwnImplementation> layer[0]).disposeLayer()
             }
-
         }
     }
-
-    /**
-     * Temporary function that points to where the model directory is, VERY TEMPORARY!! ( I hope :))
-     * @returns 
-     */
-    private getModelDirectory(){      
-        const modelDir: string = path.join(__dirname, '../../actor-rdf-join-inner-multi-reinforcement-learning-tree/model');
-        return modelDir;
-    }
-
 }
 
 export interface IlayerConfig{
@@ -370,9 +396,18 @@ export interface IlayerConfig{
 
 export interface IModelConfig{
     /*
-    * Where weights are stored
-    */
-    weightLocation: string;
+     * Where weights are stored for gcn (relative to model directory)
+     */
+    weightLocationGcn: string;
+    /*
+     * Where weights are stored for directed gcn (relative to model directory)
+     */
+    weightLocationGcnDirected: string;
+
+    /*
+     * Where weights are stored for dense layers (relative to model directory)
+     */
+    weightLocationDense: string;
     /**
      * Layer configs
      */

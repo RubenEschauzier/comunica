@@ -24,6 +24,9 @@ export class ActorInitQueryBase<QueryContext extends IQueryContextCommon = IQuer
   public readonly mediatorQueryResultSerializeMediaTypeFormatCombiner: MediatorQueryResultSerializeMediaTypeFormats;
   public readonly mediatorContextPreprocess: MediatorContextPreprocess;
   public readonly mediatorHttpInvalidate: MediatorHttpInvalidate;
+  public readonly modelCheckPointLocation: string;
+  public readonly modelConfigLocationGcn: string;
+  public readonly modelConfigLocationLstm: string;
 
   public readonly logger: Logger;
   public readonly queryString?: string;
@@ -101,6 +104,20 @@ export interface IActorInitQueryBaseArgs<QueryContext extends IQueryContextCommo
    * @default {a <npmd:@comunica/logger-void/^2.0.0/components/LoggerVoid.jsonld#LoggerVoid>}
    */
   logger: Logger;
+  /**
+   * Where model checkpoints should be saved to (The engine will create n directories where n is the number of epochs trained)
+   */
+  modelCheckPointLocation: string;
+  /**
+   * Where the GCN models will be initialised from. This directory should contain three directories 
+   * (gcn-model-subj-subj, gcn-model-obj-obj, gcn-model-obj-subj). Within these directories the model config should be in ./model-config-gcn.json
+   */
+  modelConfigLocationGcn: string;
+  /**
+   * Where the LSTM models will be initialised from. Within this directory the model config should be in /config/model-config-lstm.json
+   */
+  modelConfigLocationLstm: string;
+
   /**
    * A SPARQL query string
    */

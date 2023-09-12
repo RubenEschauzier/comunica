@@ -305,33 +305,31 @@ export class ModelTreeLSTM{
     qValueNetwork: QValueNetwork;
 
     configLocation: string;
-    weightsDir: string;
 
     initialised: boolean;
     loadedConfig: IModelConfig;
 
-    public constructor(inputSize: number){
+    public constructor(inputSize: number, modelDirectory: string){
         this.inputSize = inputSize
         this.binaryTreeLSTMLayer = [];
         this.childSumTreeLSTMLayer = [];
         this.qValueNetwork = new QValueNetwork(inputSize,1);
-        this.configLocation = path.join(__dirname, '../model/model-config/model-config.json');
-        this.weightsDir = path.join(__dirname, '../model/weights');
+        this.configLocation = path.join(modelDirectory, 'model-config-lstm.json');
         this.initialised = false;
     }
 
-    public async initModel(weightsDir?: string){
-        if (weightsDir){
-            this.weightsDir = weightsDir;
-        }
+    public async initModel(modelDirectory: string){
         const modelConfig = await this.loadConfig();
-        this.loadedConfig = modelConfig;        
-
+        this.loadedConfig = modelConfig;   
+         
         const binaryLSTMConfig = modelConfig.binaryTreeLSTM;
         for(let i=0;i<binaryLSTMConfig.layers.length;i++){
             const newLayer: BinaryTreeLSTM = new BinaryTreeLSTM(binaryLSTMConfig.layers[i].numUnits!,binaryLSTMConfig.layers[i].activation!);
             if (binaryLSTMConfig.weightsConfig.loadWeights){
-                newLayer.loadWeights(this.weightsDir+binaryLSTMConfig.weightsConfig.weightLocation);
+                newLayer.loadWeights(path.join(
+                    modelDirectory, 
+                    "weights-lstm", 
+                    binaryLSTMConfig.weightsConfig.weightLocation));
             }    
             this.binaryTreeLSTMLayer.push(newLayer);
         }
@@ -339,14 +337,17 @@ export class ModelTreeLSTM{
         for (let j=0;j<childSumConfig.layers.length;j++){
             const newLayer: ChildSumTreeLSTM = new ChildSumTreeLSTM(childSumConfig.layers[j].numUnits!, childSumConfig.layers[j].activation!);
             if (childSumConfig.weightsConfig.loadWeights){
-                newLayer.loadWeights(this.weightsDir+childSumConfig.weightsConfig.weightLocation);
+                newLayer.loadWeights(path.join(
+                    modelDirectory, 
+                    "weights-lstm", 
+                    childSumConfig.weightsConfig.weightLocation));
             }    
             this.childSumTreeLSTMLayer.push(newLayer);
         }
-        this.qValueNetwork.init(modelConfig.qValueNetwork, this.weightsDir);
+        this.qValueNetwork.init(modelConfig.qValueNetwork, modelDirectory);
         this.initialised=true;    
     }
-    public async initModelRandom(){
+    public async initModelRandom(modelDirectory: string){
         const modelConfig = await this.loadConfig();
         this.loadedConfig = modelConfig;
 
@@ -360,7 +361,7 @@ export class ModelTreeLSTM{
             const newLayer: ChildSumTreeLSTM = new ChildSumTreeLSTM(childSumConfig.layers[j].numUnits!, childSumConfig.layers[j].activation!);
             this.childSumTreeLSTMLayer.push(newLayer);
         }
-        await this.qValueNetwork.initRandom(modelConfig.qValueNetwork, this.weightsDir);
+        this.qValueNetwork.initRandom(modelConfig.qValueNetwork);
         this.initialised=true;    
     }
 
@@ -380,21 +381,45 @@ export class ModelTreeLSTM{
         this.qValueNetwork = new QValueNetwork(this.inputSize,1);
 
     }
-    public async saveModel(weightsDir?: string){
-        // THIS CAN NOT SAVE MULTIPLE LAYERS
-
-        if (weightsDir){
-            this.weightsDir = weightsDir;
-        }
-
+    public saveModel(modelDirectory: string){
+        // THIS CAN NOT SAVE MULTIPLE Tree-LSTM LAYERS
+        // If we want to save model weights and config to, for example chkpoint directories
+        // we temporarily change the model directory to new save location
+        this.createLstmDirectoryStructure(modelDirectory);
+        
+        this.writeConfig(path.join(modelDirectory, "model-config-lstm.json"));
         for (const layer of this.binaryTreeLSTMLayer){
-            layer.saveWeights(this.weightsDir+this.loadedConfig.binaryTreeLSTM.weightsConfig.weightLocation)
+            layer.saveWeights(path.join(modelDirectory, "weights-lstm", this.loadedConfig.binaryTreeLSTM.weightsConfig.weightLocation));
         }
         for (const layer of this.childSumTreeLSTMLayer){
-            layer.saveWeights(this.weightsDir+this.loadedConfig.childSumTreeLSTM.weightsConfig.weightLocation)
+            layer.saveWeights(path.join(modelDirectory, "weights-lstm", this.loadedConfig.childSumTreeLSTM.weightsConfig.weightLocation))
         }
         // This can
-        this.qValueNetwork.saveNetwork(this.loadedConfig.qValueNetwork, this.weightsDir);
+        this.qValueNetwork.saveNetwork(this.loadedConfig.qValueNetwork, modelDirectory);
+    }
+
+    /**
+     * Creates directory structure that the layer weights will be saved in, structure looks like this:
+     * model-dir/
+     *  model-config-lstm.json
+     *  weights-lstm/
+     *  weights-dense/
+     *    bias/
+     *    dense/
+     */
+    public createLstmDirectoryStructure(modelDirectory: string){
+        if (!fs.existsSync(path.join(modelDirectory, "weights-lstm"))){
+            fs.mkdirSync(path.join(modelDirectory, "weights-lstm"));
+        }
+        if (!fs.existsSync(path.join(modelDirectory, "weights-dense"))){
+            fs.mkdirSync(path.join(modelDirectory, "weights-dense"));
+        }
+        if (!fs.existsSync(path.join(modelDirectory, "weights-dense", "bias"))){
+            fs.mkdirSync(path.join(modelDirectory, "weights-dense", "bias"));
+        }
+        if (!fs.existsSync(path.join(modelDirectory, "weights-dense", "dense"))){
+            fs.mkdirSync(path.join(modelDirectory, "weights-dense", "dense"));
+        }
     }
 
     public async loadConfig(){
@@ -409,6 +434,10 @@ export class ModelTreeLSTM{
                 resolve(parsedConfig);
             });
         });
+    }
+
+    public writeConfig(configPath: string){
+        fs.writeFileSync(configPath, JSON.stringify(this.loadedConfig));
     }
 
     public forwardPass(resultSetFeatures: IResultSetRepresentation, idx: number[]): IModelOutput{

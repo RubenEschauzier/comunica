@@ -7,21 +7,21 @@ import * as path from "path";
 export class InstanceModelLSTM{
     private modelTreeLSTM: ModelTreeLSTM;
     initMoments: boolean;
-    public constructor(){
-        this.modelTreeLSTM = new ModelTreeLSTM(0);
+    public constructor(modelDirectory: string){
+        this.modelTreeLSTM = new ModelTreeLSTM(0, modelDirectory);
         this.initMoments = false;
     };
 
-    public async initModel(weightsDir?: string){
+    public async initModel(modelDir: string){
         if (!this.modelTreeLSTM.initialised){
-            await this.modelTreeLSTM.initModel(weightsDir);
+            await this.modelTreeLSTM.initModel(modelDir);
             this.modelTreeLSTM.initialised=true;
         }
     };
 
-    public async initModelRandom(){
+    public async initModelRandom(modelDir: string){
         if (!this.modelTreeLSTM.initialised){
-            await this.modelTreeLSTM.initModelRandom();
+            await this.modelTreeLSTM.initModelRandom(modelDir);
             this.modelTreeLSTM.initialised=true;
         }
     }
@@ -39,7 +39,7 @@ export class InstanceModelLSTM{
         return this.modelTreeLSTM;
     };
 
-    public saveModel(weightsDir?: string){
+    public saveModel(weightsDir: string){
         this.modelTreeLSTM.saveModel(weightsDir);
     };
 
@@ -75,25 +75,25 @@ export class InstanceModelGCN{
     private modelObjSubj: GraphConvolutionModel;
 
     initMoments: boolean;
-    public constructor(){
-        this.modelSubjSubj = new GraphConvolutionModel(path.join(__dirname, '../model/gcn-model-subj-subj'));
-        this.modelObjObj = new GraphConvolutionModel(path.join(__dirname, '../model/gcn-model-obj-obj'));
-        this.modelObjSubj = new GraphConvolutionModel(path.join(__dirname, '../model/gcn-model-obj-subj'));
+    /**
+     * Model holder object for the three GCN models that create query graph representations. 
+     * @param baseModelDir The absolute path of the directory where the three models should be saved to. Does not require trailing '/'
+     */
+    public constructor(baseModelDir: string){
+        this.modelSubjSubj = new GraphConvolutionModel(path.join(baseModelDir, 'gcn-model-subj-subj'));
+        this.modelObjObj = new GraphConvolutionModel(path.join(baseModelDir, 'gcn-model-obj-obj'));
+        this.modelObjSubj = new GraphConvolutionModel(path.join(baseModelDir, 'gcn-model-obj-subj'));
 
         this.initMoments = false;
     };
 
-    public initModel(){
+    public initModel(modelDir: string){
         // Try to load weights if available, else initialise random and give warning
-        this.modelSubjSubj.initModelWeights();
-        this.modelObjObj.initModelWeights();
-        this.modelObjSubj.initModelWeights();
+        this.modelSubjSubj.initModelWeights(path.join(modelDir, 'gcn-model-subj-subj'));
+        this.modelObjObj.initModelWeights(path.join(modelDir, 'gcn-model-obj-obj'));
+        this.modelObjSubj.initModelWeights(path.join(modelDir, 'gcn-model-obj-subj'));
+        console.log("Successfully loaded GCN models weights.");
     };
-
-    /**
-     * Method to flush any loaded model weights from the model
-     * This is used when during model instantiation something goes wrong and we want to start `clean`
-     */
 
     public getModels(): IQueryGraphEncodingModels{
         return {
@@ -103,10 +103,10 @@ export class InstanceModelGCN{
         }
     };
 
-    public saveModel(){
-        this.modelSubjSubj.saveModel();
-        this.modelObjObj.saveModel();
-        this.modelObjSubj.saveModel();
+    public saveModel(modelDir: string){
+        this.modelSubjSubj.saveModel(path.join(modelDir, 'gcn-model-subj-subj'));
+        this.modelObjObj.saveModel(path.join(modelDir, 'gcn-model-obj-obj'));
+        this.modelObjSubj.saveModel(path.join(modelDir, 'gcn-model-obj-subj'));
     };
 }
 

@@ -265,7 +265,7 @@ export class HttpServiceSparqlEndpoint {
         // Write model to file
         // TODO Make saveFile functionality on shutdown
         console.info("Engine shutdown; Saving state")
-        engine.saveState(this.timeout, engine.trainingStateInformationLocation);
+        engine.saveState(this.timeout, engine.currentTrainingStateEngineDirectory);
 
         // Stop new connections from being accepted
         server.close();

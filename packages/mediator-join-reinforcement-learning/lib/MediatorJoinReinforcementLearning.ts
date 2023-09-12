@@ -226,8 +226,8 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     }
 
     // Obtain different query graph representations using GCN
+
     const subjSubjRepresentation = models.modelSubjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.subSubView));
-    subjSubjRepresentation.print();
     const objObjRepresentation = models.modelObjObj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objObjView));
     const objSubjRepresentation = models.modelObjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objSubView));
 

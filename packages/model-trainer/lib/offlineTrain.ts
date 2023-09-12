@@ -18,7 +18,6 @@ export class ModelTrainerOffline{
         if (qValues.length!=executionTimes.length){
             throw new Error("Got unequal number of qVales and executionTimes");
         }
-        console.log(qValues[0]);
         return tf.tidy(()=>{
             const numBatches = Math.ceil(executionTimes.length/batchSize);
             let episodeLoss: number = 0;
@@ -26,7 +25,6 @@ export class ModelTrainerOffline{
                 const loss: tf.Scalar|null = this.optimizer.minimize(()=>{
                     const qValuesBatch: tf.Tensor[] = qValues.slice(b*batchSize, Math.min((b+1)*batchSize, qValues.length));
                     const executionTimesBatch: tf.Tensor[] = executionTimes.slice(b*batchSize, Math.min((b+1)*batchSize, qValues.length)).map(x=>tf.tensor(x));
-                    console.log()
                     const batchLoss = this.meanSquaredError(tf.stack(qValuesBatch), tf.stack(executionTimesBatch));
                     return tf.squeeze(batchLoss);
                 }, true);
