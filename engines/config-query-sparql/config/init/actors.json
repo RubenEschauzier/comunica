@@ -19,8 +19,8 @@
       "mediatorQueryResultSerializeMediaTypeFormatCombiner": { "@id": "urn:comunica:default:query-result-serialize/mediators#mediaTypeFormat" },
       "mediatorContextPreprocess": { "@id": "urn:comunica:default:context-preprocess/mediators#main" },
       "mediatorHttpInvalidate": { "@id": "urn:comunica:default:http-invalidate/mediators#main" },
-      "modelConfigLocationGcn": "/home/reschauz/projects/comunica-rl-updated/packages/actor-rdf-join-inner-multi-reinforcement-learning-tree/models/gcn-models",
-      "modelConfigLocationLstm": "/home/reschauz/projects/comunica-rl-updated/packages/actor-rdf-join-inner-multi-reinforcement-learning-tree/models/lstm-model",
+      "modelConfigLocationGcn": "/tmp/model-config/gcn-models",
+      "modelConfigLocationLstm": "/tmp/model-config/lstm-model",
       "modelCheckPointLocation": "/tmp/training"
     }
   ]

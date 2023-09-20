@@ -207,6 +207,8 @@ export class GraphConvolutionModel{
         let gcnIndex = 0;
         let gcnDirectedIndex = 0;
         let denseIndex = 0
+        console.log(`Model init in directory: ${modelDirectory}`);
+        console.log(`Working dir path: ${__dirname}`)
         for (const layerConfig of this.config.layers){
             if (layerConfig.type == 'gcn'){
                 const newGcnLayer = new GraphConvolutionLayer(layerConfig.inputSize, layerConfig.outputSize, layerConfig.activation!, undefined, modelDirectory);

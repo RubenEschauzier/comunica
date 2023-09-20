@@ -319,6 +319,8 @@ export class ModelTreeLSTM{
     }
 
     public async initModel(modelDirectory: string){
+        console.log(`Model init in directory: ${modelDirectory}`);
+        console.log(`Working dir path: ${__dirname}`)
         const modelConfig = await this.loadConfig();
         this.loadedConfig = modelConfig;   
          

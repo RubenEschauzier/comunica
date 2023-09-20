@@ -96,7 +96,7 @@ implements IQueryEngine<QueryContext> {
     this.experienceBuffer = new ExperienceBuffer(1500);
     this.nExpPerQuery = 8;
     this.numTrainSteps = 0;
-    this.numQueries = 5;
+    this.numQueries = 120;
     this.totalEpochsDone = 0;
 
   }
@@ -574,7 +574,7 @@ implements IQueryEngine<QueryContext> {
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
   ): Promise<QueryType | IQueryExplained> {
     context = context || <any>{};
-
+    console.log("Got query");
     /**
      * If there are no entries in queryToKey map we are at first run or after time-out, thus reload the model state.
      * We do this at start query to prevent unnecessary initialisation of features

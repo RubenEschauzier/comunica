@@ -13,6 +13,5 @@
         {"type": "activation", "activation": "relu", "inputSize": 256, "outputSize": 256},
         {"type": "dense", "inputSize": 256, "outputSize": 128},
         {"type": "activation", "activation": "relu", "inputSize": 128, "outputSize": 128}
-
     ]
 }

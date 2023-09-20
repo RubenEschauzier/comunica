@@ -109,12 +109,12 @@ export interface IActorInitQueryBaseArgs<QueryContext extends IQueryContextCommo
    */
   modelCheckPointLocation: string;
   /**
-   * Where the GCN models will be initialised from. This directory should contain three directories 
+   * Relative path to GCN models config location. This directory should contain three directories 
    * (gcn-model-subj-subj, gcn-model-obj-obj, gcn-model-obj-subj). Within these directories the model config should be in ./model-config-gcn.json
    */
   modelConfigLocationGcn: string;
   /**
-   * Where the LSTM models will be initialised from. Within this directory the model config should be in /config/model-config-lstm.json
+   * Relative path to LSTM model config location. Within this directory the model config should be in /config/model-config-lstm.json
    */
   modelConfigLocationLstm: string;
 
