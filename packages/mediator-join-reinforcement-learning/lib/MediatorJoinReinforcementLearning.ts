@@ -43,7 +43,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     if (episode==undefined){
       throw new Error("Passed undefined training episode to mediator");
     }
-    if (episode.isEmpty){
+    if (episode.isEmpty && action.entries.length > 1){
       await this.initialiseFeatures(action);
     }
     const testResults: IActorReply<ActorRdfJoin, IActionRdfJoinReinforcementLearning, IMediatorTypeReinforcementLearning, IQueryOperationResult>[] =
@@ -56,6 +56,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     testResults: IActorReply<ActorRdfJoin, IActionRdfJoinReinforcementLearning, IMediatorTypeReinforcementLearning, IQueryOperationResult>[],
   ): Promise<ActorRdfJoin> {
     // Obtain test results
+    console.log("Start mediate with");
     const errors: Error[] = [];
     const promises = testResults
       .map(({ reply }) => reply)
@@ -179,7 +180,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
         ])),
       });
     }
-    
+    console.log("End mediate with")
     return bestActor;
   }
 
@@ -226,18 +227,33 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     }
 
     // Obtain different query graph representations using GCN
-
+    try{
+      const subjSubjRepresentation = models.modelSubjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.subSubView));
+      const objObjRepresentation = models.modelObjObj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objObjView));
+      const objSubjRepresentation = models.modelObjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objSubView));  
+    }
+    catch(err){
+      console.log(err)
+    }
     const subjSubjRepresentation = models.modelSubjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.subSubView));
     const objObjRepresentation = models.modelObjObj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objObjView));
-    const objSubjRepresentation = models.modelObjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objSubView));
-
+    const objSubjRepresentation = models.modelObjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objSubView));  
+    console.log("Made features");
     // Concatinate all representations 
+    try{
+      const learnedRepresentation = tf.concat([subjSubjRepresentation, objObjRepresentation, objSubjRepresentation], 1);
+    }
+    catch(err){
+      console.log(err)
+    }
     const learnedRepresentation = tf.concat([subjSubjRepresentation, objObjRepresentation, objSubjRepresentation], 1);
     const learnedRepresentationList = tf.split(learnedRepresentation, learnedRepresentation.shape[0]);
     const learnedRepresentationResultSet: IResultSetRepresentation = {
       hiddenStates: learnedRepresentationList,
       memoryCell: learnedRepresentationList.map(x=>tf.zeros(x.shape))
     };
+    console.log(episode);
+    console.log("Here then?")
 
     // Initialise episode
     episode.learnedFeatureTensor = learnedRepresentationResultSet;
@@ -245,6 +261,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     episode.sharedVariables=sharedVariables;
     episode.isEmpty = false;
     episode.graphViews = graphViews;
+    console.log("Or here")
   }
 
   public static createQueryGraphViews(action: IActionRdfJoinReinforcementLearning){

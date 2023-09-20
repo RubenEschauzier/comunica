@@ -27,17 +27,14 @@ export class ActorDereferenceFile extends ActorDereference {
   }
 
   public async run({ url }: IActionDereference): Promise<IActorDereferenceOutput> {
-    console.log(`Dereferincing file: ${getPath(url)}`)
     const requestTimeStart = Date.now();
-    const test = {
+    return {
       data: createReadStream(getPath(url)),
       // This should always be after the creation of the read stream
       requestTime: Date.now() - requestTimeStart,
       exists: true,
       url: ActorDereferenceFile.isURI(url) ? url : pathToFileURL(url).href,
     };
-    console.log("Dereference complete")
-    return test
   }
 }
 
