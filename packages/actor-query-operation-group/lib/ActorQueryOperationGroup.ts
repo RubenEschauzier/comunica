@@ -4,10 +4,10 @@ import type { MediatorMergeBindingFactory } from '@comunica/bus-merge-binding-fa
 import type { IActorQueryOperationTypedMediatedArgs } from '@comunica/bus-query-operation';
 import { ActorQueryOperation, ActorQueryOperationTypedMediated } from '@comunica/bus-query-operation';
 import type { IActorTest } from '@comunica/core';
+import { AsyncEvaluator } from '@comunica/expression-evaluator';
 import type { BindingsStream, IActionContext, IQueryOperationResult } from '@comunica/types';
 import { ArrayIterator, TransformIterator } from 'asynciterator';
 import type { Algebra } from 'sparqlalgebrajs';
-import { AsyncEvaluator } from 'sparqlee';
 import { GroupsState } from './GroupsState';
 
 /**
@@ -57,7 +57,7 @@ export class ActorQueryOperationGroup extends ActorQueryOperationTypedMediated<A
 
     // Wrap a new promise inside an iterator that completes when the stream has ended or when an error occurs
     const bindingsStream = new TransformIterator(() => new Promise<BindingsStream>((resolve, reject) => {
-      const groups = new GroupsState(hashFunction, operation, sparqleeConfig, BF);
+      const groups = new GroupsState(hashFunction, operation, BF, sparqleeConfig);
 
       // Phase 2: Collect aggregator results
       // We can only return when the binding stream ends, when that happens

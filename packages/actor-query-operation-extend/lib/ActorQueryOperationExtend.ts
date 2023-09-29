@@ -5,9 +5,9 @@ import {
   ActorQueryOperation, ActorQueryOperationTypedMediated,
 } from '@comunica/bus-query-operation';
 import type { IActorTest } from '@comunica/core';
+import { AsyncEvaluator, isExpressionError } from '@comunica/expression-evaluator';
 import type { Bindings, IActionContext, IQueryOperationResult, IQueryOperationResultBindings } from '@comunica/types';
 import type { Algebra } from 'sparqlalgebrajs';
-import { AsyncEvaluator, isExpressionError } from 'sparqlee';
 
 /**
  * A comunica Extend Query Operation Actor.
@@ -38,6 +38,12 @@ export class ActorQueryOperationExtend extends ActorQueryOperationTypedMediated<
     );
     const BF = new BindingsFactory((await this.mediatorMergeHandlers.mediate({ context })).mergeHandlers);
     const config = { ...ActorQueryOperation.getAsyncExpressionContext(context, this.mediatorQueryOperation, BF) };
+
+    // Throw if the variable has already been bound
+    if ((await output.metadata()).variables.some(innerVariable => innerVariable.equals(variable))) {
+      throw new Error(`Illegal binding to variable '${variable.value}' that has already been bound`);
+    }
+
     const evaluator = new AsyncEvaluator(expression, config);
 
     // Transform the stream by extending each Bindings with the expression result

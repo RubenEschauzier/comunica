@@ -34,7 +34,7 @@ export class ActorRdfResolveHypermediaSparql extends ActorRdfResolveHypermedia {
     const BF = new BindingsFactory(
       (await this.mediatorMergeHandlers.mediate({ context: action.context })).mergeHandlers,
     );
-    this.logInfo(action.context, `Identified as sparql source: ${action.url}`);
+    this.logInfo(action.context, `Identified ${action.url} as sparql source with service URL: ${action.metadata.sparqlService || action.url}`);
     const source = new RdfSourceSparql(
       action.metadata.sparqlService || action.url,
       action.context,
