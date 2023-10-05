@@ -441,7 +441,7 @@ describe('RdfSourceSparql', () => {
           };
         },
       };
-      const BF = new BindingsFactory({})
+      const BF = new BindingsFactory({});
       source = new RdfSourceSparql('http://example.org/sparql', context, thisMediator, false, 64, BF);
 
       const stream = source.match(

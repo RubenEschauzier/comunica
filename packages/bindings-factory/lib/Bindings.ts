@@ -209,21 +209,29 @@ export class Bindings implements RDF.Bindings {
     return context;
   }
 
-  public setContextEntry<V>(key: IActionContextKey<V>, value: any): void {
+  public setContextEntry<V>(key: IActionContextKey<V>, value: any): Bindings {
+    return this.setContextEntryRaw(key, value);
+  }
+
+  public setContextEntryRaw<V>(key: IActionContextKey<V>, value: any): Bindings {
     if (this.context) {
-      this.context = this.context.set(key, value);
-    } else {
-      this.context = new ActionContext().set(key, value);
-    }
+      return new Bindings(this.dataFactory, this.entries, this.contextMergeHandlers, this.context.set(key, value))
+    } 
+    return new Bindings(this.dataFactory, this.entries, this.contextMergeHandlers, new ActionContext().set(key, value))
+  }
+
+  public deleteContextEntry<V>(key: IActionContextKey<V>): Bindings {
+    return this.deleteContextEntryRaw(key);
+  }
+
+  public deleteContextEntryRaw<V>(key: IActionContextKey<V>): Bindings {
+    return new Bindings(this.dataFactory, this.entries, this.contextMergeHandlers, this.context?.delete(key));
   }
 
   public getContextEntry<V>(key: IActionContextKey<V>): V | undefined {
     return this.context?.get(key);
   }
 
-  public deleteContextEntry<V>(key: IActionContextKey<V>): void {
-    this.context = this.context?.delete(key);
-  }
 
   public toString(): string {
     return bindingsToString(this);

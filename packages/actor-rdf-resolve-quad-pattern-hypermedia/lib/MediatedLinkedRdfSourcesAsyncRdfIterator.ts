@@ -188,7 +188,6 @@ export class MediatedLinkedRdfSourcesAsyncRdfIterator extends LinkedRdfSourcesAs
         requestTime: dereferenceRdfOutput.requestTime,
       })).metadata;
       quads = rdfMetadataOutput.data;
-
       // Optionally filter the resulting data
       if (link.transform) {
         quads = await link.transform(quads);
