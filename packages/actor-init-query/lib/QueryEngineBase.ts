@@ -15,7 +15,7 @@ import type {
   ITrainingExample
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
-import { AsyncIterator, SingletonIterator } from 'asynciterator';
+import { ArrayIterator, AsyncIterator, SingletonIterator } from 'asynciterator';
 import type { Algebra } from 'sparqlalgebrajs';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
@@ -596,6 +596,8 @@ implements IQueryEngine<QueryContext> {
     if (context){
       context.batchedTrainingExamples = this.batchedTrainExamples;
     }
+    // We should really use the query log in experiencebuffer to determine the # of triple patterns in query, 
+    // so we skip training to train the model on those queries.
 
     if (context && context.trainEndPoint){
       context.train = true;
@@ -984,7 +986,7 @@ implements IQueryEngine<QueryContext> {
    */
   public returnNop(){
     const nop: IQueryOperationResult = {
-      bindingsStream: new SingletonIterator(this.BF.bindings()),
+      bindingsStream: new ArrayIterator([this.BF.bindings()], {autoStart: false}),
       metadata: () => Promise.resolve({
         cardinality: { type: 'exact', value: 1 },
         canContainUndefs: false,
