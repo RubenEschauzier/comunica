@@ -180,7 +180,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
     action: IActionRdfJoin,
     metadatas: MetadataBindings[],
   ): Promise<IMediatorTypeReinforcementLearning> {
-    console.log("Getting Join Coeff");
     // If we have leq 2 entries in our action then we are either: At first execution, last execution or we don't call this actor. To ensure the actor initialises and
     // resets properly we have to initialise sharedVariables
 
@@ -197,7 +196,6 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
       const qValuesEstTensor: tf.Tensor[] = [];
       const featureRepresentations: ISingleResultSetRepresentation[]=[];
       for (const joinCombination of possibleJoinIndexes){
-        console.log("Run iteration");
   
         // Clone features to make our prediction
         const clonedFeatures: IResultSetRepresentation = {hiddenStates: trainEpisode.learnedFeatureTensor.hiddenStates.map(x=>tf.clone(x)),

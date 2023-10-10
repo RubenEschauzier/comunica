@@ -319,8 +319,6 @@ export class ModelTreeLSTM{
     }
 
     public async initModel(modelDirectory: string){
-        console.log(`Model init in directory: ${modelDirectory}`);
-        console.log(`Working dir path: ${__dirname}`)
         const modelConfig = await this.loadConfig();
         this.loadedConfig = modelConfig;   
          
@@ -410,6 +408,7 @@ export class ModelTreeLSTM{
      *    dense/
      */
     public createLstmDirectoryStructure(modelDirectory: string){
+        console.log("LSTM Create Dir Struct")
         if (!fs.existsSync(path.join(modelDirectory, "weights-lstm"))){
             fs.mkdirSync(path.join(modelDirectory, "weights-lstm"));
         }
@@ -422,6 +421,8 @@ export class ModelTreeLSTM{
         if (!fs.existsSync(path.join(modelDirectory, "weights-dense", "dense"))){
             fs.mkdirSync(path.join(modelDirectory, "weights-dense", "dense"));
         }
+        console.log("LSTM Create Dir Struct DONE")
+
     }
 
     public async loadConfig(){

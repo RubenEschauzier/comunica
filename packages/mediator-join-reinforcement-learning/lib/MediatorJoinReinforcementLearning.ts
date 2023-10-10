@@ -56,7 +56,6 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     testResults: IActorReply<ActorRdfJoin, IActionRdfJoinReinforcementLearning, IMediatorTypeReinforcementLearning, IQueryOperationResult>[],
   ): Promise<ActorRdfJoin> {
     // Obtain test results
-    console.log("Start mediate with");
     const errors: Error[] = [];
     const promises = testResults
       .map(({ reply }) => reply)
@@ -180,7 +179,6 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
         ])),
       });
     }
-    console.log("End mediate with")
     return bestActor;
   }
 
@@ -258,9 +256,6 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     episode.sharedVariables=sharedVariables;
     episode.isEmpty = false;
     episode.graphViews = graphViews;
-    console.log("Episode after making features")
-    console.log(episode);
-
   }
 
   public static createQueryGraphViews(action: IActionRdfJoinReinforcementLearning){

@@ -207,8 +207,6 @@ export class GraphConvolutionModel{
         let gcnIndex = 0;
         let gcnDirectedIndex = 0;
         let denseIndex = 0
-        console.log(`Model init in directory: ${modelDirectory}`);
-        console.log(`Working dir path: ${__dirname}`)
         for (const layerConfig of this.config.layers){
             if (layerConfig.type == 'gcn'){
                 const newGcnLayer = new GraphConvolutionLayer(layerConfig.inputSize, layerConfig.outputSize, layerConfig.activation!, undefined, modelDirectory);
@@ -268,6 +266,7 @@ export class GraphConvolutionModel{
      *    |- dense/
      */
     public createGcnDirectoryStructure(modelDirectory: string){
+        console.log("GCN Create Dir Structure")
         if (!fs.existsSync(path.join(modelDirectory, this.config.weightLocationGcn))){
             fs.mkdirSync(path.join(modelDirectory, this.config.weightLocationGcn));
         }
@@ -283,6 +282,7 @@ export class GraphConvolutionModel{
         if (!fs.existsSync(path.join(modelDirectory, this.config.weightLocationDense, "dense"))){
             fs.mkdirSync(path.join(modelDirectory, this.config.weightLocationDense, "dense"));
         }
+        console.log("GCN Create Dir Structure DONE")
     }
 
     /**

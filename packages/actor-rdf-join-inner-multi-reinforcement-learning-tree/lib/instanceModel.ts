@@ -92,7 +92,6 @@ export class InstanceModelGCN{
         this.modelSubjSubj.initModelWeights(path.join(modelDir, 'gcn-model-subj-subj'));
         this.modelObjObj.initModelWeights(path.join(modelDir, 'gcn-model-obj-obj'));
         this.modelObjSubj.initModelWeights(path.join(modelDir, 'gcn-model-obj-subj'));
-        console.log("Successfully loaded GCN models weights.");
     };
 
     public getModels(): IQueryGraphEncodingModels{

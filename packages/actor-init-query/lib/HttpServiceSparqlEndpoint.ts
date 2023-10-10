@@ -203,7 +203,7 @@ export class HttpServiceSparqlEndpoint {
       const workerTimeouts: Record<number, NodeJS.Timeout> = {};
       worker.on('message', ({ type, queryId }) => {
         if (type === 'start') {
-          // stderr.write(`Worker ${worker.process.pid} got assigned a new query (${queryId}).\n`);
+          stderr.write(`Worker ${worker.process.pid} got assigned a new query (${queryId}).\n`);
           workerTimeouts[queryId] = setTimeout(() => {
             try {
               if (worker.isConnected()) {

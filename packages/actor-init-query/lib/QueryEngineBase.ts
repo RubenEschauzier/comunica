@@ -76,10 +76,6 @@ implements IQueryEngine<QueryContext> {
     // End point training
     this.BF = new BindingsFactory();
     this.breakRecursion = false;
-    // Hardcoded location for training state, either for within local files or within docker
-    // this.trainingStateInformationLocation = __dirname + "/../trainingStateEngine";
-    // this.trainingStateInformationLocation = "/tmp/trainingStateEngine";
-
     // Initialise empty running moments
     this.runningMomentsFeatures = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
     this.runningMomentsExecution = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
@@ -104,6 +100,7 @@ implements IQueryEngine<QueryContext> {
   public async querySingleTrainStep<QueryFormatTypeInner extends QueryFormatType>(
     query: QueryFormatTypeInner,
     context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
+    randomId?: number
   ){
     let trainLoss: number[] = [];
     try{
@@ -119,7 +116,7 @@ implements IQueryEngine<QueryContext> {
     const queryKey = this.experienceBuffer.getQueryKey(query.toString());
     this.currentQueryKey = queryKey;
 
-    const trainResult = await this.executeTrainQuery(query, clonedContext, queryKey, this.experienceBuffer);
+    const trainResult = await this.executeTrainQuery(query, clonedContext, queryKey, this.experienceBuffer, randomId);
     const experiences: IExperience[] = [];
     const features = []; 
     // Sample experiences from the buffer if we have enough prior executions
@@ -140,7 +137,6 @@ implements IQueryEngine<QueryContext> {
     
     this.writeTrainLoss(trainLoss, this.actorInitQuery.modelCheckPointLocation+'/trainLoss.txt');
     this.cleanBatchTrainingExamples();
-    console.log(this.numQueries);
     // When the number of train steps is equal or larger to the number of queries, we count 1 epoch, record statistics and checkpoint the model
     if (this.numTrainSteps >= this.numQueries){
       this.totalEpochsDone += 1;
@@ -340,6 +336,7 @@ implements IQueryEngine<QueryContext> {
    *      |- ...
    */
   public createDirectoryStructureCheckpoint(ckpDirName: string){
+    console.log("QEB Create Dir structure")
     if (!fs.existsSync(path.join(this.actorInitQuery.modelCheckPointLocation, ckpDirName))){
       fs.mkdirSync(path.join(this.actorInitQuery.modelCheckPointLocation, ckpDirName));
     }
@@ -363,6 +360,8 @@ implements IQueryEngine<QueryContext> {
     if(!fs.existsSync(path.join(modelDir, "gcn-models", "gcn-model-obj-subj"))){
       fs.mkdirSync(path.join(modelDir, "gcn-models", "gcn-model-obj-subj"));
     }
+    console.log("QEB Create Dir structure DONE")
+
   }
 
   public readTrainLoss(fileLocation: string){
@@ -378,11 +377,12 @@ implements IQueryEngine<QueryContext> {
     query: QueryFormatTypeInner, 
     context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
     queryKey: string,
-    experienceBuffer: ExperienceBuffer
+    experienceBuffer: ExperienceBuffer,
+    randomId?: number
     ):Promise<[number, BindingsStream]>{
     const startT = this.getTimeSeconds();
     // Let the RL model optimize the query
-    const binding = await this.queryOfType<QueryFormatTypeInner, IQueryBindingsEnhanced>(query, context, 'bindings');
+    const binding = await this.queryOfType<QueryFormatTypeInner, IQueryBindingsEnhanced>(query, context, 'bindings', randomId);
     const endTSearch = this.getTimeSeconds();
     
     // If there are no joins in query we do not record the experience for the model to train
@@ -418,7 +418,6 @@ implements IQueryEngine<QueryContext> {
         numBindings+=1;
       });
       bindingStream.on('end', () => {
-        // console.log(`Query has ${numBindings} results`);
         const endTime: number = this.getTimeSeconds();
         const elapsed: number = endTime-startTime;
         const statsY: IAggregateValues = this.runningMomentsExecution.runningStats.get(this.runningMomentsExecution.indexes[0])!;
@@ -519,8 +518,9 @@ implements IQueryEngine<QueryContext> {
     context: undefined | (QueryContext & QueryFormatTypeInner extends string ?
       QueryStringContext : QueryAlgebraContext),
     expectedType: QueryTypeOut['resultType'],
+    randomId?: number
   ): Promise<ReturnType<QueryTypeOut['execute']>> {
-    const result = await this.query<QueryFormatTypeInner>(query, context);
+    const result = await this.query<QueryFormatTypeInner>(query, context, randomId);
     if (result.resultType === expectedType) {
       return result.execute();
     }
@@ -536,8 +536,9 @@ implements IQueryEngine<QueryContext> {
   public async query<QueryFormatTypeInner extends QueryFormatType>(
     query: QueryFormatTypeInner,
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
+    randomId?: number
   ): Promise<QueryType> {
-    const output = await this.queryOrExplain(query, context);
+    const output = await this.queryOrExplain(query, context, randomId);
     if ('explain' in output) {
       throw new Error(`Tried to explain a query when in query-only mode`);
     }
@@ -572,13 +573,20 @@ implements IQueryEngine<QueryContext> {
   public async queryOrExplain<QueryFormatTypeInner extends QueryFormatType>(
     query: QueryFormatTypeInner,
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
+    randomId?: number
   ): Promise<QueryType | IQueryExplained> {
     context = context || <any>{};
     /**
      * If there are no entries in queryToKey map we are at first run or after time-out, thus reload the model state.
      * We do this at start query to prevent unnecessary initialisation of features
     */    
+    // TEMP CODEEE REMOVE THIS
+    if (!randomId){
+      randomId = Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER));
+    }
+    console.log(`Starting query with randomId ${randomId}`);
     if (context && this.experienceBuffer.queryToKey.size==0 && context.trainEndPoint){
+      console.log("Here then?");
       await this.loadState(this.currentTrainingStateEngineDirectory);
     }
 
@@ -602,16 +610,18 @@ implements IQueryEngine<QueryContext> {
      * 5. The query has more than two triple patterns (Nothing to train on otherwise)
      */
     if (context?.trainEndPoint && !this.breakRecursion && !initQuery){
+      console.log("Start training query")
       // Execute query step with given query
       this.breakRecursion = true;
-      await this.querySingleTrainStep(query, context);
+      await this.querySingleTrainStep(query, context, randomId);
       this.breakRecursion = false;
       context.batchedTrainingExamples = this.batchedTrainExamples;
       // Reset train episode
       this.emptyTrainEpisode();
+      console.log("End training query, returning nop")
       return this.returnNop()
     }
-
+    console.log('1')
     // Expand shortcuts
     for (const key in context) {
       if (this.actorInitQuery.contextKeyShortcuts[key]) {
@@ -619,7 +629,7 @@ implements IQueryEngine<QueryContext> {
         delete context[key];
       }
     }
-
+    console.log('2 expanded shortcuts')
     // Prepare context
     let actionContext: IActionContext = new ActionContext(context);
     let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };
@@ -630,8 +640,10 @@ implements IQueryEngine<QueryContext> {
         actionContext = actionContext.setDefault(KeysInitQuery.graphqlSingularizeVariables, {});
       }
     }
+    console.log('prepared context')
     // Initialise the running moments from file (The running moments file should only be passed on first execution)
     if(actionContext.get(KeysRlTrain.runningMomentsFeatureFile)){
+      console.log('init running moments')
       if (this.modelInstanceLSTM.initMoments){
         console.warn(chalk.red("WARNING: Reloading Moments When They Are Already Initialised"));
       }
@@ -645,6 +657,7 @@ implements IQueryEngine<QueryContext> {
 
     // If no path was passed and the moments are not initialised we create mean 0 std 1 moments
     else if (!this.modelInstanceLSTM.initMoments){
+      console.log('init running moments wihtout init')
       console.warn(chalk.red("INFO: Running Query Without Initialised Running Moments"));
       for (const index of this.runningMomentsFeatures.indexes){
         const startPoint: IAggregateValues = {N: 0, mean: 0, std: 1, M2: 1}
@@ -672,7 +685,7 @@ implements IQueryEngine<QueryContext> {
     actionContext = (await this.actorInitQuery.mediatorContextPreprocess.mediate({ context: actionContext })).context;
     // Determine explain mode
     const explainMode: QueryExplainMode = actionContext.get(KeysInitQuery.explain)!;
-
+    console.log("Parsing query")
     // Parse query
     let operation: Algebra.Operation;
     if (typeof query === 'string') {
@@ -698,7 +711,7 @@ implements IQueryEngine<QueryContext> {
         data: operation,
       };
     }
-
+    console.log("Apply intial bindings")
     // Apply initial bindings in context
     if (actionContext.has(KeysInitQuery.initialBindings)) {
       operation = materializeOperation(operation, actionContext.get(KeysInitQuery.initialBindings)!);
@@ -706,7 +719,7 @@ implements IQueryEngine<QueryContext> {
       // Delete the query string from the context, since our initial query might have changed
       actionContext = actionContext.delete(KeysInitQuery.queryString);
     }
-
+    console.log("Optimize query op")
     // Optimize the query operation
     const mediatorResult = await this.actorInitQuery.mediatorOptimizeQueryOperation
       .mediate({ context: actionContext, operation });
@@ -731,12 +744,13 @@ implements IQueryEngine<QueryContext> {
       physicalQueryPlanLogger = new MemoryPhysicalQueryPlanLogger();
       actionContext = actionContext.set(KeysInitQuery.physicalQueryPlanLogger, physicalQueryPlanLogger);
     }
-
+    console.log("Execute query")
     // Execute query
     const output = await this.actorInitQuery.mediatorQueryOperation.mediate({
       context: actionContext,
       operation,
     });
+    console.log("Finish query")
     output.context = actionContext;
     // If we are in initialisation run, we initialise the query with its features and return empty bindings
     if (initQuery){
@@ -748,7 +762,8 @@ implements IQueryEngine<QueryContext> {
       this.cleanBatchTrainingExamples();
       this.disposeTrainEpisode();
       this.emptyTrainEpisode();
-      this.experienceBuffer.initQueryInformation(query.toString(), leafFeaturesExpanded);   
+      this.experienceBuffer.initQueryInformation(query.toString(), leafFeaturesExpanded);
+      console.log("Finish initialization query")   
       return this.returnNop();
     }
 
@@ -759,6 +774,7 @@ implements IQueryEngine<QueryContext> {
     }
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
     // Output physical query plan after query exec if needed
+    console.log(`Ending query, random-id: ${randomId}`);
     if (physicalQueryPlanLogger) {
       // Make sure the whole result is produced
       switch (finalOutput.resultType) {
@@ -976,6 +992,7 @@ implements IQueryEngine<QueryContext> {
       }),
       type: 'bindings',
     };
+    console.log("Finish returning nop")
     return QueryEngineBase.internalToFinalResult(nop)
   }
 
