@@ -43,7 +43,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     if (episode==undefined){
       throw new Error("Passed undefined training episode to mediator");
     }
-    if (episode.isEmpty && action.entries.length > 1){
+    if (episode.isEmpty){
       await this.initialiseFeatures(action);
     }
     const testResults: IActorReply<ActorRdfJoin, IActionRdfJoinReinforcementLearning, IMediatorTypeReinforcementLearning, IQueryOperationResult>[] =

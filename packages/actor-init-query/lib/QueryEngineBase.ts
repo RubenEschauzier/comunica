@@ -602,7 +602,17 @@ implements IQueryEngine<QueryContext> {
     if (context && context.trainEndPoint){
       context.train = true;
     }
-    
+    // If we're not doing init query, then we should check if the query should be used for training
+    // Queries with <3 triple patterns are useless to train on
+    let moreThanTwoTp = true;
+    if (!initQuery){
+      const queryFeatures = this.experienceBuffer.getFeatures(query.toString())!;
+      if (queryFeatures.hiddenStates.length < 3){
+        moreThanTwoTp = false;
+      }
+    }
+    console.log(`Query: ${query}`)
+    console.log(moreThanTwoTp);
     /**
      * We execute training step on endpoint if we
      * 1. Get a context
@@ -611,7 +621,7 @@ implements IQueryEngine<QueryContext> {
      * 4. If the query already is initialised in the experienceBuffer
      * 5. The query has more than two triple patterns (Nothing to train on otherwise)
      */
-    if (context?.trainEndPoint && !this.breakRecursion && !initQuery){
+    if (context?.trainEndPoint && !this.breakRecursion && !initQuery && moreThanTwoTp){
       console.log("Start training query")
       // Execute query step with given query
       this.breakRecursion = true;
@@ -755,7 +765,16 @@ implements IQueryEngine<QueryContext> {
     console.log("Finish query")
     output.context = actionContext;
     // If we are in initialisation run, we initialise the query with its features and return empty bindings
-    if (initQuery){
+
+
+    // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
+    // If we train
+    if (!actionContext.get(KeysRlTrain.train) && context && !context.trainEndPoint){
+      this.emptyTrainEpisode();
+    }
+    const finalOutput = QueryEngineBase.internalToFinalResult(output);
+
+    if (initQuery && moreThanTwoTp){
       // Get the leaf features resulting from query
       const leafFeatures: IResultSetRepresentation = {hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x=>x.clone()),
         memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x=>x.clone())};
@@ -766,15 +785,8 @@ implements IQueryEngine<QueryContext> {
       this.emptyTrainEpisode();
       this.experienceBuffer.initQueryInformation(query.toString(), leafFeaturesExpanded);
       console.log("Finish initialization query")   
-      return this.returnNop();
+      return finalOutput;
     }
-
-    // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
-    // If we train
-    if (!actionContext.get(KeysRlTrain.train) && context && !context.trainEndPoint){
-      this.emptyTrainEpisode();
-    }
-    const finalOutput = QueryEngineBase.internalToFinalResult(output);
     // Output physical query plan after query exec if needed
     console.log(`Ending query, random-id: ${randomId}`);
     if (physicalQueryPlanLogger) {
