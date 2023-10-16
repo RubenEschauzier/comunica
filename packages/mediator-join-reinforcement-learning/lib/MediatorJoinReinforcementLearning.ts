@@ -223,19 +223,28 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       batchToUpdate.leafFeatures = {hiddenStates: resultSetRepresentationLeaf.hiddenStates.map(x=>x.clone()), 
         memoryCell: resultSetRepresentationLeaf.memoryCell.map(x=>x.clone())};  
     }
+    const stackedTensor = tf.stack(featureTensorLeaf).squeeze();
+    // StackedTensor should be shape [nTriplePattern, EmbeddingSize].
+    // For queries with 1 triple pattern, squeeze() removes first dimension, so we get new shape with dimension added if
+    // needed
+    const newShape: number[] = [stackedTensor.shape.length == 1 ? 1 : stackedTensor.shape[0], stackedTensor.shape.length == 1 ?
+    stackedTensor.shape[0] : stackedTensor.shape[1]!]
 
+    const featureTensorReshaped = tf.reshape(stackedTensor, newShape);
     // Obtain different query graph representations using GCN
     try{
-      const subjSubjRepresentation = models.modelSubjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.subSubView));
-      const objObjRepresentation = models.modelObjObj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objObjView));
-      const objSubjRepresentation = models.modelObjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objSubView));  
+      console.log(tf.stack(featureTensorLeaf).squeeze().shape);
+      console.log(featureTensorReshaped.shape);
+      const subjSubjRepresentation = models.modelSubjSubj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.subSubView));
+      const objObjRepresentation = models.modelObjObj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.objObjView));
+      const objSubjRepresentation = models.modelObjSubj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.objSubView));  
     }
     catch(err){
       console.log(err)
     }
-    const subjSubjRepresentation = models.modelSubjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.subSubView));
-    const objObjRepresentation = models.modelObjObj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objObjView));
-    const objSubjRepresentation = models.modelObjSubj.forwardPass(tf.stack(featureTensorLeaf).squeeze(), tf.tensor(graphViews.objSubView));  
+    const subjSubjRepresentation = models.modelSubjSubj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.subSubView));
+    const objObjRepresentation = models.modelObjObj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.objObjView));
+    const objSubjRepresentation = models.modelObjSubj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.objSubView));  
     // Concatinate all representations 
     try{
       const learnedRepresentation = tf.concat([subjSubjRepresentation, objObjRepresentation, objSubjRepresentation], 1);

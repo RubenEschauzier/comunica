@@ -2,7 +2,6 @@ import { IQueryGraphViews, IResultSetRepresentation } from '@comunica/mediator-j
 import * as tf from '@tensorflow/tfjs-node';
 import { squaredDifference } from '@tensorflow/tfjs-node';
 import { ModelTreeLSTM } from './treeLSTM';
-import { GraphConvolutionModel } from '@comunica/mediator-join-reinforcement-learning/lib/GraphConvolution';
 import { IQueryGraphEncodingModels } from './instanceModel';
 
 export class ModelTrainerOffline{
@@ -59,24 +58,23 @@ export class ModelTrainerOffline{
                 const treesToExecute: number[][][] = partialJoinTree.slice(b*batchSize, Math.min((b+1)*batchSize, partialJoinTree.length));
                 const leafFeaturesBatch: tf.Tensor[] = leafFeaturesTensor.slice(b*batchSize, 
                     Math.min((b+1)*batchSize, leafFeaturesTensor.length));                
-                
                 const loss: tf.Scalar|null = this.optimizer.minimize(()=>{
                     const qValuesRecursive: tf.Tensor[] = [];
                     for (let i=0;i<treesToExecute.length;i++){
                         const subjSubjRepresentation = modelsGCN.modelSubjSubj.
-                        forwardPass(leafFeaturesBatch[i].squeeze(), tf.tensor(graphViews[i].subSubView));
+                        forwardPass(leafFeaturesBatch[i].squeeze(), tf.tensor(graphViews[(b*batchSize)+i].subSubView));
                         const objObjRepresentation = modelsGCN.modelObjObj.
-                        forwardPass(leafFeaturesBatch[i].squeeze(), tf.tensor(graphViews[i].objObjView));
+                        forwardPass(leafFeaturesBatch[i].squeeze(), tf.tensor(graphViews[(b*batchSize)+i].objObjView));
                         const objSubjRepresentation = modelsGCN.modelObjSubj.
-                        forwardPass(leafFeaturesBatch[i].squeeze(), tf.tensor(graphViews[i].objSubView));
-
+                        forwardPass(leafFeaturesBatch[i].squeeze(), tf.tensor(graphViews[(b*batchSize)+i].objSubView));
+                        
                         const learnedRepresentation = tf.concat([subjSubjRepresentation, objObjRepresentation, objSubjRepresentation], 1);
                         const learnedRepresentationList = tf.split(learnedRepresentation, learnedRepresentation.shape[0]);
                         const learnedRepresentationResultSet: IResultSetRepresentation = {
                           hiddenStates: learnedRepresentationList,
                           memoryCell: learnedRepresentationList.map(x=>tf.zeros(x.shape))
                         };
-                        qValuesRecursive.push(modelLSTM.forwardPassRecursive(learnedRepresentationResultSet, partialJoinTree[i]));
+                        qValuesRecursive.push(modelLSTM.forwardPassRecursive(learnedRepresentationResultSet, treesToExecute[i]));
                     }
                     const executionTimesBatch: tf.Tensor[] = executionTimes.slice(b*batchSize, Math.min((b+1)*batchSize, executionTimes.length)).map(x=>tf.tensor(x));
                     const loss = tf.sum(squaredDifference(tf.concat(qValuesRecursive).squeeze(), tf.concat(executionTimesBatch).squeeze()));

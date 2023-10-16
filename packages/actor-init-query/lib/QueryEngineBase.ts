@@ -117,20 +117,31 @@ implements IQueryEngine<QueryContext> {
     this.currentQueryKey = queryKey;
 
     const trainResult = await this.executeTrainQuery(query, clonedContext, queryKey, this.experienceBuffer, randomId);
+    console.log("Done with executeTrainQuery")
     const experiences: IExperience[] = [];
     const features = []; 
     // Sample experiences from the buffer if we have enough prior executions
     if (this.experienceBuffer.getSize()>20){
+      console.log("Were sampling training");
       for (let z=0;z<this.nExpPerQuery;z++){
           const experience: [IExperience, IExperienceKey] = this.experienceBuffer.getRandomExperience();
           experiences.push(experience[0]);
           const feature = this.experienceBuffer.getFeatures(experience[1].query)!;
+          console.log(`Added feature hs length, feature graphView length:`);
+          console.log(feature.hiddenStates.length)
+          console.log(feature.hiddenStates[0].shape)
+          console.log(feature.graphViews.subSubView.length);
           features.push(feature);
       }
       // const loss = await this.trainModelExperienceReplay(experiences, features);
       const featureTensors = features.map(x=>tf.stack(x.hiddenStates));
+      console.log("Input to trainModelExpReplay featureTensor");
+      console.log(featureTensors.map(x=>x.shape));
+      console.log("Input graphViewAdj")
+      console.log(features.map(x=>x.graphViews.objObjView.length));
+      console.log("Getting loss")
       const loss = await this.trainModelExperienceReplayTemp(experiences, featureTensors, features.map(x=>x.graphViews));
-
+      console.log("FInished getting loss")
       trainLoss.push(loss);
       this.numTrainSteps += 1;
     }
@@ -604,15 +615,15 @@ implements IQueryEngine<QueryContext> {
     }
     // If we're not doing init query, then we should check if the query should be used for training
     // Queries with <3 triple patterns are useless to train on
-    let moreThanTwoTp = true;
-    if (!initQuery){
-      const queryFeatures = this.experienceBuffer.getFeatures(query.toString())!;
-      if (queryFeatures.hiddenStates.length < 3){
-        moreThanTwoTp = false;
-      }
-    }
-    console.log(`Query: ${query}`)
-    console.log(moreThanTwoTp);
+    // let moreThanTwoTp = true;
+    // if (!initQuery){
+    //   const queryFeatures = this.experienceBuffer.getFeatures(query.toString())!;
+    //   if (queryFeatures.hiddenStates.length < 3){
+    //     moreThanTwoTp = false;
+    //   }
+    // }
+    // console.log(`Query: ${query}`)
+    // console.log(moreThanTwoTp);
     /**
      * We execute training step on endpoint if we
      * 1. Get a context
@@ -621,7 +632,7 @@ implements IQueryEngine<QueryContext> {
      * 4. If the query already is initialised in the experienceBuffer
      * 5. The query has more than two triple patterns (Nothing to train on otherwise)
      */
-    if (context?.trainEndPoint && !this.breakRecursion && !initQuery && moreThanTwoTp){
+    if (context?.trainEndPoint && !this.breakRecursion && !initQuery){
       console.log("Start training query")
       // Execute query step with given query
       this.breakRecursion = true;
@@ -774,7 +785,7 @@ implements IQueryEngine<QueryContext> {
     }
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
 
-    if (initQuery && moreThanTwoTp){
+    if (initQuery){
       // Get the leaf features resulting from query
       const leafFeatures: IResultSetRepresentation = {hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x=>x.clone()),
         memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x=>x.clone())};
@@ -788,7 +799,8 @@ implements IQueryEngine<QueryContext> {
       return finalOutput;
     }
     // Output physical query plan after query exec if needed
-    console.log(`Ending query, random-id: ${randomId}`);
+    console.log(`Ending query, random-id: ${randomId} saving state`);
+    this.saveState(60, this.currentTrainingStateEngineDirectory);
     if (physicalQueryPlanLogger) {
       // Make sure the whole result is produced
       switch (finalOutput.resultType) {
