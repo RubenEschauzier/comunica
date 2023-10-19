@@ -393,16 +393,17 @@ implements IQueryEngine<QueryContext> {
     ):Promise<[number, BindingsStream]>{
     const startT = this.getTimeSeconds();
     // Let the RL model optimize the query
+    console.log("Starting query in executeTrainQuery")
     const binding = await this.queryOfType<QueryFormatTypeInner, IQueryBindingsEnhanced>(query, context, 'bindings', randomId);
     const endTSearch = this.getTimeSeconds();
-    
+    console.log("Checking joinsMade")
     // If there are no joins in query we do not record the experience for the model to train
     if(this.trainEpisode.joinsMade.length==0){
       this.disposeTrainEpisode();
       this.emptyTrainEpisode();
       return [endTSearch - startT, binding];
     }
-
+    console.log("Getting query opt steps")
     // Get all query optimization steps made by model
     const joinOrderKeys: string[] = [];
     for (let i = 1; i <this.trainEpisode.joinsMade.length+1;i++){
@@ -411,6 +412,7 @@ implements IQueryEngine<QueryContext> {
     }
 
     // Consume the query plan to obtain query execution time
+    console.log("Starting consumeStream")
     const elapsed = await this.consumeStream(binding, experienceBuffer, startT, joinOrderKeys, queryKey, false, true);
 
     // Clear episode tensors to reset the model state
@@ -424,16 +426,19 @@ implements IQueryEngine<QueryContext> {
     startTime: number, joinsMadeEpisode: string[], queryKey: string, 
     validation: boolean, recordExperience: boolean){
     let numBindings = 0;
+    console.log("CONSUMING STREAM")
     const consumedStream: Promise<number> = new Promise((resolve, reject)=>{
       bindingStream.on('data', () =>{
+        console.log("We got data from query");
         numBindings+=1;
       });
       bindingStream.on('end', () => {
+        console.log("Get End!");
         const endTime: number = this.getTimeSeconds();
         const elapsed: number = endTime-startTime;
         const statsY: IAggregateValues = this.runningMomentsExecution.runningStats.get(this.runningMomentsExecution.indexes[0])!;
 
-        if (!validation){
+        if (!validation && joinsMadeEpisode.length>2){
           this.updateRunningMoments(statsY, elapsed);
         }
         if (recordExperience){
@@ -596,8 +601,8 @@ implements IQueryEngine<QueryContext> {
       randomId = Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER));
     }
     console.log(`Starting query with randomId ${randomId}`);
+    console.log("STARTIN!!!!!!!!!!!")
     if (context && this.experienceBuffer.queryToKey.size==0 && context.trainEndPoint){
-      console.log("Here then?");
       await this.loadState(this.currentTrainingStateEngineDirectory);
     }
 
@@ -644,7 +649,6 @@ implements IQueryEngine<QueryContext> {
       console.log("End training query, returning nop")
       return this.returnNop()
     }
-    console.log('1')
     // Expand shortcuts
     for (const key in context) {
       if (this.actorInitQuery.contextKeyShortcuts[key]) {
@@ -652,7 +656,6 @@ implements IQueryEngine<QueryContext> {
         delete context[key];
       }
     }
-    console.log('2 expanded shortcuts')
     // Prepare context
     let actionContext: IActionContext = new ActionContext(context);
     let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };
@@ -734,7 +737,6 @@ implements IQueryEngine<QueryContext> {
         data: operation,
       };
     }
-    console.log("Apply intial bindings")
     // Apply initial bindings in context
     if (actionContext.has(KeysInitQuery.initialBindings)) {
       operation = materializeOperation(operation, actionContext.get(KeysInitQuery.initialBindings)!);
@@ -742,7 +744,6 @@ implements IQueryEngine<QueryContext> {
       // Delete the query string from the context, since our initial query might have changed
       actionContext = actionContext.delete(KeysInitQuery.queryString);
     }
-    console.log("Optimize query op")
     // Optimize the query operation
     const mediatorResult = await this.actorInitQuery.mediatorOptimizeQueryOperation
       .mediate({ context: actionContext, operation });
@@ -767,13 +768,11 @@ implements IQueryEngine<QueryContext> {
       physicalQueryPlanLogger = new MemoryPhysicalQueryPlanLogger();
       actionContext = actionContext.set(KeysInitQuery.physicalQueryPlanLogger, physicalQueryPlanLogger);
     }
-    console.log("Execute query")
     // Execute query
     const output = await this.actorInitQuery.mediatorQueryOperation.mediate({
       context: actionContext,
       operation,
     });
-    console.log("Finish query")
     output.context = actionContext;
     // If we are in initialisation run, we initialise the query with its features and return empty bindings
 

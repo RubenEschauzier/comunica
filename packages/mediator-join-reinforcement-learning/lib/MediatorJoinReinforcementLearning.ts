@@ -195,10 +195,12 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     // Take models from context
     const models = (action.context.get(KeysRlTrain.modelInstanceGCN) as InstanceModelGCN).getModels();
 
-    // Update running moments only at leaf
-    const runningMomentsFeatures: IRunningMoments = action.context.get(KeysRlTrain.runningMomentsFeatures)!;
-    this.updateAllMoments(runningMomentsFeatures, leafFeatures);
-    this.standardiseFeatures(runningMomentsFeatures, leafFeatures);
+    // Update running moments only at leaf and for queries with more than two triple patterns
+    if (action.entries.length>2){
+      const runningMomentsFeatures: IRunningMoments = action.context.get(KeysRlTrain.runningMomentsFeatures)!;
+      this.updateAllMoments(runningMomentsFeatures, leafFeatures);
+      this.standardiseFeatures(runningMomentsFeatures, leafFeatures);  
+    }
 
     // Feature tensors created here, after no longer needed (corresponding result sets are joined) they need to be disposed
     const featureTensorLeaf: tf.Tensor[] = leafFeatures.map(x=>tf.tensor(x,[1, x.length]));
