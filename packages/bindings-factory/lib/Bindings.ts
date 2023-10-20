@@ -39,13 +39,15 @@ export class Bindings implements RDF.Bindings {
   public set(key: RDF.Variable | string, value: RDF.Term): Bindings {
     return new Bindings(this.dataFactory,
       this.entries.set(typeof key === 'string' ? key : key.value, value),
-      this.contextMergeHandlers);
+      this.contextMergeHandlers,
+      this.context);
   }
 
   public delete(key: RDF.Variable | string): Bindings {
     return new Bindings(this.dataFactory,
       this.entries.delete(typeof key === 'string' ? key : key.value),
-      this.contextMergeHandlers);
+      this.contextMergeHandlers,
+      this.context);
   }
 
   public keys(): Iterable<RDF.Variable> {
@@ -99,12 +101,12 @@ export class Bindings implements RDF.Bindings {
 
   public filter(fn: (value: RDF.Term, key: RDF.Variable) => boolean): Bindings {
     return new Bindings(this.dataFactory, Map(<any> this.entries
-      .filter((value, key) => fn(value, this.dataFactory.variable!(key)))), this.contextMergeHandlers);
+      .filter((value, key) => fn(value, this.dataFactory.variable!(key)))), this.contextMergeHandlers, this.context);
   }
 
   public map(fn: (value: RDF.Term, key: RDF.Variable) => RDF.Term): Bindings {
     return new Bindings(this.dataFactory, Map(<any> this.entries
-      .map((value, key) => fn(value, this.dataFactory.variable!(key)))), this.contextMergeHandlers);
+      .map((value, key) => fn(value, this.dataFactory.variable!(key)))), this.contextMergeHandlers, this.context);
   }
 
   public merge(other: RDF.Bindings | Bindings): Bindings | undefined {
@@ -215,9 +217,9 @@ export class Bindings implements RDF.Bindings {
 
   public setContextEntryRaw<V>(key: IActionContextKey<V>, value: any): Bindings {
     if (this.context) {
-      return new Bindings(this.dataFactory, this.entries, this.contextMergeHandlers, this.context.set(key, value))
-    } 
-    return new Bindings(this.dataFactory, this.entries, this.contextMergeHandlers, new ActionContext().set(key, value))
+      return new Bindings(this.dataFactory, this.entries, this.contextMergeHandlers, this.context.set(key, value));
+    }
+    return new Bindings(this.dataFactory, this.entries, this.contextMergeHandlers, new ActionContext().set(key, value));
   }
 
   public deleteContextEntry<V>(key: IActionContextKey<V>): Bindings {
@@ -231,7 +233,6 @@ export class Bindings implements RDF.Bindings {
   public getContextEntry<V>(key: IActionContextKey<V>): V | undefined {
     return this.context?.get(key);
   }
-
 
   public toString(): string {
     return bindingsToString(this);

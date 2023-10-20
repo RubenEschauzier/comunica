@@ -270,27 +270,25 @@ export class ActorQueryOperationQuadpattern extends ActorQueryOperationTyped<Alg
       }
       const BF = new BindingsFactory((await this.mediatorMergeHandlers.mediate({ context })).mergeHandlers);
       return filteredOutput.map(quad => {
-        if (!this.addSourceToBindingContext){
+        if (!this.addSourceToBindingContext) {
           return BF.bindings(Object.keys(elementVariables).map(key => {
             const keys: QuadTermName[] = <any>key.split('_');
             const variable = elementVariables[key];
             const term = getValueNestedPath(quad, keys);
-            console.log("Here in if statement")
-            console.log(quad)
             return [ DF.variable(variable), term ];
-          }))
+          }));
         }
         // Add the quad graph source to context of binding
-        return BF.bindings(Object.keys(elementVariables).map(key => {
+        const binding = BF.bindings(Object.keys(elementVariables).map(key => {
           const keys: QuadTermName[] = <any>key.split('_');
           const variable = elementVariables[key];
           const term = getValueNestedPath(quad, keys);
-          console.log("Here")
-          console.log(quad)
           return [ DF.variable(variable), term ];
-        })).setContextEntry(KeysBindingContext.sourceBinding, quad.graph);
-      })
-      }, {
+        })).setContextEntry(KeysBindingContext.sourceBinding, quad.graph.value);
+        // Console.log(binding);
+        return binding;
+      });
+    }, {
       autoStart: false,
       onClose: () => result.data.destroy(),
     });

@@ -228,7 +228,8 @@ describe('ActorQueryOperationQuadpattern', () => {
         bus,
         mediatorResolveQuadPattern,
         unionDefaultGraph: false,
-        mediatorMergeHandlers,
+        addSourceToBindingContext: false,
+        mediatorMergeHandlers: mediatorMergeHandlers
       });
     });
 
@@ -516,6 +517,7 @@ describe('ActorQueryOperationQuadpattern', () => {
         bus,
         mediatorResolveQuadPattern,
         unionDefaultGraph: false,
+        addSourceToBindingContext: false,
         mediatorMergeHandlers,
       });
 
@@ -602,6 +604,7 @@ describe('ActorQueryOperationQuadpattern', () => {
         bus,
         mediatorResolveQuadPattern,
         unionDefaultGraph: true,
+        addSourceToBindingContext: false,
         mediatorMergeHandlers,
       });
 
@@ -682,6 +685,7 @@ describe('ActorQueryOperationQuadpattern', () => {
         bus,
         mediatorResolveQuadPattern,
         unionDefaultGraph: true,
+        addSourceToBindingContext: false,
         mediatorMergeHandlers,
       });
 

@@ -153,7 +153,6 @@ implements IQueryEngine<QueryContext, QueryStringContextInner, QueryAlgebraConte
 
     // Pre-processing the context
     actionContext = (await this.actorInitQuery.mediatorContextPreprocess.mediate({ context: actionContext })).context;
-
     // Determine explain mode
     const explainMode: QueryExplainMode = actionContext.get(KeysInitQuery.explain)!;
 
