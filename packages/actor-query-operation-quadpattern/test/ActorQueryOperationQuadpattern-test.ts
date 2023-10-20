@@ -229,7 +229,7 @@ describe('ActorQueryOperationQuadpattern', () => {
         mediatorResolveQuadPattern,
         unionDefaultGraph: false,
         addSourceToBindingContext: false,
-        mediatorMergeHandlers: mediatorMergeHandlers
+        mediatorMergeHandlers,
       });
     });
 
