@@ -266,7 +266,6 @@ export class GraphConvolutionModel{
      *    |- dense/
      */
     public createGcnDirectoryStructure(modelDirectory: string){
-        console.log("GCN Create Dir Structure")
         if (!fs.existsSync(path.join(modelDirectory, this.config.weightLocationGcn))){
             fs.mkdirSync(path.join(modelDirectory, this.config.weightLocationGcn));
         }
@@ -282,7 +281,6 @@ export class GraphConvolutionModel{
         if (!fs.existsSync(path.join(modelDirectory, this.config.weightLocationDense, "dense"))){
             fs.mkdirSync(path.join(modelDirectory, this.config.weightLocationDense, "dense"));
         }
-        console.log("GCN Create Dir Structure DONE")
     }
 
     /**

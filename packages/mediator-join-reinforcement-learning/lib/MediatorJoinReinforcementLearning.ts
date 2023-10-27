@@ -234,26 +234,11 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
 
     const featureTensorReshaped = tf.reshape(stackedTensor, newShape);
     // Obtain different query graph representations using GCN
-    try{
-      console.log(tf.stack(featureTensorLeaf).squeeze().shape);
-      console.log(featureTensorReshaped.shape);
-      const subjSubjRepresentation = models.modelSubjSubj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.subSubView));
-      const objObjRepresentation = models.modelObjObj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.objObjView));
-      const objSubjRepresentation = models.modelObjSubj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.objSubView));  
-    }
-    catch(err){
-      console.log(err)
-    }
     const subjSubjRepresentation = models.modelSubjSubj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.subSubView));
     const objObjRepresentation = models.modelObjObj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.objObjView));
     const objSubjRepresentation = models.modelObjSubj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.objSubView));  
+    
     // Concatinate all representations 
-    try{
-      const learnedRepresentation = tf.concat([subjSubjRepresentation, objObjRepresentation, objSubjRepresentation], 1);
-    }
-    catch(err){
-      console.log(err)
-    }
     const learnedRepresentation = tf.concat([subjSubjRepresentation, objObjRepresentation, objSubjRepresentation], 1);
     const learnedRepresentationList = tf.split(learnedRepresentation, learnedRepresentation.shape[0]);
     const learnedRepresentationResultSet: IResultSetRepresentation = {

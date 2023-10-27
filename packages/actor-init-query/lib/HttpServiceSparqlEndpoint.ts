@@ -247,7 +247,7 @@ export class HttpServiceSparqlEndpoint {
     // Start the server
     const server = http.createServer(this.handleRequest.bind(this, engine, variants, stdout, stderr));
     server.listen(this.port);
-    // stderr.write(`Server worker (${process.pid}) running on http://localhost:${this.port}/sparql\n`);
+    stderr.write(`Server worker (${process.pid}) running on http://localhost:${this.port}/sparql\n`);
 
     // Keep track of all open connections
     const openConnections: Set<ServerResponse> = new Set();
@@ -261,7 +261,7 @@ export class HttpServiceSparqlEndpoint {
     // Subscribe to shutdown messages
     process.on('message', async(message: string): Promise<void> => {
       if (message === 'shutdown') {
-        // stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
+        stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
         // Write model to file
         // TODO Make saveFile functionality on shutdown
         console.info("Engine shutdown; Saving state")
@@ -421,9 +421,9 @@ export class HttpServiceSparqlEndpoint {
       return this.writeServiceDescription(engine, stdout, stderr, request, response, mediaType, headOnly);
     }
     // Log the start of the query execution
-    // stdout.write(`[200] ${request.method} to ${request.url}\n`);
-    // stdout.write(`      Requested media type: ${mediaType}\n`);
-    // stdout.write(`      Received ${queryBody.type} query: ${queryBody.value}\n`);
+    stdout.write(`[200] ${request.method} to ${request.url}\n`);
+    stdout.write(`      Requested media type: ${mediaType}\n`);
+    stdout.write(`      Received ${queryBody.type} query: ${queryBody.value}\n`);
 
     // Send message to master process to indicate the start of an execution
     process.send!({ type: 'start', queryId });
