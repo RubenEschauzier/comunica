@@ -1,4 +1,6 @@
+import type { InstanceModelGCN, InstanceModelLSTM } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
 import { ActionContextKey, CONTEXT_KEY_LOGGER } from '@comunica/core';
+import type { IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
 import type {
   Bindings,
   IPhysicalQueryPlanLogger,
@@ -13,8 +15,6 @@ import type {
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
 import type { Algebra } from 'sparqlalgebrajs';
-import {InstanceModelGCN, InstanceModelLSTM} from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree'
-import { IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
@@ -285,7 +285,7 @@ export const KeysRlTrain = {
   */
   modelInstanceGCN: new ActionContextKey<InstanceModelGCN>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning:ModelInstanceGCN'),
   /**
-   * Context entries related to the runningMoments used to standardise both features and execution times to 
+   * Context entries related to the runningMoments used to standardise both features and execution times to
    * standard normal variable
    */
   runningMomentsFeatures: new ActionContextKey<IRunningMoments>('@comunica/mediator-join-reinforcement-learning:runningMomentsFeatures000'),
@@ -311,5 +311,5 @@ export const KeysRlTrain = {
   /**
    * Temperature of training
    */
-  temperature: new ActionContextKey<number>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:temperature')
-}
+  temperature: new ActionContextKey<number>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:temperature'),
+};

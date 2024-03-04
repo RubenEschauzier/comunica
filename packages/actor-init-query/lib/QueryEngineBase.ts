@@ -1,7 +1,18 @@
+import { readFileSync, writeFileSync } from 'fs';
+import * as path from 'path';
+import * as process from 'process';
+import type { IGraphCardinalityPredictionLayers, IQueryGraphEncodingModels } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
+import { InstanceModelGCN, InstanceModelLSTM, ModelTrainerOffline } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
+import { DenseOwnImplementation } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree/lib/fullyConnectedLayers';
+import { BindingsFactory } from '@comunica/bindings-factory';
 import { materializeOperation } from '@comunica/bus-query-operation';
 import type { IActionSparqlSerialize, IActorQueryResultSerializeOutput } from '@comunica/bus-query-result-serialize';
 import { KeysCore, KeysInitQuery, KeysRdfResolveQuadPattern, KeysRlTrain } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
+import type { IAggregateValues, IQueryGraphViews, IResultSetRepresentation, IResultSetRepresentationGraph, IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
+import { MediatorJoinReinforcementLearning } from '@comunica/mediator-join-reinforcement-learning';
+import type { IExperienceKey } from '@comunica/model-trainer';
+import { ExperienceBuffer } from '@comunica/model-trainer';
 import type {
   IActionContext, IPhysicalQueryPlanLogger,
   IQueryOperationResult,
@@ -12,27 +23,18 @@ import type {
   IQueryQuadsEnhanced, QueryEnhanced, IQueryContextCommon, FunctionArgumentsCache,
   ITrainEpisode,
   IBatchedTrainingExamples,
-  ITrainingExample
+  ITrainingExample,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
-import { ArrayIterator, AsyncIterator, SingletonIterator } from 'asynciterator';
+import type { AsyncIterator} from 'asynciterator';
+import { ArrayIterator, SingletonIterator } from 'asynciterator';
+import * as chalk from 'chalk';
 import type { Algebra } from 'sparqlalgebrajs';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
-import { IAggregateValues, IQueryGraphViews, IResultSetRepresentation, IResultSetRepresentationGraph, IRunningMoments, MediatorJoinReinforcementLearning } from '@comunica/mediator-join-reinforcement-learning';
-import { InstanceModelGCN, InstanceModelLSTM, ModelTrainerOffline, IGraphCardinalityPredictionLayers, IQueryGraphEncodingModels } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
-import * as chalk from 'chalk';
-import { ExperienceBuffer, IExperienceKey } from '@comunica/model-trainer';
 import * as _ from 'lodash';
 import * as fs from 'graceful-fs';
 import * as tf from '@tensorflow/tfjs-node';
-import { BindingsFactory } from '@comunica/bindings-factory';
-
-import * as process from 'process';
-import * as path from 'path'
-import { readFileSync, writeFileSync } from 'fs';
-import { DenseOwnImplementation } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree/lib/fullyConnectedLayers';
-import { ModelTreeLSTM } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree/lib/treeLSTM';
 
 /**
  * Base implementation of a Comunica query engine.
@@ -61,8 +63,6 @@ implements IQueryEngine<QueryContext> {
   public numQueries: number;
   public totalEpochsDone: number;
 
-
-
   public constructor(actorInitQuery: ActorInitQueryBase<QueryContext>) {
     this.actorInitQuery = actorInitQuery;
     this.defaultFunctionArgumentsCache = {};
@@ -71,45 +71,43 @@ implements IQueryEngine<QueryContext> {
     // Instantiate used models
     this.modelInstanceLSTM = new InstanceModelLSTM(this.actorInitQuery.modelConfigLocationLstm);
     this.modelInstanceGCN = new InstanceModelGCN(this.actorInitQuery.modelConfigLocationGcn);
-    this.currentTrainingStateEngineDirectory = "latestSavedState";
+    this.currentTrainingStateEngineDirectory = 'latestSavedState';
     // Moved this to first execution of query, because we want to initiate this from config, honestly should work more with components.js for this
     // this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.001});
-    this.batchedTrainExamples = {trainingExamples: new Map<string, ITrainingExample>, leafFeatures: {hiddenStates: [], memoryCell:[]}};
+    this.batchedTrainExamples = { trainingExamples: new Map<string, ITrainingExample>(), leafFeatures: { hiddenStates: [], memoryCell: []}};
     // End point training
     this.BF = new BindingsFactory();
     this.breakRecursion = false;
     // Initialise empty running moments
-    this.runningMomentsFeatures = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
-    this.runningMomentsExecution = {indexes: [0], runningStats: new Map<number, IAggregateValues>()};
-    for (const index of this.runningMomentsExecution.indexes){
-      const startPoint: IAggregateValues = {N: 0, mean: 0, std: 1, M2: 1}
+    this.runningMomentsFeatures = { indexes: [ 0 ], runningStats: new Map<number, IAggregateValues>() };
+    this.runningMomentsExecution = { indexes: [ 0 ], runningStats: new Map<number, IAggregateValues>() };
+    for (const index of this.runningMomentsExecution.indexes) {
+      const startPoint: IAggregateValues = { N: 0, mean: 0, std: 1, M2: 1 };
       this.runningMomentsExecution.runningStats.set(index, startPoint);
     }
-    for (const index of this.runningMomentsFeatures.indexes){
-      const startPoint: IAggregateValues = {N: 0, mean: 0, std: 1, M2: 1}
+    for (const index of this.runningMomentsFeatures.indexes) {
+      const startPoint: IAggregateValues = { N: 0, mean: 0, std: 1, M2: 1 };
       this.runningMomentsFeatures.runningStats.set(index, startPoint);
     }
 
     // Some hardcoded magic numbers for training
-    this.experienceBuffer = new ExperienceBuffer(1500);
+    this.experienceBuffer = new ExperienceBuffer(1_500);
     this.nExpPerQuery = 8;
     this.numTrainSteps = 0;
     this.numQueries = 120;
     this.totalEpochsDone = 0;
-
   }
 
   public async querySingleTrainStep<QueryFormatTypeInner extends QueryFormatType>(
     query: QueryFormatTypeInner,
     context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
-    randomId?: number
-  ){
+    randomId?: number,
+  ) {
     let trainLoss: number[] = [];
-    try{
-      trainLoss = this.readTrainLoss(this.actorInitQuery.modelCheckPointLocation+'/trainLoss.txt');
-    }
-    catch{
-      console.warn(chalk.red("No train loss array found"));
+    try {
+      trainLoss = this.readTrainLoss(`${this.actorInitQuery.modelCheckPointLocation}/trainLoss.txt`);
+    } catch {
+      console.warn(chalk.red('No train loss array found'));
     }
 
     const clonedContext = _.cloneDeep(context);
@@ -120,210 +118,214 @@ implements IQueryEngine<QueryContext> {
 
     const trainResult = await this.executeTrainQuery(query, clonedContext, queryKey, this.experienceBuffer, randomId);
     const experiences: IExperience[] = [];
-    const features = []; 
+    const features = [];
     // Sample experiences from the buffer if we have enough prior executions
-    if (this.experienceBuffer.getSize()>20){
-      for (let z=0;z<this.nExpPerQuery;z++){
-          const experience: [IExperience, IExperienceKey] = this.experienceBuffer.getRandomExperience();
-          experiences.push(experience[0]);
-          const feature = this.experienceBuffer.getFeatures(experience[1].query)!;
-          features.push(feature);
+    if (this.experienceBuffer.getSize() > 20) {
+      for (let z = 0; z < this.nExpPerQuery; z++) {
+        const experience: [IExperience, IExperienceKey] = this.experienceBuffer.getRandomExperience();
+        experiences.push(experience[0]);
+        const feature = this.experienceBuffer.getFeatures(experience[1].query)!;
+        features.push(feature);
       }
-      // const loss = await this.trainModelExperienceReplay(experiences, features);
-      const featureTensors = features.map(x=>tf.stack(x.hiddenStates));
-      const loss = await this.trainModelExperienceReplayTemp(experiences, featureTensors, features.map(x=>x.graphViews));
+      // Const loss = await this.trainModelExperienceReplay(experiences, features);
+      const featureTensors = features.map(x => tf.stack(x.hiddenStates));
+      const loss = await this.trainModelExperienceReplayTemp(experiences, featureTensors, features.map(x => x.graphViews));
       trainLoss.push(loss);
       this.numTrainSteps += 1;
     }
-    
-    this.writeTrainLoss(trainLoss, this.actorInitQuery.modelCheckPointLocation+'/trainLoss.txt');
+
+    this.writeTrainLoss(trainLoss, `${this.actorInitQuery.modelCheckPointLocation}/trainLoss.txt`);
     this.cleanBatchTrainingExamples();
     // When the number of train steps is equal or larger to the number of queries, we count 1 epoch, record statistics and checkpoint the model
-    if (this.numTrainSteps >= this.numQueries){
+    if (this.numTrainSteps >= this.numQueries) {
       this.totalEpochsDone += 1;
-      
-      const trainLossEpoch: number[] = trainLoss.slice((this.totalEpochsDone-1)*this.numQueries, this.totalEpochsDone*this.numQueries);
-      const avgTrainLossEpoch: number = trainLossEpoch.reduce((a,b)=>a+b,0)/trainLossEpoch.length||0; 
+
+      const trainLossEpoch: number[] = trainLoss.slice((this.totalEpochsDone - 1) * this.numQueries, this.totalEpochsDone * this.numQueries);
+      const avgTrainLossEpoch: number = trainLossEpoch.reduce((a, b) => a + b, 0) / trainLossEpoch.length || 0;
       console.log(`Epoch ${this.totalEpochsDone}: Avg train loss: ${avgTrainLossEpoch}`);
       this.saveState(0, `ckp${this.totalEpochsDone}`);
-      let epochTrainLoss: number[] = []
-      try{
+      let epochTrainLoss: number[] = [];
+      try {
         // Read epoch loss from previous chkpoint to append to
-        epochTrainLoss = this.readTrainLoss(this.actorInitQuery.modelCheckPointLocation+"/ckp"+(this.totalEpochsDone-1)+"/epochTrainLoss.txt")
-      }
-      catch{
-        console.warn("Couldn't find epoch train loss information");
+        epochTrainLoss = this.readTrainLoss(`${this.actorInitQuery.modelCheckPointLocation}/ckp${this.totalEpochsDone - 1}/epochTrainLoss.txt`);
+      } catch {
+        console.warn('Couldn\'t find epoch train loss information');
       }
       epochTrainLoss.push(avgTrainLossEpoch);
-      this.writeTrainLoss(epochTrainLoss, this.actorInitQuery.modelCheckPointLocation + "/ckp" + this.totalEpochsDone + "/epochTrainLoss.txt");
+      this.writeTrainLoss(epochTrainLoss, `${this.actorInitQuery.modelCheckPointLocation}/ckp${this.totalEpochsDone}/epochTrainLoss.txt`);
       // Reset the query execution counter
       this.numTrainSteps = 0;
     }
     return trainResult[1];
   }
 
-  public async loadState(ckpDirName: string){
+  public async loadState(ckpDirName: string) {
     // Load running moments
-    try{
+    try {
       const runningMomentsFeatures = this.modelInstanceLSTM.loadRunningMoments(
         path.join(
-          this.actorInitQuery.modelCheckPointLocation, 
-          ckpDirName, 
-          'runningMomentsFeatures.txt'));
+          this.actorInitQuery.modelCheckPointLocation,
+          ckpDirName,
+          'runningMomentsFeatures.txt',
+        ),
+      );
       const runningMomentsExecution = this.modelInstanceLSTM.loadRunningMoments(
         path.join(
-          this.actorInitQuery.modelCheckPointLocation, 
-          ckpDirName, 
-          'runningMomentsExecution.txt'));
+          this.actorInitQuery.modelCheckPointLocation,
+          ckpDirName,
+          'runningMomentsExecution.txt',
+        ),
+      );
       this.runningMomentsFeatures = runningMomentsFeatures;
       this.runningMomentsExecution = runningMomentsExecution;
-    }
-    catch{
-      console.warn(chalk.red("INFO: No running moments found"));
+    } catch {
+      console.warn(chalk.red('INFO: No running moments found'));
     }
 
     // Load training statistics
-    try{
+    try {
       const data = JSON.parse(readFileSync(
         path.join(
           this.actorInitQuery.modelCheckPointLocation,
           ckpDirName,
-          'numTrainStepsEpochs.txt'
-        ), 
-        'utf-8'));
-      this.numTrainSteps = +data[0];
-      this.totalEpochsDone = +data[1];
-    }
-    catch{
-      console.warn(chalk.red("INFO: Failed to read number of training steps executed"));
+          'numTrainStepsEpochs.txt',
+        ),
+        'utf-8',
+      ));
+      this.numTrainSteps = Number(data[0]);
+      this.totalEpochsDone = Number(data[1]);
+    } catch {
+      console.warn(chalk.red('INFO: Failed to read number of training steps executed'));
     }
     // Load experience buffer
-    try{
+    try {
       this.experienceBuffer.loadBuffer(
         path.join(
           this.actorInitQuery.modelCheckPointLocation,
-          ckpDirName
-        ));
-    }
-    catch(err){
+          ckpDirName,
+        ),
+      );
+    } catch {
       // If we can't find a certain file, we initialise an empty buffer
       this.experienceBuffer = new ExperienceBuffer(this.experienceBuffer.maxSize);
-      console.warn(chalk.red("INFO: No existing or incomplete buffer found"));
+      console.warn(chalk.red('INFO: No existing or incomplete buffer found'));
     }
     // Load LSTM model weights
-    try{
+    try {
       await this.modelInstanceLSTM.initModel(path.join(
         this.actorInitQuery.modelCheckPointLocation,
-        ckpDirName, 
-        `models`, 
-        `lstm-model`));
-      console.log("Successfully initialised LSTM from weight files.");
-    }
-    catch(err){
+        ckpDirName,
+        `models`,
+        `lstm-model`,
+      ));
+      console.log('Successfully initialised LSTM from weight files.');
+    } catch {
       // Flush any initialisation that went through to start from fresh model
-      this.modelInstanceLSTM.flushModel()
+      this.modelInstanceLSTM.flushModel();
       // Initialise random model
       await this.modelInstanceLSTM.initModelRandom(
         path.join(
           this.actorInitQuery.modelCheckPointLocation,
-          ckpDirName, 
-          `models`, 
-          `lstm-model`));
-      console.warn(chalk.red("INFO: Failed to load model weights, randomly initialising model weights"));
+          ckpDirName,
+          `models`,
+          `lstm-model`,
+        ),
+      );
+      console.warn(chalk.red('INFO: Failed to load model weights, randomly initialising model weights'));
     }
     // Load GCN model weights, this shouldn't fail so no error handling
     this.modelInstanceGCN.initModel(
       path.join(
-      this.actorInitQuery.modelCheckPointLocation,
-      ckpDirName, 
-      `models`, 
-      `gcn-models`
-    ));
+        this.actorInitQuery.modelCheckPointLocation,
+        ckpDirName,
+        `models`,
+        `gcn-models`,
+      ),
+    );
     console.log(`Successfully loaded experience buffer. Size Buffer after Loading: ${this.experienceBuffer.getSize()}`);
   }
 
-  public saveState(timeOutValue: number, ckpDirName: string){
+  public saveState(timeOutValue: number, ckpDirName: string) {
     this.createDirectoryStructureCheckpoint(ckpDirName);
-    try{
+    try {
       this.modelInstanceLSTM.saveModel(path.join(
         this.actorInitQuery.modelCheckPointLocation,
         ckpDirName,
         `models`,
-        `lstm-model`
-        ));
+        `lstm-model`,
+      ));
+    } catch {
+      console.warn(chalk.red('INFO: Failed to save LSTM model'));
     }
-    catch{
-      console.warn(chalk.red("INFO: Failed to save LSTM model"));
-    }
-    try{
+    try {
       this.modelInstanceGCN.saveModel(path.join(
         this.actorInitQuery.modelCheckPointLocation,
         ckpDirName,
         `models`,
-        `gcn-models`
-        ));
+        `gcn-models`,
+      ));
+    } catch (error: any) {
+      console.warn(chalk.red(`INFO: Failed to save GCN model: error: ${error.message}`));
     }
-    catch(err:any){
-      console.warn(chalk.red(`INFO: Failed to save GCN model: error: ${err.message}`))
-    }
-    try{
+    try {
       writeFileSync(path.join(this.actorInitQuery.modelCheckPointLocation,
         ckpDirName,
-        'numTrainStepsEpochs.txt'
-      ), 
-      JSON.stringify([this.numTrainSteps, this.totalEpochsDone]));
-    }
-    catch{
-      console.warn(chalk.red("INFO: Failed to save number of training steps executed"))
+        'numTrainStepsEpochs.txt'),
+      JSON.stringify([ this.numTrainSteps, this.totalEpochsDone ]));
+    } catch {
+      console.warn(chalk.red('INFO: Failed to save number of training steps executed'));
     }
 
-    try{
-      this.modelInstanceLSTM.saveRunningMoments(this.runningMomentsFeatures, 
+    try {
+      this.modelInstanceLSTM.saveRunningMoments(this.runningMomentsFeatures,
         path.join(this.actorInitQuery.modelCheckPointLocation,
           ckpDirName,
           '/runningMomentsFeatures.txt'));
-      this.modelInstanceLSTM.saveRunningMoments(this.runningMomentsExecution, 
+      this.modelInstanceLSTM.saveRunningMoments(this.runningMomentsExecution,
         path.join(this.actorInitQuery.modelCheckPointLocation,
           ckpDirName,
-          '/runningMomentsExecution.txt')
-        );  
-    }
-    catch{
-      console.warn(chalk.red("INFO: Failed to save running moments"));
+          '/runningMomentsExecution.txt'));
+    } catch {
+      console.warn(chalk.red('INFO: Failed to save running moments'));
     }
 
     // First add timedout experience to buffer with current execution time
-    if (this.trainEpisode.joinsMade.length==0){
+    if (this.trainEpisode.joinsMade.length === 0) {
       // We have no joins in our episode, so we just save buffer as is and exit
       this.experienceBuffer.saveBuffer(
         path.join(
-        this.actorInitQuery.modelCheckPointLocation,
-        ckpDirName
-      ));
-      console.warn(chalk.red("Empty trainEpisode when saving training state"));
+          this.actorInitQuery.modelCheckPointLocation,
+          ckpDirName,
+        ),
+      );
+      console.warn(chalk.red('Empty trainEpisode when saving training state'));
       return;
     }
     // If we have episode information we save it to buffer and then exit
-    const elapsed = timeOutValue / 1000;
+    const elapsed = timeOutValue / 1_000;
     const statsY: IAggregateValues = this.runningMomentsExecution.runningStats.get(this.runningMomentsExecution.indexes[0])!;
 
     this.updateRunningMoments(statsY, elapsed);
-    
-    const standardisedElapsed = (elapsed - statsY.mean) / statsY.std;
-    let partialJoinPlan: number[][] = [];
 
-    for (const joinMade of this.trainEpisode.joinsMade){
+    const standardisedElapsed = (elapsed - statsY.mean) / statsY.std;
+    const partialJoinPlan: number[][] = [];
+
+    for (const joinMade of this.trainEpisode.joinsMade) {
       partialJoinPlan.push(joinMade);
-      const newExperience: IExperience = {actualExecutionTimeRaw: elapsed, actualExecutionTimeNorm: standardisedElapsed, 
-        joinIndexes: [...partialJoinPlan], N:1};
-        this.experienceBuffer.setExperience(this.currentQueryKey, MediatorJoinReinforcementLearning.idxToKey([...partialJoinPlan]), newExperience, statsY);
+      const newExperience: IExperience = { actualExecutionTimeRaw: elapsed,
+        actualExecutionTimeNorm: standardisedElapsed,
+        joinIndexes: [ ...partialJoinPlan ],
+        N: 1 };
+      this.experienceBuffer.setExperience(this.currentQueryKey, MediatorJoinReinforcementLearning.idxToKey([ ...partialJoinPlan ]), newExperience, statsY);
     }
     this.experienceBuffer.saveBuffer(
       path.join(
-      this.actorInitQuery.modelCheckPointLocation,
-      ckpDirName
-    ));
+        this.actorInitQuery.modelCheckPointLocation,
+        ckpDirName,
+      ),
+    );
   }
+
   /**
    * Creates directory structure of chkpoint at specified save location. Structure is as follows:
    * Ckp${i}
@@ -336,63 +338,63 @@ implements IQueryEngine<QueryContext> {
    *    |- lstm-model
    *      |- ...
    */
-  public createDirectoryStructureCheckpoint(ckpDirName: string){
-    if (!fs.existsSync(path.join(this.actorInitQuery.modelCheckPointLocation, ckpDirName))){
+  public createDirectoryStructureCheckpoint(ckpDirName: string) {
+    if (!fs.existsSync(path.join(this.actorInitQuery.modelCheckPointLocation, ckpDirName))) {
       fs.mkdirSync(path.join(this.actorInitQuery.modelCheckPointLocation, ckpDirName));
     }
     const ckpDir = path.join(this.actorInitQuery.modelCheckPointLocation, ckpDirName);
-    if (!fs.existsSync(path.join(ckpDir, "models"))){
-      fs.mkdirSync(path.join(ckpDir, "models"));
+    if (!fs.existsSync(path.join(ckpDir, 'models'))) {
+      fs.mkdirSync(path.join(ckpDir, 'models'));
     }
-    const modelDir = path.join(ckpDir, "models");
-    if (!fs.existsSync(path.join(modelDir, "lstm-model"))){
-      fs.mkdirSync(path.join(modelDir, "lstm-model"));
+    const modelDir = path.join(ckpDir, 'models');
+    if (!fs.existsSync(path.join(modelDir, 'lstm-model'))) {
+      fs.mkdirSync(path.join(modelDir, 'lstm-model'));
     }
-    if (!fs.existsSync(path.join(modelDir, "gcn-models"))){
-      fs.mkdirSync(path.join(modelDir, "gcn-models"));
+    if (!fs.existsSync(path.join(modelDir, 'gcn-models'))) {
+      fs.mkdirSync(path.join(modelDir, 'gcn-models'));
     }
-    if(!fs.existsSync(path.join(modelDir, "gcn-models", "gcn-model-subj-subj"))){
-      fs.mkdirSync(path.join(modelDir, "gcn-models", "gcn-model-subj-subj"));
+    if (!fs.existsSync(path.join(modelDir, 'gcn-models', 'gcn-model-subj-subj'))) {
+      fs.mkdirSync(path.join(modelDir, 'gcn-models', 'gcn-model-subj-subj'));
     }
-    if(!fs.existsSync(path.join(modelDir, "gcn-models", "gcn-model-obj-obj"))){
-      fs.mkdirSync(path.join(modelDir, "gcn-models", "gcn-model-obj-obj"));
+    if (!fs.existsSync(path.join(modelDir, 'gcn-models', 'gcn-model-obj-obj'))) {
+      fs.mkdirSync(path.join(modelDir, 'gcn-models', 'gcn-model-obj-obj'));
     }
-    if(!fs.existsSync(path.join(modelDir, "gcn-models", "gcn-model-obj-subj"))){
-      fs.mkdirSync(path.join(modelDir, "gcn-models", "gcn-model-obj-subj"));
-    }  
+    if (!fs.existsSync(path.join(modelDir, 'gcn-models', 'gcn-model-obj-subj'))) {
+      fs.mkdirSync(path.join(modelDir, 'gcn-models', 'gcn-model-obj-subj'));
+    }
   }
 
-  public readTrainLoss(fileLocation: string){
+  public readTrainLoss(fileLocation: string) {
     const loss: number[] = JSON.parse(fs.readFileSync(fileLocation, 'utf-8'));
     return loss;
   }
 
-  public writeTrainLoss(loss: number[], fileLocation: string){
+  public writeTrainLoss(loss: number[], fileLocation: string) {
     fs.writeFileSync(fileLocation, JSON.stringify(loss));
   }
 
   public async executeTrainQuery<QueryFormatTypeInner extends QueryFormatType>(
-    query: QueryFormatTypeInner, 
+    query: QueryFormatTypeInner,
     context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
     queryKey: string,
     experienceBuffer: ExperienceBuffer,
-    randomId?: number
-    ):Promise<[number, BindingsStream]>{
+    randomId?: number,
+  ): Promise<[number, BindingsStream]> {
     const startT = this.getTimeSeconds();
     // Let the RL model optimize the query
     const binding = await this.queryOfType<QueryFormatTypeInner, IQueryBindingsEnhanced>(query, context, 'bindings', randomId);
     const endTSearch = this.getTimeSeconds();
     // If there are no joins in query we do not record the experience for the model to train
-    if(this.trainEpisode.joinsMade.length==0){
+    if (this.trainEpisode.joinsMade.length === 0) {
       this.disposeTrainEpisode();
       this.emptyTrainEpisode();
-      return [endTSearch - startT, binding];
+      return [ endTSearch - startT, binding ];
     }
     // Get all query optimization steps made by model
     const joinOrderKeys: string[] = [];
-    for (let i = 1; i <this.trainEpisode.joinsMade.length+1;i++){
-        const joinIndexId = this.trainEpisode.joinsMade.slice(0, i);
-        joinOrderKeys.push(MediatorJoinReinforcementLearning.idxToKey(joinIndexId));
+    for (let i = 1; i < this.trainEpisode.joinsMade.length + 1; i++) {
+      const joinIndexId = this.trainEpisode.joinsMade.slice(0, i);
+      joinOrderKeys.push(MediatorJoinReinforcementLearning.idxToKey(joinIndexId));
     }
 
     // Consume the query plan to obtain query execution time, elapsed is used in .setExperience()
@@ -401,85 +403,86 @@ implements IQueryEngine<QueryContext> {
     // Clear episode tensors to reset the model state
     this.disposeTrainEpisode();
     this.emptyTrainEpisode();
-    return [endTSearch-startT, binding];
+    return [ endTSearch - startT, binding ];
   }
 
-  public consumeStream(bindingStream: BindingsStream, 
+  public consumeStream(bindingStream: BindingsStream,
     experienceBuffer: ExperienceBuffer,
-    startTime: number, joinsMadeEpisode: string[], queryKey: string, 
-    validation: boolean, recordExperience: boolean){
+    startTime: number, joinsMadeEpisode: string[], queryKey: string,
+    validation: boolean, recordExperience: boolean) {
     let numBindings = 0;
-    const consumedStream: Promise<number> = new Promise((resolve, reject)=>{
-      bindingStream.on('data', () =>{
-        numBindings+=1;
+    const consumedStream: Promise<number> = new Promise((resolve, reject) => {
+      bindingStream.on('data', () => {
+        numBindings += 1;
       });
       bindingStream.on('end', () => {
         const endTime: number = this.getTimeSeconds();
-        const elapsed: number = endTime-startTime;
+        const elapsed: number = endTime - startTime;
         const statsY: IAggregateValues = this.runningMomentsExecution.runningStats.get(this.runningMomentsExecution.indexes[0])!;
 
-        if (!validation && joinsMadeEpisode.length>2){
+        if (!validation && joinsMadeEpisode.length > 2) {
           this.updateRunningMoments(statsY, elapsed);
         }
-        if (recordExperience){
+        if (recordExperience) {
           const standardisedElapsed = (elapsed - statsY.mean) / statsY.std;
-          for (const joinMade of joinsMadeEpisode){
-            const newExperience: IExperience = {actualExecutionTimeRaw: elapsed, actualExecutionTimeNorm: standardisedElapsed, 
-              joinIndexes: MediatorJoinReinforcementLearning.keyToIdx(joinMade), N:1};
-              experienceBuffer.setExperience(queryKey, joinMade, newExperience, statsY);
-            }
+          for (const joinMade of joinsMadeEpisode) {
+            const newExperience: IExperience = { actualExecutionTimeRaw: elapsed,
+              actualExecutionTimeNorm: standardisedElapsed,
+              joinIndexes: MediatorJoinReinforcementLearning.keyToIdx(joinMade),
+              N: 1 };
+            experienceBuffer.setExperience(queryKey, joinMade, newExperience, statsY);
+          }
         }
-        resolve(elapsed)
-      })
+        resolve(elapsed);
+      });
     });
     return consumedStream;
   }
 
   public async executeQueryInitFeaturesBuffer<QueryFormatTypeInner extends QueryFormatType>(
-     query: QueryFormatTypeInner,
-     context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext, 
-    ){
+    query: QueryFormatTypeInner,
+    context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
+  ) {
     const bindingsStream: BindingsStream = await this.queryBindings(query, context);
-    const leafFeatures: IResultSetRepresentation = {hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x=>x.clone()),
-    memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x=>x.clone())};
+    const leafFeatures: IResultSetRepresentation = { hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x => x.clone()),
+      memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x => x.clone()) };
     this.disposeTrainEpisode();
     this.emptyTrainEpisode();
-    this.cleanBatchTrainingExamples();    
+    this.cleanBatchTrainingExamples();
     return leafFeatures;
-}
+  }
 
-  public updateRunningMoments(toUpdateAggregate: IAggregateValues, newValue: number){
-    toUpdateAggregate.N +=1;
-    const delta = newValue - toUpdateAggregate.mean; 
+  public updateRunningMoments(toUpdateAggregate: IAggregateValues, newValue: number) {
+    toUpdateAggregate.N += 1;
+    const delta = newValue - toUpdateAggregate.mean;
     toUpdateAggregate.mean += delta / toUpdateAggregate.N;
     const newDelta = newValue - toUpdateAggregate.mean;
     toUpdateAggregate.M2 += delta * newDelta;
     toUpdateAggregate.std = Math.sqrt(toUpdateAggregate.M2 / toUpdateAggregate.N);
   }
 
-  public cleanBatchTrainingExamples(){
-    this.batchedTrainExamples.leafFeatures.hiddenStates.map(x =>x.dispose());
-    this.batchedTrainExamples.leafFeatures.memoryCell.map(x=>x.dispose());
-    this.batchedTrainExamples = {trainingExamples: new Map<string, ITrainingExample>, leafFeatures: {hiddenStates: [], memoryCell:[]}};
+  public cleanBatchTrainingExamples() {
+    this.batchedTrainExamples.leafFeatures.hiddenStates.map(x => x.dispose());
+    this.batchedTrainExamples.leafFeatures.memoryCell.map(x => x.dispose());
+    this.batchedTrainExamples = { trainingExamples: new Map<string, ITrainingExample>(), leafFeatures: { hiddenStates: [], memoryCell: []}};
   }
 
-  public stdArray(values: number[], mean: number){
-    const std: number = Math.sqrt((values.map(x=>(x-mean)**2).reduce((a, b)=>a+b,0) / values.length));
-    return std
+  public stdArray(values: number[], mean: number) {
+    const std: number = Math.sqrt(values.map(x => (x - mean) ** 2).reduce((a, b) => a + b, 0) / values.length);
+    return std;
   }
 
-  public getTimeSeconds(){
+  public getTimeSeconds() {
     const hrTime: number[] = process.hrtime();
-    const time: number = hrTime[0] + hrTime[1] / 1000000000;
-    return time
+    const time: number = hrTime[0] + hrTime[1] / 1_000_000_000;
+    return time;
   }
 
-  public writeEpochFiles(fileLocations: string[], epochInformation: number[][]){
-    for (let i=0;i<fileLocations.length;i++){
-        fs.writeFileSync(fileLocations[i], JSON.stringify([...epochInformation[i]]));
+  public writeEpochFiles(fileLocations: string[], epochInformation: number[][]) {
+    for (const [ i, fileLocation ] of fileLocations.entries()) {
+      fs.writeFileSync(fileLocation, JSON.stringify([ ...epochInformation[i] ]));
     }
   }
-
 
   public async queryBindings<QueryFormatTypeInner extends QueryFormatType>(
     query: QueryFormatTypeInner,
@@ -514,7 +517,7 @@ implements IQueryEngine<QueryContext> {
     context: undefined | (QueryContext & QueryFormatTypeInner extends string ?
       QueryStringContext : QueryAlgebraContext),
     expectedType: QueryTypeOut['resultType'],
-    randomId?: number
+    randomId?: number,
   ): Promise<ReturnType<QueryTypeOut['execute']>> {
     const result = await this.query<QueryFormatTypeInner>(query, context, randomId);
     if (result.resultType === expectedType) {
@@ -532,7 +535,7 @@ implements IQueryEngine<QueryContext> {
   public async query<QueryFormatTypeInner extends QueryFormatType>(
     query: QueryFormatTypeInner,
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
-    randomId?: number
+    randomId?: number,
   ): Promise<QueryType> {
     const output = await this.queryOrExplain(query, context, randomId);
     if ('explain' in output) {
@@ -569,28 +572,28 @@ implements IQueryEngine<QueryContext> {
   public async queryOrExplain<QueryFormatTypeInner extends QueryFormatType>(
     query: QueryFormatTypeInner,
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
-    randomId?: number
+    randomId?: number,
   ): Promise<QueryType | IQueryExplained> {
     context = context || <any>{};
     /**
      * If there are no entries in queryToKey map we are at first run or after time-out, thus reload the model state.
      * We do this at start query to prevent unnecessary initialisation of features
-    */    
-   
-    if (context && this.experienceBuffer.queryToKey.size==0 && context.trainEndPoint){
+    */
+
+    if (context && this.experienceBuffer.queryToKey.size === 0 && context.trainEndPoint) {
       await this.loadState(this.currentTrainingStateEngineDirectory);
     }
 
     // Flag to determine if we should perform an initialisation query
-    const initQuery = this.experienceBuffer.queryExists(query.toString())? false : true;
+    const initQuery = !this.experienceBuffer.queryExists(query.toString());
     // Prepare batchedTrainExamples so we can store our leaf features
-    if (context){
+    if (context) {
       context.batchedTrainingExamples = this.batchedTrainExamples;
     }
-    // We should really use the query log in experiencebuffer to determine the # of triple patterns in query, 
+    // We should really use the query log in experiencebuffer to determine the # of triple patterns in query,
     // so we skip training to train the model on those queries.
 
-    if (context && context.trainEndPoint){
+    if (context && context.trainEndPoint) {
       context.train = true;
     }
     /**
@@ -601,7 +604,7 @@ implements IQueryEngine<QueryContext> {
      * 4. If the query already is initialised in the experienceBuffer
      * 5. The query has more than two triple patterns (Nothing to train on otherwise)
      */
-    if (context?.trainEndPoint && !this.breakRecursion && !initQuery){
+    if (context?.trainEndPoint && !this.breakRecursion && !initQuery) {
       // Execute query step with given query
       this.breakRecursion = true;
       await this.querySingleTrainStep(query, context, randomId);
@@ -609,7 +612,7 @@ implements IQueryEngine<QueryContext> {
       context.batchedTrainingExamples = this.batchedTrainExamples;
       // Reset train episode
       this.emptyTrainEpisode();
-      return this.returnNop()
+      return this.returnNop();
     }
     // Expand shortcuts
     for (const key in context) {
@@ -629,26 +632,26 @@ implements IQueryEngine<QueryContext> {
       }
     }
     // Initialise the running moments from file (The running moments file should only be passed on first execution)
-    if(actionContext.get(KeysRlTrain.runningMomentsFeatureFile)){
-      if (this.modelInstanceLSTM.initMoments){
-        console.warn(chalk.red("WARNING: Reloading Moments When They Are Already Initialised"));
+    if (actionContext.get(KeysRlTrain.runningMomentsFeatureFile)) {
+      if (this.modelInstanceLSTM.initMoments) {
+        console.warn(chalk.red('WARNING: Reloading Moments When They Are Already Initialised'));
       }
 
-      const loadedRunningMomentsFeature: IRunningMoments = 
+      const loadedRunningMomentsFeature: IRunningMoments =
       this.modelInstanceLSTM.loadRunningMoments(actionContext.get(KeysRlTrain.runningMomentsFeatureFile)!);
       this.runningMomentsFeatures = loadedRunningMomentsFeature;
       // Signal we loaded the moments
-      this.modelInstanceLSTM.initMoments=true;
+      this.modelInstanceLSTM.initMoments = true;
     }
 
     // If no path was passed and the moments are not initialised we create mean 0 std 1 moments
-    else if (!this.modelInstanceLSTM.initMoments){
-      console.warn(chalk.red("INFO: Running Query Without Initialised Running Moments"));
-      for (const index of this.runningMomentsFeatures.indexes){
-        const startPoint: IAggregateValues = {N: 0, mean: 0, std: 1, M2: 1}
+    else if (!this.modelInstanceLSTM.initMoments) {
+      console.warn(chalk.red('INFO: Running Query Without Initialised Running Moments'));
+      for (const index of this.runningMomentsFeatures.indexes) {
+        const startPoint: IAggregateValues = { N: 0, mean: 0, std: 1, M2: 1 };
         this.runningMomentsFeatures.runningStats.set(index, startPoint);
       }
-      this.modelInstanceLSTM.initMoments=true;
+      this.modelInstanceLSTM.initMoments = true;
     }
 
     const baseIRI: string | undefined = actionContext.get(KeysInitQuery.baseIRI);
@@ -666,7 +669,6 @@ implements IQueryEngine<QueryContext> {
       .setDefault(KeysRlTrain.modelInstanceGCN, this.modelInstanceGCN)
       .setDefault(KeysRlTrain.runningMomentsFeatures, this.runningMomentsFeatures)
       .setDefault(KeysRlTrain.trackRunningMoments, true);
-
 
     // Pre-processing the context
     actionContext = (await this.actorInitQuery.mediatorContextPreprocess.mediate({ context: actionContext })).context;
@@ -736,19 +738,18 @@ implements IQueryEngine<QueryContext> {
     output.context = actionContext;
     // If we are in initialisation run, we initialise the query with its features and return empty bindings
 
-
-    // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
+    // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information
     // If we train
-    if (!actionContext.get(KeysRlTrain.train) && context && !context.trainEndPoint){
+    if (!actionContext.get(KeysRlTrain.train) && context && !context.trainEndPoint) {
       this.emptyTrainEpisode();
     }
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
 
-    if (initQuery){
+    if (initQuery) {
       // Get the leaf features resulting from query
-      const leafFeatures: IResultSetRepresentation = {hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x=>x.clone()),
-        memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x=>x.clone())};
-      const leafFeaturesExpanded: IResultSetRepresentationGraph = {...leafFeatures, graphViews: this.trainEpisode.graphViews};
+      const leafFeatures: IResultSetRepresentation = { hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x => x.clone()),
+        memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x => x.clone()) };
+      const leafFeaturesExpanded: IResultSetRepresentationGraph = { ...leafFeatures, graphViews: this.trainEpisode.graphViews };
       // Clean the examples
       this.cleanBatchTrainingExamples();
       this.disposeTrainEpisode();
@@ -756,7 +757,7 @@ implements IQueryEngine<QueryContext> {
       this.experienceBuffer.initQueryInformation(query.toString(), leafFeaturesExpanded);
       return finalOutput;
     }
-    
+
     if (physicalQueryPlanLogger) {
       // Make sure the whole result is produced
       switch (finalOutput.resultType) {
@@ -785,11 +786,11 @@ implements IQueryEngine<QueryContext> {
   public async getFeaturesQuery<QueryFormatTypeInner extends QueryFormatType>(
     query: QueryFormatTypeInner,
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
-    randomId?: number
+    randomId?: number,
   ): Promise < IQueryFeatures > {
     context = context || <any>{};
 
-    if (context){
+    if (context) {
       context.batchedTrainingExamples = this.batchedTrainExamples;
     }
 
@@ -824,8 +825,7 @@ implements IQueryEngine<QueryContext> {
       .setDefault(KeysRlTrain.modelInstanceGCN, this.modelInstanceGCN)
       // We dont want to use running moments as we are creating a database before training
       // Thus we can simply use the resulting mean and standard deviation of training examples
-      .setDefault(KeysRlTrain.trackRunningMoments, false)
-
+      .setDefault(KeysRlTrain.trackRunningMoments, false);
 
     // Pre-processing the context
     actionContext = (await this.actorInitQuery.mediatorContextPreprocess.mediate({ context: actionContext })).context;
@@ -862,28 +862,26 @@ implements IQueryEngine<QueryContext> {
 
     // Save original query in context
     actionContext = actionContext.set(KeysInitQuery.query, operation);
-    
+
     // Execute query
     const output = await this.actorInitQuery.mediatorQueryOperation.mediate({
       context: actionContext,
       operation,
     });
 
-    const featuresQuery = ( <ITrainEpisode> actionContext.get(KeysRlTrain.trainEpisode)!).leafFeatureTensor;
-    const graphViews = ( <ITrainEpisode> actionContext.get(KeysRlTrain.trainEpisode)!).graphViews;
-    
+    const featuresQuery = (<ITrainEpisode> actionContext.get(KeysRlTrain.trainEpisode)!).leafFeatureTensor;
+    const graphViews = (<ITrainEpisode> actionContext.get(KeysRlTrain.trainEpisode)!).graphViews;
 
-    // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
+    // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information
     // If we train
-    if (!actionContext.get(KeysRlTrain.train) && context && !context.trainEndPoint){
+    if (!actionContext.get(KeysRlTrain.train) && context && !context.trainEndPoint) {
       this.emptyTrainEpisode();
     }
 
-  return {
-    leafFeatures: featuresQuery,
-    graphViews: graphViews
-  };
-
+    return {
+      leafFeatures: featuresQuery,
+      graphViews,
+    };
   }
 
   /**
@@ -947,8 +945,8 @@ implements IQueryEngine<QueryContext> {
   }
 
   public async pretrainOptimizer(
-    trainQueries: string[], 
-    trainCardinalities: number[], 
+    trainQueries: string[],
+    trainCardinalities: number[],
     valQueries: string[],
     valCardinalities: number[],
     queriesContext: QueryStringContext,
@@ -956,8 +954,8 @@ implements IQueryEngine<QueryContext> {
     epochs: number,
     optimizer: string,
     lr: number,
-    modelDirectory: string
-    ){
+    modelDirectory: string,
+  ) {
     // Create a simple output layer that takes the representations made by the gcn layers and makes
     // cardinality prediction. Proper coding would be to make this an object with json based config
     // but this is first version :) We follow CARDINALITY ESTIMATION OVER KNOWLEDGE GRAPHS WITH
@@ -966,14 +964,14 @@ implements IQueryEngine<QueryContext> {
     const cardinalityPredictionLayers: IGraphCardinalityPredictionLayers = {
       pooling: tf.layers.average(),
       hiddenLayer: new DenseOwnImplementation(384, 256),
-      activationHiddenLayer: tf.layers.activation({activation: 'relu'}),
+      activationHiddenLayer: tf.layers.activation({ activation: 'relu' }),
       linearLayer: new DenseOwnImplementation(256, 1),
-    }
+    };
     // Init GCN model from config
     this.modelInstanceGCN.initModel(modelDirectory);
 
     // Init model trainer with specified optimizer and learning rate
-    this.modelTrainerOffline = new ModelTrainerOffline({optimizer: optimizer, learningRate: lr});
+    this.modelTrainerOffline = new ModelTrainerOffline({ optimizer, learningRate: lr });
 
     // Get models to pretrain
     const gcnModels: IQueryGraphEncodingModels = this.modelInstanceGCN.getModels();
@@ -986,7 +984,7 @@ implements IQueryEngine<QueryContext> {
     const standardizedTpEncTrain = this.standardizeCardinalityTriplePattern(tpEncodingsTrain);
 
     const graphViewsTrain: IQueryGraphViews[] = rawFeaturesTrain.map(x => x.graphViews);
-    
+
     // Take log to stabilize training
     const logTrainCardinalities: number[] = trainCardinalities.map(x => Math.log(x));
 
@@ -996,27 +994,29 @@ implements IQueryEngine<QueryContext> {
     const tensorTpEncVal = standardizedTpEncVal.map(x => tf.stack(x));
 
     const graphViewsVal: IQueryGraphViews[] = rawFeaturesVal.map(x => x.graphViews);
-    
+
     // Take log to stabilize training
     const logValCardinalities: number[] = valCardinalities.map(x => Math.log(x));
 
-    for (let i = 0; i<epochs; i++){
+    for (let i = 0; i < epochs; i++) {
       const shuffled = this.shuffle(standardizedTpEncTrain, trainCardinalities, graphViewsTrain);
       const shuffledFeaturesAsTensors = standardizedTpEncTrain.map(x => tf.stack(x));
 
       this.batchedPretraining(
-        shuffledFeaturesAsTensors, 
-        logTrainCardinalities, 
-        graphViewsTrain, 
-        batchSize, 
-        gcnModels, 
-        cardinalityPredictionLayers 
+        shuffledFeaturesAsTensors,
+        logTrainCardinalities,
+        graphViewsTrain,
+        batchSize,
+        gcnModels,
+        cardinalityPredictionLayers,
       );
 
       this.validateModel(
         tensorTpEncVal,
         logValCardinalities,
         graphViewsVal,
+        gcnModels,
+        cardinalityPredictionLayers
       );
     }
   }
@@ -1032,8 +1032,8 @@ implements IQueryEngine<QueryContext> {
   //   const joinTrees: number[][][] = [];
   //   for (let i = 0; i < nTriplePatternsQuery.length; i++){
   //     // Array from 0 to number of triple patterns in query, representing what triple patterns need to be joined
-  //     let triplePatternsToJoin = [...Array(nTriplePatternsQuery[i]).keys()]; 
-  //     // Join tree that of arrays of form [idx, idx] which denotes the indexes of the triple patterns that are 
+  //     let triplePatternsToJoin = [...Array(nTriplePatternsQuery[i]).keys()];
+  //     // Join tree that of arrays of form [idx, idx] which denotes the indexes of the triple patterns that are
   //     // joined in that stage
   //     const joinTreeQuery: number[][] = [];
   //     let newIndexJoinResult: number = triplePatternsToJoin.length;
@@ -1055,9 +1055,9 @@ implements IQueryEngine<QueryContext> {
   //   return joinTrees
   // }
 
-  public async prepareFeaturizedQueries(queries: string[], context: QueryStringContext): Promise<IQueryFeatures[]>{
+  public async prepareFeaturizedQueries(queries: string[], context: QueryStringContext): Promise<IQueryFeatures[]> {
     const allQueryFeatures: IQueryFeatures[] = [];
-    for (const query of queries){
+    for (const query of queries) {
       const featuresQuery = await this.getFeaturesQuery(query, context);
       allQueryFeatures.push(featuresQuery);
     }
@@ -1065,42 +1065,42 @@ implements IQueryEngine<QueryContext> {
   }
 
   public batchedPretraining(
-    features: tf.Tensor[], 
-    cardinalities: number[], 
-    graphViews: IQueryGraphViews[], 
+    features: tf.Tensor[],
+    cardinalities: number[],
+    graphViews: IQueryGraphViews[],
     batchSize: number,
-    modelsGCN: IQueryGraphEncodingModels, 
-    cardinalityPredictionLayers: IGraphCardinalityPredictionLayers
-    ){
-    const numBatches = Math.ceil(features.length/batchSize);
-    for (let b=0; b<numBatches; b++){
-      const triplePatternEncodingBatch: tf.Tensor[] = features.slice(b*batchSize, Math.min((b+1)*batchSize, features.length));
-      const graphViewsInBatch: IQueryGraphViews[] = graphViews.slice(b*batchSize, Math.min((b+1)*batchSize, graphViews.length));
-      const queryCardinalitiesBatch: number[] = cardinalities.slice(b*batchSize, Math.min((b+1)*batchSize, cardinalities.length));
+    modelsGCN: IQueryGraphEncodingModels,
+    cardinalityPredictionLayers: IGraphCardinalityPredictionLayers,
+  ) {
+    const numBatches = Math.ceil(features.length / batchSize);
+    for (let b = 0; b < numBatches; b++) {
+      const triplePatternEncodingBatch: tf.Tensor[] = features.slice(b * batchSize, Math.min((b + 1) * batchSize, features.length));
+      const graphViewsInBatch: IQueryGraphViews[] = graphViews.slice(b * batchSize, Math.min((b + 1) * batchSize, graphViews.length));
+      const queryCardinalitiesBatch: number[] = cardinalities.slice(b * batchSize, Math.min((b + 1) * batchSize, cardinalities.length));
 
       // TODO: Implement optimization logic
       const loss = this.modelTrainerOffline.pretrainOptimizerBatched(
-        queryCardinalitiesBatch, 
+        queryCardinalitiesBatch,
         triplePatternEncodingBatch,
-        graphViewsInBatch, 
-        modelsGCN, 
-        cardinalityPredictionLayers
+        graphViewsInBatch,
+        modelsGCN,
+        cardinalityPredictionLayers,
       );
       console.log(loss);
     }
   }
 
-  public standardizeCardinalityTriplePattern(features: tf.Tensor<tf.Rank>[][]){
+  public standardizeCardinalityTriplePattern(features: tf.Tensor[][]) {
     let totalCardinality = 0;
     let totalFeaturizedPatterns = 0;
-    
+
     const cardinalitiesTriplePattern: number[] = [];
     const featuresAsArray: number[][][][] = [];
     // Calculate mean cardinality of triple patterns
-    for (let i = 0; i < features.length; i++){
+    for (const feature of features) {
       const innerArray: number[][][] = [];
-      for (let j = 0; j < features[i].length; j++){
-        const tensorAsArray: number[][] = <number[][]> features[i][j].arraySync();
+      for (const element of feature) {
+        const tensorAsArray: number[][] = <number[][]> element.arraySync();
 
         cardinalitiesTriplePattern.push(tensorAsArray[0][0]);
         innerArray.push(tensorAsArray);
@@ -1112,73 +1112,100 @@ implements IQueryEngine<QueryContext> {
     const meanCardinality = totalCardinality / totalFeaturizedPatterns;
 
     let totalStd = 0;
-    for (let i = 0; i < features.length; i++){
-      for (let j = 0; j < features[i].length; j++){
-        const tensorAsArray: number[][] = <number[][]> features[i][j].arraySync();
-        totalStd += Math.pow((tensorAsArray[0][0] - meanCardinality),2);
+    for (const feature of features) {
+      for (const element of feature) {
+        const tensorAsArray: number[][] = <number[][]> element.arraySync();
+        totalStd += (tensorAsArray[0][0] - meanCardinality) ** 2;
       }
     }
-    const standardDeviation = Math.sqrt(totalStd / (totalFeaturizedPatterns-1));
-    for (let i = 0; i < featuresAsArray.length; i++){
-      for (let j = 0; j < featuresAsArray[i].length; j++){
-        featuresAsArray[i][j][0][0] = (featuresAsArray[i][j][0][0] - meanCardinality) / standardDeviation;
+    const standardDeviation = Math.sqrt(totalStd / (totalFeaturizedPatterns - 1));
+    for (const element of featuresAsArray) {
+      for (const element_ of element) {
+        element_[0][0] = (element_[0][0] - meanCardinality) / standardDeviation;
       }
     }
     // Convert back into tensors
     const standardizedFeatures = featuresAsArray.map(x => x.map(y => tf.tensor(y)));
-    return standardizedFeatures
+    return standardizedFeatures;
   }
 
   public validateModel(
-    features: tf.Tensor[], 
-    cardinalities: number[], 
-    graphViews: IQueryGraphViews[], 
-  ){
-
+    features: tf.Tensor[],
+    cardinalities: number[],
+    graphViews: IQueryGraphViews[],
+    modelsGCN: IQueryGraphEncodingModels,
+    cardinalityPredictionLayers: IGraphCardinalityPredictionLayers,
+  ) {
+    const cardPredictions = [];
+    for (let i = 0; i < features.length; i++){
+      const prediction = this.modelTrainerOffline.getCardinalityPrediction(
+        features[i], 
+        graphViews[i], 
+        modelsGCN, 
+        cardinalityPredictionLayers
+      );
+      cardPredictions.push(prediction)
+    }
+    
+    const executionTimesBatch: tf.Tensor[] = cardinalities.map(x=>tf.tensor(x));
+    const valError = tf.sum(this.modelTrainerOffline.meanAbsoluteError(
+        tf.concat(cardPredictions).squeeze(),
+        tf.concat(executionTimesBatch).squeeze()
+    )).squeeze();
+    const valErrorNumber: number = <number> valError.arraySync();
+    const averageValError = valErrorNumber / features.length;
+    console.log(`Validation error: ${averageValError}`)
   }
 
   public shuffle(
-    features: tf.Tensor[][], 
-    cardinalities: number[], 
-    graphViews: IQueryGraphViews[]
-    ){
-    let i, j, xE, xQ, xG, xJ;
-    for (i=features.length-1;i>0;i--){
-      j = Math.floor(Math.random()*(i+1));
+    features: tf.Tensor[][],
+    cardinalities: number[],
+    graphViews: IQueryGraphViews[],
+  ) {
+    let i,
+        j,
+        xE,
+        xG,
+        xJ,
+        xQ;
+    for (i = features.length - 1; i > 0; i--) {
+      j = Math.floor(Math.random() * (i + 1));
       xE = features[i]; xQ = cardinalities[i]; xG = graphViews[i];
-      features[i] = features[j]; cardinalities[i] = cardinalities[j]; graphViews[i] = graphViews[j]; 
-      features[j] = xE; cardinalities[j]= xQ; graphViews[j] = xG;
+      features[i] = features[j]; cardinalities[i] = cardinalities[j]; graphViews[i] = graphViews[j];
+      features[j] = xE; cardinalities[j] = xQ; graphViews[j] = xG;
     }
-    return [features, cardinalities, graphViews];
-
+    return [ features, cardinalities, graphViews ];
   }
 
-  public async trainModel(batchedTrainingExamples: IBatchedTrainingExamples){
-    function shuffleData(executionTimes: number[], qValues: number[], partialJoinTree: number[][][]){
-      let i, j, xE, xQ, xP;
-      for (i=executionTimes.length-1;i>0;i--){
-        j = Math.floor(Math.random()*(i+1));
+  public async trainModel(batchedTrainingExamples: IBatchedTrainingExamples) {
+    function shuffleData(executionTimes: number[], qValues: number[], partialJoinTree: number[][][]) {
+      let i,
+          j,
+          xE,
+          xP,
+          xQ;
+      for (i = executionTimes.length - 1; i > 0; i--) {
+        j = Math.floor(Math.random() * (i + 1));
         xE = executionTimes[i]; xQ = qValues[i]; xP = partialJoinTree[i];
-        executionTimes[i] = executionTimes[j]; qValues[i]=qValues[j]; partialJoinTree[i]=partialJoinTree[j];
-        executionTimes[j] = xE; qValues[j]= xQ; partialJoinTree[j] = xP;
+        executionTimes[i] = executionTimes[j]; qValues[i] = qValues[j]; partialJoinTree[i] = partialJoinTree[j];
+        executionTimes[j] = xE; qValues[j] = xQ; partialJoinTree[j] = xP;
       }
-      return [qValues, executionTimes, partialJoinTree]
+      return [ qValues, executionTimes, partialJoinTree ];
     }
 
-    if (batchedTrainingExamples.trainingExamples.size==0){
-      throw new Error("Empty map passed");
+    if (batchedTrainingExamples.trainingExamples.size === 0) {
+      throw new Error('Empty map passed');
     }
     const actualExecutionTime: number[] = [];
     const predictedQValues: number[] = [];
     const partialJoinTree: number[][][] = [];
-    for (const [joinKey, trainingExample] of batchedTrainingExamples.trainingExamples.entries()){
+    for (const [ joinKey, trainingExample ] of batchedTrainingExamples.trainingExamples.entries()) {
       actualExecutionTime.push(trainingExample.actualExecutionTime);
       predictedQValues.push(trainingExample.qValue);
       partialJoinTree.push(MediatorJoinReinforcementLearning.keyToIdx(joinKey));
     }
     const shuffled = shuffleData(actualExecutionTime, predictedQValues, partialJoinTree);
-    const loss = this.modelTrainerOffline.trainOfflineBatched(partialJoinTree, batchedTrainingExamples.leafFeatures, 
-      actualExecutionTime, this.modelInstanceLSTM.getModel(), 4);
+    const loss = this.modelTrainerOffline.trainOfflineBatched(partialJoinTree, batchedTrainingExamples.leafFeatures, actualExecutionTime, this.modelInstanceLSTM.getModel(), 4);
     return loss;
 
     /**
@@ -1189,94 +1216,91 @@ implements IQueryEngine<QueryContext> {
      * 3. Track Statistics (+ STD) (done)
      * 4. Create new vectors for watdiv!! (done)
      * 5. Regularization using dropout (done)
-     * NOTE: We use dropout only in the forwardpass recursive, this is because we only train on the forwardpass recursive. This might lead to mismatch between 
-     * training performance and actual query execution time?? Other hand it does make sense since we want the best possible model to execute joins 
+     * NOTE: We use dropout only in the forwardpass recursive, this is because we only train on the forwardpass recursive. This might lead to mismatch between
+     * training performance and actual query execution time?? Other hand it does make sense since we want the best possible model to execute joins
      * even during training
      * 5. Query Encoding Implemented (todo use PCA with #PC equal to minimal number of joins to consider using multi join = 3)
      * (Optional for workshop):
-     * 1. Experience Replay (https://paperswithcode.com/method/experience-replay) 
+     * 1. Experience Replay (https://paperswithcode.com/method/experience-replay)
      * (https://towardsdatascience.com/a-technical-introduction-to-experience-replay-for-off-policy-deep-reinforcement-learning-9812bc920a96)
      * 2. Temperature scaling for bolzman softmax
      * 3. Better memory management
-     * 
+     *
      * Considerations:
      * When we use features that 'mean' something in leaf result sets and then let the model generate feature representations for
      * joins, don't we lose information of what the features mean in the result set leafs
      * On one hand, the model can learn what what representations it should make to get the best results
      * On other hand, it seems counter intuitive?
-     * 
+     *
      * Graph Encoding:
      * https://towardsdatascience.com/graph-representation-learning-network-embeddings-d1162625c52b
      * Hyperbolic embeddings
      * PCA on adjacency matrix
-     * 
+     *
      * Triple pattern encoding:
      * Replace RDF2Vec with BERTesque model
      * This way we can learn contextual encodings of named nodes AND instantly have access to a [MASK] token embedding which can represent variables in a triple pattern
      * We can consider training the BERT model together with the optimizer or pretrain BERT only.
-     * 
+     *
      * Lit review:
      * Comprehensive review of join order optimizers
-     * https://www.vldb.org/pvldb/vol15/p1658-zhao.pdf 
+     * https://www.vldb.org/pvldb/vol15/p1658-zhao.pdf
      * Super cool paper on query performance prediction
      * https://www.vldb.org/pvldb/vol12/p1733-marcus.pdf
      */
-
   }
 
-  public async trainModelExperienceReplay(experiences: IExperience[], leafFeatures: IResultSetRepresentation[]){
-    if (experiences.length==0){
-      throw new Error("Empty training batch passed");
+  public async trainModelExperienceReplay(experiences: IExperience[], leafFeatures: IResultSetRepresentation[]) {
+    if (experiences.length === 0) {
+      throw new Error('Empty training batch passed');
     }
     const actualExecutionTimes: number[] = [];
     const partialJoinTree: number[][][] = [];
-    for (const exp of experiences){
+    for (const exp of experiences) {
       actualExecutionTimes.push(exp.actualExecutionTimeNorm);
-      partialJoinTree.push(exp.joinIndexes)
+      partialJoinTree.push(exp.joinIndexes);
     }
-    const loss = this.modelTrainerOffline.trainOfflineExperienceReplay(partialJoinTree, leafFeatures, 
-      actualExecutionTimes, this.modelInstanceLSTM.getModel(), 4);
+    const loss = this.modelTrainerOffline.trainOfflineExperienceReplay(partialJoinTree, leafFeatures, actualExecutionTimes, this.modelInstanceLSTM.getModel(), 4);
     return loss;
   }
 
-  public async trainModelExperienceReplayTemp(experiences: IExperience[], leafFeatures: tf.Tensor[], graphViews: IQueryGraphViews[]){
-    if (experiences.length==0){
-      throw new Error("Empty training batch passed");
+  public async trainModelExperienceReplayTemp(experiences: IExperience[], leafFeatures: tf.Tensor[], graphViews: IQueryGraphViews[]) {
+    if (experiences.length === 0) {
+      throw new Error('Empty training batch passed');
     }
     const actualExecutionTimes: number[] = [];
     const partialJoinTree: number[][][] = [];
-    for (const exp of experiences){
+    for (const exp of experiences) {
       actualExecutionTimes.push(exp.actualExecutionTimeNorm);
-      partialJoinTree.push(exp.joinIndexes)
+      partialJoinTree.push(exp.joinIndexes);
     }
-    const loss = this.modelTrainerOffline.trainOfflineExperienceReplayTemp(partialJoinTree, leafFeatures, 
-      graphViews, actualExecutionTimes, this.modelInstanceLSTM.getModel(), this.modelInstanceGCN.getModels(), 4);
+    const loss = this.modelTrainerOffline.trainOfflineExperienceReplayTemp(partialJoinTree, leafFeatures, graphViews, actualExecutionTimes, this.modelInstanceLSTM.getModel(), this.modelInstanceGCN.getModels(), 4);
     return loss;
   }
 
-
-  public disposeTrainEpisode(){
-    this.trainEpisode.learnedFeatureTensor.hiddenStates.map(x=>x.dispose());
-    this.trainEpisode.learnedFeatureTensor.memoryCell.map(x=>x.dispose()); 
+  public disposeTrainEpisode() {
+    this.trainEpisode.learnedFeatureTensor.hiddenStates.map(x => x.dispose());
+    this.trainEpisode.learnedFeatureTensor.memoryCell.map(x => x.dispose());
   }
 
-  public emptyTrainEpisode(){
+  public emptyTrainEpisode() {
     this.trainEpisode = {
-      joinsMade: [], 
-      learnedFeatureTensor: {hiddenStates:[], memoryCell:[]}, 
-      sharedVariables: [], 
+      joinsMade: [],
+      learnedFeatureTensor: { hiddenStates: [], memoryCell: []},
+      sharedVariables: [],
       leafFeatureTensor: [],
-      graphViews: {subSubView: [], objObjView: [], objSubView: []},
-      isEmpty:true
-    };    
+      graphViews: { subSubView: [], objObjView: [], objSubView: []},
+      isEmpty: true,
+    };
   }
+
   /**
-   * 
+   *
    * @returns Empty binding stream
    */
-  public returnNop(){
+  public returnNop() {
     const nop: IQueryOperationResult = {
-      bindingsStream: new ArrayIterator([this.BF.bindings()], {autoStart: false}),
+      bindingsStream: new ArrayIterator([ this.BF.bindings() ], { autoStart: false }),
       metadata: () => Promise.resolve({
         cardinality: { type: 'exact', value: 1 },
         canContainUndefs: false,
@@ -1284,7 +1308,7 @@ implements IQueryEngine<QueryContext> {
       }),
       type: 'bindings',
     };
-    return QueryEngineBase.internalToFinalResult(nop)
+    return QueryEngineBase.internalToFinalResult(nop);
   }
 
   /**
@@ -1356,7 +1380,7 @@ implements IQueryEngine<QueryContext> {
 export interface IExperience{
   actualExecutionTimeNorm: number;
   actualExecutionTimeRaw: number;
-  joinIndexes: number[][]
+  joinIndexes: number[][];
   N: number;
 }
 

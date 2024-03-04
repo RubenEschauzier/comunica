@@ -109,7 +109,7 @@ export interface IActorInitQueryBaseArgs<QueryContext extends IQueryContextCommo
    */
   modelCheckPointLocation: string;
   /**
-   * Relative path to GCN models config location. This directory should contain three directories 
+   * Relative path to GCN models config location. This directory should contain three directories
    * (gcn-model-subj-subj, gcn-model-obj-obj, gcn-model-obj-subj). Within these directories the model config should be in ./model-config-gcn.json
    */
   modelConfigLocationGcn: string;

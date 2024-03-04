@@ -4,7 +4,7 @@ import type { Algebra } from 'sparqlalgebrajs';
 import type { BindingsStream } from './Bindings';
 import type { IActionContext } from './IActionContext';
 import type { IDataSource } from './IDataSource';
-import type { IBatchedTrainingExamples, IQueryContextCommon, QueryAlgebraContext, QueryStringContext } from './IQueryContext';
+import type { IQueryContextCommon, QueryAlgebraContext, QueryStringContext } from './IQueryContext';
 import type { IQueryExplained, QueryEnhanced, QueryExplainMode } from './IQueryOperationResult';
 
 export type QueryFormatType = string | Algebra.Operation;

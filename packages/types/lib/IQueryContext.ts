@@ -1,15 +1,13 @@
+import type { InstanceModelGCN, InstanceModelLSTM } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
+import type { IQueryGraphViews, IResultSetRepresentation, IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
 import type * as RDF from '@rdfjs/types';
+import type * as tf from '@tensorflow/tfjs-node';
 import type { IDataDestination } from './IDataDestination';
 import type { IDataSource } from './IDataSource';
 import type { IProxyHandler } from './IProxyHandler';
 import type { SourceType } from './IQueryEngine';
 import type { QueryExplainMode } from './IQueryOperationResult';
 import type { Logger } from './Logger';
-
-import * as tf from '@tensorflow/tfjs-node';
-import { IQueryGraphViews, IResultSetRepresentation, IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
-import { InstanceModelGCN, InstanceModelLSTM } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
-import { number } from 'yargs';
 
 /**
  * Query context when a string-based query was passed.
@@ -25,30 +23,30 @@ export type FunctionArgumentsCache = Record<string, { func?: any; cache?: Functi
 /**
  * Interface for a single query training step, this interface keeps track of:
  * 1. {@link ITrainEpisode.joinsMade} The order joins made during query optimization, so during backprop we can retrace
- * these steps to get gradients. The order is decided by {@link ActorRdfJoinInnerMultiReinforcementLearningTree} and added 
- * to the episode in {@link MediatorJoinReinforcementLearning.mediateWith}. 
- * 
- * 2. {@link ITrainEpisode.learnedFeatureTensor} The feature tensors used for prediction. These are initialised in 
+ * these steps to get gradients. The order is decided by {@link ActorRdfJoinInnerMultiReinforcementLearningTree} and added
+ * to the episode in {@link MediatorJoinReinforcementLearning.mediateWith}.
+ *
+ * 2. {@link ITrainEpisode.learnedFeatureTensor} The feature tensors used for prediction. These are initialised in
  * {@link MediatorJoinReinforcementLearning.initialiseFeatures} when the {@link ITrainEpisode.isEmpty} flag is set to true.
- * During join optimization this is updated to reflect the added joins. Updates happen in 
+ * During join optimization this is updated to reflect the added joins. Updates happen in
  * {@link MediatorJoinReinforcementLearning.mediateWith}
- * 
- * 3. {@link ITrainEpisode.leafFeatureTensor} The starting features that represent the information in the triple pattern. 
- * Initialised in {@link MediatorJoinReinforcementLearning.initialiseFeatures} and used to recreate the optimization 
+ *
+ * 3. {@link ITrainEpisode.leafFeatureTensor} The starting features that represent the information in the triple pattern.
+ * Initialised in {@link MediatorJoinReinforcementLearning.initialiseFeatures} and used to recreate the optimization
  * steps for backprop
- * 
- * 4. {@link ITrainEpisode.sharedVariables} Matrix that shows what triple patterns share variables, initialised in 
- * {@link MediatorJoinReinforcementLearning.initialiseFeatures} and updated in 
+ *
+ * 4. {@link ITrainEpisode.sharedVariables} Matrix that shows what triple patterns share variables, initialised in
+ * {@link MediatorJoinReinforcementLearning.initialiseFeatures} and updated in
  * {@link ActorRdfJoinInnerMultiReinforcementLearningTree} when a join is executed. This is to prevent cartesian
  * products
- * 
+ *
  * 5. {@link ITrainEpisode.graphViews} Three views of query graph to use for optimization step recreation during
  * backprop. Initialised in {@link MediatorJoinReinforcementLearning.initialiseFeatures}
- * 
+ *
  * 6. {@link ITrainEpisode.isEmpty} If the train episode is empty, set to false after execution of
- * {@link MediatorJoinReinforcementLearning.initialiseFeatures} and then set to true when it is emptied after 
+ * {@link MediatorJoinReinforcementLearning.initialiseFeatures} and then set to true when it is emptied after
  * query execution.
- * 
+ *
  * The episode is emptied if various conditions are satisfied at the end of a query execution.
  */
 export interface ITrainEpisode {
@@ -56,9 +54,9 @@ export interface ITrainEpisode {
   learnedFeatureTensor: IResultSetRepresentation;
   leafFeatureTensor: tf.Tensor[];
   sharedVariables: number[][];
-  graphViews: IQueryGraphViews
+  graphViews: IQueryGraphViews;
   isEmpty: boolean;
-};
+}
 
 /**
  * TODO: Why is this needed with experiencebuffers?
@@ -73,7 +71,6 @@ export interface ITrainingExample{
   actualExecutionTime: number;
   N: number;
 }
-
 
 /**
  * Common query context interface

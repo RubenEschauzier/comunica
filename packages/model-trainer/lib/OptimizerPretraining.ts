@@ -1,43 +1,34 @@
 import * as tf from '@tensorflow/tfjs-node';
 
-
-export class pretrainOptimizer{
-    optimizer: tf.Optimizer
-    public constructor(modelTrainerArgs: IModelTrainerOfflineArgs){
-        if (modelTrainerArgs.optimizer=='adam'){
-            this.optimizer = tf.train.adam(modelTrainerArgs.learningRate)
-        }
-        else if (modelTrainerArgs.optimizer=='sgd'){
-            this.optimizer = tf.train.sgd(modelTrainerArgs.learningRate);
-        }
-        else{
-            throw new Error(`Invalid optimizer argument in ModelTrainerOffline, got: ${modelTrainerArgs.optimizer}, expected ${optimizerOptions}`);
-        }
+export class pretrainOptimizer {
+  optimizer: tf.Optimizer;
+  public constructor(modelTrainerArgs: IModelTrainerOfflineArgs) {
+    if (modelTrainerArgs.optimizer == 'adam') {
+      this.optimizer = tf.train.adam(modelTrainerArgs.learningRate);
+    } else if (modelTrainerArgs.optimizer == 'sgd') {
+      this.optimizer = tf.train.sgd(modelTrainerArgs.learningRate);
+    } else {
+      throw new Error(`Invalid optimizer argument in ModelTrainerOffline, got: ${modelTrainerArgs.optimizer}, expected ${optimizerOptions}`);
     }
+  }
 
-    public trainModel(){
+  public trainModel() {
 
-    }
+  }
 
+  public meanSquaredError(prediction: tf.Tensor, actual: tf.Tensor) {
+    return tf.tidy(() => tf.sum(tf.pow(tf.sub(prediction, actual), 2)));
+  }
 
-    public meanSquaredError(prediction: tf.Tensor, actual: tf.Tensor){
-        return tf.tidy(()=>{
-            return tf.sum(tf.pow(tf.sub(prediction, actual),2));
-        });
-    }
+  public trainStepBatch() {
 
-    public trainStepBatch(){
+  }
 
-    }
+  public validateModel() {
 
-    public validateModel(){
-        
-    }
-    
-
-
+  }
 }
-// import { IQueryGraphViews, IResultSetRepresentation } from '@comunica/mediator-join-reinforcement-learning';
+// Import { IQueryGraphViews, IResultSetRepresentation } from '@comunica/mediator-join-reinforcement-learning';
 // import * as tf from '@tensorflow/tfjs-node';
 // import { squaredDifference } from '@tensorflow/tfjs-node';
 // import { ModelTreeLSTM } from './treeLSTM';
@@ -57,7 +48,7 @@ export class pretrainOptimizer{
 //         }
 //     }
 
-//     public trainOfflineBatched(partialJoinTree: number[][][], resultSetRepresentation: IResultSetRepresentation, 
+//     public trainOfflineBatched(partialJoinTree: number[][][], resultSetRepresentation: IResultSetRepresentation,
 //         executionTimes: number[], model: ModelTreeLSTM, batchSize: number){
 //         return tf.tidy(()=>{
 //             const numBatches = Math.ceil(executionTimes.length/batchSize);
@@ -87,16 +78,16 @@ export class pretrainOptimizer{
 //         });
 //     };
 
-//     public trainOfflineExperienceReplayTemp(partialJoinTree: number[][][], leafFeaturesTensor: tf.Tensor[], 
-//         graphViews: IQueryGraphViews[], executionTimes: number[], modelLSTM: ModelTreeLSTM, 
+//     public trainOfflineExperienceReplayTemp(partialJoinTree: number[][][], leafFeaturesTensor: tf.Tensor[],
+//         graphViews: IQueryGraphViews[], executionTimes: number[], modelLSTM: ModelTreeLSTM,
 //         modelsGCN: IQueryGraphEncodingModels, batchSize: number){
 //         return tf.tidy(()=>{
 //             const numBatches = Math.ceil(executionTimes.length/batchSize);
 //             let episodeLoss: number = 0;
 //             for (let b=0; b<numBatches; b++){
 //                 const treesToExecute: number[][][] = partialJoinTree.slice(b*batchSize, Math.min((b+1)*batchSize, partialJoinTree.length));
-//                 const leafFeaturesBatch: tf.Tensor[] = leafFeaturesTensor.slice(b*batchSize, 
-//                     Math.min((b+1)*batchSize, leafFeaturesTensor.length));                
+//                 const leafFeaturesBatch: tf.Tensor[] = leafFeaturesTensor.slice(b*batchSize,
+//                     Math.min((b+1)*batchSize, leafFeaturesTensor.length));
 //                 const loss: tf.Scalar|null = this.optimizer.minimize(()=>{
 //                     const qValuesRecursive: tf.Tensor[] = [];
 //                     for (let i=0;i<treesToExecute.length;i++){
@@ -106,7 +97,7 @@ export class pretrainOptimizer{
 //                         forwardPass(leafFeaturesBatch[i].squeeze(), tf.tensor(graphViews[(b*batchSize)+i].objObjView));
 //                         const objSubjRepresentation = modelsGCN.modelObjSubj.
 //                         forwardPass(leafFeaturesBatch[i].squeeze(), tf.tensor(graphViews[(b*batchSize)+i].objSubView));
-                        
+
 //                         const learnedRepresentation = tf.concat([subjSubjRepresentation, objObjRepresentation, objSubjRepresentation], 1);
 //                         const learnedRepresentationList = tf.split(learnedRepresentation, learnedRepresentation.shape[0]);
 //                         const learnedRepresentationResultSet: IResultSetRepresentation = {
@@ -131,16 +122,16 @@ export class pretrainOptimizer{
 //             }
 //             return episodeLoss/executionTimes.length;
 //         });
-    
+
 //     }
-//     public trainOfflineExperienceReplay(partialJoinTree: number[][][], resultSetRepresentations: IResultSetRepresentation[], 
+//     public trainOfflineExperienceReplay(partialJoinTree: number[][][], resultSetRepresentations: IResultSetRepresentation[],
 //         executionTimes: number[], model: ModelTreeLSTM, batchSize: number){
 //         return tf.tidy(()=>{
 //             const numBatches = Math.ceil(executionTimes.length/batchSize);
 //             let episodeLoss: number = 0;
 //             for (let b=0; b<numBatches; b++){
 //                 const treesToExecute: number[][][] = partialJoinTree.slice(b*batchSize, Math.min((b+1)*batchSize, partialJoinTree.length));
-//                 const resultSetsToUse: IResultSetRepresentation[] = resultSetRepresentations.slice(b*batchSize, 
+//                 const resultSetsToUse: IResultSetRepresentation[] = resultSetRepresentations.slice(b*batchSize,
 //                     Math.min((b+1)*batchSize, resultSetRepresentations.length));
 
 //                 const loss: tf.Scalar|null = this.optimizer.minimize(()=>{
@@ -167,7 +158,7 @@ export class pretrainOptimizer{
 //     }
 
 //     public validateModel(){
-        
+
 //     }
 
 //     public meanSquaredError(prediction: tf.Tensor, actual: tf.Tensor){
@@ -187,13 +178,13 @@ export class pretrainOptimizer{
 // }
 
 export interface IModelTrainerOfflineArgs{
-    optimizer: optimizerOptionsTypes;
-    learningRate: number;
+  optimizer: optimizerOptionsTypes;
+  learningRate: number;
 }
 
 export function stringLiteralArray<T extends string>(a: T[]) {
-    return a;
+  return a;
 }
 
-export const optimizerOptions = stringLiteralArray(['adam', 'sgd']);
+export const optimizerOptions = stringLiteralArray([ 'adam', 'sgd' ]);
 type optimizerOptionsTypes = typeof optimizerOptions[number];

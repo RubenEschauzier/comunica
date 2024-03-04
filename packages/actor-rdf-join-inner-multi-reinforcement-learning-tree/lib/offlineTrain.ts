@@ -144,18 +144,20 @@ export class ModelTrainerOffline{
             const loss: tf.Scalar|null = this.optimizer.minimize(()=>{
                 const cardinalityPredictionsBatch: tf.Tensor[] = [];
                 for (let i=0;i<leafFeaturesTensor.length;i++){
-
                     const cardPrediction = this.getCardinalityPrediction(
                         leafFeaturesTensor[i],
                         graphViews[i],
                         modelsGCN,
                         cardinalityPredictionLayers
-                    )
+                    );
                     cardinalityPredictionsBatch.push(cardPrediction);
                 }
-                
+
                 const executionTimesBatch: tf.Tensor[] = queryCardinalities.map(x=>tf.tensor(x));
-                const loss = tf.sum(squaredDifference(tf.concat(cardinalityPredictionsBatch).squeeze(), tf.concat(executionTimesBatch).squeeze()));
+                const loss = tf.sum(squaredDifference(
+                    tf.concat(cardinalityPredictionsBatch).squeeze(),
+                    tf.concat(executionTimesBatch).squeeze()
+                ));
                 return loss.squeeze();
             }, true);
             return loss?.arraySync()

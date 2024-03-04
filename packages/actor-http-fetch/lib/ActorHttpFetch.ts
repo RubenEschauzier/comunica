@@ -1,12 +1,11 @@
 import type { IActionHttp, IActorHttpOutput, IActorHttpArgs } from '@comunica/bus-http';
 import { ActorHttp } from '@comunica/bus-http';
-import { KeysHttp, KeysRlTrain } from '@comunica/context-entries';
+import { KeysHttp } from '@comunica/context-entries';
 import type { IMediatorTypeTime } from '@comunica/mediatortype-time';
 import type { Readable } from 'readable-stream';
 import 'cross-fetch/polyfill';
 import { FetchInitPreprocessor } from './FetchInitPreprocessor';
 import type { IFetchInitPreprocessor } from './IFetchInitPreprocessor';
-import { ActionContext } from '@comunica/core';
 
 /**
  * A node-fetch actor that listens on the 'init' bus.

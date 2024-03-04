@@ -18,7 +18,6 @@ import { QueryEngineBase, QueryEngineFactoryBase } from '..';
 import type { IDynamicQueryEngineOptions } from '..';
 import { CliArgsHandlerBase } from './cli/CliArgsHandlerBase';
 import { CliArgsHandlerHttp } from './cli/CliArgsHandlerHttp';
-import * as _ from 'lodash'
 
 const quad = require('rdf-quad');
 
@@ -177,7 +176,7 @@ export class HttpServiceSparqlEndpoint {
    * @param {module:stream.internal.Writable} stderr The error stream to log errors to.
    */
   public async runMaster(stdout: Writable, stderr: Writable): Promise<void> {
-    // stderr.write(`Server running on http://localhost:${this.port}/sparql\n`);
+    // Stderr.write(`Server running on http://localhost:${this.port}/sparql\n`);
 
     // Create workers
     for (let i = 0; i < this.workers; i++) {
@@ -216,7 +215,7 @@ export class HttpServiceSparqlEndpoint {
             delete workerTimeouts[queryId];
           }, this.timeout);
         } else if (type === 'end' && workerTimeouts[queryId]) {
-          // stderr.write(`Worker ${worker.process.pid} has completed query ${queryId}.\n`);
+          // Stderr.write(`Worker ${worker.process.pid} has completed query ${queryId}.\n`);
           clearTimeout(workerTimeouts[queryId]);
           delete workerTimeouts[queryId];
         }
@@ -264,7 +263,7 @@ export class HttpServiceSparqlEndpoint {
         stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
         // Write model to file
         // TODO Make saveFile functionality on shutdown
-        console.info("Engine shutdown; Saving state")
+        console.info('Engine shutdown; Saving state');
         engine.saveState(this.timeout, engine.currentTrainingStateEngineDirectory);
 
         // Stop new connections from being accepted
@@ -370,7 +369,7 @@ export class HttpServiceSparqlEndpoint {
         const queryValue = <string> requestUrl.query.query;
         queryBody = queryValue ? { type: 'query', value: queryValue, context: undefined } : undefined;
         // eslint-disable-next-line no-case-declarations
-        const headOnly = request.method === 'HEAD';        
+        const headOnly = request.method === 'HEAD';
         await this.writeQueryResult(
           engine,
           stdout,
@@ -428,7 +427,7 @@ export class HttpServiceSparqlEndpoint {
     // Send message to master process to indicate the start of an execution
     process.send!({ type: 'start', queryId });
 
-    // Determine context 
+    // Determine context
     let context = {
       ...this.context,
       ...this.contextOverride ? queryBody.context : undefined,
@@ -469,7 +468,7 @@ export class HttpServiceSparqlEndpoint {
 
     // Write header of response
     response.writeHead(200, { 'content-type': mediaType, 'Access-Control-Allow-Origin': '*' });
-    // stdout.write(`      Resolved to result media type: ${mediaType}\n`);
+    // Stdout.write(`      Resolved to result media type: ${mediaType}\n`);
 
     // Stop further processing for HEAD requests
     if (headOnly) {
