@@ -32,6 +32,7 @@ import * as process from 'process';
 import * as path from 'path'
 import { readFileSync, writeFileSync } from 'fs';
 import { DenseOwnImplementation } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree/lib/fullyConnectedLayers';
+import { ModelTreeLSTM } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree/lib/treeLSTM';
 
 /**
  * Base implementation of a Comunica query engine.
@@ -72,7 +73,7 @@ implements IQueryEngine<QueryContext> {
     this.modelInstanceGCN = new InstanceModelGCN(this.actorInitQuery.modelConfigLocationGcn);
     this.currentTrainingStateEngineDirectory = "latestSavedState";
     // Moved this to first execution of query, because we want to initiate this from config, honestly should work more with components.js for this
-    this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.0001});
+    // this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.001});
     this.batchedTrainExamples = {trainingExamples: new Map<string, ITrainingExample>, leafFeatures: {hiddenStates: [], memoryCell:[]}};
     // End point training
     this.BF = new BindingsFactory();
@@ -946,11 +947,16 @@ implements IQueryEngine<QueryContext> {
   }
 
   public async pretrainOptimizer(
-    queries: string[], 
-    cardinalities: number[], 
+    trainQueries: string[], 
+    trainCardinalities: number[], 
+    valQueries: string[],
+    valCardinalities: number[],
     queriesContext: QueryStringContext,
     batchSize: number,
-    epochs: number
+    epochs: number,
+    optimizer: string,
+    lr: number,
+    modelDirectory: string
     ){
     // Create a simple output layer that takes the representations made by the gcn layers and makes
     // cardinality prediction. Proper coding would be to make this an object with json based config
@@ -959,44 +965,128 @@ implements IQueryEngine<QueryContext> {
     // and linear layer
     const cardinalityPredictionLayers: IGraphCardinalityPredictionLayers = {
       pooling: tf.layers.average(),
-      hiddenLayer: new DenseOwnImplementation(128, 256),
+      hiddenLayer: new DenseOwnImplementation(384, 256),
       activationHiddenLayer: tf.layers.activation({activation: 'relu'}),
       linearLayer: new DenseOwnImplementation(256, 1),
     }
+    // Init GCN model from config
+    this.modelInstanceGCN.initModel(modelDirectory);
+
+    // Init model trainer with specified optimizer and learning rate
+    this.modelTrainerOffline = new ModelTrainerOffline({optimizer: optimizer, learningRate: lr});
+
+    // Get models to pretrain
     const gcnModels: IQueryGraphEncodingModels = this.modelInstanceGCN.getModels();
 
-    const rawFeatures = await this.prepareFeaturizedQueries(queries, queriesContext);
-    // TODO make features also contain graphViews
-    const features = this.standardizeCardinalityTriplePattern(rawFeatures);
+    const rawFeaturesTrain = await this.prepareFeaturizedQueries(trainQueries, queriesContext);
+    const rawFeaturesVal = await this.prepareFeaturizedQueries(valQueries, queriesContext);
+
+    // Prepare train features and input to optimizer
+    const tpEncodingsTrain: tf.Tensor[][] = rawFeaturesTrain.map(x => x.leafFeatures);
+    const standardizedTpEncTrain = this.standardizeCardinalityTriplePattern(tpEncodingsTrain);
+
+    const graphViewsTrain: IQueryGraphViews[] = rawFeaturesTrain.map(x => x.graphViews);
+    
+    // Take log to stabilize training
+    const logTrainCardinalities: number[] = trainCardinalities.map(x => Math.log(x));
+
+    // Prepare val features and input to optimizer
+    const tpEncodingsVal: tf.Tensor[][] = rawFeaturesVal.map(x => x.leafFeatures);
+    const standardizedTpEncVal = this.standardizeCardinalityTriplePattern(tpEncodingsVal);
+    const tensorTpEncVal = standardizedTpEncVal.map(x => tf.stack(x));
+
+    const graphViewsVal: IQueryGraphViews[] = rawFeaturesVal.map(x => x.graphViews);
+    
+    // Take log to stabilize training
+    const logValCardinalities: number[] = valCardinalities.map(x => Math.log(x));
 
     for (let i = 0; i<epochs; i++){
-      // TODO: Shuffle graphviews too
-      const shuffled = this.shuffle(features, cardinalities);
-      const shuffledFeaturesAsTensors = features.map(x => tf.stack(x));
-      // TODO: Pass graphviews to batched pretraining
-      this.batchedPretraining(shuffledFeaturesAsTensors, cardinalities, batchSize, gcnModels, cardinalityPredictionLayers );
+      const shuffled = this.shuffle(standardizedTpEncTrain, trainCardinalities, graphViewsTrain);
+      const shuffledFeaturesAsTensors = standardizedTpEncTrain.map(x => tf.stack(x));
+
+      this.batchedPretraining(
+        shuffledFeaturesAsTensors, 
+        logTrainCardinalities, 
+        graphViewsTrain, 
+        batchSize, 
+        gcnModels, 
+        cardinalityPredictionLayers 
+      );
+
+      this.validateModel(
+        tensorTpEncVal,
+        logValCardinalities,
+        graphViewsVal,
+      );
     }
   }
+  // /**
+  //  * Function to create join trees to pass to model to predict cardinalities. Think about whether it is a problem
+  //  * these join trees can contain cartesian products. This will not influence end cardinality, but might have
+  //  * bad effects on downstream tasks.
+  //  * @param triplePatternEncodings The list of triple patterns encodings, used to determine the # of triple patterns
+  //  * to make the tree
+  //  */
+  // public createRandomJoinTrees(triplePatternEncodings: tf.Tensor[][]){
+  //   const nTriplePatternsQuery = triplePatternEncodings.map(x=>x.length);
+  //   const joinTrees: number[][][] = [];
+  //   for (let i = 0; i < nTriplePatternsQuery.length; i++){
+  //     // Array from 0 to number of triple patterns in query, representing what triple patterns need to be joined
+  //     let triplePatternsToJoin = [...Array(nTriplePatternsQuery[i]).keys()]; 
+  //     // Join tree that of arrays of form [idx, idx] which denotes the indexes of the triple patterns that are 
+  //     // joined in that stage
+  //     const joinTreeQuery: number[][] = [];
+  //     let newIndexJoinResult: number = triplePatternsToJoin.length;
+  //     while (triplePatternsToJoin.length > 1){
+  //       // Randomly shuffle array
+  //       const shuffled = triplePatternsToJoin.sort(() => 0.5 - Math.random());
+  //       // Remove first two elements to get join indexes
+  //       const selected = shuffled.splice(0, 2);
+  //       joinTreeQuery.push(selected);
+  //       // Update triple patterns to join to reflect that we executed a join
+  //       triplePatternsToJoin = shuffled;
+  //       // Add new join result triple pattern
+  //       triplePatternsToJoin.push(newIndexJoinResult);
+  //       // Update index for next iteration
+  //       newIndexJoinResult += 1;
+  //     }
+  //     joinTrees.push(joinTreeQuery);
+  //   }
+  //   return joinTrees
+  // }
 
-  public async prepareFeaturizedQueries(queries: string[], context: QueryStringContext){
-    const features: tf.Tensor<tf.Rank>[][] = [];
-    const graphViews: IQueryGraphViews[] = [];
+  public async prepareFeaturizedQueries(queries: string[], context: QueryStringContext): Promise<IQueryFeatures[]>{
+    const allQueryFeatures: IQueryFeatures[] = [];
     for (const query of queries){
       const featuresQuery = await this.getFeaturesQuery(query, context);
-      features.push(featuresQuery.leafFeatures);
-      graphViews.push(featuresQuery.graphViews);
+      allQueryFeatures.push(featuresQuery);
     }
-    return features;
+    return allQueryFeatures;
   }
 
-  public batchedPretraining(features: tf.Tensor[], cardinalities: number[], batchSize: number,
-     modelsGCN: IQueryGraphEncodingModels, cardinalityPredictionLayers: IGraphCardinalityPredictionLayers){
+  public batchedPretraining(
+    features: tf.Tensor[], 
+    cardinalities: number[], 
+    graphViews: IQueryGraphViews[], 
+    batchSize: number,
+    modelsGCN: IQueryGraphEncodingModels, 
+    cardinalityPredictionLayers: IGraphCardinalityPredictionLayers
+    ){
     const numBatches = Math.ceil(features.length/batchSize);
     for (let b=0; b<numBatches; b++){
-      const queriesInBatch: tf.Tensor[] = features.slice(b*batchSize, Math.min((b+1)*batchSize, features.length));
+      const triplePatternEncodingBatch: tf.Tensor[] = features.slice(b*batchSize, Math.min((b+1)*batchSize, features.length));
+      const graphViewsInBatch: IQueryGraphViews[] = graphViews.slice(b*batchSize, Math.min((b+1)*batchSize, graphViews.length));
       const queryCardinalitiesBatch: number[] = cardinalities.slice(b*batchSize, Math.min((b+1)*batchSize, cardinalities.length));
+
       // TODO: Implement optimization logic
-      // this.modelTrainerOffline.pretrainOptimizerBatched(queryCardinalitiesBatch, queriesInBatch, , modelsGCN, cardinalityPredictionLayers)
+      const loss = this.modelTrainerOffline.pretrainOptimizerBatched(
+        queryCardinalitiesBatch, 
+        triplePatternEncodingBatch,
+        graphViewsInBatch, 
+        modelsGCN, 
+        cardinalityPredictionLayers
+      );
+      console.log(loss);
     }
   }
 
@@ -1039,19 +1129,27 @@ implements IQueryEngine<QueryContext> {
     return standardizedFeatures
   }
 
-  public validateModel(){
+  public validateModel(
+    features: tf.Tensor[], 
+    cardinalities: number[], 
+    graphViews: IQueryGraphViews[], 
+  ){
 
   }
 
-  public shuffle(features: tf.Tensor[][], cardinalities: number[]){
-    let i, j, xE, xQ;
+  public shuffle(
+    features: tf.Tensor[][], 
+    cardinalities: number[], 
+    graphViews: IQueryGraphViews[]
+    ){
+    let i, j, xE, xQ, xG, xJ;
     for (i=features.length-1;i>0;i--){
       j = Math.floor(Math.random()*(i+1));
-      xE = features[i]; xQ = cardinalities[i]; 
-      features[i] = features[j]; cardinalities[i]=cardinalities[j]; 
-      features[j] = xE; cardinalities[j]= xQ;
+      xE = features[i]; xQ = cardinalities[i]; xG = graphViews[i];
+      features[i] = features[j]; cardinalities[i] = cardinalities[j]; graphViews[i] = graphViews[j]; 
+      features[j] = xE; cardinalities[j]= xQ; graphViews[j] = xG;
     }
-    return [features, cardinalities]
+    return [features, cardinalities, graphViews];
 
   }
 

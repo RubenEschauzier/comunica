@@ -440,6 +440,7 @@ export class ModelTreeLSTM{
         fs.writeFileSync(configPath, JSON.stringify(this.loadedConfig));
     }
 
+    // PUT KWARGS HERE AND ALLOW KWARGS TO DEFINE WHAT MODEL TO USE FOR FORWARD PASS
     public forwardPass(resultSetFeatures: IResultSetRepresentation, idx: number[]): IModelOutput{
         console.log("Start pass")
         const outputTensors = tf.tidy(() =>{       
@@ -530,11 +531,11 @@ export class ModelTreeLSTM{
             // TODO: Query representation
     
             // Feed representation into dense layer to get Q-value
-            const test = childSumOutput[0].reshape([childSumOutput[0].shape[1]!, childSumOutput[0].shape[0]]);
+            const joinTreeRepresentation = childSumOutput[0].reshape([childSumOutput[0].shape[1]!, childSumOutput[0].shape[0]]);
 
             // We always use dropout in recursive forward pass because we use this for training, which requires dropout
             const kwargs = {"training": true}
-            const qValue = this.qValueNetwork.forwardPassFromConfig(test, kwargs);
+            const qValue = this.qValueNetwork.forwardPassFromConfig(joinTreeRepresentation, kwargs);
             return qValue 
         })         
     }
