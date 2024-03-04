@@ -144,33 +144,16 @@ export class ModelTrainerOffline{
             const loss: tf.Scalar|null = this.optimizer.minimize(()=>{
                 const cardinalityPredictionsBatch: tf.Tensor[] = [];
                 for (let i=0;i<leafFeaturesTensor.length;i++){
+
                     const cardPrediction = this.getCardinalityPrediction(
                         leafFeaturesTensor[i],
                         graphViews[i],
                         modelsGCN,
                         cardinalityPredictionLayers
                     )
-                    // Obtain query representations from GCN forwardpasses
-                    const subjSubjRepresentation = modelsGCN.modelSubjSubj.
-                        forwardPass(leafFeaturesTensor[i].squeeze(), tf.tensor(graphViews[i].subSubView));
-                    const objObjRepresentation = modelsGCN.modelObjObj.
-                        forwardPass(leafFeaturesTensor[i].squeeze(), tf.tensor(graphViews[i].objObjView));
-                    const objSubjRepresentation = modelsGCN.modelObjSubj.
-                        forwardPass(leafFeaturesTensor[i].squeeze(), tf.tensor(graphViews[i].objSubView));
-
-                    // Concatinate them into one representation
-                    const learnedRepresentation = tf.concat([subjSubjRepresentation, objObjRepresentation, objSubjRepresentation], 1);
-                    const learnedRepresentationList = tf.split(learnedRepresentation, learnedRepresentation.shape[0]);
-
-                    const cardinalityPrediction = this.forwardPassCardinalityPrediction(
-                        learnedRepresentationList, 
-                        cardinalityPredictionLayers
-                    );
                     cardinalityPredictionsBatch.push(cardPrediction);
-
                 }
-                console.log(cardinalityPredictionsBatch[0].arraySync())
-                console.log(queryCardinalities);
+                
                 const executionTimesBatch: tf.Tensor[] = queryCardinalities.map(x=>tf.tensor(x));
                 const loss = tf.sum(squaredDifference(tf.concat(cardinalityPredictionsBatch).squeeze(), tf.concat(executionTimesBatch).squeeze()));
                 return loss.squeeze();
