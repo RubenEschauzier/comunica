@@ -20,7 +20,7 @@ import type { Algebra } from 'sparqlalgebrajs';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
 import { IAggregateValues, IQueryGraphViews, IResultSetRepresentation, IResultSetRepresentationGraph, IRunningMoments, MediatorJoinReinforcementLearning } from '@comunica/mediator-join-reinforcement-learning';
-import { InstanceModelGCN, InstanceModelLSTM, ModelTrainerOffline } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
+import { InstanceModelGCN, InstanceModelLSTM, ModelTrainerOffline, IGraphCardinalityPredictionLayers, IQueryGraphEncodingModels } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
 import * as chalk from 'chalk';
 import { ExperienceBuffer, IExperienceKey } from '@comunica/model-trainer';
 import * as _ from 'lodash';
@@ -31,6 +31,7 @@ import { BindingsFactory } from '@comunica/bindings-factory';
 import * as process from 'process';
 import * as path from 'path'
 import { readFileSync, writeFileSync } from 'fs';
+import { DenseOwnImplementation } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree/lib/fullyConnectedLayers';
 
 /**
  * Base implementation of a Comunica query engine.
@@ -574,10 +575,7 @@ implements IQueryEngine<QueryContext> {
      * If there are no entries in queryToKey map we are at first run or after time-out, thus reload the model state.
      * We do this at start query to prevent unnecessary initialisation of features
     */    
-    // TEMP CODEEE REMOVE THIS
-    if (!randomId){
-      randomId = Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER));
-    }
+   
     if (context && this.experienceBuffer.queryToKey.size==0 && context.trainEndPoint){
       await this.loadState(this.currentTrainingStateEngineDirectory);
     }
@@ -665,7 +663,9 @@ implements IQueryEngine<QueryContext> {
       .setDefault(KeysRlTrain.trainEpisode, this.trainEpisode)
       .setDefault(KeysRlTrain.modelInstanceLSTM, this.modelInstanceLSTM)
       .setDefault(KeysRlTrain.modelInstanceGCN, this.modelInstanceGCN)
-      .setDefault(KeysRlTrain.runningMomentsFeatures, this.runningMomentsFeatures);
+      .setDefault(KeysRlTrain.runningMomentsFeatures, this.runningMomentsFeatures)
+      .setDefault(KeysRlTrain.trackRunningMoments, true);
+
 
     // Pre-processing the context
     actionContext = (await this.actorInitQuery.mediatorContextPreprocess.mediate({ context: actionContext })).context;
@@ -781,6 +781,110 @@ implements IQueryEngine<QueryContext> {
     return finalOutput;
   }
 
+  public async getFeaturesQuery<QueryFormatTypeInner extends QueryFormatType>(
+    query: QueryFormatTypeInner,
+    context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
+    randomId?: number
+  ): Promise < IQueryFeatures > {
+    context = context || <any>{};
+
+    if (context){
+      context.batchedTrainingExamples = this.batchedTrainExamples;
+    }
+
+    // Expand shortcuts
+    for (const key in context) {
+      if (this.actorInitQuery.contextKeyShortcuts[key]) {
+        context[this.actorInitQuery.contextKeyShortcuts[key]] = context[key];
+        delete context[key];
+      }
+    }
+    // Prepare context
+    let actionContext: IActionContext = new ActionContext(context);
+    let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };
+    if (actionContext.has(KeysInitQuery.queryFormat)) {
+      queryFormat = actionContext.get(KeysInitQuery.queryFormat)!;
+      actionContext = actionContext.delete(KeysInitQuery.queryFormat);
+      if (queryFormat.language === 'graphql') {
+        actionContext = actionContext.setDefault(KeysInitQuery.graphqlSingularizeVariables, {});
+      }
+    }
+
+    const baseIRI: string | undefined = actionContext.get(KeysInitQuery.baseIRI);
+
+    actionContext = actionContext
+      .setDefault(KeysInitQuery.queryTimestamp, new Date())
+      .setDefault(KeysRdfResolveQuadPattern.sourceIds, new Map())
+      // Set the default logger if none is provided
+      .setDefault(KeysCore.log, this.actorInitQuery.logger)
+      .setDefault(KeysInitQuery.functionArgumentsCache, this.defaultFunctionArgumentsCache)
+      .setDefault(KeysRlTrain.trainEpisode, this.trainEpisode)
+      .setDefault(KeysRlTrain.modelInstanceLSTM, this.modelInstanceLSTM)
+      .setDefault(KeysRlTrain.modelInstanceGCN, this.modelInstanceGCN)
+      // We dont want to use running moments as we are creating a database before training
+      // Thus we can simply use the resulting mean and standard deviation of training examples
+      .setDefault(KeysRlTrain.trackRunningMoments, false)
+
+
+    // Pre-processing the context
+    actionContext = (await this.actorInitQuery.mediatorContextPreprocess.mediate({ context: actionContext })).context;
+
+    // Parse query
+    let operation: Algebra.Operation;
+    if (typeof query === 'string') {
+      // Save the original query string in the context
+      actionContext = actionContext.set(KeysInitQuery.queryString, query);
+
+      const queryParseOutput = await this.actorInitQuery.mediatorQueryParse
+        .mediate({ context: actionContext, query, queryFormat, baseIRI });
+      operation = queryParseOutput.operation;
+      // Update the baseIRI in the context if the query modified it.
+      if (queryParseOutput.baseIRI) {
+        actionContext = actionContext.set(KeysInitQuery.baseIRI, queryParseOutput.baseIRI);
+      }
+    } else {
+      operation = query;
+    }
+
+    // Apply initial bindings in context
+    if (actionContext.has(KeysInitQuery.initialBindings)) {
+      operation = materializeOperation(operation, actionContext.get(KeysInitQuery.initialBindings)!);
+
+      // Delete the query string from the context, since our initial query might have changed
+      actionContext = actionContext.delete(KeysInitQuery.queryString);
+    }
+    // Optimize the query operation
+    const mediatorResult = await this.actorInitQuery.mediatorOptimizeQueryOperation
+      .mediate({ context: actionContext, operation });
+    operation = mediatorResult.operation;
+    actionContext = mediatorResult.context || actionContext;
+
+    // Save original query in context
+    actionContext = actionContext.set(KeysInitQuery.query, operation);
+    
+    // Execute query
+    const output = await this.actorInitQuery.mediatorQueryOperation.mediate({
+      context: actionContext,
+      operation,
+    });
+
+    const featuresQuery = ( <ITrainEpisode> actionContext.get(KeysRlTrain.trainEpisode)!).leafFeatureTensor;
+    const graphViews = ( <ITrainEpisode> actionContext.get(KeysRlTrain.trainEpisode)!).graphViews;
+    
+
+    // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information 
+    // If we train
+    if (!actionContext.get(KeysRlTrain.train) && context && !context.trainEndPoint){
+      this.emptyTrainEpisode();
+    }
+
+  return {
+    leafFeatures: featuresQuery,
+    graphViews: graphViews
+  };
+
+  }
+
   /**
    * @param context An optional context.
    * @return {Promise<{[p: string]: number}>} All available SPARQL (weighted) result media types.
@@ -839,6 +943,116 @@ implements IQueryEngine<QueryContext> {
   public invalidateHttpCache(url?: string, context?: any): Promise<any> {
     context = ActionContext.ensureActionContext(context);
     return this.actorInitQuery.mediatorHttpInvalidate.mediate({ url, context });
+  }
+
+  public async pretrainOptimizer(
+    queries: string[], 
+    cardinalities: number[], 
+    queriesContext: QueryStringContext,
+    batchSize: number,
+    epochs: number
+    ){
+    // Create a simple output layer that takes the representations made by the gcn layers and makes
+    // cardinality prediction. Proper coding would be to make this an object with json based config
+    // but this is first version :) We follow CARDINALITY ESTIMATION OVER KNOWLEDGE GRAPHS WITH
+    // EMBEDDINGS AND GRAPH NEURAL NETWORKS by Tim Schwabe and use mean pooling + hidden layer with relu
+    // and linear layer
+    const cardinalityPredictionLayers: IGraphCardinalityPredictionLayers = {
+      pooling: tf.layers.average(),
+      hiddenLayer: new DenseOwnImplementation(128, 256),
+      activationHiddenLayer: tf.layers.activation({activation: 'relu'}),
+      linearLayer: new DenseOwnImplementation(256, 1),
+    }
+    const gcnModels: IQueryGraphEncodingModels = this.modelInstanceGCN.getModels();
+
+    const rawFeatures = await this.prepareFeaturizedQueries(queries, queriesContext);
+    // TODO make features also contain graphViews
+    const features = this.standardizeCardinalityTriplePattern(rawFeatures);
+
+    for (let i = 0; i<epochs; i++){
+      // TODO: Shuffle graphviews too
+      const shuffled = this.shuffle(features, cardinalities);
+      const shuffledFeaturesAsTensors = features.map(x => tf.stack(x));
+      // TODO: Pass graphviews to batched pretraining
+      this.batchedPretraining(shuffledFeaturesAsTensors, cardinalities, batchSize, gcnModels, cardinalityPredictionLayers );
+    }
+  }
+
+  public async prepareFeaturizedQueries(queries: string[], context: QueryStringContext){
+    const features: tf.Tensor<tf.Rank>[][] = [];
+    const graphViews: IQueryGraphViews[] = [];
+    for (const query of queries){
+      const featuresQuery = await this.getFeaturesQuery(query, context);
+      features.push(featuresQuery.leafFeatures);
+      graphViews.push(featuresQuery.graphViews);
+    }
+    return features;
+  }
+
+  public batchedPretraining(features: tf.Tensor[], cardinalities: number[], batchSize: number,
+     modelsGCN: IQueryGraphEncodingModels, cardinalityPredictionLayers: IGraphCardinalityPredictionLayers){
+    const numBatches = Math.ceil(features.length/batchSize);
+    for (let b=0; b<numBatches; b++){
+      const queriesInBatch: tf.Tensor[] = features.slice(b*batchSize, Math.min((b+1)*batchSize, features.length));
+      const queryCardinalitiesBatch: number[] = cardinalities.slice(b*batchSize, Math.min((b+1)*batchSize, cardinalities.length));
+      // TODO: Implement optimization logic
+      // this.modelTrainerOffline.pretrainOptimizerBatched(queryCardinalitiesBatch, queriesInBatch, , modelsGCN, cardinalityPredictionLayers)
+    }
+  }
+
+  public standardizeCardinalityTriplePattern(features: tf.Tensor<tf.Rank>[][]){
+    let totalCardinality = 0;
+    let totalFeaturizedPatterns = 0;
+    
+    const cardinalitiesTriplePattern: number[] = [];
+    const featuresAsArray: number[][][][] = [];
+    // Calculate mean cardinality of triple patterns
+    for (let i = 0; i < features.length; i++){
+      const innerArray: number[][][] = [];
+      for (let j = 0; j < features[i].length; j++){
+        const tensorAsArray: number[][] = <number[][]> features[i][j].arraySync();
+
+        cardinalitiesTriplePattern.push(tensorAsArray[0][0]);
+        innerArray.push(tensorAsArray);
+        totalCardinality += tensorAsArray[0][0];
+        totalFeaturizedPatterns += 1;
+      }
+      featuresAsArray.push(innerArray);
+    }
+    const meanCardinality = totalCardinality / totalFeaturizedPatterns;
+
+    let totalStd = 0;
+    for (let i = 0; i < features.length; i++){
+      for (let j = 0; j < features[i].length; j++){
+        const tensorAsArray: number[][] = <number[][]> features[i][j].arraySync();
+        totalStd += Math.pow((tensorAsArray[0][0] - meanCardinality),2);
+      }
+    }
+    const standardDeviation = Math.sqrt(totalStd / (totalFeaturizedPatterns-1));
+    for (let i = 0; i < featuresAsArray.length; i++){
+      for (let j = 0; j < featuresAsArray[i].length; j++){
+        featuresAsArray[i][j][0][0] = (featuresAsArray[i][j][0][0] - meanCardinality) / standardDeviation;
+      }
+    }
+    // Convert back into tensors
+    const standardizedFeatures = featuresAsArray.map(x => x.map(y => tf.tensor(y)));
+    return standardizedFeatures
+  }
+
+  public validateModel(){
+
+  }
+
+  public shuffle(features: tf.Tensor[][], cardinalities: number[]){
+    let i, j, xE, xQ;
+    for (i=features.length-1;i>0;i--){
+      j = Math.floor(Math.random()*(i+1));
+      xE = features[i]; xQ = cardinalities[i]; 
+      features[i] = features[j]; cardinalities[i]=cardinalities[j]; 
+      features[j] = xE; cardinalities[j]= xQ;
+    }
+    return [features, cardinalities]
+
   }
 
   public async trainModel(batchedTrainingExamples: IBatchedTrainingExamples){
@@ -1046,4 +1260,9 @@ export interface IExperience{
   actualExecutionTimeRaw: number;
   joinIndexes: number[][]
   N: number;
+}
+
+export interface IQueryFeatures{
+  leafFeatures: tf.Tensor[];
+  graphViews: IQueryGraphViews;
 }

@@ -295,6 +295,10 @@ export const KeysRlTrain = {
    */
   runningMomentsFeatureFile: new ActionContextKey<string>('@comunica/mediator-join-reinforcement-learning:runningMomentsFeatureFile'),
   /**
+   * Whether we should track and use running moments, default is true.
+   */
+  trackRunningMoments: new ActionContextKey<string>('@comunica/mediator-join-reinforcement-learning:trackRunningMoments'),
+  /**
    * Indicating whether we are during training or inference
    */
   train: new ActionContextKey<boolean>('@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:train'),

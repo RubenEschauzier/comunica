@@ -196,7 +196,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     const models = (action.context.get(KeysRlTrain.modelInstanceGCN) as InstanceModelGCN).getModels();
 
     // Update running moments only at leaf and for queries with more than two triple patterns
-    if (action.entries.length>2){
+    if (action.entries.length>2 && action.context.get(KeysRlTrain.trackRunningMoments)){
       const runningMomentsFeatures: IRunningMoments = action.context.get(KeysRlTrain.runningMomentsFeatures)!;
       this.updateAllMoments(runningMomentsFeatures, leafFeatures);
       this.standardiseFeatures(runningMomentsFeatures, leafFeatures);  

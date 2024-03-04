@@ -441,6 +441,7 @@ export class ModelTreeLSTM{
     }
 
     public forwardPass(resultSetFeatures: IResultSetRepresentation, idx: number[]): IModelOutput{
+        console.log("Start pass")
         const outputTensors = tf.tidy(() =>{       
             if (resultSetFeatures.hiddenStates.length!=resultSetFeatures.memoryCell.length){
                 throw new Error("Model given hiddenState and memoryCell arrays with different sizes");

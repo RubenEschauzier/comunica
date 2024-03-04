@@ -3,6 +3,7 @@ import * as tf from '@tensorflow/tfjs-node';
 import { squaredDifference } from '@tensorflow/tfjs-node';
 import { ModelTreeLSTM } from './treeLSTM';
 import { IQueryGraphEncodingModels } from './instanceModel';
+import { DenseOwnImplementation } from './fullyConnectedLayers';
 
 export class ModelTrainerOffline{
     optimizer: tf.Optimizer
@@ -126,14 +127,23 @@ export class ModelTrainerOffline{
             return episodeLoss/executionTimes.length;
         });
     }
-
-    public validateModel(){
-        
+    
+    public pretrainOptimizerBatched(queryCardinalities: number[], leafFeaturesTensor: tf.Tensor[], 
+        graphViews: IQueryGraphViews[], 
+        modelsGCN: IQueryGraphEncodingModels, 
+        cardinalityPredictionLayers: IGraphCardinalityPredictionLayers){
     }
+
 
     public meanSquaredError(prediction: tf.Tensor, actual: tf.Tensor){
         return tf.tidy(()=>{
             return tf.sum(tf.pow(tf.sub(prediction, actual),2));
+        });
+    }
+
+    public meanAbsoluteError(prediction: tf.Tensor, actual: tf.Tensor){
+        return tf.tidy(()=>{
+            return tf.sum(tf.abs(tf.sub(prediction, actual)));
         });
     }
 }
@@ -149,3 +159,15 @@ export function stringLiteralArray<T extends string>(a: T[]) {
 
 export const optimizerOptions = stringLiteralArray(['adam', 'sgd']);
 // type optimizerOptionsTypes = typeof optimizerOptions[number];
+
+
+export interface IGraphCardinalityPredictionLayers{
+    // Pooling layer to get singular graph representation
+    pooling: tf.layers.Layer,
+    // Hidden layer to introduce non-more complex function approx
+    hiddenLayer: DenseOwnImplementation
+    // Activation to introduce non-linearity
+    activationHiddenLayer: tf.layers.Layer
+    // Finally linear layer with no activation to get regression result
+    linearLayer: DenseOwnImplementation
+}

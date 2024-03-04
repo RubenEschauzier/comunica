@@ -171,7 +171,8 @@ export interface IActorInitQueryBaseArgs<QueryContext extends IQueryContextCommo
    *   "train" : "@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:train",
    *   "queryKey" : "@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:queryKey",
    *   "configFileDirectory" : "@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:configFileDirectory",
-   *   "temperature" : "@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:temperature"
+   *   "temperature" : "@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree:temperature",
+   *   "trackRunningMoments": "@comunica/mediator-join-reinforcement-learning:trackRunningMoments"
    * }}
    */
 

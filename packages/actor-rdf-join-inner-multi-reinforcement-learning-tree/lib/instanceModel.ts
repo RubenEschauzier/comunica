@@ -109,6 +109,7 @@ export class InstanceModelGCN{
     };
 }
 
+
 export interface IQueryGraphEncodingModels{
     modelSubjSubj: GraphConvolutionModel;
     modelObjObj: GraphConvolutionModel;

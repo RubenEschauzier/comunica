@@ -182,7 +182,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
   ): Promise<IMediatorTypeReinforcementLearning> {
     // If we have leq 2 entries in our action then we are either: At first execution, last execution or we don't call this actor. To ensure the actor initialises and
     // resets properly we have to initialise sharedVariables
-
+    console.log("1")
     const modelTreeLSTM: ModelTreeLSTM = (action.context.get(KeysRlTrain.modelInstanceLSTM) as InstanceModelLSTM).getModel();
     const bestOutput = tf.tidy(():[tf.Tensor, tf.Tensor, tf.Tensor, number[]]=>{
       // Get possible join indexes, this disregards order of joins, is that a good assumption for for example hash join?
@@ -229,7 +229,7 @@ export class ActorRdfJoinInnerMultiReinforcementLearningTree extends ActorRdfJoi
       return [qValuesEstTensor[chosenIdx], featureRepresentations[chosenIdx].hiddenState, 
       featureRepresentations[chosenIdx].memoryCell, possibelJoinIndexesUnSorted[chosenIdx]]
     });
-
+    console.log('2')
     const featureRepresentation: ISingleResultSetRepresentation = {hiddenState: bestOutput[1], memoryCell: bestOutput[2]};
     return {iterations: 0, persistedItems: 0, blockingItems: 0, requestTime:0,
       predictedQValue: bestOutput[0],
