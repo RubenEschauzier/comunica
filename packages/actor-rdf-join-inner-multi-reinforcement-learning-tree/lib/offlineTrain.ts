@@ -160,7 +160,7 @@ export class ModelTrainerOffline{
                 ));
                 return loss.squeeze();
             }, true);
-            return loss?.arraySync()
+            return loss!.arraySync()
         });
     }
 

@@ -1002,7 +1002,7 @@ implements IQueryEngine<QueryContext> {
       const shuffled = this.shuffle(standardizedTpEncTrain, trainCardinalities, graphViewsTrain);
       const shuffledFeaturesAsTensors = standardizedTpEncTrain.map(x => tf.stack(x));
 
-      this.batchedPretraining(
+      const averageTrainLoss = this.batchedPretraining(
         shuffledFeaturesAsTensors,
         logTrainCardinalities,
         graphViewsTrain,
@@ -1010,14 +1010,16 @@ implements IQueryEngine<QueryContext> {
         gcnModels,
         cardinalityPredictionLayers,
       );
+      console.log(`Epoch ${i+1}/${epochs}, trainLoss: ${averageTrainLoss}`);
 
-      this.validateModel(
+      const averageAbsoluteError = this.validateModel(
         tensorTpEncVal,
         logValCardinalities,
         graphViewsVal,
         gcnModels,
         cardinalityPredictionLayers
       );
+      console.log(`Validaton absolute error: ${averageAbsoluteError}`);
     }
   }
   // /**
@@ -1073,12 +1075,12 @@ implements IQueryEngine<QueryContext> {
     cardinalityPredictionLayers: IGraphCardinalityPredictionLayers,
   ) {
     const numBatches = Math.ceil(features.length / batchSize);
+    let totalLoss = 0;
     for (let b = 0; b < numBatches; b++) {
       const triplePatternEncodingBatch: tf.Tensor[] = features.slice(b * batchSize, Math.min((b + 1) * batchSize, features.length));
       const graphViewsInBatch: IQueryGraphViews[] = graphViews.slice(b * batchSize, Math.min((b + 1) * batchSize, graphViews.length));
       const queryCardinalitiesBatch: number[] = cardinalities.slice(b * batchSize, Math.min((b + 1) * batchSize, cardinalities.length));
 
-      // TODO: Implement optimization logic
       const loss = this.modelTrainerOffline.pretrainOptimizerBatched(
         queryCardinalitiesBatch,
         triplePatternEncodingBatch,
@@ -1086,8 +1088,9 @@ implements IQueryEngine<QueryContext> {
         modelsGCN,
         cardinalityPredictionLayers,
       );
-      console.log(loss);
+      totalLoss += loss;
     }
+    return totalLoss / features.length
   }
 
   public standardizeCardinalityTriplePattern(features: tf.Tensor[][]) {
@@ -1154,7 +1157,7 @@ implements IQueryEngine<QueryContext> {
     )).squeeze();
     const valErrorNumber: number = <number> valError.arraySync();
     const averageValError = valErrorNumber / features.length;
-    console.log(`Validation error: ${averageValError}`)
+    return averageValError;
   }
 
   public shuffle(
@@ -1166,7 +1169,6 @@ implements IQueryEngine<QueryContext> {
         j,
         xE,
         xG,
-        xJ,
         xQ;
     for (i = features.length - 1; i > 0; i--) {
       j = Math.floor(Math.random() * (i + 1));
