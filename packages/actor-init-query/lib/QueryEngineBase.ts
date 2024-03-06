@@ -69,8 +69,6 @@ implements IQueryEngine<QueryContext> {
     // Initialise empty episode on creation
     this.emptyTrainEpisode();
     // Instantiate used models
-    this.modelInstanceLSTM = new InstanceModelLSTM(this.actorInitQuery.modelConfigLocationLstm);
-    this.modelInstanceGCN = new InstanceModelGCN(this.actorInitQuery.modelConfigLocationGcn);
     this.currentTrainingStateEngineDirectory = 'latestSavedState';
     // Moved this to first execution of query, because we want to initiate this from config, honestly should work more with components.js for this
     // this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.001});
@@ -96,392 +94,6 @@ implements IQueryEngine<QueryContext> {
     this.numTrainSteps = 0;
     this.numQueries = 120;
     this.totalEpochsDone = 0;
-  }
-
-  public async querySingleTrainStep<QueryFormatTypeInner extends QueryFormatType>(
-    query: QueryFormatTypeInner,
-    context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
-    randomId?: number,
-  ) {
-    let trainLoss: number[] = [];
-    try {
-      trainLoss = this.readTrainLoss(`${this.actorInitQuery.modelCheckPointLocation}/trainLoss.txt`);
-    } catch {
-      console.warn(chalk.red('No train loss array found'));
-    }
-
-    const clonedContext = _.cloneDeep(context);
-    clonedContext.batchedTrainingExamples = this.batchedTrainExamples;
-
-    const queryKey = this.experienceBuffer.getQueryKey(query.toString());
-    this.currentQueryKey = queryKey;
-
-    const trainResult = await this.executeTrainQuery(query, clonedContext, queryKey, this.experienceBuffer, randomId);
-    const experiences: IExperience[] = [];
-    const features = [];
-    // Sample experiences from the buffer if we have enough prior executions
-    if (this.experienceBuffer.getSize() > 20) {
-      for (let z = 0; z < this.nExpPerQuery; z++) {
-        const experience: [IExperience, IExperienceKey] = this.experienceBuffer.getRandomExperience();
-        experiences.push(experience[0]);
-        const feature = this.experienceBuffer.getFeatures(experience[1].query)!;
-        features.push(feature);
-      }
-      // Const loss = await this.trainModelExperienceReplay(experiences, features);
-      const featureTensors = features.map(x => tf.stack(x.hiddenStates));
-      const loss = await this.trainModelExperienceReplayTemp(experiences, featureTensors, features.map(x => x.graphViews));
-      trainLoss.push(loss);
-      this.numTrainSteps += 1;
-    }
-
-    this.writeTrainLoss(trainLoss, `${this.actorInitQuery.modelCheckPointLocation}/trainLoss.txt`);
-    this.cleanBatchTrainingExamples();
-    // When the number of train steps is equal or larger to the number of queries, we count 1 epoch, record statistics and checkpoint the model
-    if (this.numTrainSteps >= this.numQueries) {
-      this.totalEpochsDone += 1;
-
-      const trainLossEpoch: number[] = trainLoss.slice((this.totalEpochsDone - 1) * this.numQueries, this.totalEpochsDone * this.numQueries);
-      const avgTrainLossEpoch: number = trainLossEpoch.reduce((a, b) => a + b, 0) / trainLossEpoch.length || 0;
-      console.log(`Epoch ${this.totalEpochsDone}: Avg train loss: ${avgTrainLossEpoch}`);
-      this.saveState(0, `ckp${this.totalEpochsDone}`);
-      let epochTrainLoss: number[] = [];
-      try {
-        // Read epoch loss from previous chkpoint to append to
-        epochTrainLoss = this.readTrainLoss(`${this.actorInitQuery.modelCheckPointLocation}/ckp${this.totalEpochsDone - 1}/epochTrainLoss.txt`);
-      } catch {
-        console.warn('Couldn\'t find epoch train loss information');
-      }
-      epochTrainLoss.push(avgTrainLossEpoch);
-      this.writeTrainLoss(epochTrainLoss, `${this.actorInitQuery.modelCheckPointLocation}/ckp${this.totalEpochsDone}/epochTrainLoss.txt`);
-      // Reset the query execution counter
-      this.numTrainSteps = 0;
-    }
-    return trainResult[1];
-  }
-
-  public async loadState(ckpDirName: string) {
-    // Load running moments
-    try {
-      const runningMomentsFeatures = this.modelInstanceLSTM.loadRunningMoments(
-        path.join(
-          this.actorInitQuery.modelCheckPointLocation,
-          ckpDirName,
-          'runningMomentsFeatures.txt',
-        ),
-      );
-      const runningMomentsExecution = this.modelInstanceLSTM.loadRunningMoments(
-        path.join(
-          this.actorInitQuery.modelCheckPointLocation,
-          ckpDirName,
-          'runningMomentsExecution.txt',
-        ),
-      );
-      this.runningMomentsFeatures = runningMomentsFeatures;
-      this.runningMomentsExecution = runningMomentsExecution;
-    } catch {
-      console.warn(chalk.red('INFO: No running moments found'));
-    }
-
-    // Load training statistics
-    try {
-      const data = JSON.parse(readFileSync(
-        path.join(
-          this.actorInitQuery.modelCheckPointLocation,
-          ckpDirName,
-          'numTrainStepsEpochs.txt',
-        ),
-        'utf-8',
-      ));
-      this.numTrainSteps = Number(data[0]);
-      this.totalEpochsDone = Number(data[1]);
-    } catch {
-      console.warn(chalk.red('INFO: Failed to read number of training steps executed'));
-    }
-    // Load experience buffer
-    try {
-      this.experienceBuffer.loadBuffer(
-        path.join(
-          this.actorInitQuery.modelCheckPointLocation,
-          ckpDirName,
-        ),
-      );
-    } catch {
-      // If we can't find a certain file, we initialise an empty buffer
-      this.experienceBuffer = new ExperienceBuffer(this.experienceBuffer.maxSize);
-      console.warn(chalk.red('INFO: No existing or incomplete buffer found'));
-    }
-    // Load LSTM model weights
-    try {
-      await this.modelInstanceLSTM.initModel(path.join(
-        this.actorInitQuery.modelCheckPointLocation,
-        ckpDirName,
-        `models`,
-        `lstm-model`,
-      ));
-      console.log('Successfully initialised LSTM from weight files.');
-    } catch {
-      // Flush any initialisation that went through to start from fresh model
-      this.modelInstanceLSTM.flushModel();
-      // Initialise random model
-      await this.modelInstanceLSTM.initModelRandom(
-        path.join(
-          this.actorInitQuery.modelCheckPointLocation,
-          ckpDirName,
-          `models`,
-          `lstm-model`,
-        ),
-      );
-      console.warn(chalk.red('INFO: Failed to load model weights, randomly initialising model weights'));
-    }
-    // Load GCN model weights, this shouldn't fail so no error handling
-    this.modelInstanceGCN.initModel(
-      path.join(
-        this.actorInitQuery.modelCheckPointLocation,
-        ckpDirName,
-        `models`,
-        `gcn-models`,
-      ),
-    );
-    console.log(`Successfully loaded experience buffer. Size Buffer after Loading: ${this.experienceBuffer.getSize()}`);
-  }
-
-  public saveState(timeOutValue: number, ckpDirName: string) {
-    this.createDirectoryStructureCheckpoint(ckpDirName);
-    try {
-      this.modelInstanceLSTM.saveModel(path.join(
-        this.actorInitQuery.modelCheckPointLocation,
-        ckpDirName,
-        `models`,
-        `lstm-model`,
-      ));
-    } catch {
-      console.warn(chalk.red('INFO: Failed to save LSTM model'));
-    }
-    try {
-      this.modelInstanceGCN.saveModel(path.join(
-        this.actorInitQuery.modelCheckPointLocation,
-        ckpDirName,
-        `models`,
-        `gcn-models`,
-      ));
-    } catch (error: any) {
-      console.warn(chalk.red(`INFO: Failed to save GCN model: error: ${error.message}`));
-    }
-    try {
-      writeFileSync(path.join(this.actorInitQuery.modelCheckPointLocation,
-        ckpDirName,
-        'numTrainStepsEpochs.txt'),
-      JSON.stringify([ this.numTrainSteps, this.totalEpochsDone ]));
-    } catch {
-      console.warn(chalk.red('INFO: Failed to save number of training steps executed'));
-    }
-
-    try {
-      this.modelInstanceLSTM.saveRunningMoments(this.runningMomentsFeatures,
-        path.join(this.actorInitQuery.modelCheckPointLocation,
-          ckpDirName,
-          '/runningMomentsFeatures.txt'));
-      this.modelInstanceLSTM.saveRunningMoments(this.runningMomentsExecution,
-        path.join(this.actorInitQuery.modelCheckPointLocation,
-          ckpDirName,
-          '/runningMomentsExecution.txt'));
-    } catch {
-      console.warn(chalk.red('INFO: Failed to save running moments'));
-    }
-
-    // First add timedout experience to buffer with current execution time
-    if (this.trainEpisode.joinsMade.length === 0) {
-      // We have no joins in our episode, so we just save buffer as is and exit
-      this.experienceBuffer.saveBuffer(
-        path.join(
-          this.actorInitQuery.modelCheckPointLocation,
-          ckpDirName,
-        ),
-      );
-      console.warn(chalk.red('Empty trainEpisode when saving training state'));
-      return;
-    }
-    // If we have episode information we save it to buffer and then exit
-    const elapsed = timeOutValue / 1_000;
-    const statsY: IAggregateValues = this.runningMomentsExecution.runningStats.get(this.runningMomentsExecution.indexes[0])!;
-
-    this.updateRunningMoments(statsY, elapsed);
-
-    const standardisedElapsed = (elapsed - statsY.mean) / statsY.std;
-    const partialJoinPlan: number[][] = [];
-
-    for (const joinMade of this.trainEpisode.joinsMade) {
-      partialJoinPlan.push(joinMade);
-      const newExperience: IExperience = { actualExecutionTimeRaw: elapsed,
-        actualExecutionTimeNorm: standardisedElapsed,
-        joinIndexes: [ ...partialJoinPlan ],
-        N: 1 };
-      this.experienceBuffer.setExperience(this.currentQueryKey, MediatorJoinReinforcementLearning.idxToKey([ ...partialJoinPlan ]), newExperience, statsY);
-    }
-    this.experienceBuffer.saveBuffer(
-      path.join(
-        this.actorInitQuery.modelCheckPointLocation,
-        ckpDirName,
-      ),
-    );
-  }
-
-  /**
-   * Creates directory structure of chkpoint at specified save location. Structure is as follows:
-   * Ckp${i}
-   * |- traininginfo...
-   * |- models
-   *    |- gcn-models
-   *      |- subj-subj...
-   *      |- obj-obj...
-   *      |- obj-sub...
-   *    |- lstm-model
-   *      |- ...
-   */
-  public createDirectoryStructureCheckpoint(ckpDirName: string) {
-    if (!fs.existsSync(path.join(this.actorInitQuery.modelCheckPointLocation, ckpDirName))) {
-      fs.mkdirSync(path.join(this.actorInitQuery.modelCheckPointLocation, ckpDirName));
-    }
-    const ckpDir = path.join(this.actorInitQuery.modelCheckPointLocation, ckpDirName);
-    if (!fs.existsSync(path.join(ckpDir, 'models'))) {
-      fs.mkdirSync(path.join(ckpDir, 'models'));
-    }
-    const modelDir = path.join(ckpDir, 'models');
-    if (!fs.existsSync(path.join(modelDir, 'lstm-model'))) {
-      fs.mkdirSync(path.join(modelDir, 'lstm-model'));
-    }
-    if (!fs.existsSync(path.join(modelDir, 'gcn-models'))) {
-      fs.mkdirSync(path.join(modelDir, 'gcn-models'));
-    }
-    if (!fs.existsSync(path.join(modelDir, 'gcn-models', 'gcn-model-subj-subj'))) {
-      fs.mkdirSync(path.join(modelDir, 'gcn-models', 'gcn-model-subj-subj'));
-    }
-    if (!fs.existsSync(path.join(modelDir, 'gcn-models', 'gcn-model-obj-obj'))) {
-      fs.mkdirSync(path.join(modelDir, 'gcn-models', 'gcn-model-obj-obj'));
-    }
-    if (!fs.existsSync(path.join(modelDir, 'gcn-models', 'gcn-model-obj-subj'))) {
-      fs.mkdirSync(path.join(modelDir, 'gcn-models', 'gcn-model-obj-subj'));
-    }
-  }
-
-  public readTrainLoss(fileLocation: string) {
-    const loss: number[] = JSON.parse(fs.readFileSync(fileLocation, 'utf-8'));
-    return loss;
-  }
-
-  public writeTrainLoss(loss: number[], fileLocation: string) {
-    fs.writeFileSync(fileLocation, JSON.stringify(loss));
-  }
-
-  public async executeTrainQuery<QueryFormatTypeInner extends QueryFormatType>(
-    query: QueryFormatTypeInner,
-    context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
-    queryKey: string,
-    experienceBuffer: ExperienceBuffer,
-    randomId?: number,
-  ): Promise<[number, BindingsStream]> {
-    const startT = this.getTimeSeconds();
-    // Let the RL model optimize the query
-    const binding = await this.queryOfType<QueryFormatTypeInner, IQueryBindingsEnhanced>(query, context, 'bindings', randomId);
-    const endTSearch = this.getTimeSeconds();
-    // If there are no joins in query we do not record the experience for the model to train
-    if (this.trainEpisode.joinsMade.length === 0) {
-      this.disposeTrainEpisode();
-      this.emptyTrainEpisode();
-      return [ endTSearch - startT, binding ];
-    }
-    // Get all query optimization steps made by model
-    const joinOrderKeys: string[] = [];
-    for (let i = 1; i < this.trainEpisode.joinsMade.length + 1; i++) {
-      const joinIndexId = this.trainEpisode.joinsMade.slice(0, i);
-      joinOrderKeys.push(MediatorJoinReinforcementLearning.idxToKey(joinIndexId));
-    }
-
-    // Consume the query plan to obtain query execution time, elapsed is used in .setExperience()
-    const elapsed = await this.consumeStream(binding, experienceBuffer, startT, joinOrderKeys, queryKey, false, true);
-
-    // Clear episode tensors to reset the model state
-    this.disposeTrainEpisode();
-    this.emptyTrainEpisode();
-    return [ endTSearch - startT, binding ];
-  }
-
-  public consumeStream(bindingStream: BindingsStream,
-    experienceBuffer: ExperienceBuffer,
-    startTime: number, joinsMadeEpisode: string[], queryKey: string,
-    validation: boolean, recordExperience: boolean) {
-    let numBindings = 0;
-    const consumedStream: Promise<number> = new Promise((resolve, reject) => {
-      bindingStream.on('data', () => {
-        numBindings += 1;
-      });
-      bindingStream.on('end', () => {
-        const endTime: number = this.getTimeSeconds();
-        const elapsed: number = endTime - startTime;
-        const statsY: IAggregateValues = this.runningMomentsExecution.runningStats.get(this.runningMomentsExecution.indexes[0])!;
-
-        if (!validation && joinsMadeEpisode.length > 2) {
-          this.updateRunningMoments(statsY, elapsed);
-        }
-        if (recordExperience) {
-          const standardisedElapsed = (elapsed - statsY.mean) / statsY.std;
-          for (const joinMade of joinsMadeEpisode) {
-            const newExperience: IExperience = { actualExecutionTimeRaw: elapsed,
-              actualExecutionTimeNorm: standardisedElapsed,
-              joinIndexes: MediatorJoinReinforcementLearning.keyToIdx(joinMade),
-              N: 1 };
-            experienceBuffer.setExperience(queryKey, joinMade, newExperience, statsY);
-          }
-        }
-        resolve(elapsed);
-      });
-    });
-    return consumedStream;
-  }
-
-  public async executeQueryInitFeaturesBuffer<QueryFormatTypeInner extends QueryFormatType>(
-    query: QueryFormatTypeInner,
-    context: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
-  ) {
-    const bindingsStream: BindingsStream = await this.queryBindings(query, context);
-    const leafFeatures: IResultSetRepresentation = { hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x => x.clone()),
-      memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x => x.clone()) };
-    this.disposeTrainEpisode();
-    this.emptyTrainEpisode();
-    this.cleanBatchTrainingExamples();
-    return leafFeatures;
-  }
-
-  public updateRunningMoments(toUpdateAggregate: IAggregateValues, newValue: number) {
-    toUpdateAggregate.N += 1;
-    const delta = newValue - toUpdateAggregate.mean;
-    toUpdateAggregate.mean += delta / toUpdateAggregate.N;
-    const newDelta = newValue - toUpdateAggregate.mean;
-    toUpdateAggregate.M2 += delta * newDelta;
-    toUpdateAggregate.std = Math.sqrt(toUpdateAggregate.M2 / toUpdateAggregate.N);
-  }
-
-  public cleanBatchTrainingExamples() {
-    this.batchedTrainExamples.leafFeatures.hiddenStates.map(x => x.dispose());
-    this.batchedTrainExamples.leafFeatures.memoryCell.map(x => x.dispose());
-    this.batchedTrainExamples = { trainingExamples: new Map<string, ITrainingExample>(), leafFeatures: { hiddenStates: [], memoryCell: []}};
-  }
-
-  public stdArray(values: number[], mean: number) {
-    const std: number = Math.sqrt(values.map(x => (x - mean) ** 2).reduce((a, b) => a + b, 0) / values.length);
-    return std;
-  }
-
-  public getTimeSeconds() {
-    const hrTime: number[] = process.hrtime();
-    const time: number = hrTime[0] + hrTime[1] / 1_000_000_000;
-    return time;
-  }
-
-  public writeEpochFiles(fileLocations: string[], epochInformation: number[][]) {
-    for (const [ i, fileLocation ] of fileLocations.entries()) {
-      fs.writeFileSync(fileLocation, JSON.stringify([ ...epochInformation[i] ]));
-    }
   }
 
   public async queryBindings<QueryFormatTypeInner extends QueryFormatType>(
@@ -537,7 +149,7 @@ implements IQueryEngine<QueryContext> {
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
     randomId?: number,
   ): Promise<QueryType> {
-    const output = await this.queryOrExplain(query, context, randomId);
+    const output = await this.queryOrExplain(query, context);
     if ('explain' in output) {
       throw new Error(`Tried to explain a query when in query-only mode`);
     }
@@ -572,48 +184,9 @@ implements IQueryEngine<QueryContext> {
   public async queryOrExplain<QueryFormatTypeInner extends QueryFormatType>(
     query: QueryFormatTypeInner,
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
-    randomId?: number,
   ): Promise<QueryType | IQueryExplained> {
     context = context || <any>{};
-    /**
-     * If there are no entries in queryToKey map we are at first run or after time-out, thus reload the model state.
-     * We do this at start query to prevent unnecessary initialisation of features
-    */
 
-    if (context && this.experienceBuffer.queryToKey.size === 0 && context.trainEndPoint) {
-      await this.loadState(this.currentTrainingStateEngineDirectory);
-    }
-
-    // Flag to determine if we should perform an initialisation query
-    const initQuery = !this.experienceBuffer.queryExists(query.toString());
-    // Prepare batchedTrainExamples so we can store our leaf features
-    if (context) {
-      context.batchedTrainingExamples = this.batchedTrainExamples;
-    }
-    // We should really use the query log in experiencebuffer to determine the # of triple patterns in query,
-    // so we skip training to train the model on those queries.
-
-    if (context && context.trainEndPoint) {
-      context.train = true;
-    }
-    /**
-     * We execute training step on endpoint if we
-     * 1. Get a context
-     * 2. The context says we are doing endpoint training
-     * 3. If we haven't already called this.querySingleTrainStep (To prevent infinite recursion)
-     * 4. If the query already is initialised in the experienceBuffer
-     * 5. The query has more than two triple patterns (Nothing to train on otherwise)
-     */
-    if (context?.trainEndPoint && !this.breakRecursion && !initQuery) {
-      // Execute query step with given query
-      this.breakRecursion = true;
-      await this.querySingleTrainStep(query, context, randomId);
-      this.breakRecursion = false;
-      context.batchedTrainingExamples = this.batchedTrainExamples;
-      // Reset train episode
-      this.emptyTrainEpisode();
-      return this.returnNop();
-    }
     // Expand shortcuts
     for (const key in context) {
       if (this.actorInitQuery.contextKeyShortcuts[key]) {
@@ -621,6 +194,7 @@ implements IQueryEngine<QueryContext> {
         delete context[key];
       }
     }
+
     // Prepare context
     let actionContext: IActionContext = new ActionContext(context);
     let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };
@@ -631,49 +205,20 @@ implements IQueryEngine<QueryContext> {
         actionContext = actionContext.setDefault(KeysInitQuery.graphqlSingularizeVariables, {});
       }
     }
-    // Initialise the running moments from file (The running moments file should only be passed on first execution)
-    if (actionContext.get(KeysRlTrain.runningMomentsFeatureFile)) {
-      if (this.modelInstanceLSTM.initMoments) {
-        console.warn(chalk.red('WARNING: Reloading Moments When They Are Already Initialised'));
-      }
-
-      const loadedRunningMomentsFeature: IRunningMoments =
-      this.modelInstanceLSTM.loadRunningMoments(actionContext.get(KeysRlTrain.runningMomentsFeatureFile)!);
-      this.runningMomentsFeatures = loadedRunningMomentsFeature;
-      // Signal we loaded the moments
-      this.modelInstanceLSTM.initMoments = true;
-    }
-
-    // If no path was passed and the moments are not initialised we create mean 0 std 1 moments
-    else if (!this.modelInstanceLSTM.initMoments) {
-      console.warn(chalk.red('INFO: Running Query Without Initialised Running Moments'));
-      for (const index of this.runningMomentsFeatures.indexes) {
-        const startPoint: IAggregateValues = { N: 0, mean: 0, std: 1, M2: 1 };
-        this.runningMomentsFeatures.runningStats.set(index, startPoint);
-      }
-      this.modelInstanceLSTM.initMoments = true;
-    }
-
     const baseIRI: string | undefined = actionContext.get(KeysInitQuery.baseIRI);
-    // Why are we doing this?
-    // await this.modelInstanceLSTM.initModelRandom();
-
     actionContext = actionContext
       .setDefault(KeysInitQuery.queryTimestamp, new Date())
       .setDefault(KeysRdfResolveQuadPattern.sourceIds, new Map())
       // Set the default logger if none is provided
       .setDefault(KeysCore.log, this.actorInitQuery.logger)
       .setDefault(KeysInitQuery.functionArgumentsCache, this.defaultFunctionArgumentsCache)
-      .setDefault(KeysRlTrain.trainEpisode, this.trainEpisode)
-      .setDefault(KeysRlTrain.modelInstanceLSTM, this.modelInstanceLSTM)
-      .setDefault(KeysRlTrain.modelInstanceGCN, this.modelInstanceGCN)
-      .setDefault(KeysRlTrain.runningMomentsFeatures, this.runningMomentsFeatures)
-      .setDefault(KeysRlTrain.trackRunningMoments, true);
 
     // Pre-processing the context
     actionContext = (await this.actorInitQuery.mediatorContextPreprocess.mediate({ context: actionContext })).context;
+
     // Determine explain mode
     const explainMode: QueryExplainMode = actionContext.get(KeysInitQuery.explain)!;
+
     // Parse query
     let operation: Algebra.Operation;
     if (typeof query === 'string') {
@@ -699,6 +244,7 @@ implements IQueryEngine<QueryContext> {
         data: operation,
       };
     }
+
     // Apply initial bindings in context
     if (actionContext.has(KeysInitQuery.initialBindings)) {
       operation = materializeOperation(operation, actionContext.get(KeysInitQuery.initialBindings)!);
@@ -706,6 +252,7 @@ implements IQueryEngine<QueryContext> {
       // Delete the query string from the context, since our initial query might have changed
       actionContext = actionContext.delete(KeysInitQuery.queryString);
     }
+
     // Optimize the query operation
     const mediatorResult = await this.actorInitQuery.mediatorOptimizeQueryOperation
       .mediate({ context: actionContext, operation });
@@ -730,34 +277,17 @@ implements IQueryEngine<QueryContext> {
       physicalQueryPlanLogger = new MemoryPhysicalQueryPlanLogger();
       actionContext = actionContext.set(KeysInitQuery.physicalQueryPlanLogger, physicalQueryPlanLogger);
     }
+
     // Execute query
     const output = await this.actorInitQuery.mediatorQueryOperation.mediate({
       context: actionContext,
       operation,
     });
     output.context = actionContext;
-    // If we are in initialisation run, we initialise the query with its features and return empty bindings
 
-    // Reset train episode if we are not training (Bit of a shoddy workaround, because we need some episode information
-    // If we train
-    if (!actionContext.get(KeysRlTrain.train) && context && !context.trainEndPoint) {
-      this.emptyTrainEpisode();
-    }
     const finalOutput = QueryEngineBase.internalToFinalResult(output);
 
-    if (initQuery) {
-      // Get the leaf features resulting from query
-      const leafFeatures: IResultSetRepresentation = { hiddenStates: this.batchedTrainExamples.leafFeatures.hiddenStates.map(x => x.clone()),
-        memoryCell: this.batchedTrainExamples.leafFeatures.memoryCell.map(x => x.clone()) };
-      const leafFeaturesExpanded: IResultSetRepresentationGraph = { ...leafFeatures, graphViews: this.trainEpisode.graphViews };
-      // Clean the examples
-      this.cleanBatchTrainingExamples();
-      this.disposeTrainEpisode();
-      this.emptyTrainEpisode();
-      this.experienceBuffer.initQueryInformation(query.toString(), leafFeaturesExpanded);
-      return finalOutput;
-    }
-
+    // Output physical query plan after query exec if needed
     if (physicalQueryPlanLogger) {
       // Make sure the whole result is produced
       switch (finalOutput.resultType) {
@@ -774,6 +304,7 @@ implements IQueryEngine<QueryContext> {
           await finalOutput.execute();
           break;
       }
+
       return {
         explain: true,
         type: explainMode,
@@ -956,6 +487,9 @@ implements IQueryEngine<QueryContext> {
     lr: number,
     modelDirectory: string,
   ) {
+    // Create model to pretrain
+    this.modelInstanceGCN = new InstanceModelGCN(modelDirectory);
+
     // Create a simple output layer that takes the representations made by the gcn layers and makes
     // cardinality prediction. Proper coding would be to make this an object with json based config
     // but this is first version :) We follow CARDINALITY ESTIMATION OVER KNOWLEDGE GRAPHS WITH

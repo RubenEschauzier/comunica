@@ -261,11 +261,6 @@ export class HttpServiceSparqlEndpoint {
     process.on('message', async(message: string): Promise<void> => {
       if (message === 'shutdown') {
         stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
-        // Write model to file
-        // TODO Make saveFile functionality on shutdown
-        console.info('Engine shutdown; Saving state');
-        engine.saveState(this.timeout, engine.currentTrainingStateEngineDirectory);
-
         // Stop new connections from being accepted
         server.close();
 
