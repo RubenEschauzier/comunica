@@ -196,7 +196,7 @@ export class GraphConvolutionModel {
     }
   }
 
-  public initModelWeights(modelDirectory: string) {
+  public initModelWeights(modelDirectory: string, verbose = false) {
     let gcnIndex = 0;
     let gcnDirectedIndex = 0;
     let denseIndex = 0;
@@ -206,7 +206,9 @@ export class GraphConvolutionModel {
         try {
           newGcnLayer.loadWeights(path.join(modelDirectory, this.config.weightLocationGcn, `gcn-weight-${gcnIndex}.txt`));
         } catch (error: any) {
-          console.warn(`Failed to load weights from weightfile, error: ${error.message}`);
+          if (verbose){
+            console.warn(`Failed to load weights from weightfile, error: ${error.message}`);
+          }
         }
         this.layers.push([ newGcnLayer, layerConfig.type ]);
         gcnIndex += 1;
@@ -216,7 +218,9 @@ export class GraphConvolutionModel {
         try {
           newGcnLayer.loadWeights(path.join(modelDirectory, this.config.weightLocationGcnDirected, `gcn-weight-${gcnDirectedIndex}.txt`));
         } catch (error: any) {
-          console.warn(`Failed to load weights from weightfile, error: ${error.message}`);
+          if (verbose) {
+            console.warn(`Failed to load weights from weightfile, error: ${error.message}`);
+          }
         }
         this.layers.push([ newGcnLayer, layerConfig.type ]);
         gcnDirectedIndex += 1;
@@ -231,8 +235,9 @@ export class GraphConvolutionModel {
             path.join(modelDirectory, this.config.weightLocationDense, `bias`, `dense-bias-${denseIndex}.txt`),
           );
         } catch (error: any) {
-          console.warn(`Failed to load weights from weightfile, error ${error.message}`);
-        }
+          if (verbose) {
+            console.warn(`Failed to load weights from weightfile, error: ${error.message}`);
+          }        }
         this.layers.push([ newDenseLayer, layerConfig.type ]);
         denseIndex += 1;
       }
@@ -307,14 +312,17 @@ export class GraphConvolutionModel {
     }
   }
 
-  public forwardPass(input: tf.Tensor, mAdjacency: tf.Tensor) {
+  public forwardPass(input: tf.Tensor, mAdjacency: tf.Tensor, validate?: boolean) {
     let x = input;
     for (let i = 0; i < this.layers.length; i++) {
       if (this.layers[i][1] == 'gcn' || this.layers[i][1] == 'gcndirected') {
         x = this.layers[i][0].call(x, mAdjacency) as tf.Tensor;
       } else {
         const nonGraphLayer: DenseOwnImplementation | tf.layers.Layer = this.layers[i][0];
-        x = nonGraphLayer.call(tf.transpose(x), {}) as tf.Tensor;
+        if (this.layers[i][1] == 'dropout'){
+          continue;
+        }
+        x = nonGraphLayer.call(x, {}) as tf.Tensor;
       }
     }
     return x;

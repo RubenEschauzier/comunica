@@ -18,12 +18,13 @@ export class DenseOwnImplementation extends tf.layers.Layer {
     // Make intermediate value because we have to be able dispose to prevent memory leaks
     this.intermediateHeInit = tf.div(tf.tensor(2), tf.tensor(this.outputDim));
     this.heInitTerm = tf.sqrt(this.intermediateHeInit);
-    this.mWeights = tf.variable(tf.mul(tf.randomNormal([ this.outputDim, this.inputDim ], 0, 1), this.heInitTerm), true);
-    this.mBias = tf.variable(tf.mul(tf.randomNormal([ outputDim, 1 ], 0, 1), this.heInitTerm), true);
+    // THIS ALSO SWITCHED DIMENSIONS
+    this.mWeights = tf.variable(tf.mul(tf.randomNormal([ this.inputDim, this.outputDim ], 0, 1), this.heInitTerm), true);
+    this.mBias = tf.variable(tf.mul(tf.randomNormal([ 1, outputDim ], 0, 1), this.heInitTerm), true);
   }
-
+  // THIS SWITCH DIMENSIONS TO ACCOMEDATE LACK OF TRANSPOSE IN GCN
   call(inputs: tf.Tensor, kwargs: any) {
-    return tf.tidy(() => tf.add(tf.matMul(this.mWeights, inputs), this.mBias.broadcastTo([ this.outputDim, 1 ])));
+    return tf.tidy(() => tf.add(tf.matMul(inputs, this.mWeights), this.mBias.broadcastTo([ 1, this.outputDim ])));
   }
 
   getClassName() {

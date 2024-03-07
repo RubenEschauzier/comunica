@@ -139,8 +139,9 @@ export class ModelTrainerOffline{
         graphViews: IQueryGraphViews[], 
         modelsGCN: IQueryGraphEncodingModels, 
         cardinalityPredictionLayers: IGraphCardinalityPredictionLayers
-    ){
-        return tf.tidy(() => {
+    ): ITrainResult{
+        const [loss, mean, std] = tf.tidy(() => {
+            const cardinalityPredictionsTracker: number[] = [];
             const loss: tf.Scalar|null = this.optimizer.minimize(()=>{
                 const cardinalityPredictionsBatch: tf.Tensor[] = [];
                 for (let i=0;i<leafFeaturesTensor.length;i++){
@@ -151,17 +152,29 @@ export class ModelTrainerOffline{
                         cardinalityPredictionLayers
                     );
                     cardinalityPredictionsBatch.push(cardPrediction);
+                    cardinalityPredictionsTracker.push(<number> cardPrediction.arraySync());
                 }
 
                 const executionTimesBatch: tf.Tensor[] = queryCardinalities.map(x=>tf.tensor(x));
-                const loss = tf.sum(squaredDifference(
+                const loss = tf.sum(this.meanAbsoluteError(
                     tf.concat(cardinalityPredictionsBatch).squeeze(),
                     tf.concat(executionTimesBatch).squeeze()
                 ));
                 return loss.squeeze();
             }, true);
-            return loss!.arraySync()
+            // console.log("Predict: actual");
+            // console.log(cardinalityPredictionsTracker);
+            // console.log(queryCardinalities)
+            const cardinalityPredictionTensors = tf.stack(cardinalityPredictionsTracker);
+            const mean = tf.mean(cardinalityPredictionTensors);
+            const std = tf.moments(cardinalityPredictionTensors).variance.sqrt();
+            return [loss!.arraySync(), mean, std];
         });
+        return { 
+            loss: loss, 
+            averagePrediction: <number> mean.arraySync(), 
+            stdPrediction: <number> std.arraySync() 
+        }
     }
 
     public forwardPassCardinalityPrediction(
@@ -169,9 +182,12 @@ export class ModelTrainerOffline{
         cardinalityPredictionLayers: IGraphCardinalityPredictionLayers
     ){
         const averagedRepresentation = <tf.Tensor> cardinalityPredictionLayers.pooling.apply(learnedRepresentation);
-        const hiddenRepresentation = <tf.Tensor> cardinalityPredictionLayers.hiddenLayer.apply(averagedRepresentation.transpose());
+        const hiddenRepresentation = <tf.Tensor> cardinalityPredictionLayers.hiddenLayer.apply(averagedRepresentation);
         const activationOutput = <tf.Tensor> cardinalityPredictionLayers.activationHiddenLayer.apply(hiddenRepresentation);
-        const cardinalityPrediction = <tf.Tensor> cardinalityPredictionLayers.linearLayer.apply(activationOutput);
+        const cardinalityPrediction = <tf.Tensor> cardinalityPredictionLayers.finalLayer.apply(activationOutput);
+        if (cardinalityPredictionLayers.finalActivation){
+            return <tf.Tensor> cardinalityPredictionLayers.finalActivation.apply(cardinalityPrediction);
+        }
 
         return cardinalityPrediction
     }
@@ -180,20 +196,20 @@ export class ModelTrainerOffline{
         leafFeatures: tf.Tensor, 
         graphView: IQueryGraphViews, 
         modelsGCN: IQueryGraphEncodingModels, 
-        cardinalityPredictionLayers: IGraphCardinalityPredictionLayers
+        cardinalityPredictionLayers: IGraphCardinalityPredictionLayers,
+        validation?: boolean
     ){
         // Obtain query representations from GCN forwardpasses
         const subjSubjRepresentation = modelsGCN.modelSubjSubj.
-            forwardPass(leafFeatures.squeeze(), tf.tensor(graphView.subSubView));
+            forwardPass(leafFeatures.squeeze(), tf.tensor(graphView.subSubView), validation);
         const objObjRepresentation = modelsGCN.modelObjObj.
-            forwardPass(leafFeatures.squeeze(), tf.tensor(graphView.objObjView));
+            forwardPass(leafFeatures.squeeze(), tf.tensor(graphView.objObjView), validation);
         const objSubjRepresentation = modelsGCN.modelObjSubj.
-            forwardPass(leafFeatures.squeeze(), tf.tensor(graphView.objSubView));
+            forwardPass(leafFeatures.squeeze(), tf.tensor(graphView.objSubView), validation);
 
         // Concatinate them into one representation
         const learnedRepresentation = tf.concat([subjSubjRepresentation, objObjRepresentation, objSubjRepresentation], 1);
         const learnedRepresentationList = tf.split(learnedRepresentation, learnedRepresentation.shape[0]);
-
         const cardinalityPrediction = this.forwardPassCardinalityPrediction(
             learnedRepresentationList, 
             cardinalityPredictionLayers
@@ -228,13 +244,21 @@ export const optimizerOptions = stringLiteralArray(['adam', 'sgd']);
 // type optimizerOptionsTypes = typeof optimizerOptions[number];
 
 
-export interface IGraphCardinalityPredictionLayers{
+export interface IGraphCardinalityPredictionLayers {
     // Pooling layer to get singular graph representation
-    pooling: tf.layers.Layer,
+    pooling: tf.layers.Layer
     // Hidden layer to introduce non-more complex function approx
     hiddenLayer: DenseOwnImplementation
     // Activation to introduce non-linearity
     activationHiddenLayer: tf.layers.Layer
     // Finally linear layer with no activation to get regression result
-    linearLayer: DenseOwnImplementation
+    finalLayer: DenseOwnImplementation
+    // Optional final activation function
+    finalActivation?: tf.layers.Layer
+}
+
+export interface ITrainResult {
+    loss: number
+    averagePrediction: number
+    stdPrediction: number
 }

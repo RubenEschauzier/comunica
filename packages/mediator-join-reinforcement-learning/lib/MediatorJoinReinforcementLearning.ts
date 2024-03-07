@@ -30,7 +30,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
    * For actual we could make an actor that creates these vectors, but that would require a lot of work to make RDF2Vec work on javascript
    */
   public readPredicateVectors() {
-    const vectorLocation = path.join(__dirname, '..', 'models/predicate-vectors-depth-1/vectors_depth_1.txt');
+    const vectorLocation = path.join(__dirname, '..', 'models/predicate-vectors-depth-1/vector-onehot.txt');
     this.predicateVectors = new Map();
     const keyedVectors = fs.readFileSync(vectorLocation, 'utf-8').trim().split('\n');
     for (const vector of keyedVectors) {

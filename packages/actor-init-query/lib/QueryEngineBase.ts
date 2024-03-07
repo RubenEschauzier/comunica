@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import * as process from 'process';
-import type { IGraphCardinalityPredictionLayers, IQueryGraphEncodingModels } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
+import type { IGraphCardinalityPredictionLayers, IQueryGraphEncodingModels, ITrainResult } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
 import { InstanceModelGCN, InstanceModelLSTM, ModelTrainerOffline } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
 import { DenseOwnImplementation } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree/lib/fullyConnectedLayers';
 import { BindingsFactory } from '@comunica/bindings-factory';
@@ -9,9 +9,8 @@ import { materializeOperation } from '@comunica/bus-query-operation';
 import type { IActionSparqlSerialize, IActorQueryResultSerializeOutput } from '@comunica/bus-query-result-serialize';
 import { KeysCore, KeysInitQuery, KeysRdfResolveQuadPattern, KeysRlTrain } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
-import type { IAggregateValues, IQueryGraphViews, IResultSetRepresentation, IResultSetRepresentationGraph, IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
+import type { IAggregateValues, IQueryGraphViews, IResultSetRepresentation, IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
 import { MediatorJoinReinforcementLearning } from '@comunica/mediator-join-reinforcement-learning';
-import type { IExperienceKey } from '@comunica/model-trainer';
 import { ExperienceBuffer } from '@comunica/model-trainer';
 import type {
   IActionContext, IPhysicalQueryPlanLogger,
@@ -27,13 +26,11 @@ import type {
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator} from 'asynciterator';
-import { ArrayIterator, SingletonIterator } from 'asynciterator';
-import * as chalk from 'chalk';
+import { ArrayIterator } from 'asynciterator';
 import type { Algebra } from 'sparqlalgebrajs';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
 import * as _ from 'lodash';
-import * as fs from 'graceful-fs';
 import * as tf from '@tensorflow/tfjs-node';
 
 /**
@@ -317,7 +314,6 @@ implements IQueryEngine<QueryContext> {
   public async getFeaturesQuery<QueryFormatTypeInner extends QueryFormatType>(
     query: QueryFormatTypeInner,
     context?: QueryContext & QueryFormatTypeInner extends string ? QueryStringContext : QueryAlgebraContext,
-    randomId?: number,
   ): Promise < IQueryFeatures > {
     context = context || <any>{};
 
@@ -475,6 +471,18 @@ implements IQueryEngine<QueryContext> {
     return this.actorInitQuery.mediatorHttpInvalidate.mediate({ url, context });
   }
 
+  public scale(data: number[]){
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    return data.map(x => (x-min)/(max-min));
+  }
+
+  // What can still be done:
+  // 1. Isomorphism removal
+  // 2. Onehot encode vectors
+  // 3. Concat instead of average whne uinsg rdf2vec
+  // Increase width first layer
+  // ??
   public async pretrainOptimizer(
     trainQueries: string[],
     trainCardinalities: number[],
@@ -499,7 +507,7 @@ implements IQueryEngine<QueryContext> {
       pooling: tf.layers.average(),
       hiddenLayer: new DenseOwnImplementation(384, 256),
       activationHiddenLayer: tf.layers.activation({ activation: 'relu' }),
-      linearLayer: new DenseOwnImplementation(256, 1),
+      finalLayer: new DenseOwnImplementation(256, 1)
     };
     // Init GCN model from config
     this.modelInstanceGCN.initModel(modelDirectory);
@@ -520,7 +528,7 @@ implements IQueryEngine<QueryContext> {
     const graphViewsTrain: IQueryGraphViews[] = rawFeaturesTrain.map(x => x.graphViews);
 
     // Take log to stabilize training
-    const logTrainCardinalities: number[] = trainCardinalities.map(x => Math.log(x));
+    const logTrainCardinalities: number[] = this.scale(trainCardinalities.map(x => Math.log(x)));
 
     // Prepare val features and input to optimizer
     const tpEncodingsVal: tf.Tensor[][] = rawFeaturesVal.map(x => x.leafFeatures);
@@ -530,13 +538,16 @@ implements IQueryEngine<QueryContext> {
     const graphViewsVal: IQueryGraphViews[] = rawFeaturesVal.map(x => x.graphViews);
 
     // Take log to stabilize training
-    const logValCardinalities: number[] = valCardinalities.map(x => Math.log(x));
-
+    const logValCardinalities: number[] = this.scale(valCardinalities.map(x => Math.log(x)));
+    const pretrainResult: IPretrainLog = {
+      trainLoss: [], 
+      validationError: []
+    }
     for (let i = 0; i < epochs; i++) {
-      const shuffled = this.shuffle(standardizedTpEncTrain, trainCardinalities, graphViewsTrain);
+      const shuffled = this.shuffle(standardizedTpEncTrain, logTrainCardinalities, graphViewsTrain);
       const shuffledFeaturesAsTensors = standardizedTpEncTrain.map(x => tf.stack(x));
-
-      const averageTrainLoss = this.batchedPretraining(
+      
+      const trainOutput = this.batchedPretraining(
         shuffledFeaturesAsTensors,
         logTrainCardinalities,
         graphViewsTrain,
@@ -544,7 +555,12 @@ implements IQueryEngine<QueryContext> {
         gcnModels,
         cardinalityPredictionLayers,
       );
-      console.log(`Epoch ${i+1}/${epochs}, trainLoss: ${averageTrainLoss}`);
+
+      console.log(`Epoch ${i+1}/${epochs}, 
+      trainLoss: ${trainOutput.loss.toFixed(2)}, 
+      mean: ${trainOutput.averagePrediction.toFixed(2)}, 
+      std: ${trainOutput.stdPrediction.toFixed(2)}`
+      );
 
       const averageAbsoluteError = this.validateModel(
         tensorTpEncVal,
@@ -554,7 +570,10 @@ implements IQueryEngine<QueryContext> {
         cardinalityPredictionLayers
       );
       console.log(`Validaton absolute error: ${averageAbsoluteError}`);
+      pretrainResult.trainLoss.push(trainOutput.loss);
+      pretrainResult.validationError.push(averageAbsoluteError);
     }
+    return pretrainResult
   }
   // /**
   //  * Function to create join trees to pass to model to predict cardinalities. Think about whether it is a problem
@@ -607,9 +626,11 @@ implements IQueryEngine<QueryContext> {
     batchSize: number,
     modelsGCN: IQueryGraphEncodingModels,
     cardinalityPredictionLayers: IGraphCardinalityPredictionLayers,
-  ) {
+  ): ITrainResult {
     const numBatches = Math.ceil(features.length / batchSize);
     let totalLoss = 0;
+    let totalMean = 0;
+    let totalStd = 0;
     for (let b = 0; b < numBatches; b++) {
       const triplePatternEncodingBatch: tf.Tensor[] = features.slice(b * batchSize, Math.min((b + 1) * batchSize, features.length));
       const graphViewsInBatch: IQueryGraphViews[] = graphViews.slice(b * batchSize, Math.min((b + 1) * batchSize, graphViews.length));
@@ -622,9 +643,15 @@ implements IQueryEngine<QueryContext> {
         modelsGCN,
         cardinalityPredictionLayers,
       );
-      totalLoss += loss;
+      totalLoss += loss.loss;
+      totalMean += loss.averagePrediction;
+      totalStd += loss.stdPrediction;
     }
-    return totalLoss / features.length
+    return {
+      loss: totalLoss / features.length, 
+      averagePrediction: totalMean/numBatches, 
+      stdPrediction: totalStd / numBatches
+    };
   }
 
   public standardizeCardinalityTriplePattern(features: tf.Tensor[][]) {
@@ -679,7 +706,8 @@ implements IQueryEngine<QueryContext> {
         features[i], 
         graphViews[i], 
         modelsGCN, 
-        cardinalityPredictionLayers
+        cardinalityPredictionLayers,
+        true
       );
       cardPredictions.push(prediction)
     }
@@ -923,4 +951,9 @@ export interface IExperience{
 export interface IQueryFeatures{
   leafFeatures: tf.Tensor[];
   graphViews: IQueryGraphViews;
+}
+
+export interface IPretrainLog{
+  trainLoss: number[]
+  validationError: number[]
 }
