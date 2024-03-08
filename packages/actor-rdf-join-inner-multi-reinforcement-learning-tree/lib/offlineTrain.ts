@@ -162,9 +162,6 @@ export class ModelTrainerOffline{
                 ));
                 return loss.squeeze();
             }, true);
-            // console.log("Predict: actual");
-            // console.log(cardinalityPredictionsTracker);
-            // console.log(queryCardinalities)
             const cardinalityPredictionTensors = tf.stack(cardinalityPredictionsTracker);
             const mean = tf.mean(cardinalityPredictionTensors);
             const std = tf.moments(cardinalityPredictionTensors).variance.sqrt();
