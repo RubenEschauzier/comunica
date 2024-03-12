@@ -189,7 +189,6 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       throw new Error('Action context does not contain any query operations');
     }
     const vectorSize = 128;
-
     const leafFeatures = await this.getLeafFeatures(action, vectorSize);
     const sharedVariables = await this.getSharedVariableTriplePatterns(action);
     const graphViews: IQueryGraphViews = MediatorJoinReinforcementLearning.createQueryGraphViews(action);
@@ -206,9 +205,6 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
 
     // Feature tensors created here, after no longer needed (corresponding result sets are joined) they need to be disposed
     const featureTensorLeaf: tf.Tensor[] = leafFeatures.map(x => tf.tensor(x, [ 1, x.length ]));
-    const memoryCellLeaf: tf.Tensor[] = featureTensorLeaf.map(x => tf.zeros(x.shape));
-
-    const resultSetRepresentationLeaf: IResultSetRepresentation = { hiddenStates: featureTensorLeaf, memoryCell: memoryCellLeaf };
 
     if (!action.context.get(KeysRlTrain.trainEpisode)) {
       throw new Error('No train episode given in context');
@@ -221,36 +217,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
       throw new Error('Mediator is passed undefined as BatchedTrainingExamples object');
     }
 
-    // Clone of tensors, will prob make memory leaks!
-    // Outdated, investigate if batchedTrainEpisode is even necessary
-    if (batchToUpdate.leafFeatures.hiddenStates.length === 0) {
-      batchToUpdate.leafFeatures = { hiddenStates: resultSetRepresentationLeaf.hiddenStates.map(x => x.clone()),
-        memoryCell: resultSetRepresentationLeaf.memoryCell.map(x => x.clone()) };
-    }
-    const stackedTensor = tf.stack(featureTensorLeaf).squeeze();
-    // StackedTensor should be shape [nTriplePattern, EmbeddingSize].
-    // For queries with 1 triple pattern, squeeze() removes first dimension, so we get new shape with dimension added if
-    // needed
-    const newShape: number[] = [ stackedTensor.shape.length == 1 ? 1 : stackedTensor.shape[0], stackedTensor.shape.length == 1 ?
-      stackedTensor.shape[0] :
-      stackedTensor.shape[1]! ];
-
-    const featureTensorReshaped = tf.reshape(stackedTensor, newShape);
-    // Obtain different query graph representations using GCN
-    const subjSubjRepresentation = models.modelSubjSubj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.subSubView));
-    const objObjRepresentation = models.modelObjObj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.objObjView));
-    const objSubjRepresentation = models.modelObjSubj.forwardPass(featureTensorReshaped, tf.tensor(graphViews.objSubView));
-
-    // Concatinate all representations
-    const learnedRepresentation = tf.concat([subjSubjRepresentation, objObjRepresentation, objSubjRepresentation], 1);
-    const learnedRepresentationList = tf.split(learnedRepresentation, learnedRepresentation.shape[0]);
-    const learnedRepresentationResultSet: IResultSetRepresentation = {
-      hiddenStates: learnedRepresentationList,
-      memoryCell: learnedRepresentationList.map(x => tf.zeros(x.shape)),
-    };
-
-    // Initialise episode
-    episode.learnedFeatureTensor = learnedRepresentationResultSet;
+    // Initialise episode (THIS IS STRIPPED VERSION AS WE DONT NEED THE FLUFF)
     episode.leafFeatureTensor = featureTensorLeaf;
     episode.sharedVariables = sharedVariables;
     episode.isEmpty = false;

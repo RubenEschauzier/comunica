@@ -163,14 +163,21 @@ export class ModelTrainerOffline{
                 return loss.squeeze();
             }, true);
             const cardinalityPredictionTensors = tf.stack(cardinalityPredictionsTracker);
+
             const mean = tf.mean(cardinalityPredictionTensors);
             const std = tf.moments(cardinalityPredictionTensors).variance.sqrt();
-            return [loss!.arraySync(), mean, std];
+            const lossNumber = loss!.arraySync();
+            
+            cardinalityPredictionTensors.dispose();
+            return [lossNumber, mean, std];
         });
+        const avgPredNumber = <number> mean.arraySync();
+        const stdPredNumber = <number> std.arraySync();
+        mean.dispose(); std.dispose();
         return { 
             loss: loss, 
-            averagePrediction: <number> mean.arraySync(), 
-            stdPrediction: <number> std.arraySync() 
+            averagePrediction: avgPredNumber, 
+            stdPrediction: stdPredNumber 
         }
     }
 
@@ -178,15 +185,17 @@ export class ModelTrainerOffline{
         learnedRepresentation: tf.Tensor[], 
         cardinalityPredictionLayers: IGraphCardinalityPredictionLayers
     ){
-        const averagedRepresentation = <tf.Tensor> cardinalityPredictionLayers.pooling.apply(learnedRepresentation);
-        const hiddenRepresentation = <tf.Tensor> cardinalityPredictionLayers.hiddenLayer.apply(averagedRepresentation);
-        const activationOutput = <tf.Tensor> cardinalityPredictionLayers.activationHiddenLayer.apply(hiddenRepresentation);
-        const cardinalityPrediction = <tf.Tensor> cardinalityPredictionLayers.finalLayer.apply(activationOutput);
-        if (cardinalityPredictionLayers.finalActivation){
-            return <tf.Tensor> cardinalityPredictionLayers.finalActivation.apply(cardinalityPrediction);
-        }
-
-        return cardinalityPrediction
+        return tf.tidy(() => {
+            const averagedRepresentation = <tf.Tensor> cardinalityPredictionLayers.pooling.apply(learnedRepresentation);
+            const hiddenRepresentation = <tf.Tensor> cardinalityPredictionLayers.hiddenLayer.apply(averagedRepresentation);
+            const activationOutput = <tf.Tensor> cardinalityPredictionLayers.activationHiddenLayer.apply(hiddenRepresentation);
+            const cardinalityPrediction = <tf.Tensor> cardinalityPredictionLayers.finalLayer.apply(activationOutput);
+            if (cardinalityPredictionLayers.finalActivation){
+                return <tf.Tensor> cardinalityPredictionLayers.finalActivation.apply(cardinalityPrediction);
+            }
+    
+            return cardinalityPrediction    
+        })
     }
 
     public getCardinalityPrediction(        

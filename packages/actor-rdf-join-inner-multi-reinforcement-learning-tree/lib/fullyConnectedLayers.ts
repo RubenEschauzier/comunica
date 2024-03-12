@@ -4,8 +4,6 @@ import * as tf from '@tensorflow/tfjs-node';
 import type { ILayerConfig } from './treeLSTM';
 
 export class DenseOwnImplementation extends tf.layers.Layer {
-  intermediateHeInit: tf.Tensor;
-  heInitTerm: tf.Tensor;
   mWeights: tf.Variable;
   mBias: tf.Variable;
   inputDim: number;
@@ -16,11 +14,27 @@ export class DenseOwnImplementation extends tf.layers.Layer {
     this.inputDim = inputDim;
     this.outputDim = outputDim;
     // Make intermediate value because we have to be able dispose to prevent memory leaks
-    this.intermediateHeInit = tf.div(tf.tensor(2), tf.tensor(this.outputDim));
-    this.heInitTerm = tf.sqrt(this.intermediateHeInit);
     // THIS ALSO SWITCHED DIMENSIONS
-    this.mWeights = tf.variable(tf.mul(tf.randomNormal([ this.inputDim, this.outputDim ], 0, 1), this.heInitTerm), true);
-    this.mBias = tf.variable(tf.mul(tf.randomNormal([ 1, outputDim ], 0, 1), this.heInitTerm), true);
+    this.mWeights = this.createRandomWeights(inputDim, outputDim);
+    this.mBias = this.createRandomBias(outputDim);
+  }
+
+  public getHeInitTerm(outputDim: number) {
+    return tf.tidy(() => tf.sqrt(tf.div(tf.tensor(2), tf.tensor(outputDim))));
+  }
+
+  public createRandomWeights(inputDim: number, outputDim: number){
+    return tf.tidy(()=>{
+      const heInitTerm = this.getHeInitTerm(outputDim);
+      return tf.variable(tf.mul(tf.randomNormal([ this.inputDim, this.outputDim ], 0, 1), heInitTerm), true);
+    });
+  }
+
+  public createRandomBias(outputDim: number){
+    return tf.tidy(() => {
+      const heInitTerm = this.getHeInitTerm(outputDim);
+      return tf.variable(tf.mul(tf.randomNormal([ 1, outputDim ], 0, 1), heInitTerm), true);
+    });
   }
   // THIS SWITCH DIMENSIONS TO ACCOMEDATE LACK OF TRANSPOSE IN GCN
   call(inputs: tf.Tensor, kwargs: any) {
@@ -65,7 +79,6 @@ export class DenseOwnImplementation extends tf.layers.Layer {
 
   public disposeLayer() {
     // Dispose all weights in layer
-    this.intermediateHeInit.dispose(); this.heInitTerm.dispose();
     this.mWeights.dispose(); this.mBias.dispose();
   }
 

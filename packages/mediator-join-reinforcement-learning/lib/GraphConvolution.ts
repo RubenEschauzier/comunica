@@ -29,14 +29,24 @@ export class GraphConvolutionLayer extends tf.layers.Layer {
     // Define output feature size, which is size of node representations
     this.outputSize = outputSize;
     // Trainable weights of convolution
-    this.heInitTerm = tf.sqrt(tf.div(tf.tensor(2), tf.tensor(outputSize)));
-    this.mWeights = tf.variable(tf.mul(tf.randomNormal([ this.inputSize, this.outputSize ], 0, 1), this.heInitTerm), true, layerName);
+    this.heInitTerm = this.getHeInitTerm(outputSize);
+    const randomNormal = tf.randomNormal([ this.inputSize, this.outputSize ], 0, 1);
+    const initVal = tf.mul(randomNormal, this.heInitTerm);
+    this.mWeights = tf.variable(initVal, true, layerName);
+    // Dispose any model weights
+    randomNormal.dispose();
+    initVal.dispose();
     this.heInitTerm.dispose();
+  }
+
+  public getHeInitTerm(numUnits: number) {
+    return tf.tidy(() => tf.sqrt(tf.div(tf.tensor(2), tf.tensor(numUnits))));
   }
 
   public loadWeights(loadPath: string): void {
     const weights = this.readWeightFile(loadPath);
     this.mWeights.assign(weights);
+    weights.dispose();
   }
 
   private readWeightFile(fileLocationWeights: string) {
@@ -111,14 +121,24 @@ export class GraphConvolutionLayerDirected extends tf.layers.Layer {
     // Define output feature size, which is size of node representations
     this.outputSize = outputSize;
     // Trainable weights of convolution
-    this.heInitTerm = tf.sqrt(tf.div(tf.tensor(2), tf.tensor(outputSize)));
-    this.mWeights = tf.variable(tf.mul(tf.randomNormal([ this.inputSize, this.outputSize ], 0, 1), this.heInitTerm), true, layerName);
+    this.heInitTerm = this.getHeInitTerm(outputSize);
+    const randomNormal = tf.randomNormal([ this.inputSize, this.outputSize ], 0, 1);
+    const initVal = tf.mul(randomNormal, this.heInitTerm);
+    this.mWeights = tf.variable(initVal, true, layerName);
+    // Dispose any model weights
+    randomNormal.dispose();
+    initVal.dispose();
     this.heInitTerm.dispose();
+    
+  }
+  public getHeInitTerm(numUnits: number) {
+    return tf.tidy(() => tf.sqrt(tf.div(tf.tensor(2), tf.tensor(numUnits))));
   }
 
   public loadWeights(fileLocation: string): void {
     const weights = this.readWeightFile(fileLocation);
     this.mWeights.assign(weights);
+    weights.dispose()
   }
 
   private readWeightFile(fileLocationWeights: string) {
@@ -355,7 +375,7 @@ export class GraphConvolutionModel {
         (<GraphConvolutionLayerDirected> layer[0]).disposeLayer();
       }
 
-      if (layer[1] == 'dense' || 'gcn' || 'gcndirected') {
+      if (layer[1] == 'dense' ) {
         (<DenseOwnImplementation> layer[0]).disposeLayer();
       }
     }

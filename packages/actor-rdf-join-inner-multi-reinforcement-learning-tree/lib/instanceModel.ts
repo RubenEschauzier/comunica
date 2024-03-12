@@ -101,10 +101,16 @@ export class InstanceModelGCN {
     };
   }
 
-  public saveModel(modelDir: string) {
+  public saveModels(modelDir: string) {
     this.modelSubjSubj.saveModel(path.join(modelDir, 'gcn-model-subj-subj'));
     this.modelObjObj.saveModel(path.join(modelDir, 'gcn-model-obj-obj'));
     this.modelObjSubj.saveModel(path.join(modelDir, 'gcn-model-obj-subj'));
+  }
+
+  public disposeModels(){
+    this.modelSubjSubj.flushModel();
+    this.modelObjObj.flushModel();
+    this.modelObjSubj.flushModel();
   }
 }
 
