@@ -499,53 +499,6 @@ implements IQueryEngine<QueryContext> {
     }
   }
 
-  public async featurizeQueries(
-    trainQueries: string[], trainCardinalities: number[],
-    valCardinalities: number[],valQueries: string[],
-    queriesContext: QueryStringContext,
-  ): Promise<IFeaturizedQueries>{
-    const rawFeaturesTrain: IQueryFeatures[] = await this.prepareFeaturizedQueries(trainQueries, queriesContext);
-    const rawFeaturesVal: IQueryFeatures[] = await this.prepareFeaturizedQueries(valQueries, queriesContext);
-    // Prepare train features and input to optimizer
-    const tpEncodingsTrain: tf.Tensor[][] = rawFeaturesTrain.map(x => x.leafFeatures);
-    const tpEncodingsVal: tf.Tensor[][] = rawFeaturesVal.map(x => x.leafFeatures);
-
-    const standardizedTpEncTrain: tf.Tensor[][] = this.standardizeCardinalityTriplePattern(tpEncodingsTrain);
-    const standardizedTpEncVal: tf.Tensor[][] = this.standardizeCardinalityTriplePattern(tpEncodingsVal);
-
-    const graphViewsTrain: IQueryGraphViews[] = rawFeaturesTrain.map(x => x.graphViews);
-    const graphViewsVal: IQueryGraphViews[] = rawFeaturesVal.map(x => x.graphViews);
-
-    // Take log to stabilize training
-    const logTrainCardinalities: number[] = this.scale(trainCardinalities.map(x => Math.log(x)));
-
-    // Prepare val features and input to optimizer
-    const tensorTpEncVal = standardizedTpEncVal.map(x => tf.stack(x));
-
-    // Take log to stabilize training
-    const logValCardinalities: number[] = this.scale(valCardinalities.map(x => Math.log(x)));
-
-    // Flush all tensors used during training to prevent memory leaks
-    // Flush raw feature tensors
-    rawFeaturesTrain.map(x => x.leafFeatures.map(y => y.dispose()));
-    rawFeaturesVal.map(x => x.leafFeatures.map(y => y.dispose()));
-    // Flush tp encodings
-    tpEncodingsTrain.map(x => x.map(y => y.dispose()));
-    tpEncodingsVal.map(x => x.map(y => y.dispose()));
-
-    // Flush std tp encodings
-    standardizedTpEncVal.map(x => x.map(y => y.dispose()));
-
-
-    return {
-      tpEncTrain: standardizedTpEncTrain,
-      cardinalitiesTrain: logTrainCardinalities,
-      graphViewsTrain: graphViewsTrain,
-      tpEncVal: tensorTpEncVal,
-      cardinalitiesVal: logValCardinalities,
-      graphViewsVal: graphViewsVal
-    }
-  }
   // What can still be done:
   // 1. Isomorphism removal
   // 2. Onehot encode vectors
