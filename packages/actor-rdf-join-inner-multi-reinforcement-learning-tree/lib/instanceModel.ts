@@ -3,6 +3,7 @@ import * as path from 'path';
 import type { IAggregateValues, IRunningMoments } from '@comunica/mediator-join-reinforcement-learning';
 import { GraphConvolutionModel } from '@comunica/mediator-join-reinforcement-learning/lib/GraphConvolution';
 import { ModelTreeLSTM } from './treeLSTM';
+import { IGraphCardinalityPredictionLayers } from './offlineTrain';
 
 export class InstanceModelLSTM {
   private modelTreeLSTM: ModelTreeLSTM;
@@ -111,6 +112,31 @@ export class InstanceModelGCN {
     this.modelSubjSubj.flushModel();
     this.modelObjObj.flushModel();
     this.modelObjSubj.flushModel();
+  }
+
+  
+  public createDirectoryStructureCheckpoint(ckpDirName: string){
+    if (!fs.existsSync(ckpDirName)){
+      fs.mkdirSync(ckpDirName);
+    }
+    const modelDir = ckpDirName
+    
+    if (!fs.existsSync(path.join(modelDir, "gcn-models"))){
+      fs.mkdirSync(path.join(modelDir, "gcn-models"));
+    }
+    if(!fs.existsSync(path.join(modelDir, "gcn-models", "gcn-model-subj-subj"))){
+      fs.mkdirSync(path.join(modelDir, "gcn-models", "gcn-model-subj-subj"));
+    }
+    if(!fs.existsSync(path.join(modelDir, "gcn-models", "gcn-model-obj-obj"))){
+      fs.mkdirSync(path.join(modelDir, "gcn-models", "gcn-model-obj-obj"));
+    }
+    if(!fs.existsSync(path.join(modelDir, "gcn-models", "gcn-model-obj-subj"))){
+      fs.mkdirSync(path.join(modelDir, "gcn-models", "gcn-model-obj-subj"));
+    }  
+  }
+  
+  public static saveCardinalityPredictionHead(saveDir: string, head: IGraphCardinalityPredictionLayers){
+    
   }
 }
 

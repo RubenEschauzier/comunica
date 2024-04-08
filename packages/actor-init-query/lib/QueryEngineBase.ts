@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { fstat, readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import * as process from 'process';
 import type { IGraphCardinalityPredictionLayers, IQueryGraphEncodingModels, ITrainResult } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
@@ -32,6 +32,7 @@ import type { ActorInitQueryBase } from './ActorInitQueryBase';
 import { MemoryPhysicalQueryPlanLogger } from './MemoryPhysicalQueryPlanLogger';
 import * as _ from 'lodash';
 import * as tf from '@tensorflow/tfjs-node';
+import * as fs from 'fs'
 
 /**
  * Base implementation of a Comunica query engine.
@@ -45,52 +46,16 @@ implements IQueryEngine<QueryContext> {
   public modelInstanceGCN: InstanceModelGCN;
   public batchedTrainExamples: IBatchedTrainingExamples;
 
-  // Values needed for endpoint training
-  public experienceBuffer: ExperienceBuffer;
-  public runningMomentsFeatures: IRunningMoments;
-  public runningMomentsExecution: IRunningMoments;
   public trainEpisode: ITrainEpisode;
-  public nExpPerQuery: number;
   public BF: BindingsFactory;
-  public breakRecursion: boolean;
-  public currentQueryKey: string;
-  public currentTrainingStateEngineDirectory: string;
-  // Values for epoch checkpointing
-  public numTrainSteps: number;
-  public numQueries: number;
-  public totalEpochsDone: number;
 
   public constructor(actorInitQuery: ActorInitQueryBase<QueryContext>) {
     this.actorInitQuery = actorInitQuery;
     this.defaultFunctionArgumentsCache = {};
     // Initialise empty episode on creation
     this.emptyTrainEpisode();
-    // Instantiate used models
-    this.currentTrainingStateEngineDirectory = 'latestSavedState';
-    // Moved this to first execution of query, because we want to initiate this from config, honestly should work more with components.js for this
-    // this.modelTrainerOffline = new ModelTrainerOffline({optimizer: 'adam', learningRate: 0.001});
     this.batchedTrainExamples = { trainingExamples: new Map<string, ITrainingExample>(), leafFeatures: { hiddenStates: [], memoryCell: []}};
-    // End point training
     this.BF = new BindingsFactory();
-    this.breakRecursion = false;
-    // Initialise empty running moments
-    this.runningMomentsFeatures = { indexes: [ 0 ], runningStats: new Map<number, IAggregateValues>() };
-    this.runningMomentsExecution = { indexes: [ 0 ], runningStats: new Map<number, IAggregateValues>() };
-    for (const index of this.runningMomentsExecution.indexes) {
-      const startPoint: IAggregateValues = { N: 0, mean: 0, std: 1, M2: 1 };
-      this.runningMomentsExecution.runningStats.set(index, startPoint);
-    }
-    for (const index of this.runningMomentsFeatures.indexes) {
-      const startPoint: IAggregateValues = { N: 0, mean: 0, std: 1, M2: 1 };
-      this.runningMomentsFeatures.runningStats.set(index, startPoint);
-    }
-
-    // Some hardcoded magic numbers for training
-    this.experienceBuffer = new ExperienceBuffer(1_500);
-    this.nExpPerQuery = 8;
-    this.numTrainSteps = 0;
-    this.numQueries = 120;
-    this.totalEpochsDone = 0;
   }
 
   public async queryBindings<QueryFormatTypeInner extends QueryFormatType>(
@@ -479,40 +444,66 @@ implements IQueryEngine<QueryContext> {
     return data.map(x => (x-min)/(max-min));
   }
 
-  // What can still be done:
-  // 1. Isomorphism removal
-  // 2. Onehot encode vectors
-  // 3. Concat instead of average whne uinsg rdf2vec
-  // Increase width first layer
-  // ??
-  public async pretrainOptimizer(
-    trainQueries: string[],
-    trainCardinalities: number[],
-    valQueries: string[],
-    valCardinalities: number[],
-    queriesContext: QueryStringContext,
-    batchSize: number,
-    epochs: number,
-    optimizer: string,
-    lr: number,
-    modelDirectory: string,
-  ) {
-    // Create model to pretrain
-    this.modelInstanceGCN = new InstanceModelGCN(modelDirectory);
-    // Init GCN model from config
-    this.modelInstanceGCN.initModel(modelDirectory);
-    // Init model trainer with specified optimizer and learning rate
-    this.modelTrainerOffline = new ModelTrainerOffline({ optimizer, learningRate: lr });
+  public async featurizeTrainQueries( trainQueries: string[], trainCardinalities: number[],
+    queriesContext: QueryStringContext
+  ): Promise<IFeaturizedTrainQueries> {
+    const rawFeaturesTrain: IQueryFeatures[] = await this.prepareFeaturizedQueries(trainQueries, queriesContext);
+    // Prepare train features and input to optimizer
+    const tpEncodingsTrain: tf.Tensor[][] = rawFeaturesTrain.map(x => x.leafFeatures);
+    const standardizedTpEncTrain: tf.Tensor[][] = this.standardizeCardinalityTriplePattern(tpEncodingsTrain);
 
-    // Cardinality estimation layer from "Cardinality estimation over knowledge graphs with embeddings and graph neural networks" 
-    // by Tim Schwabe and use mean pooling + hidden layer with relu and linear layer
-    const cardinalityPredictionLayers: IGraphCardinalityPredictionLayers = {
-      pooling: tf.layers.average(),
-      hiddenLayer: new DenseOwnImplementation(384, 256),
-      activationHiddenLayer: tf.layers.activation({ activation: 'relu' }),
-      finalLayer: new DenseOwnImplementation(256, 1)
-    };
-    // Get features by running comunica query and not awaiting results
+    const graphViewsTrain: IQueryGraphViews[] = rawFeaturesTrain.map(x => x.graphViews);
+
+    // Take log to stabilize training
+    const logTrainCardinalities: number[] = this.scale(trainCardinalities.map(x => Math.log(x)));
+
+    // Flush all tensors used during training to prevent memory leaks
+    // Flush raw feature tensors
+    rawFeaturesTrain.map(x => x.leafFeatures.map(y => y.dispose()));
+    // Flush tp encodings
+    tpEncodingsTrain.map(x => x.map(y => y.dispose()));
+
+    return {
+      tpEncTrain: standardizedTpEncTrain,
+      cardinalitiesTrain: logTrainCardinalities,
+      graphViewsTrain: graphViewsTrain,
+    }
+  }
+
+  public async featurizeValQueries( valCardinalities: number[],valQueries: string[],
+    queriesContext: QueryStringContext,
+  ): Promise<IFeaturizedValQueries>{
+    const rawFeaturesVal: IQueryFeatures[] = await this.prepareFeaturizedQueries(valQueries, queriesContext);
+    const tpEncodingsVal: tf.Tensor[][] = rawFeaturesVal.map(x => x.leafFeatures);
+    const standardizedTpEncVal: tf.Tensor[][] = this.standardizeCardinalityTriplePattern(tpEncodingsVal);
+
+    const graphViewsVal: IQueryGraphViews[] = rawFeaturesVal.map(x => x.graphViews);
+
+    // Prepare val features and input to optimizer
+    const tensorTpEncVal = standardizedTpEncVal.map(x => tf.stack(x));
+    // Take log to stabilize training
+    const logValCardinalities: number[] = this.scale(valCardinalities.map(x => Math.log(x)));
+
+    // Flush all tensors used during training to prevent memory leaks
+    // Flush raw feature tensors
+    rawFeaturesVal.map(x => x.leafFeatures.map(y => y.dispose()));
+    // Flush tp encodings
+    tpEncodingsVal.map(x => x.map(y => y.dispose()));
+    // Flush std tp encodings
+    standardizedTpEncVal.map(x => x.map(y => y.dispose()));
+
+    return {
+      tpEncVal: tensorTpEncVal,
+      cardinalitiesVal: logValCardinalities,
+      graphViewsVal: graphViewsVal
+    }
+  }
+
+  public async featurizeQueries(
+    trainQueries: string[], trainCardinalities: number[],
+    valCardinalities: number[],valQueries: string[],
+    queriesContext: QueryStringContext,
+  ): Promise<IFeaturizedQueries>{
     const rawFeaturesTrain: IQueryFeatures[] = await this.prepareFeaturizedQueries(trainQueries, queriesContext);
     const rawFeaturesVal: IQueryFeatures[] = await this.prepareFeaturizedQueries(valQueries, queriesContext);
     // Prepare train features and input to optimizer
@@ -533,18 +524,88 @@ implements IQueryEngine<QueryContext> {
 
     // Take log to stabilize training
     const logValCardinalities: number[] = this.scale(valCardinalities.map(x => Math.log(x)));
+
+    // Flush all tensors used during training to prevent memory leaks
+    // Flush raw feature tensors
+    rawFeaturesTrain.map(x => x.leafFeatures.map(y => y.dispose()));
+    rawFeaturesVal.map(x => x.leafFeatures.map(y => y.dispose()));
+    // Flush tp encodings
+    tpEncodingsTrain.map(x => x.map(y => y.dispose()));
+    tpEncodingsVal.map(x => x.map(y => y.dispose()));
+
+    // Flush std tp encodings
+    standardizedTpEncVal.map(x => x.map(y => y.dispose()));
+
+
+    return {
+      tpEncTrain: standardizedTpEncTrain,
+      cardinalitiesTrain: logTrainCardinalities,
+      graphViewsTrain: graphViewsTrain,
+      tpEncVal: tensorTpEncVal,
+      cardinalitiesVal: logValCardinalities,
+      graphViewsVal: graphViewsVal
+    }
+  }
+  // What can still be done:
+  // 1. Isomorphism removal
+  // 2. Onehot encode vectors
+  // 3. Concat instead of average whne uinsg rdf2vec
+  // Increase width first layer
+  // ??
+  public async pretrainOptimizer(
+    trainQueries: string[],
+    trainCardinalities: number[],
+    valQueries: string[],
+    valCardinalities: number[],
+    queriesContext: QueryStringContext,
+    batchSize: number,
+    epochs: number,
+    optimizer: string,
+    lr: number,
+    modelDirectory: string,
+    chkpLocations: string,
+    logLocation?: string,
+    logValidationPredictions: boolean = false
+  ) {
+    // Create model to pretrain
+    this.modelInstanceGCN = new InstanceModelGCN(modelDirectory);
+    // Init GCN model from config
+    this.modelInstanceGCN.initModel(modelDirectory);
+    // Init model trainer with specified optimizer and learning rate
+    this.modelTrainerOffline = new ModelTrainerOffline({ optimizer, learningRate: lr });
+
+    // Cardinality estimation layer from "Cardinality estimation over knowledge graphs with embeddings and graph neural networks" 
+    // by Tim Schwabe and use mean pooling + hidden layer with relu and linear layer
+    const cardinalityPredictionLayers: IGraphCardinalityPredictionLayers = {
+      pooling: tf.layers.average(),
+      hiddenLayer: new DenseOwnImplementation(384, 256),
+      activationHiddenLayer: tf.layers.activation({ activation: 'relu' }),
+      finalLayer: new DenseOwnImplementation(256, 1)
+    };
+
+    const featurizedTrainQueries = await this.featurizeTrainQueries(
+      trainQueries, trainCardinalities, queriesContext
+    );
+    const featurizedValQueries = await this.featurizeValQueries(
+      valCardinalities, valQueries, queriesContext
+    );
+
     const pretrainResult: IPretrainLog = {
       trainLoss: [], 
       validationError: []
-    }
+    };
 
     for (let i = 0; i < epochs; i++) {
-      const shuffled = this.shuffle(standardizedTpEncTrain, logTrainCardinalities, graphViewsTrain);
-      const shuffledFeaturesAsTensors: tf.Tensor[] = standardizedTpEncTrain.map(x => tf.stack(x));
+      const shuffled = this.shuffle(
+        featurizedTrainQueries.tpEncTrain, 
+        featurizedTrainQueries.cardinalitiesTrain, 
+        featurizedTrainQueries.graphViewsTrain
+      );
+      const shuffledFeaturesAsTensors: tf.Tensor[] = featurizedTrainQueries.tpEncTrain.map(x => tf.stack(x));
       const trainOutput = this.batchedPretraining(
         shuffledFeaturesAsTensors,
-        logTrainCardinalities,
-        graphViewsTrain,
+        featurizedTrainQueries.cardinalitiesTrain,
+        featurizedTrainQueries.graphViewsTrain,
         batchSize,
         this.modelInstanceGCN.getModels(),
         cardinalityPredictionLayers,
@@ -555,35 +616,34 @@ implements IQueryEngine<QueryContext> {
       std: ${trainOutput.stdPrediction.toFixed(2)}`
       );
 
-      const averageAbsoluteError = this.validateModel(
-        tensorTpEncVal,
-        logValCardinalities,
-        graphViewsVal,
+      const averageAbsoluteError = this.validateModelDuringTraining(
+        valQueries,
+        featurizedValQueries.tpEncVal,
+        featurizedValQueries.cardinalitiesVal,
+        featurizedValQueries.graphViewsVal,
         this.modelInstanceGCN.getModels(),
-        cardinalityPredictionLayers
+        cardinalityPredictionLayers,
+        logValidationPredictions,
+        logLocation? path.join(logLocation, `validationOutputEpoch${i+1}`) : undefined
       );
+
       console.log(`Validaton absolute error: ${averageAbsoluteError}`);
       pretrainResult.trainLoss.push(trainOutput.loss);
       pretrainResult.validationError.push(averageAbsoluteError);
 
+      console.log(`Saving model.`);
+      const ckpEpochLocation = path.join(chkpLocations, `ckp${i+1}`);
+      if (!fs.existsSync(ckpEpochLocation)){
+        fs.mkdirSync(ckpEpochLocation);      
+      }
+      this.saveModel(ckpEpochLocation);
+
       // Flush shuffled features
       shuffledFeaturesAsTensors.map(x => x.dispose());
     }
-    // Flush all tensors used during training to prevent memory leaks
-    // Flush raw feature tensors
-    rawFeaturesTrain.map(x => x.leafFeatures.map(y => y.dispose()));
-    rawFeaturesVal.map(x => x.leafFeatures.map(y => y.dispose()));
-    // Flush tp encodings
-    tpEncodingsTrain.map(x => x.map(y => y.dispose()));
-    tpEncodingsVal.map(x => x.map(y => y.dispose()));
 
-    // Flush std tp encodings
-    standardizedTpEncTrain.map(x => x.map(y => y.dispose()));
-    standardizedTpEncVal.map(x => x.map(y => y.dispose()));
-
-    // Flush validation input
-    tensorTpEncVal.map(x => x.dispose());
-
+    featurizedValQueries.tpEncVal.map(x => x.dispose());
+    featurizedTrainQueries.tpEncTrain.map(x => x.map(y => y.dispose()));
     this.modelInstanceGCN.disposeModels();
 
     cardinalityPredictionLayers.pooling.dispose();
@@ -677,12 +737,15 @@ implements IQueryEngine<QueryContext> {
     });
   }
 
-  public validateModel(
+  public validateModelDuringTraining(
+    queries: string[],
     features: tf.Tensor[],
     cardinalities: number[],
     graphViews: IQueryGraphViews[],
     modelsGCN: IQueryGraphEncodingModels,
     cardinalityPredictionLayers: IGraphCardinalityPredictionLayers,
+    logValidationPredictions: boolean,
+    logLocation?: string
   ) {
     return tf.tidy(()=>{
       const cardPredictions = [];
@@ -696,16 +759,52 @@ implements IQueryEngine<QueryContext> {
         );
         cardPredictions.push(prediction)
       }
-      
       const executionTimesBatch: tf.Tensor[] = cardinalities.map(x=>tf.tensor(x));
-      const valError = tf.sum(this.modelTrainerOffline.meanAbsoluteError(
-          tf.concat(cardPredictions).squeeze(),
-          tf.concat(executionTimesBatch).squeeze()
-      )).squeeze();
+      const valErrorTensor = this.modelTrainerOffline.meanAbsoluteError( tf.concat(cardPredictions).squeeze(), tf.concat(executionTimesBatch).squeeze());
+      if (logValidationPredictions && logLocation){
+        const validationOutputs: IValidationResult[] = [];
+        const predArray: number[] = <number[]> cardPredictions.map(x => x.arraySync());
+        for (let i = 0; i < queries.length; i++){
+          validationOutputs.push({query: queries[i], pred: predArray[i], actual: cardinalities[i]})
+        }
+        fs.writeFileSync(logLocation, JSON.stringify(validationOutputs));
+      }
+      const valError = tf.sum(valErrorTensor).squeeze();
       const valErrorNumber: number = <number> valError.arraySync();
       const averageValError = valErrorNumber / features.length;
       return averageValError;  
     });
+  }
+
+  public validateTrainedModel(
+    valQueries: string[],
+    valCardinalities: number[],
+    queriesContext: QueryStringContext,
+    modelDirectory: string,
+    logLocation: string,
+  ){
+    this.modelInstanceGCN = new InstanceModelGCN(modelDirectory);
+    // Init GCN model from config
+    this.modelInstanceGCN.initModel(modelDirectory);
+
+    // Cardinality estimation layer from "Cardinality estimation over knowledge graphs with embeddings and graph neural networks" 
+    // by Tim Schwabe and use mean pooling + hidden layer with relu and linear layer
+    const cardinalityPredictionLayers: IGraphCardinalityPredictionLayers = {
+      pooling: tf.layers.average(),
+      hiddenLayer: new DenseOwnImplementation(384, 256),
+      activationHiddenLayer: tf.layers.activation({ activation: 'relu' }),
+      finalLayer: new DenseOwnImplementation(256, 1)
+    };
+
+  }
+
+  public saveModel(location: string){
+    console.log(location);
+    this.modelInstanceGCN.createDirectoryStructureCheckpoint(location);
+    this.modelInstanceGCN.saveModels(path.join(
+      location,
+      `gcn-models`
+      ));
   }
 
   public shuffle(
@@ -757,47 +856,6 @@ implements IQueryEngine<QueryContext> {
     const shuffled = shuffleData(actualExecutionTime, predictedQValues, partialJoinTree);
     const loss = this.modelTrainerOffline.trainOfflineBatched(partialJoinTree, batchedTrainingExamples.leafFeatures, actualExecutionTime, this.modelInstanceLSTM.getModel(), 4);
     return loss;
-
-    /**
-     * TODO For Results:
-     * 1. Implement train loss  (done)
-     * 1.5 Fix memory leaks :/ (done)
-     * 2. Normalise features / y (done)
-     * 3. Track Statistics (+ STD) (done)
-     * 4. Create new vectors for watdiv!! (done)
-     * 5. Regularization using dropout (done)
-     * NOTE: We use dropout only in the forwardpass recursive, this is because we only train on the forwardpass recursive. This might lead to mismatch between
-     * training performance and actual query execution time?? Other hand it does make sense since we want the best possible model to execute joins
-     * even during training
-     * 5. Query Encoding Implemented (todo use PCA with #PC equal to minimal number of joins to consider using multi join = 3)
-     * (Optional for workshop):
-     * 1. Experience Replay (https://paperswithcode.com/method/experience-replay)
-     * (https://towardsdatascience.com/a-technical-introduction-to-experience-replay-for-off-policy-deep-reinforcement-learning-9812bc920a96)
-     * 2. Temperature scaling for bolzman softmax
-     * 3. Better memory management
-     *
-     * Considerations:
-     * When we use features that 'mean' something in leaf result sets and then let the model generate feature representations for
-     * joins, don't we lose information of what the features mean in the result set leafs
-     * On one hand, the model can learn what what representations it should make to get the best results
-     * On other hand, it seems counter intuitive?
-     *
-     * Graph Encoding:
-     * https://towardsdatascience.com/graph-representation-learning-network-embeddings-d1162625c52b
-     * Hyperbolic embeddings
-     * PCA on adjacency matrix
-     *
-     * Triple pattern encoding:
-     * Replace RDF2Vec with BERTesque model
-     * This way we can learn contextual encodings of named nodes AND instantly have access to a [MASK] token embedding which can represent variables in a triple pattern
-     * We can consider training the BERT model together with the optimizer or pretrain BERT only.
-     *
-     * Lit review:
-     * Comprehensive review of join order optimizers
-     * https://www.vldb.org/pvldb/vol15/p1658-zhao.pdf
-     * Super cool paper on query performance prediction
-     * https://www.vldb.org/pvldb/vol12/p1733-marcus.pdf
-     */
   }
 
   public disposeTrainEpisode() {
@@ -914,4 +972,31 @@ export interface IQueryFeatures{
 export interface IPretrainLog{
   trainLoss: number[]
   validationError: number[]
+}
+
+export interface IValidationResult{
+  query: string
+  pred: number
+  actual: number
+}
+
+export interface IFeaturizedQueries{
+  tpEncTrain: tf.Tensor[][]
+  cardinalitiesTrain: number[]
+  graphViewsTrain: IQueryGraphViews[]
+  tpEncVal: tf.Tensor[]
+  cardinalitiesVal: number[]
+  graphViewsVal: IQueryGraphViews[]
+}
+
+export interface IFeaturizedTrainQueries{
+  tpEncTrain: tf.Tensor[][]
+  cardinalitiesTrain: number[]
+  graphViewsTrain: IQueryGraphViews[]
+}
+
+export interface IFeaturizedValQueries{
+  tpEncVal: tf.Tensor[]
+  cardinalitiesVal: number[]
+  graphViewsVal: IQueryGraphViews[]
 }
