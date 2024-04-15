@@ -87,11 +87,11 @@ export class InstanceModelGCN {
     this.initMoments = false;
   }
 
-  public initModel(modelDir: string) {
+  public initModel(modelDir: string, verbose = false) {
     // Try to load weights if available, else initialise random and give warning
-    this.modelSubjSubj.initModelWeights(path.join(modelDir, 'gcn-model-subj-subj'));
-    this.modelObjObj.initModelWeights(path.join(modelDir, 'gcn-model-obj-obj'));
-    this.modelObjSubj.initModelWeights(path.join(modelDir, 'gcn-model-obj-subj'));
+    this.modelSubjSubj.initModelWeights(path.join(modelDir, 'gcn-model-subj-subj'), verbose);
+    this.modelObjObj.initModelWeights(path.join(modelDir, 'gcn-model-obj-obj'), verbose);
+    this.modelObjSubj.initModelWeights(path.join(modelDir, 'gcn-model-obj-subj'), verbose);
   }
 
   public getModels(): IQueryGraphEncodingModels {
@@ -135,9 +135,28 @@ export class InstanceModelGCN {
     }  
   }
   
-  public static saveCardinalityPredictionHead(saveDir: string, head: IGraphCardinalityPredictionLayers){
-    
+  public static saveCardinalityPredictionHead(modelDir: string, head: IGraphCardinalityPredictionLayers){
+    const saveDirCardinalityHead = path.join(modelDir, "cardinalityHead");
+    if (!fs.existsSync(saveDirCardinalityHead)){
+      fs.mkdirSync(saveDirCardinalityHead);
+    }
+    head.hiddenLayer.saveWeights(path.join(saveDirCardinalityHead, 'denseHidden.txt'));
+    head.hiddenLayer.saveBias(path.join(saveDirCardinalityHead, 'biasHidden.txt'));
+    head.finalLayer.saveWeights(path.join(saveDirCardinalityHead, 'denseFinal.txt'));
+    head.finalLayer.saveBias(path.join(saveDirCardinalityHead, 'biasFinal.txt'));
   }
+
+  public static initializeCardinalityPredictionHeadFromWeights(modelDir: string, head: IGraphCardinalityPredictionLayers){
+    const saveDirCardinalityHead = path.join(modelDir, "cardinalityHead");
+
+    head.hiddenLayer.loadWeights(path.join(saveDirCardinalityHead, 'denseHidden.txt'));
+    head.hiddenLayer.loadBias(path.join(saveDirCardinalityHead, 'biasHidden.txt'));
+    head.finalLayer.loadWeights(path.join(saveDirCardinalityHead, 'denseFinal.txt'));
+    head.finalLayer.loadBias(path.join(saveDirCardinalityHead, 'biasFinal.txt'));
+
+    return head;
+  }
+
 }
 
 export interface IQueryGraphEncodingModels{

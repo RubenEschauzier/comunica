@@ -19,6 +19,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
   public readonly timeWeight: number;
   public readonly ioWeight: number;
   public predicateVectors: Map<string, number[]>;
+  private vectorSize: number;
 
   public constructor(args: IMediatorJoinCoefficientsFixedArgs) {
     super(args);
@@ -36,6 +37,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     for (const vector of keyedVectors) {
       const keyVectorArray: string[] = vector.split('[sep]');
       const vectorRepresentation: number[] = keyVectorArray[1].trim().split(' ').map(Number);
+      this.vectorSize = vectorRepresentation.length
       this.predicateVectors.set(keyVectorArray[0], vectorRepresentation);
     }
   }
@@ -188,8 +190,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     if (!action.context.get(KeysQueryOperation.operation)) {
       throw new Error('Action context does not contain any query operations');
     }
-    const vectorSize = 128;
-    const leafFeatures = await this.getLeafFeatures(action, vectorSize);
+    const leafFeatures = await this.getLeafFeatures(action);
     const sharedVariables = await this.getSharedVariableTriplePatterns(action);
     const graphViews: IQueryGraphViews = MediatorJoinReinforcementLearning.createQueryGraphViews(action);
 
@@ -332,7 +333,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     return adjMatrixObjObj;
   }
 
-  public async getLeafFeatures(action: IActionRdfJoinReinforcementLearning, vectorSize: number) {
+  public async getLeafFeatures(action: IActionRdfJoinReinforcementLearning) {
     const patterns: Operation[] = action.entries.map(x => {
       if (!MediatorJoinReinforcementLearning.isPattern(x.operation)) {
         throw new Error('Found a non pattern during feature initialisation');
@@ -356,7 +357,7 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
         predicateEmbedding = this.predicateVectors.get(patterns[i].predicate.value)!;
       } else {
         // Zero vector represents unknown predicate
-        predicateEmbedding = new Array(vectorSize).fill(0);
+        predicateEmbedding = new Array(this.vectorSize).fill(0);
       }
       // LeafFeatures.push([cardinalityLeaf].concat(isVariable[0]));
       leafFeatures.push([ cardinalityLeaf ].concat(isVariable, isNamedNode, isLiteral, predicateEmbedding));

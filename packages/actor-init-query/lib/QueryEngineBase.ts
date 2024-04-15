@@ -438,10 +438,14 @@ implements IQueryEngine<QueryContext> {
     return this.actorInitQuery.mediatorHttpInvalidate.mediate({ url, context });
   }
 
-  public scale(data: number[]){
-    const min = Math.min(...data);
-    const max = Math.max(...data);
-    return data.map(x => (x-min)/(max-min));
+  public scale(data: number[], trainMin?: number, trainMax?: number){
+    if (!trainMin){
+      trainMin = Math.min(...data);
+    }
+    if(!trainMax){
+      trainMax = Math.max(...data);
+    }
+    return data.map(x => (x-trainMin!)/(trainMax!-trainMin!));
   }
 
   public async featurizeTrainQueries( trainQueries: string[], trainCardinalities: number[],
@@ -451,12 +455,10 @@ implements IQueryEngine<QueryContext> {
     // Prepare train features and input to optimizer
     const tpEncodingsTrain: tf.Tensor[][] = rawFeaturesTrain.map(x => x.leafFeatures);
     const standardizedTpEncTrain: tf.Tensor[][] = this.standardizeCardinalityTriplePattern(tpEncodingsTrain);
-
     const graphViewsTrain: IQueryGraphViews[] = rawFeaturesTrain.map(x => x.graphViews);
 
     // Take log to stabilize training
-    const logTrainCardinalities: number[] = this.scale(trainCardinalities.map(x => Math.log(x)));
-
+    const logTrainCardinalities: number[] = trainCardinalities.map(x => Math.log(x));
     // Flush all tensors used during training to prevent memory leaks
     // Flush raw feature tensors
     rawFeaturesTrain.map(x => x.leafFeatures.map(y => y.dispose()));
@@ -470,19 +472,28 @@ implements IQueryEngine<QueryContext> {
     }
   }
 
-  public async featurizeValQueries( valCardinalities: number[],valQueries: string[],
-    queriesContext: QueryStringContext,
+  public async featurizeValQueries( valCardinalities: number[], valQueries: string[], trainQueries: string[],
+    queriesContext: QueryStringContext, trainMinQueryCardinality: number, trainMaxQueryCardinality: number,
+
   ): Promise<IFeaturizedValQueries>{
+
+    const rawFeaturesTrain: IQueryFeatures[] = await this.prepareFeaturizedQueries(trainQueries, queriesContext);
+    // Prepare train features and input to optimizer
+    const tpEncodingsTrain: tf.Tensor[][] = rawFeaturesTrain.map(x => x.leafFeatures);
+    const meanCardinilityTpTrain = this.getMeanCardinality(tpEncodingsTrain);
+    const stdCardinalityTpTrain = this.getStdCardinality(tpEncodingsTrain, meanCardinilityTpTrain);
+
     const rawFeaturesVal: IQueryFeatures[] = await this.prepareFeaturizedQueries(valQueries, queriesContext);
     const tpEncodingsVal: tf.Tensor[][] = rawFeaturesVal.map(x => x.leafFeatures);
-    const standardizedTpEncVal: tf.Tensor[][] = this.standardizeCardinalityTriplePattern(tpEncodingsVal);
+    // Std validation data with training mean / std
+    const standardizedTpEncVal: tf.Tensor[][] = this.standardizeCardinalityTriplePattern(tpEncodingsVal, 
+      meanCardinilityTpTrain, stdCardinalityTpTrain);
 
     const graphViewsVal: IQueryGraphViews[] = rawFeaturesVal.map(x => x.graphViews);
-
     // Prepare val features and input to optimizer
     const tensorTpEncVal = standardizedTpEncVal.map(x => tf.stack(x));
     // Take log to stabilize training
-    const logValCardinalities: number[] = this.scale(valCardinalities.map(x => Math.log(x)));
+    const logValCardinalities: number[] = valCardinalities.map(x => Math.log(x+1));
 
     // Flush all tensors used during training to prevent memory leaks
     // Flush raw feature tensors
@@ -523,7 +534,7 @@ implements IQueryEngine<QueryContext> {
     // Create model to pretrain
     this.modelInstanceGCN = new InstanceModelGCN(modelDirectory);
     // Init GCN model from config
-    this.modelInstanceGCN.initModel(modelDirectory);
+    this.modelInstanceGCN.initModel(modelDirectory, true);
     // Init model trainer with specified optimizer and learning rate
     this.modelTrainerOffline = new ModelTrainerOffline({ optimizer, learningRate: lr });
 
@@ -539,8 +550,11 @@ implements IQueryEngine<QueryContext> {
     const featurizedTrainQueries = await this.featurizeTrainQueries(
       trainQueries, trainCardinalities, queriesContext
     );
+
+    const trainMin = Math.min(...trainCardinalities);
+    const trainMax = Math.max(...trainCardinalities);
     const featurizedValQueries = await this.featurizeValQueries(
-      valCardinalities, valQueries, queriesContext
+      valCardinalities, valQueries, trainQueries, queriesContext , trainMin, trainMax
     );
 
     const pretrainResult: IPretrainLog = {
@@ -569,7 +583,7 @@ implements IQueryEngine<QueryContext> {
       std: ${trainOutput.stdPrediction.toFixed(2)}`
       );
 
-      const averageAbsoluteError = this.validateModelDuringTraining(
+      const averageAbsoluteError = this.validateModel(
         valQueries,
         featurizedValQueries.tpEncVal,
         featurizedValQueries.cardinalitiesVal,
@@ -589,8 +603,7 @@ implements IQueryEngine<QueryContext> {
       if (!fs.existsSync(ckpEpochLocation)){
         fs.mkdirSync(ckpEpochLocation);      
       }
-      this.saveModel(ckpEpochLocation);
-
+      this.saveModel(ckpEpochLocation, cardinalityPredictionLayers);
       // Flush shuffled features
       shuffledFeaturesAsTensors.map(x => x.dispose());
     }
@@ -649,39 +662,40 @@ implements IQueryEngine<QueryContext> {
     };
   }
 
-  public standardizeCardinalityTriplePattern(features: tf.Tensor[][]) {
+  public standardizeCardinalityTriplePattern(features: tf.Tensor[][], mean?: number, std?: number) {
     return tf.tidy(() => {
-      let totalCardinality = 0;
-      let totalFeaturizedPatterns = 0;
+      // let totalCardinality = 0;
+      // let totalFeaturizedPatterns = 0;
   
-      const cardinalitiesTriplePattern: number[] = [];
+      // const cardinalitiesTriplePattern: number[] = [];
       const featuresAsArray: number[][][][] = [];
       // Calculate mean cardinality of triple patterns
+      if (!mean){
+        mean = this.getMeanCardinality(features);
+      }
+      if (!std){
+        std = this.getStdCardinality(features, mean);
+      }
+
       for (const feature of features) {
         const innerArray: number[][][] = [];
         for (const element of feature) {
           const tensorAsArray: number[][] = <number[][]> element.arraySync();
-  
-          cardinalitiesTriplePattern.push(tensorAsArray[0][0]);
           innerArray.push(tensorAsArray);
-          totalCardinality += tensorAsArray[0][0];
-          totalFeaturizedPatterns += 1;
         }
         featuresAsArray.push(innerArray);
       }
-      const meanCardinality = totalCardinality / totalFeaturizedPatterns;
-  
-      let totalStd = 0;
-      for (const feature of features) {
-        for (const element of feature) {
-          const tensorAsArray: number[][] = <number[][]> element.arraySync();
-          totalStd += (tensorAsArray[0][0] - meanCardinality) ** 2;
-        }
-      }
-      const standardDeviation = Math.sqrt(totalStd / (totalFeaturizedPatterns - 1));
+      // let totalStd = 0;
+      // for (const feature of features) {
+      //   for (const element of feature) {
+      //     const tensorAsArray: number[][] = <number[][]> element.arraySync();
+      //     totalStd += (tensorAsArray[0][0] - meanCardinality) ** 2;
+      //   }
+      // }
+      // const standardDeviation = Math.sqrt(totalStd / (totalFeaturizedPatterns - 1));
       for (const element of featuresAsArray) {
         for (const element_ of element) {
-          element_[0][0] = (element_[0][0] - meanCardinality) / standardDeviation;
+          element_[0][0] = (element_[0][0] - mean) / std;
         }
       }
       // Convert back into tensors
@@ -690,7 +704,44 @@ implements IQueryEngine<QueryContext> {
     });
   }
 
-  public validateModelDuringTraining(
+  private getStdCardinality(features: tf.Tensor[][], meanCardinality: number){
+    let totalStd = 0;
+    let totalFeaturizedPatterns = 0;
+
+    for (const feature of features) {
+      for (const element of feature) {
+        const tensorAsArray: number[][] = <number[][]> element.arraySync();
+        totalStd += (tensorAsArray[0][0] - meanCardinality) ** 2;
+        totalFeaturizedPatterns += 1;
+      }
+    }
+    const standardDeviation = Math.sqrt(totalStd / (totalFeaturizedPatterns - 1));
+    return standardDeviation;
+  }
+
+  private getMeanCardinality(features: tf.Tensor[][]){
+    let totalCardinality = 0;
+    let totalFeaturizedPatterns = 0;
+    const cardinalitiesTriplePattern: number[] = [];
+    const featuresAsArray: number[][][][] = [];
+
+    for (const feature of features) {
+      const innerArray: number[][][] = [];
+      for (const element of feature) {
+        const tensorAsArray: number[][] = <number[][]> element.arraySync();
+
+        cardinalitiesTriplePattern.push(tensorAsArray[0][0]);
+        innerArray.push(tensorAsArray);
+        totalCardinality += tensorAsArray[0][0];
+        totalFeaturizedPatterns += 1;
+      }
+      featuresAsArray.push(innerArray);
+    }
+    const mean = totalCardinality / totalFeaturizedPatterns;
+    return mean;
+  }
+
+  public validateModel(
     queries: string[],
     features: tf.Tensor[],
     cardinalities: number[],
@@ -716,9 +767,9 @@ implements IQueryEngine<QueryContext> {
       const valErrorTensor = this.modelTrainerOffline.meanAbsoluteError( tf.concat(cardPredictions).squeeze(), tf.concat(executionTimesBatch).squeeze());
       if (logValidationPredictions && logLocation){
         const validationOutputs: IValidationResult[] = [];
-        const predArray: number[] = <number[]> cardPredictions.map(x => x.arraySync());
+        const predArray: any = <number[]> cardPredictions.map(x => x.arraySync()).flat();
         for (let i = 0; i < queries.length; i++){
-          validationOutputs.push({query: queries[i], pred: predArray[i], actual: cardinalities[i]})
+          validationOutputs.push({query: queries[i], pred: predArray[i][0], actual: cardinalities[i]})
         }
         fs.writeFileSync(logLocation, JSON.stringify(validationOutputs));
       }
@@ -729,7 +780,9 @@ implements IQueryEngine<QueryContext> {
     });
   }
 
-  public validateTrainedModel(
+  public async validateTrainedModel(
+    trainQueries: string[],
+    trainCardinalities: number[],
     valQueries: string[],
     valCardinalities: number[],
     queriesContext: QueryStringContext,
@@ -738,7 +791,7 @@ implements IQueryEngine<QueryContext> {
   ){
     this.modelInstanceGCN = new InstanceModelGCN(modelDirectory);
     // Init GCN model from config
-    this.modelInstanceGCN.initModel(modelDirectory);
+    this.modelInstanceGCN.initModel(modelDirectory, true);
 
     // Cardinality estimation layer from "Cardinality estimation over knowledge graphs with embeddings and graph neural networks" 
     // by Tim Schwabe and use mean pooling + hidden layer with relu and linear layer
@@ -748,16 +801,38 @@ implements IQueryEngine<QueryContext> {
       activationHiddenLayer: tf.layers.activation({ activation: 'relu' }),
       finalLayer: new DenseOwnImplementation(256, 1)
     };
-
+    // Initialize the trained cardinality prediction head
+    InstanceModelGCN.initializeCardinalityPredictionHeadFromWeights(modelDirectory, cardinalityPredictionLayers);
+    const trainMin = Math.min(...trainCardinalities);
+    const trainMax = Math.max(...trainCardinalities);
+    const featurizedValQueries = await this.featurizeValQueries(
+      valCardinalities, valQueries, trainQueries, queriesContext , trainMin, trainMax
+    );
+    console.log(featurizedValQueries.cardinalitiesVal)
+    const averageAbsoluteError = this.validateModel(
+      valQueries,
+      featurizedValQueries.tpEncVal,
+      featurizedValQueries.cardinalitiesVal,
+      featurizedValQueries.graphViewsVal,
+      this.modelInstanceGCN.getModels(),
+      cardinalityPredictionLayers,
+      true,
+      logLocation? path.join(logLocation, `validationOutputTrainedModel`) : undefined
+    );
+    console.log(`Finished validating trained model, average absolute error: ${averageAbsoluteError}`)
   }
 
-  public saveModel(location: string){
-    console.log(location);
+  public saveModel(location: string, cardinalityPredictionLayers: IGraphCardinalityPredictionLayers){
     this.modelInstanceGCN.createDirectoryStructureCheckpoint(location);
     this.modelInstanceGCN.saveModels(path.join(
       location,
       `gcn-models`
-      ));
+    ));
+
+    InstanceModelGCN.saveCardinalityPredictionHead(
+      path.join(location, `gcn-models`), 
+      cardinalityPredictionLayers
+    );
   }
 
   public shuffle(
