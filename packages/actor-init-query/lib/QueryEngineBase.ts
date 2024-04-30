@@ -45,6 +45,7 @@ implements IQueryEngine<QueryContext> {
   public modelInstanceLSTM: InstanceModelLSTM;
   public modelInstanceGCN: InstanceModelGCN;
   public batchedTrainExamples: IBatchedTrainingExamples;
+  public cardinalityPredictionLayers: IGraphCardinalityPredictionLayers;
 
   public trainEpisode: ITrainEpisode;
   public BF: BindingsFactory;
@@ -56,6 +57,16 @@ implements IQueryEngine<QueryContext> {
     this.emptyTrainEpisode();
     this.batchedTrainExamples = { trainingExamples: new Map<string, ITrainingExample>(), leafFeatures: { hiddenStates: [], memoryCell: []}};
     this.BF = new BindingsFactory();
+    // Cardinality estimation layer from "Cardinality estimation over knowledge graphs with embeddings and graph neural networks" 
+    // by Tim Schwabe and use mean pooling + hidden layer with relu and linear layer
+
+    this.cardinalityPredictionLayers = {
+      pooling: tf.layers.average(),
+      hiddenLayer: new DenseOwnImplementation(768, 256),
+      activationHiddenLayer: tf.layers.activation({ activation: 'relu' }),
+      finalLayer: new DenseOwnImplementation(256, 1)
+    };
+
   }
 
   public async queryBindings<QueryFormatTypeInner extends QueryFormatType>(
@@ -356,7 +367,6 @@ implements IQueryEngine<QueryContext> {
     actionContext = actionContext.set(KeysInitQuery.query, operation);
 
     // Execute query
-    const numTensorBeforeQuery = tf.memory().numTensors;
     const output = await this.actorInitQuery.mediatorQueryOperation.mediate({
       context: actionContext,
       operation,
@@ -458,7 +468,7 @@ implements IQueryEngine<QueryContext> {
     const graphViewsTrain: IQueryGraphViews[] = rawFeaturesTrain.map(x => x.graphViews);
 
     // Take log to stabilize training
-    const logTrainCardinalities: number[] = trainCardinalities.map(x => Math.log(x));
+    const logTrainCardinalities: number[] = trainCardinalities.map(x => Math.log(x+1));
     // Flush all tensors used during training to prevent memory leaks
     // Flush raw feature tensors
     rawFeaturesTrain.map(x => x.leafFeatures.map(y => y.dispose()));
@@ -510,12 +520,6 @@ implements IQueryEngine<QueryContext> {
     }
   }
 
-  // What can still be done:
-  // 1. Isomorphism removal
-  // 2. Onehot encode vectors
-  // 3. Concat instead of average whne uinsg rdf2vec
-  // Increase width first layer
-  // ??
   public async pretrainOptimizer(
     trainQueries: string[],
     trainCardinalities: number[],
@@ -538,14 +542,12 @@ implements IQueryEngine<QueryContext> {
     // Init model trainer with specified optimizer and learning rate
     this.modelTrainerOffline = new ModelTrainerOffline({ optimizer, learningRate: lr });
 
-    // Cardinality estimation layer from "Cardinality estimation over knowledge graphs with embeddings and graph neural networks" 
-    // by Tim Schwabe and use mean pooling + hidden layer with relu and linear layer
-    const cardinalityPredictionLayers: IGraphCardinalityPredictionLayers = {
-      pooling: tf.layers.average(),
-      hiddenLayer: new DenseOwnImplementation(384, 256),
-      activationHiddenLayer: tf.layers.activation({ activation: 'relu' }),
-      finalLayer: new DenseOwnImplementation(256, 1)
-    };
+    // const cardinalityPredictionLayers: IGraphCardinalityPredictionLayers = {
+    //   pooling: tf.layers.average(),
+    //   hiddenLayer: new DenseOwnImplementation(768, 256),
+    //   activationHiddenLayer: tf.layers.activation({ activation: 'relu' }),
+    //   finalLayer: new DenseOwnImplementation(256, 1)
+    // };
 
     const featurizedTrainQueries = await this.featurizeTrainQueries(
       trainQueries, trainCardinalities, queriesContext
@@ -575,7 +577,7 @@ implements IQueryEngine<QueryContext> {
         featurizedTrainQueries.graphViewsTrain,
         batchSize,
         this.modelInstanceGCN.getModels(),
-        cardinalityPredictionLayers,
+        this.cardinalityPredictionLayers,
       );
       console.log(`Epoch ${i+1}/${epochs}, 
       trainLoss: ${trainOutput.loss.toFixed(2)}, 
@@ -589,7 +591,7 @@ implements IQueryEngine<QueryContext> {
         featurizedValQueries.cardinalitiesVal,
         featurizedValQueries.graphViewsVal,
         this.modelInstanceGCN.getModels(),
-        cardinalityPredictionLayers,
+        this.cardinalityPredictionLayers,
         logValidationPredictions,
         logLocation? path.join(logLocation, `validationOutputEpoch${i+1}`) : undefined
       );
@@ -603,7 +605,7 @@ implements IQueryEngine<QueryContext> {
       if (!fs.existsSync(ckpEpochLocation)){
         fs.mkdirSync(ckpEpochLocation);      
       }
-      this.saveModel(ckpEpochLocation, cardinalityPredictionLayers);
+      this.saveModel(ckpEpochLocation, this.cardinalityPredictionLayers);
       // Flush shuffled features
       shuffledFeaturesAsTensors.map(x => x.dispose());
     }
@@ -612,9 +614,9 @@ implements IQueryEngine<QueryContext> {
     featurizedTrainQueries.tpEncTrain.map(x => x.map(y => y.dispose()));
     this.modelInstanceGCN.disposeModels();
 
-    cardinalityPredictionLayers.pooling.dispose();
-    cardinalityPredictionLayers.hiddenLayer.disposeLayer();
-    cardinalityPredictionLayers.finalLayer.disposeLayer();
+    this.cardinalityPredictionLayers.pooling.dispose();
+    this.cardinalityPredictionLayers.hiddenLayer.disposeLayer();
+    this.cardinalityPredictionLayers.finalLayer.disposeLayer();
     return pretrainResult  
   }
 
@@ -664,10 +666,6 @@ implements IQueryEngine<QueryContext> {
 
   public standardizeCardinalityTriplePattern(features: tf.Tensor[][], mean?: number, std?: number) {
     return tf.tidy(() => {
-      // let totalCardinality = 0;
-      // let totalFeaturizedPatterns = 0;
-  
-      // const cardinalitiesTriplePattern: number[] = [];
       const featuresAsArray: number[][][][] = [];
       // Calculate mean cardinality of triple patterns
       if (!mean){
@@ -685,14 +683,7 @@ implements IQueryEngine<QueryContext> {
         }
         featuresAsArray.push(innerArray);
       }
-      // let totalStd = 0;
-      // for (const feature of features) {
-      //   for (const element of feature) {
-      //     const tensorAsArray: number[][] = <number[][]> element.arraySync();
-      //     totalStd += (tensorAsArray[0][0] - meanCardinality) ** 2;
-      //   }
-      // }
-      // const standardDeviation = Math.sqrt(totalStd / (totalFeaturizedPatterns - 1));
+
       for (const element of featuresAsArray) {
         for (const element_ of element) {
           element_[0][0] = (element_[0][0] - mean) / std;
@@ -795,14 +786,14 @@ implements IQueryEngine<QueryContext> {
 
     // Cardinality estimation layer from "Cardinality estimation over knowledge graphs with embeddings and graph neural networks" 
     // by Tim Schwabe and use mean pooling + hidden layer with relu and linear layer
-    const cardinalityPredictionLayers: IGraphCardinalityPredictionLayers = {
-      pooling: tf.layers.average(),
-      hiddenLayer: new DenseOwnImplementation(384, 256),
-      activationHiddenLayer: tf.layers.activation({ activation: 'relu' }),
-      finalLayer: new DenseOwnImplementation(256, 1)
-    };
+    // const cardinalityPredictionLayers: IGraphCardinalityPredictionLayers = {
+    //   pooling: tf.layers.average(),
+    //   hiddenLayer: new DenseOwnImplementation(384, 256),
+    //   activationHiddenLayer: tf.layers.activation({ activation: 'relu' }),
+    //   finalLayer: new DenseOwnImplementation(256, 1)
+    // };
     // Initialize the trained cardinality prediction head
-    InstanceModelGCN.initializeCardinalityPredictionHeadFromWeights(modelDirectory, cardinalityPredictionLayers);
+    InstanceModelGCN.initializeCardinalityPredictionHeadFromWeights(modelDirectory, this.cardinalityPredictionLayers);
     const trainMin = Math.min(...trainCardinalities);
     const trainMax = Math.max(...trainCardinalities);
     const featurizedValQueries = await this.featurizeValQueries(
@@ -815,7 +806,7 @@ implements IQueryEngine<QueryContext> {
       featurizedValQueries.cardinalitiesVal,
       featurizedValQueries.graphViewsVal,
       this.modelInstanceGCN.getModels(),
-      cardinalityPredictionLayers,
+      this.cardinalityPredictionLayers,
       true,
       logLocation? path.join(logLocation, `validationOutputTrainedModel`) : undefined
     );

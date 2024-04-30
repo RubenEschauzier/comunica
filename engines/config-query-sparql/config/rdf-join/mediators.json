@@ -9,6 +9,7 @@
     "memoryWeight": 1,
     "timeWeight": 10,
     "ioWeight": 100,
+    "embeddingVectorsLocation": "models/vectors-depth-1-full-entities.txt",
     "bus": { "@id": "ActorRdfJoin:_default_bus" }
   }
   

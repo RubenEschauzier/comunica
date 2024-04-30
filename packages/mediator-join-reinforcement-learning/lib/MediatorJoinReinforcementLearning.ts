@@ -1,15 +1,17 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { ISingleResultSetRepresentation, InstanceModelGCN } from '@comunica/actor-rdf-join-inner-multi-reinforcement-learning-tree';
-import type { ActorRdfJoin, IActionRdfJoin } from '@comunica/bus-rdf-join';
+import { ActorRdfJoin, IActionRdfJoin } from '@comunica/bus-rdf-join';
 import { KeysQueryOperation, KeysRlTrain } from '@comunica/context-entries';
 import type { IActorReply, IMediatorArgs } from '@comunica/core';
 import { Actor, Mediator } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
-import type { IBatchedTrainingExamples, IQueryOperationResult, ITrainEpisode } from '@comunica/types';
+import type { IBatchedTrainingExamples, IQueryOperationResult, ITrainEpisode, MetadataBindings } from '@comunica/types';
 import type * as rdfjs from '@rdfjs/types';
 import * as tf from '@tensorflow/tfjs-node';
-import type { Operation } from 'sparqlalgebrajs/lib/algebra';
+import type { Join, Operation, Pattern } from 'sparqlalgebrajs/lib/algebra';
+import { getTerms } from 'rdf-terms';
+import { Quad } from 'rdf-data-factory';
 /**
  * A comunica join-reinforcement-learning mediator.
  */
@@ -18,27 +20,27 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
   public readonly memoryWeight: number;
   public readonly timeWeight: number;
   public readonly ioWeight: number;
-  public predicateVectors: Map<string, number[]>;
+  public termEmbeddings: Map<string, number[]>;
   private vectorSize: number;
 
   public constructor(args: IMediatorJoinCoefficientsFixedArgs) {
     super(args);
-    this.readPredicateVectors();
+    this.readTermEmbeddings(args.embeddingVectorsLocation);
   }
 
   /**
    * Function to read in prebuilt predicate vectors, this is to easily allow us to make these vectors in python
    * For actual we could make an actor that creates these vectors, but that would require a lot of work to make RDF2Vec work on javascript
    */
-  public readPredicateVectors() {
-    const vectorLocation = path.join(__dirname, '..', 'models/predicate-vectors-depth-1/vector-onehot.txt');
-    this.predicateVectors = new Map();
+  public readTermEmbeddings(location: string) {
+    const vectorLocation = path.join(__dirname, '..', location);
+    this.termEmbeddings = new Map();
     const keyedVectors = fs.readFileSync(vectorLocation, 'utf-8').trim().split('\n');
     for (const vector of keyedVectors) {
       const keyVectorArray: string[] = vector.split('[sep]');
       const vectorRepresentation: number[] = keyVectorArray[1].trim().split(' ').map(Number);
       this.vectorSize = vectorRepresentation.length
-      this.predicateVectors.set(keyVectorArray[0], vectorRepresentation);
+      this.termEmbeddings.set(keyVectorArray[0], vectorRepresentation);
     }
   }
 
@@ -189,20 +191,12 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
   protected async initialiseFeatures(action: IActionRdfJoinReinforcementLearning) {
     if (!action.context.get(KeysQueryOperation.operation)) {
       throw new Error('Action context does not contain any query operations');
-    }
-    const leafFeatures = await this.getLeafFeatures(action);
-    const sharedVariables = await this.getSharedVariableTriplePatterns(action);
+    }    
+    const metadataEntries = await Promise.all(action.entries.map( x => x.output.metadata()));
+
+    const leafFeatures = await this.getLeafFeatures(action, metadataEntries);
+    const sharedVariables = this.getSharedVariableTriplePatterns(action);
     const graphViews: IQueryGraphViews = MediatorJoinReinforcementLearning.createQueryGraphViews(action);
-
-    // Take models from context
-    const models = (<InstanceModelGCN> action.context.get(KeysRlTrain.modelInstanceGCN)!).getModels();
-
-    // Update running moments only at leaf and for queries with more than two triple patterns
-    if (action.entries.length > 2 && action.context.get(KeysRlTrain.trackRunningMoments)) {
-      const runningMomentsFeatures: IRunningMoments = action.context.get(KeysRlTrain.runningMomentsFeatures)!;
-      this.updateAllMoments(runningMomentsFeatures, leafFeatures);
-      this.standardiseFeatures(runningMomentsFeatures, leafFeatures);
-    }
 
     // Feature tensors created here, after no longer needed (corresponding result sets are joined) they need to be disposed
     const featureTensorLeaf: tf.Tensor[] = leafFeatures.map(x => tf.tensor(x, [ 1, x.length ]));
@@ -333,57 +327,83 @@ export class MediatorJoinReinforcementLearning extends Mediator<ActorRdfJoin, IA
     return adjMatrixObjObj;
   }
 
-  public async getLeafFeatures(action: IActionRdfJoinReinforcementLearning) {
-    const patterns: Operation[] = action.entries.map(x => {
+  public async getLeafFeatures(action: IActionRdfJoinReinforcementLearning, metadataEntries: MetadataBindings[]) {
+    const patterns: Pattern[] = action.entries.map(x => {
       if (!MediatorJoinReinforcementLearning.isPattern(x.operation)) {
         throw new Error('Found a non pattern during feature initialisation');
       } else {
-        return x.operation;
+        return <Pattern> x.operation;
       }
     });
+    const variableToId = this.mapVariablesToIds(metadataEntries);
 
     const leafFeatures: number[][] = [];
     for (let i = 0; i < action.entries.length; i++) {
       // Encode triple pattern information
       const triple = [ patterns[i].subject, patterns[i].predicate, patterns[i].object ];
+      
       const isVariable: number[] = triple.map(x => x.termType == 'Variable' ? 1 : 0);
       const isNamedNode: number[] = triple.map(x => x.termType == 'NamedNode' ? 1 : 0);
       const isLiteral: number[] = triple.map(x => x.termType == 'Literal' ? 1 : 0);
-      const cardinalityLeaf: number = (await action.entries[i].output.metadata()).cardinality.value;
 
-      // Get predicate embedding
-      let predicateEmbedding: number[] = [];
-      if (this.predicateVectors.get(patterns[i].predicate.value)) {
-        predicateEmbedding = this.predicateVectors.get(patterns[i].predicate.value)!;
-      } else {
-        // Zero vector represents unknown predicate
-        predicateEmbedding = new Array(this.vectorSize).fill(0);
-      }
-      // LeafFeatures.push([cardinalityLeaf].concat(isVariable[0]));
-      leafFeatures.push([ cardinalityLeaf ].concat(isVariable, isNamedNode, isLiteral, predicateEmbedding));
+      const cardinalityLeaf: number = metadataEntries[i].cardinality.value;
+      const triplePatternRDF2VecEmbedding = this.embedTriplePattern(patterns[i], this.vectorSize, variableToId);
+
+      leafFeatures.push([ cardinalityLeaf ].concat(isVariable, isNamedNode, isLiteral, triplePatternRDF2VecEmbedding));
     }
     return leafFeatures;
   }
 
-  public async getSharedVariableTriplePatterns(action: IActionRdfJoinReinforcementLearning) {
-    const patterns: Operation[] = action.entries.map(x => {
-      if (!MediatorJoinReinforcementLearning.isPattern(x.operation)) {
-        throw new Error('Found a non pattern during construction of shared variables in RL actor');
-      } else {
-        return x.operation;
+  public embedTriplePattern(pattern: Pattern, embeddingSize: number, variableToId: Record<string, number>){
+    const patternEmbedding: number[] = []
+    const terms = getTerms(pattern, true);
+    for (let i = 0; i < terms.length; i++){
+      // Encode variables according to paper Cardinality Estimation over Knowledge Graphs with Embeddings and Graph Neural Networks
+      // ( Schwabe, Tim - Acosta, Maribel )
+      if (terms[i].termType == 'Variable'){
+        const variableEmbedding: number[] = new Array(embeddingSize).fill(1);
+        variableEmbedding[0] = variableToId[terms[i].value];
+        patternEmbedding.push(...variableEmbedding);
       }
-    });
+      // If not variable we check if we have an RDF2Vec embedding for this term, if not we add 0 vector
+      else {
+        const termEmbedding: number[] = this.termEmbeddings.get(terms[i].value) ? 
+        this.termEmbeddings.get(terms[i].value)! : new Array(embeddingSize).fill(0);
+        patternEmbedding.push(...termEmbedding);
+      }
+    }
+    return patternEmbedding
+  }
 
+  public mapVariablesToIds(metadataEntries: MetadataBindings[]){
+    const variableToId: Record<string, number> = {};
+    const variables = ActorRdfJoin.joinVariables(metadataEntries);
+    let id = 0;
+    for (const variable of variables){
+      variableToId[variable.value] = id;
+      id += 1;
+    }
+    return variableToId
+  }
+
+  public getSharedVariableTriplePatterns(action: IActionRdfJoinReinforcementLearning) {
+    const patterns: Quad[] = action.entries.map(x => <Quad> x.operation);
     const sharedVariables: number[][] = [];
-    for (let i = 0; i < action.entries.length; i++) {
+    for (let i = 0; i < patterns.length; i++) {
+      // Initialise empty 0 connection array that is filled within this loop
       const outerEntryConnections: number[] = new Array(action.entries.length).fill(0);
-      // Get the 'outer' triple we use to compare
-      const tripleOuter = [ patterns[i].subject, patterns[i].predicate, patterns[i].object ];
-      const variablesFull = tripleOuter.filter(x => x.termType == 'Variable');
-      const variables = new Set(variablesFull.map(x => x.value));
+
+      // Get all variables in a quad pattern
+      const variables = new Set<string>(
+      getTerms(patterns[i], true)
+      .filter(term => term.termType == 'Variable')
+      .map(variable => variable.value)
+      );
+
+      // Iterate over all quads and set connection to 1 if they have shared variable
       for (let j = 0; j < action.entries.length; j++) {
-        const tripleInner = [ patterns[j].subject.value, patterns[j].predicate.value, patterns[j].object.value ];
-        for (const term of tripleInner) {
+        const termsInner = getTerms(patterns[j], true).map(term => term.value);
+        for (const term of termsInner) {
           if (variables.has(term)) {
             outerEntryConnections[j] = 1;
           }
@@ -459,6 +479,10 @@ export interface IMediatorJoinCoefficientsFixedArgs
    * Weight for the I/O cost
    */
   ioWeight: number;
+  /**
+   * Embedding file location
+   */
+  embeddingVectorsLocation: string;
 }
 
 // Should be moved to mediatortype instance
