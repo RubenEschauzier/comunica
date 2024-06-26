@@ -3,7 +3,7 @@ import { exec } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import * as OS from 'node:os';
 import * as Path from 'node:path';
-import { KeysHttp, KeysInitQuery, KeysQueryOperation, KeysRdfUpdateQuads } from '@comunica/context-entries';
+import { KeysHttp, KeysInitQuery, KeysQueryOperation, KeysRdfUpdateQuads, KeysStatisticsTracker } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
 import { LoggerPretty } from '@comunica/logger-pretty';
 import type { IActionContext, ICliArgsHandler } from '@comunica/types';
@@ -146,10 +146,14 @@ export class CliArgsHandlerBase implements ICliArgsHandler {
           type: 'boolean',
           describe: 'If the cache should be disabled',
         },
+<<<<<<< HEAD
         distinctConstruct: {
           type: 'boolean',
           describe: 'If the query engine should deduplicate resulting triples',
         },
+=======
+      
+>>>>>>> 671a60be2f (Statistics tracking architecture)
       })
       .exitProcess(false)
       .fail(false)
