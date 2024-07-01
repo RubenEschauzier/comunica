@@ -1,43 +1,15 @@
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import { IQuerySource } from './IQuerySource';
+import { EventEmitter } from 'stream';
+import { Bindings } from './Bindings';
 
-export interface IStatisticDocumentSize {
-  /**
-   * Set size of document at URL
-   *
-   * @param link The dereferenced URL
-   * @param documentSize The size of the dereferenced document
-   * @returns Boolean indicating success
-   */
-  setDocumentSize: (link: ILink, documentSize: number) => boolean;
+interface IStatistic{
+  statisticEvents: EventEmitter;
 
-  /**
-   * Returns the size of document dereferenced from URL
-   * @param link
-   * @returns size of document dereferenced at URL
-   */
-  getDocumentSize: (link: ILink) => number | undefined;
+  getEmitter: () => EventEmitter;
 }
 
-export interface IStatisticRequestTime {
-  /**
-   * Set HTTP request time of document at URL
-   *
-   * @param link The dereferenced URL
-   * @param documentSize The HTTP request time of document
-   * @returns Boolean indicating success
-   */
-  setRequestTime: (link: ILink, requestTime: number) => boolean;
-
-  /**
-   * Returns the size of document dereferenced from URL
-   * @param link
-   * @returns The HTTP request time of document
-   */
-  getDocumentSize: (link: ILink) => number | undefined;
-}
-
-export interface IStatisticDiscoveredLinks {
+export interface IStatisticDiscoveredLinks extends IStatistic {
   /**
    * Set parent - child relation of discovered link
    * @param link The link discovered by the engine
@@ -52,7 +24,7 @@ export interface IStatisticDiscoveredLinks {
   getDiscoveredLinks: () => Set<[string, string]>;
 }
 
-export interface IStatisticDereferencedLinks {
+export interface IStatisticDereferencedLinks extends IStatistic {
   /**
    * Track dereference event by engine
    * @param link Link dereferenced by the engine

@@ -1,2 +1,2 @@
 export * from './ActorContextPreprocessStatisticDereferenceOrder';
-export * from './StatisticDereferenceOrder';
+export * from './StatisticLinkDereference';
