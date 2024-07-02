@@ -17,7 +17,7 @@ export class StatisticLinkDereference implements IStatisticDereferencedLinks {
 
     this.dereferenceOrder = [];
 
-    this.statisticEvents = new EventEmitter<dereferenceEvent>();
+    this.statisticEvents = new EventEmitter();
 
     this.logger = logger;
   }
@@ -61,5 +61,3 @@ export class StatisticLinkDereference implements IStatisticDereferencedLinks {
     return this.dereferenceOrder;
   }
 }
-
-export type dereferenceEvent = (event: string) => ILink;

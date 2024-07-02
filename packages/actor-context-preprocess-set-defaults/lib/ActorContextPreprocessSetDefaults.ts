@@ -52,7 +52,7 @@ export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
           level: 'trace',
           streamProviders: [ streamProvider ],
         };
-        context = context.setDefault(KeysStatisticsTracker.statiticsLogger, new LoggerBunyan(loggerParams));
+        context = context.setDefault(KeysStatisticsTracker.statisticsLogger, new LoggerBunyan(loggerParams));
       }
       // Handle default query format
       let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };

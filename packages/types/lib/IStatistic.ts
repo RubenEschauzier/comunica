@@ -5,27 +5,27 @@ import type { ActionContextKey } from '@comunica/core';
 import type { IActionContext } from './IActionContext';
 import type { IQuerySource } from './IQuerySource';
 
-interface IStatistic {
+export interface IStatistic {
+  /**
+   * Query string of tracked execution
+   */
+  query: string, 
+
   statisticEvents: EventEmitter;
 
   getEmitter: () => EventEmitter;
 }
 
-interface IAggregateStatistic extends IStatistic {
+export interface IAggregateStatistic extends IStatistic {
   /**
-   * The statistics this aggregate statistics aggregates over
+   * The statistics this aggregate statistic aggregates over
    */
-  toAggregate: ActionContextKey<IStatistic>[];
+  toAggregate: Record<string, IStatistic>;
 
   /**
    * Attaches listeners to all statistics this class aggregates over
    */
   attachListeners: (context: IActionContext) => boolean;
-
-  /**
-   * When a new event is emitted this function is called,
-   */
-  onStatisticEvent: (data: any) => any;
 
   /**
    * Gets the underlying tracked data
@@ -48,6 +48,23 @@ export interface IStatisticDiscoveredLinks extends IStatistic {
   getDiscoveredLinks: () => [string, string][];
 }
 
+export interface IDiscoverEventData {
+  /**
+   * The edge discovered during query execution
+   */
+  edge: [string, string];
+  /**
+   * Metadata of the discovered node
+   */
+  metadataDiscoveredNode: Record<any, any>[];
+  /**
+   * Metadata of the parent of the discovered ndoe
+   */
+  metadataParentDiscoveredNode: Record<any, any>[];
+}
+
+
+
 export interface IStatisticDereferencedLinks extends IStatistic {
   /**
    * Track dereference event by engine
@@ -62,4 +79,23 @@ export interface IStatisticDereferencedLinks extends IStatistic {
    * @returns list of URLs
    */
   getDereferencedLinks: () => ILink[];
+}
+
+/**
+ * Interface describing what data will be emitted when the topology is updated
+ * Will emit all data so far instead of only the update that happened to the topology
+ */
+export interface ITopologyEventData {
+  /**
+   * What type of update happened to the topology
+   */
+  type: 'dereference' | 'discover'
+  /**
+   * The edge list discovered during query execution
+   */
+  edgeList: Set<string>;
+  /**
+   * The metadata for each node
+   */
+  metadata: Record<string, any>[];
 }

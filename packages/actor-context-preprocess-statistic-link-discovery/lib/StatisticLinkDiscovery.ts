@@ -1,7 +1,7 @@
 // eslint-disable-next-line
 import { EventEmitter } from 'events';
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
-import type { IStatisticDiscoveredLinks, Logger } from '@comunica/types';
+import type { IDiscoverEventData, IStatisticDiscoveredLinks, Logger } from '@comunica/types';
 
 export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
   // What query this statistic tracker belongs to.
@@ -30,7 +30,7 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
     this.edgeList = new Set();
     this.metadata = {};
 
-    this.statisticEvents = new EventEmitter<IDiscoverEvent>();
+    this.statisticEvents = new EventEmitter();
 
     this.logger = logger;
   }
@@ -96,20 +96,3 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
     return this.metadata;
   }
 }
-
-export interface IDiscoverEventData {
-  /**
-   * The edge discovered during query execution
-   */
-  edge: [string, string];
-  /**
-   * Metadata of the discovered node
-   */
-  metadataDiscoveredNode: Record<any, any>[];
-  /**
-   * Metadata of the parent of the discovered ndoe
-   */
-  metadataParentDiscoveredNode: Record<any, any>[];
-}
-
-export type IDiscoverEvent = (event: string) => IDiscoverEventData;

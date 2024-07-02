@@ -24,7 +24,7 @@ export class ActorContextPreprocessStatisticLinkDereference extends ActorContext
       KeysTrackableStatistics.dereferencedLinks,
       new StatisticLinkDereference(
         action.context.get(KeysInitQuery.queryString)!,
-        action.context.get(KeysStatisticsTracker.statiticsLogger),
+        action.context.get(KeysStatisticsTracker.statisticsLogger),
       ),
     );
     return { context: action.context };

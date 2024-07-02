@@ -13,8 +13,9 @@ import type {
   IQuerySourceWrapper,
   QuerySourceReference,
   IActionContextKey,
-  IStatisticDereferencedLinks
-  , IStatisticDiscoveredLinks,
+  IAggregateStatistic,
+  IStatisticDereferencedLinks, 
+  IStatisticDiscoveredLinks,
   Logger,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
@@ -319,7 +320,7 @@ export const KeysStatisticsTracker = {
   /**
    * TODO: Make nicer. Statistic logger.
    */
-  statiticsLogger: new ActionContextKey<Logger>('@comunica/actor-context-preprocess-set-default:statisticsLogger'),
+  statisticsLogger: new ActionContextKey<Logger>('@comunica/actor-context-preprocess-set-default:statisticsLogger'),
 
 };
 
@@ -332,6 +333,12 @@ export const KeysTrackableStatistics = {
    * Information about what links are dereferenced and when
    */
   dereferencedLinks: new ActionContextKey<IStatisticDereferencedLinks>(
-    '@comunica/bus-context-preprocess:dereferenceLink',
+    '@comunica/bus-context-preprocess:dereferencedLinks',
   ),
+  /**
+   * An aggregate statistic that combines discovered and dereferenced statistics to create a single topology
+   */
+  traversedTopology: new ActionContextKey<IAggregateStatistic>(
+    '@comunica/bus-context-preprocess:traversedTopology'
+  )
 };
