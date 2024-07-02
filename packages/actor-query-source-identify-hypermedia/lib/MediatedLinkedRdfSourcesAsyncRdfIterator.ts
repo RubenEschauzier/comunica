@@ -4,8 +4,8 @@ import type {
   ILinkQueue,
   MediatorRdfResolveHypermediaLinksQueue,
 } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
-import { KeysQueryOperation } from '@comunica/context-entries';
-import type { IActionContext, IAggregatedStore, IQueryBindingsOptions, MetadataBindings } from '@comunica/types';
+import { KeysQueryOperation, KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
+import type { IActionContext, IActionContextKey, IAggregatedStore, IQueryBindingsOptions, IStatisticDiscoveredLinks, MetadataBindings } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { DataFactory } from 'rdf-data-factory';
 import type { Algebra } from 'sparqlalgebrajs';
@@ -144,9 +144,23 @@ export class MediatedLinkedRdfSourcesAsyncRdfIterator extends LinkedRdfSourcesAs
     return this.linkQueue;
   }
 
-  protected async getSourceLinks(metadata: Record<string, any>): Promise<ILink[]> {
+  protected async getSourceLinks(metadata: Record<string, any>, startSource: ISourceState): Promise<ILink[]> {
     try {
       const { links } = await this.mediatorRdfResolveHypermediaLinks.mediate({ context: this.context, metadata });
+      // If any statistic trackers that track discovered links exist in the context,
+      // we call its function and pass the statistic to it.
+      // Currently only ONE tracker per key
+      for (const link of links) {
+        const statistics = <Map<IActionContextKey<any>, any>> this.context.get(KeysStatisticsTracker.statistics);
+        const traversalTracker = <IStatisticDiscoveredLinks> statistics?.get(KeysTrackableStatistics.discoveredLinks);
+        if (traversalTracker) {
+          const linkStatistic: ILink = {
+            url: link.url,
+            metadata: { ...link.metadata },
+          };
+          traversalTracker.setDiscoveredLink(linkStatistic, startSource.link);
+        }
+      }
       // Filter URLs to avoid cyclic next-page loops
       return links.filter((link) => {
         if (this.handledUrls[link.url]) {

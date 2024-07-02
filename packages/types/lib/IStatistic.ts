@@ -1,12 +1,36 @@
+// eslint-disable-next-line
+import type { EventEmitter } from 'events';
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
-import { IQuerySource } from './IQuerySource';
-import { EventEmitter } from 'stream';
-import { Bindings } from './Bindings';
+import type { ActionContextKey } from '@comunica/core';
+import type { IActionContext } from './IActionContext';
+import type { IQuerySource } from './IQuerySource';
 
-interface IStatistic{
+interface IStatistic {
   statisticEvents: EventEmitter;
 
   getEmitter: () => EventEmitter;
+}
+
+interface IAggregateStatistic extends IStatistic {
+  /**
+   * The statistics this aggregate statistics aggregates over
+   */
+  toAggregate: ActionContextKey<IStatistic>[];
+
+  /**
+   * Attaches listeners to all statistics this class aggregates over
+   */
+  attachListeners: (context: IActionContext) => boolean;
+
+  /**
+   * When a new event is emitted this function is called,
+   */
+  onStatisticEvent: (data: any) => any;
+
+  /**
+   * Gets the underlying tracked data
+   */
+  getAggregateStatistic: () => any;
 }
 
 export interface IStatisticDiscoveredLinks extends IStatistic {
@@ -21,7 +45,7 @@ export interface IStatisticDiscoveredLinks extends IStatistic {
    *
    * @returns List of all discovered [ parent - child ] relations
    */
-  getDiscoveredLinks: () => Set<[string, string]>;
+  getDiscoveredLinks: () => [string, string][];
 }
 
 export interface IStatisticDereferencedLinks extends IStatistic {

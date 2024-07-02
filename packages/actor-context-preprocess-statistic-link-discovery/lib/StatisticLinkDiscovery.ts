@@ -1,13 +1,15 @@
+// eslint-disable-next-line
+import { EventEmitter } from 'events';
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { IStatisticDiscoveredLinks, Logger } from '@comunica/types';
-import { EventEmitter } from 'node:events';
 
 export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
-  // What query this statistic tracker belongs to. 
+  // What query this statistic tracker belongs to.
   public query: string;
+  public discoverEvents: number;
 
   // Directed edge list
-  public edgeList: Set<[string, string]>;
+  public edgeList: Set<string>;
 
   // Metadata is saved as follows: First key indicates what url this metadata belongs to, while value is
   // a list of all metadata objects recorded. This list can contain multiple Records as links can be discovered from
@@ -23,6 +25,7 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
 
   public constructor(query: string, logger?: Logger) {
     this.query = query;
+    this.discoverEvents = 0;
 
     this.edgeList = new Set();
     this.metadata = {};
@@ -34,66 +37,79 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
 
   public setDiscoveredLink(link: ILink, parent: ILink) {
     // If self-edge or duplicate edge we don't track.
-    if (link.url === parent.url || this.edgeList.has([ parent.url, link.url ])) {
+    if (link.url === parent.url || this.edgeList.has(JSON.stringify([ parent.url, link.url ]))) {
       return false;
     }
-    this.edgeList.add([ parent.url, link.url ]);
+
+    this.edgeList.add(JSON.stringify([ parent.url, link.url ]));
+
     link.metadata = {
       ...link.metadata,
       discoveredTimestamp: Date.now(),
-      discoverOrder: this.metadata.length
-    }
-    if (link.metadata){
+      discoverOrder: this.discoverEvents,
+    };
+
+    if (link.metadata) {
       // Retain previous metadata if this link has already been discovered, and add any metadata in the passed link
       this.metadata[link.url] = this.metadata[link.url] ? [ ...this.metadata[link.url], link.metadata ] : [ link.metadata ];
     }
 
-    // Add timestamp for discovery of link
-    this.metadata[link.url] = {
-      ...this.metadata[link.url], 
-      
-    }
-
     const discoverEventData: IDiscoverEventData = {
-      edge: [parent.url, link.url],
-      metadataDiscoveredNode: this.metadata[link.url]
-    }
+      edge: [ parent.url, link.url ],
+      metadataDiscoveredNode: this.metadata[link.url],
+      metadataParentDiscoveredNode: this.metadata[parent.url],
+    };
+
     this.getEmitter().emit('discoverEvent', discoverEventData);
 
-    if (this.logger){
-      this.logger.trace('Discover Event', { 
+    // Increment number of discover events to track discover order
+    this.discoverEvents += 1;
+
+    if (this.logger) {
+      this.logger.trace('Discover Event', {
         data: JSON.stringify({
-          statistic: "discoveredLinks", 
-          query: this.query, 
-          discoveredLinks: [...this.getDiscoveredLinks()],
-          metadata: this.getMetadata()
-        })
+          statistic: 'discoveredLinks',
+          query: this.query,
+          discoveredLinks: this.getDiscoveredLinks(),
+          metadata: this.getMetadata(),
+        }),
       });
     }
 
-
     return true;
   }
-  
-  public getDiscoveredLinks(){
-    return this.edgeList
+
+  public getDiscoveredLinks() {
+    const edgeListArray: [string, string][] = [];
+
+    for (const elem of this.edgeList) {
+      edgeListArray.push(JSON.parse(elem));
+    }
+    return edgeListArray;
   }
 
   public getEmitter(): EventEmitter {
     return this.statisticEvents;
   }
 
-
-  public getMetadata(){
-    return this.metadata
+  public getMetadata() {
+    return this.metadata;
   }
 }
 
-export interface IDiscoverEventData{
+export interface IDiscoverEventData {
+  /**
+   * The edge discovered during query execution
+   */
   edge: [string, string];
-  metadataDiscoveredNode: Record<any, any>
+  /**
+   * Metadata of the discovered node
+   */
+  metadataDiscoveredNode: Record<any, any>[];
+  /**
+   * Metadata of the parent of the discovered ndoe
+   */
+  metadataParentDiscoveredNode: Record<any, any>[];
 }
 
-export interface IDiscoverEvent {
-  (event: string): IDiscoverEventData;
-}
+export type IDiscoverEvent = (event: string) => IDiscoverEventData;

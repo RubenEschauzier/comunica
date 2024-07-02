@@ -147,6 +147,7 @@ export class CliArgsHandlerBase implements ICliArgsHandler {
           describe: 'If the cache should be disabled',
         },
 <<<<<<< HEAD
+<<<<<<< HEAD
         distinctConstruct: {
           type: 'boolean',
           describe: 'If the query engine should deduplicate resulting triples',
@@ -154,6 +155,9 @@ export class CliArgsHandlerBase implements ICliArgsHandler {
 =======
       
 >>>>>>> 671a60be2f (Statistics tracking architecture)
+=======
+
+>>>>>>> 385f3965d6 (Add event emitter for statistic + interface for aggregating statistic)
       })
       .exitProcess(false)
       .fail(false)

@@ -1,6 +1,7 @@
+// eslint-disable-next-line
+import { EventEmitter } from 'events';
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { IQuerySource, IStatisticDereferencedLinks, Logger } from '@comunica/types';
-import { EventEmitter } from 'node:events';
 
 export class StatisticLinkDereference implements IStatisticDereferencedLinks {
   public query: string;
@@ -25,26 +26,27 @@ export class StatisticLinkDereference implements IStatisticDereferencedLinks {
     const metadata: Record<string, any> = {
       type: source.constructor.name,
       dereferencedTimestamp: Date.now(),
-      ...link.metadata
-    }
+      dereferenceOrder: this.dereferenceOrder.length,
+      ...link.metadata,
+    };
 
     const dereferencedLink: ILink = {
       url: link.url,
-      metadata: metadata,
+      metadata,
       context: link.context,
-      transform: link.transform
-    }
+      transform: link.transform,
+    };
     this.dereferenceOrder.push(dereferencedLink);
 
     this.statisticEvents.emit('dereferenceEvent', dereferencedLink);
 
-    if (this.logger){
-      this.logger.trace('Dereference Event', { 
+    if (this.logger) {
+      this.logger.trace('Dereference Event', {
         data: JSON.stringify({
-          statistic: "dereferencedLinks", 
-          query: this.query, 
-          dereferencedLinks: this.dereferenceOrder
-        })
+          statistic: 'dereferencedLinks',
+          query: this.query,
+          dereferencedLinks: this.dereferenceOrder,
+        }),
       });
     }
 
@@ -60,6 +62,4 @@ export class StatisticLinkDereference implements IStatisticDereferencedLinks {
   }
 }
 
-export interface dereferenceEvent {
-  (event: string): ILink;
-}
+export type dereferenceEvent = (event: string) => ILink;

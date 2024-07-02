@@ -2,7 +2,7 @@ import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { ILinkQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
 import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
 import { MetadataValidationState } from '@comunica/metadata';
-import type { IQuerySource, IActionContext, MetadataBindings, IQueryBindingsOptions, IStatisticDiscoveredLinks, IStatisticDereferencedLinks } from '@comunica/types';
+import type { IQuerySource, IActionContext, MetadataBindings, IQueryBindingsOptions, IStatisticDereferencedLinks } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator, BufferedIteratorOptions } from 'asynciterator';
 import { BufferedIterator } from 'asynciterator';
@@ -119,7 +119,7 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
    * Determine the links to be followed from the current source given its metadata.
    * @param metadata The metadata of a source.
    */
-  protected abstract getSourceLinks(metadata: Record<string, any>): Promise<ILink[]>;
+  protected abstract getSourceLinks(metadata: Record<string, any>, startSource: ISourceState): Promise<ILink[]>;
 
   public override _read(count: number, done: () => void): void {
     if (this.started) {
@@ -255,26 +255,13 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
               }
 
               // Determine next urls, which will eventually become a next-next source.
-              this.getSourceLinks(returnMetadata)
+              this.getSourceLinks(returnMetadata, startSource)
                 .then((nextUrls: ILink[]) => Promise.all(nextUrls))
                 .then(async(nextUrls: ILink[]) => {
                   // Append all next URLs to our queue
                   const linkQueue = await this.getLinkQueue();
                   for (const nextUrl of nextUrls) {
                     linkQueue.push(nextUrl, startSource.link);
-
-                    // If any statistic trackers that track discovered links exist in the context,
-                    // we call its function and pass the statistic to it.
-                    // Currently only ONE tracker per key
-                    const statistics = <Map<IActionContextKey<any>, any>> this.context.get(KeysStatisticsTracker.statistics);
-                    const traversalTracker = <IStatisticDiscoveredLinks> statistics?.get(KeysTrackableStatistics.discoveredLinks);
-                    if (traversalTracker) {
-                      const linkStatistic: ILink = {
-                        url: nextUrl.url,
-                        metadata: { ...nextUrl.metadata },
-                      };
-                      traversalTracker.setDiscoveredLink(linkStatistic, startSource.link);
-                    }
                   }
 
                   receivedMetadata = true;
@@ -324,8 +311,12 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
             this.sourceStateGetter(nextLink, handledDatasets)
               .then((nextSourceState) => {
                 // INSERT DEREFERENCE EVENT TRACKING HERE
-                const statistics = <Map<IActionContextKey<any>, any>> this.context.get(KeysStatisticsTracker.statistics);
-                const traversalTracker = <IStatisticDereferencedLinks> statistics?.get(KeysTrackableStatistics.dereferencedLinks);
+                const statistics = <Map<IActionContextKey<any>, any>> this.context.get(
+                  KeysStatisticsTracker.statistics,
+                );
+                const traversalTracker = <IStatisticDereferencedLinks> statistics?.get(
+                  KeysTrackableStatistics.dereferencedLinks,
+                );
 
                 if (traversalTracker) {
                   const linkStatistic: ILink = {

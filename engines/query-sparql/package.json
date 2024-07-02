@@ -73,6 +73,8 @@
     "@comunica/actor-context-preprocess-query-source-skolemize": "^3.2.0",
     "@comunica/actor-context-preprocess-set-defaults": "^3.2.0",
     "@comunica/actor-context-preprocess-source-to-destination": "^3.2.0",
+    "@comunica/actor-context-preprocess-statistic-link-dereference": "^3.1.2",
+    "@comunica/actor-context-preprocess-statistic-link-discovery": "^3.1.2",
     "@comunica/actor-dereference-fallback": "^3.2.0",
     "@comunica/actor-dereference-http": "^3.2.0",
     "@comunica/actor-dereference-rdf-parse": "^3.2.0",

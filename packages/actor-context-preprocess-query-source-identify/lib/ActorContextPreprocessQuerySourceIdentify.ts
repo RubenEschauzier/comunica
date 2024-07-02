@@ -6,8 +6,9 @@ import type {
 import { ActorContextPreprocess } from '@comunica/bus-context-preprocess';
 import type { ActorHttpInvalidateListenable, IActionHttpInvalidate } from '@comunica/bus-http-invalidate';
 import type { MediatorQuerySourceIdentify } from '@comunica/bus-query-source-identify';
-import { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
-import { KeysInitQuery, KeysQueryOperation, KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
+import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
+import { KeysInitQuery, KeysQueryOperation, KeysStatisticsTracker, KeysTrackableStatistics }
+  from '@comunica/context-entries';
 import type { IAction, IActorTest } from '@comunica/core';
 import { ActionContext } from '@comunica/core';
 import type {
@@ -60,14 +61,14 @@ export class ActorContextPreprocessQuerySourceIdentify extends ActorContextPrepr
       const statistics = <Map<IActionContextKey<any>, any>> action.context.get(KeysStatisticsTracker.statistics);
       const traversalTracker = <IStatisticDereferencedLinks> statistics?.get(KeysTrackableStatistics.dereferencedLinks);
       if (traversalTracker) {
-        for (let i = 0; i < querySources.length; i++){
+        for (const querySource of querySources) {
           const linkStatistic: ILink = {
-            url: querySources[i].source.referenceValue.toString(),
+            url: <string> querySource.source.referenceValue,
             metadata: {
-              seed: true, 
+              seed: true,
             },
           };
-          traversalTracker.setDereferenced(linkStatistic, querySources[i].source);  
+          traversalTracker.setDereferenced(linkStatistic, querySource.source);
         }
       }
 

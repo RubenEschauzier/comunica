@@ -1,13 +1,15 @@
-import type { IActionContextPreprocess, IActorContextPreprocessOutput, IActorContextPreprocessArgs } from '@comunica/bus-context-preprocess';
+import type { IActionContextPreprocess, IActorContextPreprocessOutput, IActorContextPreprocessArgs }
+  from '@comunica/bus-context-preprocess';
 import { ActorContextPreprocess } from '@comunica/bus-context-preprocess';
 import { KeysInitQuery, KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
 import type { IActorTest } from '@comunica/core';
-import { StatisticLinkDiscovery } from './StatisticLinkDiscovery';
+import type { IActionContextKey } from '@comunica/types';
+import { StatisticLinkDereference } from './StatisticLinkDereference';
 
 /**
- * A comunica Statistic Link Discovery Context Preprocess Actor.
+ * A comunica Statistic Link Dereference Context Preprocess Actor.
  */
-export class ActorContextPreprocessStatisticLinkDiscovery extends ActorContextPreprocess {
+export class ActorContextPreprocessStatisticLinkDereference extends ActorContextPreprocess {
   public constructor(args: IActorContextPreprocessArgs) {
     super(args);
   }
@@ -17,10 +19,10 @@ export class ActorContextPreprocessStatisticLinkDiscovery extends ActorContextPr
   }
 
   public async run(action: IActionContextPreprocess): Promise<IActorContextPreprocessOutput> {
-    const statisticsMap = action.context.get(KeysStatisticsTracker.statistics)!;
+    const statisticsMap = <Map<IActionContextKey<any>, any>> action.context.get(KeysStatisticsTracker.statistics)!;
     statisticsMap.set(
-      KeysTrackableStatistics.discoveredLinks,
-      new StatisticLinkDiscovery(
+      KeysTrackableStatistics.dereferencedLinks,
+      new StatisticLinkDereference(
         action.context.get(KeysInitQuery.queryString)!,
         action.context.get(KeysStatisticsTracker.statiticsLogger),
       ),

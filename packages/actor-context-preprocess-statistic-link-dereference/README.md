@@ -1,6 +1,6 @@
 # Comunica Statistic Dereference Order Context Preprocess Actor
 
-[![npm version](https://badge.fury.io/js/%40comunica%2Factor-context-preprocess-statistic-dereference-order.svg)](https://www.npmjs.com/package/@comunica/actor-context-preprocess-statistic-dereference-order)
+[![npm version](https://badge.fury.io/js/%40comunica%2Factor-context-preprocess-statistic-link-dereference.svg)](https://www.npmjs.com/package/@comunica/actor-context-preprocess-statistic-link-dereference)
 
 A comunica Statistic Dereference Order Context Preprocess Actor.
 
@@ -12,7 +12,7 @@ and should only be used by [developers that want to build their own query engine
 ## Install
 
 ```bash
-$ yarn add @comunica/actor-context-preprocess-statistic-dereference-order
+$ yarn add @comunica/actor-context-preprocess-statistic-link-dereference
 ```
 
 ## Configure
@@ -22,12 +22,12 @@ After installing, this package can be added to your engine's configuration as fo
 {
   "@context": [
     ...
-    "https://linkedsoftwaredependencies.org/bundles/npm/@comunica/actor-context-preprocess-statistic-dereference-order/^1.0.0/components/context.jsonld"
+    "https://linkedsoftwaredependencies.org/bundles/npm/@comunica/actor-context-preprocess-statistic-link-dereference/^1.0.0/components/context.jsonld"
   ],
   "actors": [
     ...
     {
-      "@id": "urn:comunica:default:context-preprocess/actors#statistic-dereference-order",
+      "@id": "urn:comunica:default:context-preprocess/actors#statistic-link-dereference",
       "@type": "ActorContextPreprocessStatisticDereferenceOrder"
     }
   ]
