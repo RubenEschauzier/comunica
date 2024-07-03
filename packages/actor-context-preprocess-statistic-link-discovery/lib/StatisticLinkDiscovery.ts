@@ -60,7 +60,7 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
       metadataParentDiscoveredNode: this.metadata[parent.url],
     };
 
-    this.getEmitter().emit('discoverEvent', discoverEventData);
+    this.getEmitter().emit('data', discoverEventData);
 
     // Increment number of discover events to track discover order
     this.discoverEvents += 1;

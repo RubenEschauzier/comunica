@@ -28,6 +28,10 @@ export class AggregateStatisticTraversedTopology implements IAggregateStatistic 
             discover: discoverStatistic, 
             dereference: dereferenceStatistic
         };
+        this.attachListeners();
+
+        this.statisticEvents = new EventEmitter();
+
     }
 
     public attachListeners(): boolean {
@@ -40,12 +44,6 @@ export class AggregateStatisticTraversedTopology implements IAggregateStatistic 
         return true
     }
 
-    public processDereferenceEvent(data: ILink){
-        // TODO: Add dereference metadata to existing metadata of link here
-
-        // Emit new topology for other actors that want to use this info (e.g link prioritization)
-        this.emitTopologyData('dereference');
-    }
 
     public processDiscoverEvent(data: IDiscoverEventData){
         // TODO: Add edge to edgelist + overwrite existing metadata from discover events here
@@ -53,6 +51,15 @@ export class AggregateStatisticTraversedTopology implements IAggregateStatistic 
         // Emit new topology for other actors that want to use this info (e.g link prioritization)
         this.emitTopologyData('discover');
     }
+
+
+    public processDereferenceEvent(data: ILink){
+        // TODO: Add dereference metadata to existing metadata of link here
+
+        // Emit new topology for other actors that want to use this info (e.g link prioritization)
+        this.emitTopologyData('dereference');
+    }
+
 
     public getEmitter(): EventEmitter{
         return this.statisticEvents;
@@ -64,7 +71,7 @@ export class AggregateStatisticTraversedTopology implements IAggregateStatistic 
             edgeList: this.edgeList,
             metadata: this.metadata
         }
-        this.getEmitter().emit('topology', topologyData);
+        this.getEmitter().emit('data', topologyData);
     }
 
     public getAggregateStatistic: () => any;

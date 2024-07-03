@@ -2,8 +2,9 @@ import type { IActionContextPreprocess, IActorContextPreprocessOutput, IActorCon
 import { ActorContextPreprocess } from '@comunica/bus-context-preprocess';
 import { KeysInitQuery, KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
 import type { IActorTest } from '@comunica/core';
-import { StatisticLinkDiscovery } from './StatisticLinkDiscovery';
 import { IActionContextKey } from '@comunica/types';
+import { StatisticLinkDiscovery } from './StatisticLinkDiscovery';
+
 
 /**
  * A comunica Statistic Link Discovery Context Preprocess Actor.
