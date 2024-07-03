@@ -12,18 +12,19 @@ export class ActorContextPreprocessAggregateStatisticTraversedTopology extends A
   }
 
   public async test(action: IActionContextPreprocess): Promise<IActorTest> {
-    if (!action.context.get(KeysTrackableStatistics.discoveredLinks) || 
-    !action.context.get(KeysTrackableStatistics.dereferencedLinks)){
-      throw new Error("Statistic aggregator did not find required statistics trackers in context");
-    }
     return true;
   }
 
   public async run(action: IActionContextPreprocess): Promise<IActorContextPreprocessOutput> {
     const statisticsMap = <Map<IActionContextKey<any>, any>> action.context.get(KeysStatisticsTracker.statistics)!;
+    if (!statisticsMap.get(KeysTrackableStatistics.discoveredLinks) || 
+    !statisticsMap.get(KeysTrackableStatistics.dereferencedLinks)
+    ){
+      throw new Error("Statistic aggregator did not find required statistics trackers in context");
+    }
 
-    const discoverStatistic: IStatisticDiscoveredLinks = action.context.get(KeysTrackableStatistics.discoveredLinks)!;
-    const dereferenceStatistic: IStatisticDereferencedLinks = action.context.get(KeysTrackableStatistics.dereferencedLinks)!;
+    const discoverStatistic: IStatisticDiscoveredLinks = statisticsMap.get(KeysTrackableStatistics.discoveredLinks)!;
+    const dereferenceStatistic: IStatisticDereferencedLinks = statisticsMap.get(KeysTrackableStatistics.dereferencedLinks)!;
 
     statisticsMap.set(
       KeysTrackableStatistics.traversedTopology,
