@@ -23,7 +23,6 @@ export class ActorContextPreprocessStatisticLinkDiscovery extends ActorContextPr
     statisticsMap.set(
       KeysTrackableStatistics.discoveredLinks, 
       new StatisticLinkDiscovery(
-        action.context.get(KeysInitQuery.queryString)!, 
         action.context.get(KeysStatisticsTracker.statisticsLogger) 
       )
     );

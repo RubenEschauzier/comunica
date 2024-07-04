@@ -4,8 +4,7 @@ import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { IDiscoverEventData, IStatisticDiscoveredLinks, Logger } from '@comunica/types';
 
 export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
-  // What query this statistic tracker belongs to.
-  public query: string;
+  // Number of discover events tracked
   public discoverEvents: number;
 
   // Directed edge list
@@ -23,8 +22,7 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
   // Logger that emits the recorded data.
   public logger: Logger | undefined;
 
-  public constructor(query: string, logger?: Logger) {
-    this.query = query;
+  public constructor(logger?: Logger) {
     this.discoverEvents = 0;
 
     this.edgeList = new Set();
@@ -60,18 +58,18 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
       metadataParentDiscoveredNode: this.metadata[parent.url],
     };
 
-    this.getEmitter().emit('data', discoverEventData);
+    this.emit(discoverEventData);
 
     // Increment number of discover events to track discover order
     this.discoverEvents += 1;
 
+    // TODO Properly handle logging
     if (this.logger) {
       this.logger.trace('Discover Event', {
         data: JSON.stringify({
           statistic: 'discoveredLinks',
-          query: this.query,
           discoveredLinks: this.getDiscoveredLinks(),
-          metadata: this.getMetadata(),
+          metadata: this.metadata,
         }),
       });
     }
@@ -88,11 +86,11 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
     return edgeListArray;
   }
 
-  public getEmitter(): EventEmitter {
-    return this.statisticEvents;
+  public addListener(cb: (arg0: IDiscoverEventData) => void): void {
+    this.statisticEvents.addListener('data', cb);
   }
 
-  public getMetadata() {
-    return this.metadata;
+  public emit(data: IDiscoverEventData): void {
+    this.statisticEvents.emit('data', data);
   }
 }
