@@ -5,35 +5,17 @@ import type { ActionContextKey } from '@comunica/core';
 import type { IActionContext } from './IActionContext';
 import type { IQuerySource } from './IQuerySource';
 
-export interface IStatistic {
-  /**
-   * Query string of tracked execution
-   */
-  query: string, 
-
+export interface IStatistic<T> {
   statisticEvents: EventEmitter;
+
+  addListener(cb: () => void): void;
+
+  emit(data: T): void;
 
   getEmitter: () => EventEmitter;
 }
 
-export interface IAggregateStatistic extends IStatistic {
-  /**
-   * The statistics this aggregate statistic aggregates over
-   */
-  toAggregate: Record<string, IStatistic>;
-
-  /**
-   * Attaches listeners to all statistics this class aggregates over
-   */
-  attachListeners: (context: IActionContext) => boolean;
-
-  /**
-   * Gets the underlying tracked data
-   */
-  getAggregateStatistic: () => any;
-}
-
-export interface IStatisticDiscoveredLinks extends IStatistic {
+export interface IStatisticDiscoveredLinks extends IStatistic<IDiscoverEventData> {
   /**
    * Set parent - child relation of discovered link
    * @param link The link discovered by the engine
@@ -63,9 +45,7 @@ export interface IDiscoverEventData {
   metadataParentDiscoveredNode: Record<any, any>[];
 }
 
-
-
-export interface IStatisticDereferencedLinks extends IStatistic {
+export interface IStatisticDereferencedLinks extends IStatistic<ILink> {
   /**
    * Track dereference event by engine
    * @param link Link dereferenced by the engine
@@ -79,23 +59,4 @@ export interface IStatisticDereferencedLinks extends IStatistic {
    * @returns list of URLs
    */
   getDereferencedLinks: () => ILink[];
-}
-
-/**
- * Interface describing what data will be emitted when the topology is updated
- * Will emit all data so far instead of only the update that happened to the topology
- */
-export interface ITopologyEventData {
-  /**
-   * What type of update happened to the topology
-   */
-  type: 'dereference' | 'discover'
-  /**
-   * The edge list discovered during query execution
-   */
-  edgeList: Set<string>;
-  /**
-   * The metadata for each node
-   */
-  metadata: Record<string, any>[];
 }
