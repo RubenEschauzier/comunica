@@ -4,17 +4,13 @@ import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { IQuerySource, IStatisticDereferencedLinks, Logger } from '@comunica/types';
 
 export class StatisticLinkDereference implements IStatisticDereferencedLinks {
-  public query: string;
-
   public dereferenceOrder: ILink[];
 
   public statisticEvents: EventEmitter;
 
   protected logger: Logger | undefined;
 
-  public constructor(query: string, logger?: Logger) {
-    this.query = query;
-
+  public constructor(logger?: Logger) {
     this.dereferenceOrder = [];
 
     this.statisticEvents = new EventEmitter();
@@ -39,12 +35,12 @@ export class StatisticLinkDereference implements IStatisticDereferencedLinks {
     this.dereferenceOrder.push(dereferencedLink);
 
     this.statisticEvents.emit('data', dereferencedLink);
-
+      
+    // TODO: Update logging to be browser safe
     if (this.logger) {
       this.logger.trace('Dereference Event', {
         data: JSON.stringify({
           statistic: 'dereferencedLinks',
-          query: this.query,
           dereferencedLinks: this.dereferenceOrder,
         }),
       });
@@ -53,11 +49,11 @@ export class StatisticLinkDereference implements IStatisticDereferencedLinks {
     return true;
   }
 
-  public getEmitter(): EventEmitter {
-    return this.statisticEvents;
+  public addListener(cb: (arg0: ILink) => void): void {
+    this.statisticEvents.addListener('data', cb);
   }
 
-  public getDereferencedLinks(): ILink[] {
-    return this.dereferenceOrder;
+  public emit(data: ILink){
+    this.statisticEvents.emit('data', data);
   }
 }
