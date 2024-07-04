@@ -6,13 +6,13 @@ import type { IActionContext } from './IActionContext';
 import type { IQuerySource } from './IQuerySource';
 
 export interface IStatistic<T> {
+
   statisticEvents: EventEmitter;
 
-  addListener(cb: () => void): void;
+  addListener(cb: (arg0: T) => void): void;
 
   emit(data: T): void;
 
-  getEmitter: () => EventEmitter;
 }
 
 export interface IStatisticDiscoveredLinks extends IStatistic<IDiscoverEventData> {
@@ -22,12 +22,6 @@ export interface IStatisticDiscoveredLinks extends IStatistic<IDiscoverEventData
    * @returns Boolean indicating success
    */
   setDiscoveredLink: (link: ILink, parent: ILink) => boolean;
-
-  /**
-   *
-   * @returns List of all discovered [ parent - child ] relations
-   */
-  getDiscoveredLinks: () => [string, string][];
 }
 
 export interface IDiscoverEventData {
@@ -52,11 +46,4 @@ export interface IStatisticDereferencedLinks extends IStatistic<ILink> {
    * @returns Boolean indicating success
    */
   setDereferenced: (link: ILink, source: IQuerySource) => boolean;
-
-  /**
-   * Returns ordered list of dereferenced links, indicating order of
-   * traversal of engine
-   * @returns list of URLs
-   */
-  getDereferencedLinks: () => ILink[];
 }
