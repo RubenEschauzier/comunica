@@ -26,11 +26,8 @@ export class ActorContextPreprocessAggregateStatisticTraversedTopology extends A
     const discoverStatistic: IStatisticDiscoveredLinks = statisticsMap.get(KeysTrackableStatistics.discoveredLinks)!;
     const dereferenceStatistic: IStatisticDereferencedLinks = statisticsMap.get(KeysTrackableStatistics.dereferencedLinks)!;
 
-    statisticsMap.set(
-      KeysTrackableStatistics.traversedTopology,
-      new AggregateStatisticTraversedTopology(action.context.get(KeysInitQuery.queryString)!,
-      discoverStatistic, dereferenceStatistic),
-    );
+    statisticsMap.set(KeysTrackableStatistics.traversedTopology,
+      new AggregateStatisticTraversedTopology(discoverStatistic, dereferenceStatistic));
     return { context: action.context };
   }
 }
