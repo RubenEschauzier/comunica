@@ -35,7 +35,7 @@ export class StatisticLinkDereference implements IStatisticDereferencedLinks {
     this.dereferenceOrder.push(dereferencedLink);
 
     this.statisticEvents.emit('data', dereferencedLink);
-      
+
     // TODO: Update logging to be browser safe
     if (this.logger) {
       this.logger.trace('Dereference Event', {
@@ -53,7 +53,7 @@ export class StatisticLinkDereference implements IStatisticDereferencedLinks {
     this.statisticEvents.addListener('data', cb);
   }
 
-  public emit(data: ILink){
+  public emit(data: ILink) {
     this.statisticEvents.emit('data', data);
   }
 }

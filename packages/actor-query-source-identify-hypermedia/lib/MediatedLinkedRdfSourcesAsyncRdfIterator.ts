@@ -1,4 +1,4 @@
-import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
+import type { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 import type { MediatorRdfMetadataAccumulate } from '@comunica/bus-rdf-metadata-accumulate';
 import type { ILink, MediatorRdfResolveHypermediaLinks } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type {

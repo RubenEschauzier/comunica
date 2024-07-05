@@ -1,12 +1,12 @@
 // eslint-disable-next-line
 import type { EventEmitter } from 'events';
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
+import type { IActionContextKey } from './IActionContext';
 import type { IQuerySource } from './IQuerySource';
-import { IActionContextKey } from './IActionContext';
 
 export interface IStatistic<T> {
   /**
-   * All statistic trackers have an event emitter that makes tracked 
+   * All statistic trackers have an event emitter that makes tracked
    * information available
    */
   statisticEvents: EventEmitter;
@@ -17,13 +17,13 @@ export interface IStatistic<T> {
    * @param cb The callback to fire when a new data event occurs. This should take
    * the data tracked by the statistics tracker as argument
    */
-  addListener(cb: (arg0: T) => void): void;
+  addListener: (cb: (arg0: T) => void) => void;
 
   /**
    * Emits new data event to all listeners
    * @param data The newly observed data
    */
-  emit(data: T): void;
+  emit: (data: T) => void;
 
 }
 

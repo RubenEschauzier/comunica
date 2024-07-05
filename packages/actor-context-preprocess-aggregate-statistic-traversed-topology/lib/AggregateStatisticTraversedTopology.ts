@@ -1,11 +1,10 @@
 // eslint-disable-next-line import/no-nodejs-modules
 import { EventEmitter } from 'events';
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
+import { KeysTrackableStatistics } from '@comunica/context-entries';
 import type { IDiscoverEventData, IStatistic, IStatisticDereferencedLinks, IStatisticDiscoveredLinks }
   from '@comunica/types';
-import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
-import { KeysTrackableStatistics } from '@comunica/context-entries';
-import { link } from 'fs';
 
 export class AggregateStatisticTraversedTopology implements IStatistic<ITopologyEventData> {
   // Emitter that indicates when an update to the aggregate statistic happened
@@ -30,7 +29,6 @@ export class AggregateStatisticTraversedTopology implements IStatistic<ITopology
   }
 
   public attachListeners(): boolean {
-
     (<IStatisticDiscoveredLinks> this.toAggregate.get(KeysTrackableStatistics.discoveredLinks))
       .addListener(this.processDiscoverEvent.bind(this));
 
@@ -49,16 +47,18 @@ export class AggregateStatisticTraversedTopology implements IStatistic<ITopology
 
     // Aggregate array of metadata entries for single node into one metadata entry with
     // array values
-    const aggregatedMetadata: Record<any, any> = {}
+    const aggregatedMetadata: Record<any, any> = {};
     data.metadataDiscoveredNode.map((metadata: Record<any, any>) => {
-        Object.keys(metadata).map( key => { aggregatedMetadata[key] = aggregatedMetadata[key] ? 
-            [...aggregatedMetadata[key], metadata[key]] : [metadata[key]];
-        })
+      Object.keys(metadata).map((key) => {
+        aggregatedMetadata[key] = aggregatedMetadata[key] ?
+            [ ...aggregatedMetadata[key], metadata[key] ] :
+            [ metadata[key] ];
+      });
     });
-    
-    // Merge exising child metadata with incoming child metadata. On key overlap this will take values from aggregatedMetadata 
+
+    // Merge exising child metadata with incoming child metadata. On key overlap this will take values from aggregatedMetadata
     // as that is the most recently updated
-    this.metadata[data.edge[1]] = {...this.metadata[data.edge[1]], ...aggregatedMetadata}
+    this.metadata[data.edge[1]] = { ...this.metadata[data.edge[1]], ...aggregatedMetadata };
 
     const updatedTopology: ITopologyEventData = {
       type: 'dereference',
@@ -71,8 +71,8 @@ export class AggregateStatisticTraversedTopology implements IStatistic<ITopology
   }
 
   public processDereferenceEvent(data: ILink): void {
-    // When a dereference event happens, metadata is extended. 
-    this.metadata[data.url] = { ...this.metadata[data.url], ...data.metadata }
+    // When a dereference event happens, metadata is extended.
+    this.metadata[data.url] = { ...this.metadata[data.url], ...data.metadata };
     const updatedTopology: ITopologyEventData = {
       type: 'dereference',
       edgeList: this.edgeList,

@@ -1,3 +1,4 @@
+import type { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults/lib/StatisticsHolder';
 import type {
   IActorContextPreprocessOutput,
   IActorContextPreprocessArgs,
@@ -17,11 +18,9 @@ import type {
   QuerySourceUnidentifiedExpanded,
   IActionContext,
   IQuerySourceUnidentifiedExpanded,
-  IActionContextKey,
   IStatisticDereferencedLinks,
 } from '@comunica/types';
 import { LRUCache } from 'lru-cache';
-import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults/lib/StatisticsHolder';
 
 /**
  * A comunica Query Source Identify Context Preprocess Actor.
@@ -58,7 +57,7 @@ export class ActorContextPreprocessQuerySourceIdentify extends ActorContextPrepr
         .map(querySource => this.expandSource(querySource)));
       const querySources: IQuerySourceWrapper[] = await Promise.all(querySourcesUnidentifiedExpanded
         .map(async querySourceUnidentified => this.identifySource(querySourceUnidentified, action.context)));
-      
+
       /**
        * When identifying sources in preprocess actor, we record this source as a seed document
        */

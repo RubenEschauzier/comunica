@@ -1,10 +1,10 @@
+import type { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 import type { IActionContextPreprocess, IActorContextPreprocessOutput, IActorContextPreprocessArgs }
   from '@comunica/bus-context-preprocess';
 import { ActorContextPreprocess } from '@comunica/bus-context-preprocess';
 import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
 import type { IActorTest } from '@comunica/core';
 import { StatisticLinkDereference } from './StatisticLinkDereference';
-import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 
 /**
  * A comunica Statistic Link Dereference Context Preprocess Actor.

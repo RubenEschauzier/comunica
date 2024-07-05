@@ -1,2 +1,2 @@
 export * from './ActorContextPreprocessSetDefaults';
-export * from './StatisticsHolder'
+export * from './StatisticsHolder';

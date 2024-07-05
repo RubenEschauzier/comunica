@@ -1,3 +1,4 @@
+import type { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults/lib/StatisticsHolder';
 import { ActionContextKey, CONTEXT_KEY_LOGGER } from '@comunica/core';
 import type {
   Bindings,
@@ -12,7 +13,7 @@ import type {
   QuerySourceUnidentified,
   IQuerySourceWrapper,
   QuerySourceReference,
-  IStatisticDereferencedLinks, 
+  IStatisticDereferencedLinks,
   IStatisticDiscoveredLinks,
   Logger,
   IStatistic,
@@ -20,8 +21,7 @@ import type {
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
 import type { Algebra } from 'sparqlalgebrajs';
-import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults/lib/StatisticsHolder';
-import { ITopologyEventData } from '../../actor-context-preprocess-aggregate-statistic-traversed-topology/lib/AggregateStatisticTraversedTopology';
+import type { ITopologyEventData } from '../../actor-context-preprocess-aggregate-statistic-traversed-topology/lib/AggregateStatisticTraversedTopology';
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
@@ -333,6 +333,6 @@ export const KeysTrackableStatistics = {
    * An aggregate statistic that combines discovered and dereferenced statistics to create a single topology
    */
   traversedTopology: new ActionContextKey<IStatistic<ITopologyEventData>>(
-    '@comunica/bus-context-preprocess:traversedTopology'
-  )
+    '@comunica/bus-context-preprocess:traversedTopology',
+  ),
 };

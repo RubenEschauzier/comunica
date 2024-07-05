@@ -1,3 +1,4 @@
+import type { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { ILinkQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
 import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
@@ -7,7 +8,6 @@ import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator, BufferedIteratorOptions } from 'asynciterator';
 import { BufferedIterator } from 'asynciterator';
 import type { Algebra } from 'sparqlalgebrajs';
-import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 
 export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<RDF.Bindings> {
   protected readonly operation: Algebra.Operation;
