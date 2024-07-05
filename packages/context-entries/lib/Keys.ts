@@ -12,15 +12,16 @@ import type {
   QuerySourceUnidentified,
   IQuerySourceWrapper,
   QuerySourceReference,
-  IActionContextKey,
-  IAggregateStatistic,
   IStatisticDereferencedLinks, 
   IStatisticDiscoveredLinks,
   Logger,
+  IStatistic,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
 import type { Algebra } from 'sparqlalgebrajs';
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults/lib/StatisticsHolder';
+import { ITopologyEventData } from '../../actor-context-preprocess-aggregate-statistic-traversed-topology/lib/AggregateStatisticTraversedTopology';
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
@@ -308,20 +309,13 @@ export const KeysStatisticsTracker = {
   /**
    * Map holding all statistics being tracked, filled with keys from KeysTrackableStatistics
    */
-  statistics: new ActionContextKey<Map<IActionContextKey<any>, any>>(
+  statistics: new ActionContextKey<StatisticsHolder>(
     '@comunica/actor-context-preprocess-set-default:statistics',
-  ),
-  /**
-   * TODO: Make nicer. Directory to log statistics information to.
-   */
-  statisticsSaveLocation: new ActionContextKey<string>(
-    '@comunica/actor-context-preprocess-set-default:statisticsSaveLocation',
   ),
   /**
    * TODO: Make nicer. Statistic logger.
    */
   statisticsLogger: new ActionContextKey<Logger>('@comunica/actor-context-preprocess-set-default:statisticsLogger'),
-
 };
 
 export const KeysTrackableStatistics = {
@@ -338,7 +332,7 @@ export const KeysTrackableStatistics = {
   /**
    * An aggregate statistic that combines discovered and dereferenced statistics to create a single topology
    */
-  traversedTopology: new ActionContextKey<IAggregateStatistic>(
+  traversedTopology: new ActionContextKey<IStatistic<ITopologyEventData>>(
     '@comunica/bus-context-preprocess:traversedTopology'
   )
 };

@@ -7,7 +7,7 @@ import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator, BufferedIteratorOptions } from 'asynciterator';
 import { BufferedIterator } from 'asynciterator';
 import type { Algebra } from 'sparqlalgebrajs';
-import type { IActionContextKey } from '../../types/lib';
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 
 export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<RDF.Bindings> {
   protected readonly operation: Algebra.Operation;
@@ -310,20 +310,19 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
             this.iteratorsPendingCreation++;
             this.sourceStateGetter(nextLink, handledDatasets)
               .then((nextSourceState) => {
-                // INSERT DEREFERENCE EVENT TRACKING HERE
-                const statistics = <Map<IActionContextKey<any>, any>> this.context.get(
-                  KeysStatisticsTracker.statistics,
-                );
-                const traversalTracker = <IStatisticDereferencedLinks> statistics?.get(
+                // Find any statistics tracking dereference events
+                const statistics: StatisticsHolder = this.context.get(KeysStatisticsTracker.statistics)!;
+                const statisticDereferenceLinks = <IStatisticDereferencedLinks> statistics.get(
                   KeysTrackableStatistics.dereferencedLinks,
                 );
 
-                if (traversalTracker) {
+                // If we find a statistic tracking dereference events we emit the relevant data
+                if (statisticDereferenceLinks) {
                   const linkStatistic: ILink = {
                     url: nextSourceState.link.url,
                     metadata: { ...nextSourceState.metadata, ...nextSourceState.link.metadata },
                   };
-                  traversalTracker.setDereferenced(linkStatistic, nextSourceState.source);
+                  statisticDereferenceLinks.setDereferenced(linkStatistic, nextSourceState.source);
                 }
 
                 this.iteratorsPendingCreation--;

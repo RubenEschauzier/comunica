@@ -1,7 +1,7 @@
 import { ActionContextKey } from "@comunica/core";
-import { IActionContextKey, IStatisticHolder } from "@comunica/types";
+import { IActionContextKey, IStatisticsHolder } from "@comunica/types";
 
-export class StatisticHolder implements IStatisticHolder{
+export class StatisticsHolder implements IStatisticsHolder{
     private readonly map: Map<string, any>;
 
     public constructor(){

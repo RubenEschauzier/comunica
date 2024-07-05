@@ -1,10 +1,10 @@
 import type { IActionContextPreprocess, IActorContextPreprocessOutput, IActorContextPreprocessArgs }
   from '@comunica/bus-context-preprocess';
 import { ActorContextPreprocess } from '@comunica/bus-context-preprocess';
-import { KeysInitQuery, KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
+import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
 import type { IActorTest } from '@comunica/core';
-import type { IActionContextKey } from '@comunica/types';
 import { StatisticLinkDereference } from './StatisticLinkDereference';
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 
 /**
  * A comunica Statistic Link Dereference Context Preprocess Actor.
@@ -19,13 +19,9 @@ export class ActorContextPreprocessStatisticLinkDereference extends ActorContext
   }
 
   public async run(action: IActionContextPreprocess): Promise<IActorContextPreprocessOutput> {
-    const statisticsMap = <Map<IActionContextKey<any>, any>> action.context.get(KeysStatisticsTracker.statistics)!;
-    statisticsMap.set(
-      KeysTrackableStatistics.dereferencedLinks,
-      new StatisticLinkDereference(
-        action.context.get(KeysStatisticsTracker.statisticsLogger),
-      ),
-    );
+    const statisticsHolder: StatisticsHolder = action.context.get(KeysStatisticsTracker.statistics)!;
+    statisticsHolder.set(KeysTrackableStatistics.dereferencedLinks, new StatisticLinkDereference());
+
     return { context: action.context };
   }
 }

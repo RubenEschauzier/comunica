@@ -21,6 +21,7 @@ import type {
   IStatisticDereferencedLinks,
 } from '@comunica/types';
 import { LRUCache } from 'lru-cache';
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults/lib/StatisticsHolder';
 
 /**
  * A comunica Query Source Identify Context Preprocess Actor.
@@ -57,10 +58,13 @@ export class ActorContextPreprocessQuerySourceIdentify extends ActorContextPrepr
         .map(querySource => this.expandSource(querySource)));
       const querySources: IQuerySourceWrapper[] = await Promise.all(querySourcesUnidentifiedExpanded
         .map(async querySourceUnidentified => this.identifySource(querySourceUnidentified, action.context)));
-
-      const statistics = <Map<IActionContextKey<any>, any>> action.context.get(KeysStatisticsTracker.statistics);
-      const traversalTracker = <IStatisticDereferencedLinks> statistics?.get(KeysTrackableStatistics.dereferencedLinks);
-      if (traversalTracker) {
+      
+      /**
+       * When identifying sources in preprocess actor, we record this source as a seed document
+       */
+      const statistics: StatisticsHolder = action.context.get(KeysStatisticsTracker.statistics)!;
+      const statisticDereferenceLinks = <IStatisticDereferencedLinks> statistics.get(KeysTrackableStatistics.dereferencedLinks);
+      if (statisticDereferenceLinks) {
         for (const querySource of querySources) {
           const linkStatistic: ILink = {
             url: <string> querySource.source.referenceValue,
@@ -68,7 +72,7 @@ export class ActorContextPreprocessQuerySourceIdentify extends ActorContextPrepr
               seed: true,
             },
           };
-          traversalTracker.setDereferenced(linkStatistic, querySource.source);
+          statisticDereferenceLinks.setDereferenced(linkStatistic, querySource.source);
         }
       }
 

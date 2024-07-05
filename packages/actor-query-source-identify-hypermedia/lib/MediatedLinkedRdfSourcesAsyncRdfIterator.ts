@@ -1,3 +1,4 @@
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 import type { MediatorRdfMetadataAccumulate } from '@comunica/bus-rdf-metadata-accumulate';
 import type { ILink, MediatorRdfResolveHypermediaLinks } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type {
@@ -5,7 +6,7 @@ import type {
   MediatorRdfResolveHypermediaLinksQueue,
 } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
 import { KeysQueryOperation, KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
-import type { IActionContext, IActionContextKey, IAggregatedStore, IQueryBindingsOptions, IStatisticDiscoveredLinks, MetadataBindings } from '@comunica/types';
+import type { IActionContext, IAggregatedStore, IQueryBindingsOptions, IStatisticDiscoveredLinks, MetadataBindings } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { DataFactory } from 'rdf-data-factory';
 import type { Algebra } from 'sparqlalgebrajs';
@@ -151,7 +152,7 @@ export class MediatedLinkedRdfSourcesAsyncRdfIterator extends LinkedRdfSourcesAs
       // we call its function and pass the statistic to it.
       // Currently only ONE tracker per key
       for (const link of links) {
-        const statistics = <Map<IActionContextKey<any>, any>> this.context.get(KeysStatisticsTracker.statistics);
+        const statistics: StatisticsHolder = this.context.get(KeysStatisticsTracker.statistics)!;
         const traversalTracker = <IStatisticDiscoveredLinks> statistics?.get(KeysTrackableStatistics.discoveredLinks);
         if (traversalTracker) {
           const linkStatistic: ILink = {

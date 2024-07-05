@@ -63,7 +63,7 @@ export interface IDiscoverEventData {
 /**
  * Interface that holds all tracked statistics
  */
-export interface IStatisticHolder {
+export interface IStatisticsHolder {
   set: <V>(key: IActionContextKey<V>, value: V) => void;
   delete: <V>(key: IActionContextKey<V>) => void;
   get: <V>(key: IActionContextKey<V>) => V | undefined;

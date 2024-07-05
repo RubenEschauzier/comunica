@@ -6,10 +6,9 @@ import type {
 import { ActorContextPreprocess } from '@comunica/bus-context-preprocess';
 import { KeysCore, KeysInitQuery, KeysQuerySourceIdentify, KeysStatisticsTracker } from '@comunica/context-entries';
 import type { IAction, IActorTest } from '@comunica/core';
-import type { ILoggerBunyanArgs, BunyanStreamProvider } from '@comunica/logger-bunyan';
-import { LoggerBunyan, BunyanStreamProviderFile } from '@comunica/logger-bunyan';
 import type { FunctionArgumentsCache, Logger } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
+import { StatisticsHolder } from './StatisticsHolder';
 
 // TODO MAKE THIS NICE
 
@@ -40,20 +39,8 @@ export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
         .setDefault(KeysCore.log, this.logger)
         .setDefault(KeysInitQuery.functionArgumentsCache, this.defaultFunctionArgumentsCache)
         .setDefault(KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores, new Map())
-        .setDefault(KeysStatisticsTracker.statistics, new Map());
+        .setDefault(KeysStatisticsTracker.statistics, new StatisticsHolder());
 
-      if (context.get(KeysStatisticsTracker.statisticsSaveLocation)) {
-        const saveLocation: string = context.get(KeysStatisticsTracker.statisticsSaveLocation)!;
-        const streamProvider: BunyanStreamProvider = new BunyanStreamProviderFile(
-          { path: `file:///${saveLocation}` },
-        );
-        const loggerParams: ILoggerBunyanArgs = {
-          name: 'comunica',
-          level: 'trace',
-          streamProviders: [ streamProvider ],
-        };
-        context = context.setDefault(KeysStatisticsTracker.statisticsLogger, new LoggerBunyan(loggerParams));
-      }
       // Handle default query format
       let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };
       if (context.has(KeysInitQuery.queryFormat)) {
