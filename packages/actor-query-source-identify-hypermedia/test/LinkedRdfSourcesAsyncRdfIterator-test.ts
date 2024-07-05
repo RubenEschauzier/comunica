@@ -14,6 +14,8 @@ import { Factory } from 'sparqlalgebrajs';
 import type { ISourceState, SourceStateGetter } from '../lib/LinkedRdfSourcesAsyncRdfIterator';
 import { LinkedRdfSourcesAsyncRdfIterator } from '../lib/LinkedRdfSourcesAsyncRdfIterator';
 import '@comunica/jest';
+import { KeysStatisticsTracker } from '@comunica/context-entries';
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 
 // Use require instead of import for default exports, to be compatible with variants of esModuleInterop in tsconfig.
 const EventEmitter = require('node:events');
@@ -107,7 +109,7 @@ function getPage(link: ILink): number {
 describe('LinkedRdfSourcesAsyncRdfIterator', () => {
   const operation = AF.createPattern(v, v, v, v);
   const queryBindingsOptions: IQueryBindingsOptions = {};
-  const context = new ActionContext();
+  const context = new ActionContext().set(KeysStatisticsTracker.statistics, new StatisticsHolder);
 
   // Source input is array of arrays (`data`), with every array corresponding to a page.
   let data: RDF.Bindings[][];

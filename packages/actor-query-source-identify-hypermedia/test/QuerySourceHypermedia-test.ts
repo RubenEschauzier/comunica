@@ -5,7 +5,7 @@ import type {
   IActorDereferenceRdfOutput,
 } from '@comunica/bus-dereference-rdf';
 import type { IActionQuerySourceIdentifyHypermedia } from '@comunica/bus-query-source-identify-hypermedia';
-import { KeysInitQuery, KeysQuerySourceIdentify } from '@comunica/context-entries';
+import { KeysInitQuery, KeysQuerySourceIdentify, KeysStatisticsTracker } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
 import { MetadataValidationState } from '@comunica/metadata';
 import type { IActionContext, MetadataQuads } from '@comunica/types';
@@ -23,6 +23,7 @@ import { MediatedLinkedRdfSourcesAsyncRdfIterator } from '../lib/MediatedLinkedR
 import { QuerySourceHypermedia } from '../lib/QuerySourceHypermedia';
 import { mediators as utilMediators } from './MediatorDereferenceRdf-util';
 import '@comunica/jest';
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 
 const DF = new DataFactory();
 const AF = new Factory();
@@ -48,6 +49,7 @@ describe('QuerySourceHypermedia', () => {
     context = new ActionContext({
       [KeysInitQuery.query.name]: {},
       [KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores.name]: new Map(),
+      [KeysStatisticsTracker.statistics.name]: new StatisticsHolder()
     });
     mediatorDereferenceRdf = utilMediators.mediatorDereferenceRdf;
     mediatorMetadata = utilMediators.mediatorMetadata;
@@ -469,6 +471,7 @@ describe('QuerySourceHypermedia', () => {
           context: new ActionContext({
             a: 'b',
             [KeysInitQuery.query.name]: {},
+            [KeysStatisticsTracker.statistics.name]: new StatisticsHolder(),
             [KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores.name]: new Map(),
           }),
         });
@@ -479,6 +482,7 @@ describe('QuerySourceHypermedia', () => {
           context: new ActionContext({
             a: 'b',
             [KeysInitQuery.query.name]: {},
+            [KeysStatisticsTracker.statistics.name]: new StatisticsHolder(),
             [KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores.name]: new Map(),
           }),
         });
@@ -488,6 +492,7 @@ describe('QuerySourceHypermedia', () => {
           requestTime: 0,
           context: new ActionContext({
             [KeysInitQuery.query.name]: {},
+            [KeysStatisticsTracker.statistics.name]: new StatisticsHolder(),
             [KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores.name]: new Map(),
             a: 'b',
           }),
@@ -499,6 +504,7 @@ describe('QuerySourceHypermedia', () => {
           quads: expect.any(require('node:stream').Readable),
           context: new ActionContext({
             [KeysInitQuery.query.name]: {},
+            [KeysStatisticsTracker.statistics.name]: new StatisticsHolder(),
             [KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores.name]: new Map(),
             a: 'b',
           }),
@@ -569,7 +575,8 @@ describe('QuerySourceHypermedia', () => {
     beforeEach(() => {
       source = new QuerySourceHypermedia(10, 'firstUrl', 'forcedType', 64, true, mediators, logWarning, BF);
       const aggregateStores = new Map();
-      context = context.set(KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores, aggregateStores);
+      context = context.set(KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores, aggregateStores)
+      .set(KeysStatisticsTracker.statistics, new StatisticsHolder());
     });
 
     describe('queryBindings', () => {
@@ -1029,6 +1036,7 @@ describe('QuerySourceHypermedia', () => {
         await expect(source.queryBindings(operation, new ActionContext({
           [KeysInitQuery.query.name]: {},
           [KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores.name]: new Map(),
+          [KeysStatisticsTracker.statistics.name]: new StatisticsHolder()
         }))).toEqualBindingsStream(expected);
         expect(mediatorsThis.mediatorQuerySourceIdentifyHypermedia.mediate).toHaveBeenCalledTimes(3);
         i = 1;
@@ -1036,6 +1044,7 @@ describe('QuerySourceHypermedia', () => {
         await expect(source.queryBindings(operation, new ActionContext({
           [KeysInitQuery.query.name]: {},
           [KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores.name]: new Map(),
+          [KeysStatisticsTracker.statistics.name]: new StatisticsHolder()
         }))).toEqualBindingsStream(expected);
       });
     });

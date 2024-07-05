@@ -6,7 +6,7 @@ import type { MediatorRdfMetadataAccumulate } from '@comunica/bus-rdf-metadata-a
 import type { MediatorRdfMetadataExtract } from '@comunica/bus-rdf-metadata-extract';
 import type { MediatorRdfResolveHypermediaLinks } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { MediatorRdfResolveHypermediaLinksQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
-import { KeysQuerySourceIdentify } from '@comunica/context-entries';
+import { KeysQuerySourceIdentify, KeysStatisticsTracker } from '@comunica/context-entries';
 import { ActionContext, Bus } from '@comunica/core';
 import { MetadataValidationState } from '@comunica/metadata';
 import type { IActionContext, QuerySourceUnidentifiedExpanded } from '@comunica/types';
@@ -17,6 +17,7 @@ import { ActorQuerySourceIdentifyHypermedia } from '../lib/ActorQuerySourceIdent
 import { mediators as utilMediators } from './MediatorDereferenceRdf-util';
 import 'jest-rdf';
 import '@comunica/jest';
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 
 const BF = new BindingsFactory();
 const DF = new DataFactory();
@@ -90,6 +91,7 @@ describe('ActorQuerySourceIdentifyHypermedia', () => {
           name: 'actor',
         });
         context = new ActionContext();
+        context = context.set(KeysStatisticsTracker.statistics,  new StatisticsHolder());
         operation = <any> {};
         querySourceUnidentified = { value: 'firstUrl' };
       });
@@ -119,6 +121,7 @@ describe('ActorQuerySourceIdentifyHypermedia', () => {
 
       describe('run', () => {
         it('should return a source that can produce a bindings stream and metadata', async() => {
+          console.log(context)
           const { querySource } = await actor.run({ context, querySourceUnidentified });
           const bindings = querySource.source.queryBindings(operation, context);
           await expect(bindings).toEqualBindingsStream([
@@ -303,13 +306,14 @@ describe('ActorQuerySourceIdentifyHypermedia', () => {
         operation = <any> {};
         querySourceUnidentified = {
           value: 'firstUrl',
-          context: new ActionContext().set(KeysQuerySourceIdentify.traverse, true),
+          context: new ActionContext().set(KeysQuerySourceIdentify.traverse, true).
+          set(KeysStatisticsTracker.statistics,  new StatisticsHolder()),
         };
       });
 
       describe('run without hypermediaSourcesAggregatedStores', () => {
         beforeEach(() => {
-          context = new ActionContext();
+          context = new ActionContext().set(KeysStatisticsTracker.statistics,  new StatisticsHolder());
         });
 
         it('should return a source that can produce a bindings stream and metadata', async() => {
@@ -396,6 +400,7 @@ describe('ActorQuerySourceIdentifyHypermedia', () => {
         beforeEach(() => {
           context = new ActionContext({
             [KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores.name]: new Map(),
+            [KeysStatisticsTracker.statistics.name] : new StatisticsHolder()
           });
         });
 

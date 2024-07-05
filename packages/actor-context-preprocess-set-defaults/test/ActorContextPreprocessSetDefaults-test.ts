@@ -1,6 +1,7 @@
-import { KeysCore, KeysInitQuery, KeysQuerySourceIdentify } from '@comunica/context-entries';
+import { KeysCore, KeysInitQuery, KeysQuerySourceIdentify, KeysStatisticsTracker } from '@comunica/context-entries';
 import { ActionContext, Bus } from '@comunica/core';
 import { ActorContextPreprocessSetDefaults } from '../lib/ActorContextPreprocessSetDefaults';
+import { StatisticsHolder } from '../lib';
 
 describe('ActorContextPreprocessSetDefaults', () => {
   let bus: any;
@@ -36,6 +37,7 @@ describe('ActorContextPreprocessSetDefaults', () => {
           [KeysCore.log.name]: 'L',
           [KeysInitQuery.functionArgumentsCache.name]: {},
           [KeysInitQuery.queryFormat.name]: { language: 'sparql', version: '1.1' },
+          [KeysStatisticsTracker.statistics.name] : new StatisticsHolder(),
           [KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores.name]: new Map(),
         }));
       });
@@ -52,6 +54,7 @@ describe('ActorContextPreprocessSetDefaults', () => {
           [KeysInitQuery.functionArgumentsCache.name]: {},
           [KeysInitQuery.queryFormat.name]: { language: 'graphql', version: '1.1' },
           [KeysInitQuery.graphqlSingularizeVariables.name]: {},
+          [KeysStatisticsTracker.statistics.name] : new StatisticsHolder(),
           [KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores.name]: new Map(),
         }));
       });

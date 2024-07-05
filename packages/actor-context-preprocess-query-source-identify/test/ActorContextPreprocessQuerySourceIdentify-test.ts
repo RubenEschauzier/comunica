@@ -1,22 +1,26 @@
 import type { MediatorContextPreprocess } from '@comunica/bus-context-preprocess';
 import type { ActorHttpInvalidateListenable } from '@comunica/bus-http-invalidate';
 import type { IActionQuerySourceIdentify, MediatorQuerySourceIdentify } from '@comunica/bus-query-source-identify';
-import { KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
+import { KeysInitQuery, KeysQueryOperation, KeysStatisticsTracker } from '@comunica/context-entries';
 import type { IAction } from '@comunica/core';
 import { ActionContext, ActionContextKey, Bus } from '@comunica/core';
-import type { IQuerySourceWrapper } from '@comunica/types';
+import type { IActionContext, IQuerySourceWrapper } from '@comunica/types';
 import { RdfStore } from 'rdf-stores';
 import { ActorContextPreprocessQuerySourceIdentify } from '../lib/ActorContextPreprocessQuerySourceIdentify';
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 
 describe('ActorContextPreprocessQuerySourceIdentify', () => {
   let bus: any;
   let mediatorContextPreprocess: MediatorContextPreprocess;
+  let contextIn: IActionContext;
 
   beforeEach(() => {
     bus = new Bus({ name: 'bus' });
     mediatorContextPreprocess = <any> {
       async mediate(action: IAction) {
-        return { context: action.context.set(new ActionContextKey('processed'), true) };
+        return { context: action.context.set(new ActionContextKey('processed'), true).set(
+          KeysStatisticsTracker.statistics, new StatisticsHolder()
+        ) };
       },
     };
   });
@@ -51,15 +55,16 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
     });
 
     describe('run', () => {
+      beforeEach(() => {
+        contextIn = new ActionContext({[KeysStatisticsTracker.statistics.name]: new StatisticsHolder()})
+      })
       it('with an empty context', async() => {
-        const contextIn = new ActionContext();
         const { context: contextOut } = await actor.run({ context: contextIn });
         expect(contextOut).toBe(contextIn);
       });
 
       it('with zero unidentified sources', async() => {
-        const contextIn = new ActionContext()
-          .set(KeysInitQuery.querySourcesUnidentified, []);
+        contextIn = contextIn.set(KeysInitQuery.querySourcesUnidentified, []);
         const { context: contextOut } = await actor.run({ context: contextIn });
         expect(contextOut).not.toBe(contextIn);
         expect(contextOut.get(KeysQueryOperation.querySources)).toEqual([]);
@@ -67,8 +72,7 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
 
       it('with three unidentified sources', async() => {
         const source3 = RdfStore.createDefault();
-        const contextIn = new ActionContext()
-          .set(KeysInitQuery.querySourcesUnidentified, [
+        contextIn = contextIn.set(KeysInitQuery.querySourcesUnidentified, [
             'source1',
             { value: 'source2' },
             source3,
@@ -84,8 +88,7 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
 
       it('should cache 2 identical sources in one call', async() => {
         const source1 = 'source1';
-        const contextIn = new ActionContext()
-          .set(KeysInitQuery.querySourcesUnidentified, [
+        contextIn = contextIn.set(KeysInitQuery.querySourcesUnidentified, [
             source1,
             source1,
           ]);
@@ -101,7 +104,7 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
 
       it('should cache identical sources in separate calls', async() => {
         const source1 = 'source1';
-        const contextIn = new ActionContext()
+        contextIn = contextIn
           .set(KeysInitQuery.querySourcesUnidentified, [
             source1,
           ]);
@@ -114,7 +117,7 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
       it('should allow cache invalidation for a specific url', async() => {
         const source1 = 'source1';
         const source2 = 'source2';
-        const contextIn = new ActionContext()
+        contextIn = contextIn
           .set(KeysInitQuery.querySourcesUnidentified, [
             source1,
             source2,
@@ -143,7 +146,7 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
       it('should allow cache invalidation for all url', async() => {
         const source1 = 'source1';
         const source2 = 'source2';
-        const contextIn = new ActionContext()
+        contextIn = contextIn
           .set(KeysInitQuery.querySourcesUnidentified, [
             source1,
             source2,
@@ -171,7 +174,7 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
 
       it('with an unidentified source with proper context', async() => {
         const contextSource = new ActionContext({ a: 'b' });
-        const contextIn = new ActionContext()
+        contextIn = contextIn
           .set(KeysInitQuery.querySourcesUnidentified, [
             { value: 'source2', context: contextSource },
           ]);
@@ -181,7 +184,8 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
           {
             ofUnidentified: {
               value: 'source2',
-              context: contextSource.set(new ActionContextKey('processed'), true),
+              context: contextSource.set(new ActionContextKey('processed'), true)
+              .set(KeysStatisticsTracker.statistics, new StatisticsHolder),
             },
           },
         ]);
@@ -189,7 +193,7 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
 
       it('with an unidentified source with raw context', async() => {
         const contextSource = { a: 'b' };
-        const contextIn = new ActionContext()
+        contextIn = contextIn
           .set(KeysInitQuery.querySourcesUnidentified, [
             { value: 'source2', context: contextSource },
           ]);
@@ -199,7 +203,8 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
           {
             ofUnidentified: {
               value: 'source2',
-              context: new ActionContext(contextSource).set(new ActionContextKey('processed'), true),
+              context: new ActionContext(contextSource).set(new ActionContextKey('processed'), true)
+              .set(KeysStatisticsTracker.statistics, new StatisticsHolder),
             },
           },
         ]);
@@ -238,7 +243,8 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
         .set(KeysInitQuery.querySourcesUnidentified, [
           source1,
           source1,
-        ]);
+        ])
+        .set(KeysStatisticsTracker.statistics, new StatisticsHolder);
       const { context: contextOut } = await actor.run({ context: contextIn });
       expect(contextOut).not.toBe(contextIn);
       expect(contextOut.get(KeysQueryOperation.querySources)).toEqual([
@@ -254,7 +260,8 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
       const contextIn = new ActionContext()
         .set(KeysInitQuery.querySourcesUnidentified, [
           source1,
-        ]);
+        ])
+        .set(KeysStatisticsTracker.statistics, new StatisticsHolder);
       const { context: contextOut1 } = await actor.run({ context: contextIn });
       const { context: contextOut2 } = await actor.run({ context: contextIn });
       expect(contextOut1.get<IQuerySourceWrapper[]>(KeysQueryOperation.querySources)![0])
