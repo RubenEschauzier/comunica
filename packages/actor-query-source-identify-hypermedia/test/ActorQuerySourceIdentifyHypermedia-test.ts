@@ -91,7 +91,7 @@ describe('ActorQuerySourceIdentifyHypermedia', () => {
           name: 'actor',
         });
         context = new ActionContext();
-        context = context.set(KeysStatisticsTracker.statistics,  new StatisticsHolder());
+        context = context.set(KeysStatisticsTracker.statistics, new StatisticsHolder());
         operation = <any> {};
         querySourceUnidentified = { value: 'firstUrl' };
       });
@@ -121,7 +121,7 @@ describe('ActorQuerySourceIdentifyHypermedia', () => {
 
       describe('run', () => {
         it('should return a source that can produce a bindings stream and metadata', async() => {
-          console.log(context)
+          console.log(context);
           const { querySource } = await actor.run({ context, querySourceUnidentified });
           const bindings = querySource.source.queryBindings(operation, context);
           await expect(bindings).toEqualBindingsStream([
@@ -306,14 +306,14 @@ describe('ActorQuerySourceIdentifyHypermedia', () => {
         operation = <any> {};
         querySourceUnidentified = {
           value: 'firstUrl',
-          context: new ActionContext().set(KeysQuerySourceIdentify.traverse, true).
-          set(KeysStatisticsTracker.statistics,  new StatisticsHolder()),
+          context: new ActionContext().set(KeysQuerySourceIdentify.traverse, true)
+            .set(KeysStatisticsTracker.statistics, new StatisticsHolder()),
         };
       });
 
       describe('run without hypermediaSourcesAggregatedStores', () => {
         beforeEach(() => {
-          context = new ActionContext().set(KeysStatisticsTracker.statistics,  new StatisticsHolder());
+          context = new ActionContext().set(KeysStatisticsTracker.statistics, new StatisticsHolder());
         });
 
         it('should return a source that can produce a bindings stream and metadata', async() => {
@@ -400,7 +400,7 @@ describe('ActorQuerySourceIdentifyHypermedia', () => {
         beforeEach(() => {
           context = new ActionContext({
             [KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores.name]: new Map(),
-            [KeysStatisticsTracker.statistics.name] : new StatisticsHolder()
+            [KeysStatisticsTracker.statistics.name]: new StatisticsHolder(),
           });
         });
 

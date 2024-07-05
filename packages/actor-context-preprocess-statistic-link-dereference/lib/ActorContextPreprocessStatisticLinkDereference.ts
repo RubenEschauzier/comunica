@@ -19,7 +19,10 @@ export class ActorContextPreprocessStatisticLinkDereference extends ActorContext
   }
 
   public async run(action: IActionContextPreprocess): Promise<IActorContextPreprocessOutput> {
-    const statisticsHolder: StatisticsHolder = action.context.get(KeysStatisticsTracker.statistics)!;
+    const statisticsHolder: StatisticsHolder | undefined = action.context.get(KeysStatisticsTracker.statistics);
+    if (!statisticsHolder) {
+      throw new Error('Tried to track link dereference statistic without statisticsHolder object in context');
+    }
     statisticsHolder.set(KeysTrackableStatistics.dereferencedLinks, new StatisticLinkDereference());
 
     return { context: action.context };

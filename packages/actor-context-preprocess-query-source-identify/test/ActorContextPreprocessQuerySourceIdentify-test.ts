@@ -1,3 +1,4 @@
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 import type { MediatorContextPreprocess } from '@comunica/bus-context-preprocess';
 import type { ActorHttpInvalidateListenable } from '@comunica/bus-http-invalidate';
 import type { IActionQuerySourceIdentify, MediatorQuerySourceIdentify } from '@comunica/bus-query-source-identify';
@@ -7,7 +8,6 @@ import { ActionContext, ActionContextKey, Bus } from '@comunica/core';
 import type { IActionContext, IQuerySourceWrapper } from '@comunica/types';
 import { RdfStore } from 'rdf-stores';
 import { ActorContextPreprocessQuerySourceIdentify } from '../lib/ActorContextPreprocessQuerySourceIdentify';
-import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 
 describe('ActorContextPreprocessQuerySourceIdentify', () => {
   let bus: any;
@@ -19,7 +19,8 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
     mediatorContextPreprocess = <any> {
       async mediate(action: IAction) {
         return { context: action.context.set(new ActionContextKey('processed'), true).set(
-          KeysStatisticsTracker.statistics, new StatisticsHolder()
+          KeysStatisticsTracker.statistics,
+          new StatisticsHolder(),
         ) };
       },
     };
@@ -56,8 +57,8 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
 
     describe('run', () => {
       beforeEach(() => {
-        contextIn = new ActionContext({[KeysStatisticsTracker.statistics.name]: new StatisticsHolder()})
-      })
+        contextIn = new ActionContext({ [KeysStatisticsTracker.statistics.name]: new StatisticsHolder() });
+      });
       it('with an empty context', async() => {
         const { context: contextOut } = await actor.run({ context: contextIn });
         expect(contextOut).toBe(contextIn);
@@ -73,10 +74,10 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
       it('with three unidentified sources', async() => {
         const source3 = RdfStore.createDefault();
         contextIn = contextIn.set(KeysInitQuery.querySourcesUnidentified, [
-            'source1',
-            { value: 'source2' },
-            source3,
-          ]);
+          'source1',
+          { value: 'source2' },
+          source3,
+        ]);
         const { context: contextOut } = await actor.run({ context: contextIn });
         expect(contextOut).not.toBe(contextIn);
         expect(contextOut.get(KeysQueryOperation.querySources)).toEqual([
@@ -89,9 +90,9 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
       it('should cache 2 identical sources in one call', async() => {
         const source1 = 'source1';
         contextIn = contextIn.set(KeysInitQuery.querySourcesUnidentified, [
-            source1,
-            source1,
-          ]);
+          source1,
+          source1,
+        ]);
         const { context: contextOut } = await actor.run({ context: contextIn });
         expect(contextOut).not.toBe(contextIn);
         expect(contextOut.get(KeysQueryOperation.querySources)).toEqual([
@@ -185,7 +186,7 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
             ofUnidentified: {
               value: 'source2',
               context: contextSource.set(new ActionContextKey('processed'), true)
-              .set(KeysStatisticsTracker.statistics, new StatisticsHolder),
+                .set(KeysStatisticsTracker.statistics, new StatisticsHolder()),
             },
           },
         ]);
@@ -204,7 +205,7 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
             ofUnidentified: {
               value: 'source2',
               context: new ActionContext(contextSource).set(new ActionContextKey('processed'), true)
-              .set(KeysStatisticsTracker.statistics, new StatisticsHolder),
+                .set(KeysStatisticsTracker.statistics, new StatisticsHolder()),
             },
           },
         ]);
@@ -244,7 +245,7 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
           source1,
           source1,
         ])
-        .set(KeysStatisticsTracker.statistics, new StatisticsHolder);
+        .set(KeysStatisticsTracker.statistics, new StatisticsHolder());
       const { context: contextOut } = await actor.run({ context: contextIn });
       expect(contextOut).not.toBe(contextIn);
       expect(contextOut.get(KeysQueryOperation.querySources)).toEqual([
@@ -261,7 +262,7 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
         .set(KeysInitQuery.querySourcesUnidentified, [
           source1,
         ])
-        .set(KeysStatisticsTracker.statistics, new StatisticsHolder);
+        .set(KeysStatisticsTracker.statistics, new StatisticsHolder());
       const { context: contextOut1 } = await actor.run({ context: contextIn });
       const { context: contextOut2 } = await actor.run({ context: contextIn });
       expect(contextOut1.get<IQuerySourceWrapper[]>(KeysQueryOperation.querySources)![0])

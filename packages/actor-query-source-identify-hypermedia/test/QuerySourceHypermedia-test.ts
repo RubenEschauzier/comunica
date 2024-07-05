@@ -49,7 +49,7 @@ describe('QuerySourceHypermedia', () => {
     context = new ActionContext({
       [KeysInitQuery.query.name]: {},
       [KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores.name]: new Map(),
-      [KeysStatisticsTracker.statistics.name]: new StatisticsHolder()
+      [KeysStatisticsTracker.statistics.name]: new StatisticsHolder(),
     });
     mediatorDereferenceRdf = utilMediators.mediatorDereferenceRdf;
     mediatorMetadata = utilMediators.mediatorMetadata;
@@ -576,7 +576,7 @@ describe('QuerySourceHypermedia', () => {
       source = new QuerySourceHypermedia(10, 'firstUrl', 'forcedType', 64, true, mediators, logWarning, BF);
       const aggregateStores = new Map();
       context = context.set(KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores, aggregateStores)
-      .set(KeysStatisticsTracker.statistics, new StatisticsHolder());
+        .set(KeysStatisticsTracker.statistics, new StatisticsHolder());
     });
 
     describe('queryBindings', () => {
@@ -1036,7 +1036,7 @@ describe('QuerySourceHypermedia', () => {
         await expect(source.queryBindings(operation, new ActionContext({
           [KeysInitQuery.query.name]: {},
           [KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores.name]: new Map(),
-          [KeysStatisticsTracker.statistics.name]: new StatisticsHolder()
+          [KeysStatisticsTracker.statistics.name]: new StatisticsHolder(),
         }))).toEqualBindingsStream(expected);
         expect(mediatorsThis.mediatorQuerySourceIdentifyHypermedia.mediate).toHaveBeenCalledTimes(3);
         i = 1;
@@ -1044,7 +1044,7 @@ describe('QuerySourceHypermedia', () => {
         await expect(source.queryBindings(operation, new ActionContext({
           [KeysInitQuery.query.name]: {},
           [KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores.name]: new Map(),
-          [KeysStatisticsTracker.statistics.name]: new StatisticsHolder()
+          [KeysStatisticsTracker.statistics.name]: new StatisticsHolder(),
         }))).toEqualBindingsStream(expected);
       });
     });

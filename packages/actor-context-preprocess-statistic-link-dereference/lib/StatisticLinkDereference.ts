@@ -32,6 +32,7 @@ export class StatisticLinkDereference implements IStatisticDereferencedLinks {
       context: link.context,
       transform: link.transform,
     };
+
     this.dereferenceOrder.push(dereferencedLink);
 
     this.statisticEvents.emit('data', dereferencedLink);

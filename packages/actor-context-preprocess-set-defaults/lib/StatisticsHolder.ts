@@ -4,8 +4,8 @@ import type { IActionContextKey, IStatisticsHolder } from '@comunica/types';
 export class StatisticsHolder implements IStatisticsHolder {
   private readonly map: Map<string, any>;
 
-  public constructor() {
-    this.map = new Map();
+  public constructor(data?: [[string, any]]) {
+    this.map = new Map(data);
   }
 
   public set<V>(key: IActionContextKey<V>, value: V): void {

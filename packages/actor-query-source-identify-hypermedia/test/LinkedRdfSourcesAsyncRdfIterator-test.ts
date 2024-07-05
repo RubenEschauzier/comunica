@@ -3,6 +3,7 @@ import { LinkQueueFifo } from '@comunica/actor-rdf-resolve-hypermedia-links-queu
 import { BindingsFactory } from '@comunica/bindings-factory';
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { ILinkQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
+import { KeysStatisticsTracker } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
 import { MetadataValidationState } from '@comunica/metadata';
 import type { IActionContext, IQueryBindingsOptions, MetadataBindings } from '@comunica/types';
@@ -14,7 +15,6 @@ import { Factory } from 'sparqlalgebrajs';
 import type { ISourceState, SourceStateGetter } from '../lib/LinkedRdfSourcesAsyncRdfIterator';
 import { LinkedRdfSourcesAsyncRdfIterator } from '../lib/LinkedRdfSourcesAsyncRdfIterator';
 import '@comunica/jest';
-import { KeysStatisticsTracker } from '@comunica/context-entries';
 import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 
 // Use require instead of import for default exports, to be compatible with variants of esModuleInterop in tsconfig.
@@ -109,7 +109,7 @@ function getPage(link: ILink): number {
 describe('LinkedRdfSourcesAsyncRdfIterator', () => {
   const operation = AF.createPattern(v, v, v, v);
   const queryBindingsOptions: IQueryBindingsOptions = {};
-  const context = new ActionContext().set(KeysStatisticsTracker.statistics, new StatisticsHolder);
+  const context = new ActionContext().set(KeysStatisticsTracker.statistics, new StatisticsHolder());
 
   // Source input is array of arrays (`data`), with every array corresponding to a page.
   let data: RDF.Bindings[][];
