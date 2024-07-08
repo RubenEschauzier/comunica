@@ -68,22 +68,13 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
       this.logger.trace('Discover Event', {
         data: JSON.stringify({
           statistic: 'discoveredLinks',
-          discoveredLinks: this.getDiscoveredLinks(),
+          discoveredLinks: this.edgeList,
           metadata: this.metadata,
         }),
       });
     }
 
     return true;
-  }
-
-  public getDiscoveredLinks() {
-    const edgeListArray: [string, string][] = [];
-
-    for (const elem of this.edgeList) {
-      edgeListArray.push(JSON.parse(elem));
-    }
-    return edgeListArray;
   }
 
   public addListener(cb: (arg0: IDiscoverEventData) => void): void {

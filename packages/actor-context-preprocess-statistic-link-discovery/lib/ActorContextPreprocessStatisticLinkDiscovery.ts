@@ -18,7 +18,12 @@ export class ActorContextPreprocessStatisticLinkDiscovery extends ActorContextPr
   }
 
   public async run(action: IActionContextPreprocess): Promise<IActorContextPreprocessOutput> {
-    const statisticsHolder: StatisticsHolder = action.context.get(KeysStatisticsTracker.statistics)!;
+    const statisticsHolder: StatisticsHolder | undefined = action.context.get(KeysStatisticsTracker.statistics);
+
+    if (!statisticsHolder) {
+      throw new Error('Tried to track link discovery statistic without statisticsHolder object in context');
+    }
+
     statisticsHolder.set(KeysTrackableStatistics.discoveredLinks, new StatisticLinkDiscovery());
 
     return { context: action.context };
