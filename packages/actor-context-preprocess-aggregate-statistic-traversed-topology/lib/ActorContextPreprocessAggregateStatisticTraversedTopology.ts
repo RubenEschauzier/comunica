@@ -20,7 +20,12 @@ export class ActorContextPreprocessAggregateStatisticTraversedTopology extends A
   }
 
   public async run(action: IActionContextPreprocess): Promise<IActorContextPreprocessOutput> {
-    const statisticsHolder: StatisticsHolder = action.context.get(KeysStatisticsTracker.statistics)!;
+    const statisticsHolder: StatisticsHolder | undefined = action.context.get(KeysStatisticsTracker.statistics);
+
+    if (!statisticsHolder) {
+      throw new Error('Tried to track topology statistic without statisticsHolder object in context');
+    }
+
     if (!statisticsHolder.get(KeysTrackableStatistics.discoveredLinks) ||
         !statisticsHolder.get(KeysTrackableStatistics.dereferencedLinks)) {
       throw new Error('Statistic aggregator did not find required statistics trackers in context');
