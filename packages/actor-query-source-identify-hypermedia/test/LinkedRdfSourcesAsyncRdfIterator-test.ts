@@ -3,12 +3,11 @@ import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-default
 import { StatisticLinkDereference } from '@comunica/actor-context-preprocess-statistic-link-dereference';
 import { LinkQueueFifo } from '@comunica/actor-rdf-resolve-hypermedia-links-queue-fifo';
 import { BindingsFactory } from '@comunica/bindings-factory';
-import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { ILinkQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
 import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
 import { MetadataValidationState } from '@comunica/metadata';
-import type { IActionContext, IQueryBindingsOptions, MetadataBindings } from '@comunica/types';
+import type { ILink, IActionContext, IQueryBindingsOptions, MetadataBindings } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { ArrayIterator, wrap } from 'asynciterator';
 import { DataFactory } from 'rdf-data-factory';

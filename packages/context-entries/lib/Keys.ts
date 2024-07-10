@@ -1,4 +1,3 @@
-import type { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults/lib/StatisticsHolder';
 import { ActionContextKey, CONTEXT_KEY_LOGGER } from '@comunica/core';
 import type {
   Bindings,
@@ -18,6 +17,7 @@ import type {
   ITopologyEventNotification,
   Logger,
   IStatistic,
+  IStatisticsHolder,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
@@ -309,7 +309,7 @@ export const KeysStatisticsTracker = {
   /**
    * Map holding all statistics being tracked, filled with keys from KeysTrackableStatistics
    */
-  statistics: new ActionContextKey<StatisticsHolder>(
+  statistics: new ActionContextKey<IStatisticsHolder>(
     '@comunica/actor-context-preprocess-set-default:statistics',
   ),
   /**

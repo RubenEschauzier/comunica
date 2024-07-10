@@ -7,12 +7,12 @@ import type {
 import { ActorContextPreprocess } from '@comunica/bus-context-preprocess';
 import type { ActorHttpInvalidateListenable, IActionHttpInvalidate } from '@comunica/bus-http-invalidate';
 import type { MediatorQuerySourceIdentify } from '@comunica/bus-query-source-identify';
-import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import { KeysInitQuery, KeysQueryOperation, KeysStatisticsTracker, KeysTrackableStatistics }
   from '@comunica/context-entries';
 import type { IAction, IActorTest } from '@comunica/core';
 import { ActionContext } from '@comunica/core';
 import type {
+  ILink,
   IQuerySourceWrapper,
   QuerySourceUnidentified,
   QuerySourceUnidentifiedExpanded,

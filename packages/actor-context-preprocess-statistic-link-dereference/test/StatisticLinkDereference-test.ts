@@ -1,15 +1,15 @@
 import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
-import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
 import { ActionContext, Bus } from '@comunica/core';
 import type {
+  ILink,
   BindingsStream,
   FragmentSelectorShape,
   IActionContext,
   IQueryBindingsOptions,
   IQuerySource,
-  QuerySourceReference }
-  from '@comunica/types';
+  QuerySourceReference,
+} from '@comunica/types';
 import type { Quad } from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import type { Operation, Ask, Update } from 'sparqlalgebrajs/lib/algebra';

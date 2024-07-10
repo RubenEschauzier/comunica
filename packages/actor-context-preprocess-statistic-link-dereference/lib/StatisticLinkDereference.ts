@@ -1,7 +1,6 @@
 // eslint-disable-next-line import/no-nodejs-modules
 import { EventEmitter } from 'events';
-import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
-import type { IQuerySource, IStatisticDereferencedLinks } from '@comunica/types';
+import type { ILink, IQuerySource, IStatisticDereferencedLinks } from '@comunica/types';
 
 export class StatisticLinkDereference implements IStatisticDereferencedLinks {
   public dereferenceOrder: ILink[];

@@ -1,7 +1,6 @@
 // eslint-disable-next-line import/no-nodejs-modules
 import { EventEmitter } from 'events';
-import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
-import type { IDiscoverEventData, IStatisticDiscoveredLinks } from '@comunica/types';
+import type { ILink, IDiscoverEventData, IStatisticDiscoveredLinks } from '@comunica/types';
 
 export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
   // Number of discover events tracked

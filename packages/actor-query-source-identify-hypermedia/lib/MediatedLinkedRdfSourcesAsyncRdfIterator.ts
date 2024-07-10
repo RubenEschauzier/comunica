@@ -1,13 +1,19 @@
 import type { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 import type { MediatorRdfMetadataAccumulate } from '@comunica/bus-rdf-metadata-accumulate';
-import type { ILink, MediatorRdfResolveHypermediaLinks } from '@comunica/bus-rdf-resolve-hypermedia-links';
+import type { MediatorRdfResolveHypermediaLinks } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type {
   ILinkQueue,
   MediatorRdfResolveHypermediaLinksQueue,
 } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
 import { KeysQueryOperation, KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
-import type { IActionContext, IAggregatedStore, IQueryBindingsOptions, IStatisticDiscoveredLinks, MetadataBindings }
-  from '@comunica/types';
+import type {
+  IActionContext,
+  IAggregatedStore,
+  IQueryBindingsOptions,
+  IStatisticDiscoveredLinks,
+  MetadataBindings,
+  ILink,
+} from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { DataFactory } from 'rdf-data-factory';
 import type { Algebra } from 'sparqlalgebrajs';

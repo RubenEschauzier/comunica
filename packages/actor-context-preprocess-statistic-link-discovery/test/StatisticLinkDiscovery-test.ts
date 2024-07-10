@@ -1,8 +1,7 @@
 import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
-import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
 import { ActionContext, Bus } from '@comunica/core';
-import type { IDiscoverEventData } from '@comunica/types';
+import type { ILink, IDiscoverEventData } from '@comunica/types';
 import { ActorContextPreprocessStatisticLinkDiscovery } from '../lib';
 import { StatisticLinkDiscovery } from '../lib/StatisticLinkDiscovery';
 

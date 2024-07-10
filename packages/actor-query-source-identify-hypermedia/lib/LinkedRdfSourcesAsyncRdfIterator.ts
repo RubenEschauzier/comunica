@@ -1,10 +1,15 @@
 import type { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
-import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { ILinkQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
 import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
 import { MetadataValidationState } from '@comunica/metadata';
-import type { IQuerySource, IActionContext, MetadataBindings, IQueryBindingsOptions, IStatisticDereferencedLinks }
-  from '@comunica/types';
+import type {
+  ILink,
+  IQuerySource,
+  IActionContext,
+  MetadataBindings,
+  IQueryBindingsOptions,
+  IStatisticDereferencedLinks,
+} from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator, BufferedIteratorOptions } from 'asynciterator';
 import { BufferedIterator } from 'asynciterator';

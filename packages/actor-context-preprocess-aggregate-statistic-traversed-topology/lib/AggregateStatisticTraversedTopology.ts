@@ -1,9 +1,9 @@
 // eslint-disable-next-line import/no-nodejs-modules
 import { EventEmitter } from 'events';
 import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
-import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import { KeysTrackableStatistics } from '@comunica/context-entries';
 import type {
+  ILink,
   IDiscoverEventData,
   IStatistic,
   IStatisticDereferencedLinks,

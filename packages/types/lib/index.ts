@@ -12,4 +12,5 @@ export * from './IQueryEngine';
 export * from './IQueryOperationResult';
 export * from './IQuerySource';
 export * from './IStatistic';
+export * from './ILink';
 export * from './Logger';

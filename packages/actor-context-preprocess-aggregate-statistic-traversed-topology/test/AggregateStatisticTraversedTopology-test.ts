@@ -1,10 +1,10 @@
 import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 import { StatisticLinkDereference } from '@comunica/actor-context-preprocess-statistic-link-dereference';
 import { StatisticLinkDiscovery } from '@comunica/actor-context-preprocess-statistic-link-discovery';
-import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
 import { ActionContext, Bus } from '@comunica/core';
 import type {
+  ILink,
   ITopologyEventNotification,
   BindingsStream,
   FragmentSelectorShape,

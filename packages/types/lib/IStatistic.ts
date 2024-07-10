@@ -1,7 +1,7 @@
 // eslint-disable-next-line import/no-nodejs-modules
 import type { EventEmitter } from 'events';
-import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { IActionContextKey } from './IActionContext';
+import type { ILink } from './ILink';
 import type { IQuerySource } from './IQuerySource';
 
 export interface IStatistic<T> {
