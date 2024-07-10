@@ -3,6 +3,7 @@ import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/contex
 import { ActionContext, Bus } from '@comunica/core';
 import { ActorContextPreprocessStatisticLinkDereference } from '../lib/ActorContextPreprocessStatisticLinkDereference';
 import { StatisticLinkDereference } from '../lib/StatisticLinkDereference';
+jest.mock("../lib/StatisticLinkDereference");
 
 describe('ActorContextPreprocessStatisticLinkDereference', () => {
   let bus: any;
@@ -26,11 +27,14 @@ describe('ActorContextPreprocessStatisticLinkDereference', () => {
       it('with only a statisticsHolder', async() => {
         const contextIn = new ActionContext({ [KeysStatisticsTracker.statistics.name]: new StatisticsHolder() });
         const { context: contextOut } = await actor.run({ context: contextIn });
-        expect(contextOut).toEqual(new ActionContext({
-          [KeysStatisticsTracker.statistics.name]:
-           new StatisticsHolder([[ KeysTrackableStatistics.dereferencedLinks.name, new StatisticLinkDereference() ]]),
-        }));
+
+        expect(contextOut.keys()).toEqual([KeysStatisticsTracker.statistics]);
+        expect((<StatisticsHolder>contextOut.get(KeysStatisticsTracker.statistics)!).keys()).toEqual(
+          [KeysTrackableStatistics.dereferencedLinks]
+        );
+        expect(StatisticLinkDereference).toHaveBeenCalledTimes(1);        
       });
+      
       it('should error with empty context', async() => {
         await expect(actor.run({ context: new ActionContext() })).rejects.toThrow(new Error(
           'Tried to track link dereference statistic without statisticsHolder object in context',

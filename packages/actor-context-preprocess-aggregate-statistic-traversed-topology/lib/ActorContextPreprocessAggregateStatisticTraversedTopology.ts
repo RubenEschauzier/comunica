@@ -36,10 +36,14 @@ export class ActorContextPreprocessAggregateStatisticTraversedTopology extends A
       KeysTrackableStatistics.dereferencedLinks,
     )!;
 
-    statisticsHolder.set(
-      KeysTrackableStatistics.traversedTopology,
-      new AggregateStatisticTraversedTopology(discoverStatistic, dereferenceStatistic),
+    // Create AggregateStatisticTraversedTopology with bound log function with context entry already filled in
+    const statisticLinkDereference: AggregateStatisticTraversedTopology = new AggregateStatisticTraversedTopology(
+      discoverStatistic, dereferenceStatistic,
+      ((message: string, data?: (() => any)) => this.logInfo(action.context, message, data)).bind(this)
     );
+    
+    statisticsHolder.set(KeysTrackableStatistics.traversedTopology, statisticLinkDereference);
+    
     return { context: action.context };
   }
 }

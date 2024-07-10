@@ -3,7 +3,7 @@ import { LinkQueueFifo } from '@comunica/actor-rdf-resolve-hypermedia-links-queu
 import { BindingsFactory } from '@comunica/bindings-factory';
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { ILinkQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
-import { KeysStatisticsTracker } from '@comunica/context-entries';
+import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
 import { MetadataValidationState } from '@comunica/metadata';
 import type { IActionContext, IQueryBindingsOptions, MetadataBindings } from '@comunica/types';
@@ -16,6 +16,7 @@ import type { ISourceState, SourceStateGetter } from '../lib/LinkedRdfSourcesAsy
 import { LinkedRdfSourcesAsyncRdfIterator } from '../lib/LinkedRdfSourcesAsyncRdfIterator';
 import '@comunica/jest';
 import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
+import { StatisticLinkDereference } from '@comunica/actor-context-preprocess-statistic-link-dereference';
 
 // Use require instead of import for default exports, to be compatible with variants of esModuleInterop in tsconfig.
 const EventEmitter = require('node:events');
@@ -678,6 +679,39 @@ describe('LinkedRdfSourcesAsyncRdfIterator', () => {
         });
       })).rejects.toThrow(new Error('accumulateMetadata error'));
     });
+    it('records dereference events when passed a dereference statistic', async () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2021-01-01T00:00:00Z').getTime());    
+      const mockLogFunction = jest.fn((message: string, data?: (() => any)) => { });
+
+      const statisticTracker: StatisticLinkDereference = new StatisticLinkDereference(mockLogFunction);
+      ( <StatisticsHolder> context.get(KeysStatisticsTracker.statistics)!).
+      set(KeysTrackableStatistics.dereferencedLinks, statisticTracker);
+
+      data = toBindings([[
+        [ 'a', 'b', 'c' ],
+        [ 'd', 'e', 'f' ],
+        [ 'g', 'h', 'i' ],
+      ]]);
+      const it = new DummyIterator(operation, queryBindingsOptions, context, 'first', sourceStateGetter);
+
+      it.on('data' , () => {
+      })
+      it.on('end', () => {
+        expect(statisticTracker.dereferenceOrder).toEqual([
+          { url: "P1",
+            metadata: {
+              dereferenceOrder: 0,
+              dereferencedTimestamp: Date.now(),
+              requestedPage: 1,
+              type: "Object"
+            }
+          }
+        ]);  
+      })
+      jest.useRealTimers();
+    })
+
   });
 });
 

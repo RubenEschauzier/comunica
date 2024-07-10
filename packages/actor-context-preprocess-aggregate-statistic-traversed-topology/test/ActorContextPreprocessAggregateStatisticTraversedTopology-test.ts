@@ -5,17 +5,20 @@ import { ActorContextPreprocessAggregateStatisticTraversedTopology } from '@comu
 import { AggregateStatisticTraversedTopology } from '../lib/AggregateStatisticTraversedTopology';
 import { StatisticLinkDiscovery } from '@comunica/actor-context-preprocess-statistic-link-discovery';
 import { StatisticLinkDereference } from '@comunica/actor-context-preprocess-statistic-link-dereference';
+jest.mock("../lib/AggregateStatisticTraversedTopology")
 
 describe('AggregateStatisticTraversedTopology', () => {
   let bus: any;
   let linkDiscovery: StatisticLinkDiscovery;
   let linkDereference: StatisticLinkDereference;
   let statisticsHolder: StatisticsHolder;
+  let mockLogFunction: ((message: string, data?: (() => any)) => void) 
 
   beforeEach(() => {
     bus = new Bus({ name: 'bus' });
-    linkDiscovery = new StatisticLinkDiscovery();
-    linkDereference = new StatisticLinkDereference();
+    mockLogFunction = jest.fn((message: string, data?: (() => any)) => { })
+    linkDiscovery = new StatisticLinkDiscovery(mockLogFunction);
+    linkDereference = new StatisticLinkDereference(mockLogFunction);
     statisticsHolder = new StatisticsHolder();
     statisticsHolder.set(KeysTrackableStatistics.discoveredLinks, linkDiscovery);
     statisticsHolder.set(KeysTrackableStatistics.dereferencedLinks, linkDereference);
@@ -37,17 +40,17 @@ describe('AggregateStatisticTraversedTopology', () => {
       it('with only a statisticsHolder with needed statistic trackers', async() => {
         const contextIn = new ActionContext({ [KeysStatisticsTracker.statistics.name]: statisticsHolder });
         const { context: contextOut } = await actor.run({ context: contextIn });
-      
-        const expectedStatisticHolder = new StatisticsHolder([
-          [KeysTrackableStatistics.discoveredLinks.name, linkDiscovery], 
-          [KeysTrackableStatistics.dereferencedLinks.name, linkDereference],
-          [KeysTrackableStatistics.traversedTopology.name,
-            new AggregateStatisticTraversedTopology(linkDiscovery, linkDereference)],
-        ]);
 
-        expect(contextOut).toEqual(new ActionContext({
-          [KeysStatisticsTracker.statistics.name]: expectedStatisticHolder,
-        }));
+        expect(contextOut.keys()).toEqual([KeysStatisticsTracker.statistics]);
+        expect((<StatisticsHolder>contextOut.get(KeysStatisticsTracker.statistics)!).keys()).toEqual(
+          [  
+            KeysTrackableStatistics.discoveredLinks, 
+            KeysTrackableStatistics.dereferencedLinks,
+            KeysTrackableStatistics.traversedTopology
+          ]
+        );
+
+        expect(AggregateStatisticTraversedTopology).toHaveBeenCalledTimes(1);
 
       });
 

@@ -6,7 +6,7 @@ import { KeysTrackableStatistics } from '@comunica/context-entries';
 import type { IDiscoverEventData, IStatistic, IStatisticDereferencedLinks, IStatisticDiscoveredLinks }
   from '@comunica/types';
 
-export class AggregateStatisticTraversedTopology implements IStatistic<ITopologyEventData> {
+export class AggregateStatisticTraversedTopology implements IStatistic<ITopologyEventNotification> {
   // Emitter that indicates when an update to the aggregate statistic happened
   public statisticEvents: EventEmitter;
   public toAggregate: StatisticsHolder;
@@ -14,18 +14,25 @@ export class AggregateStatisticTraversedTopology implements IStatistic<ITopology
   // Tracked data
   public edgeList: Set<string>;
   public metadata: Record<string, Record<string, any>>;
-  public urlToIndex: Record<string, number>;
+
+  public log: ((message: string, data?: (() => any)) => void);
 
   public constructor(
     discoverStatistic: IStatisticDiscoveredLinks,
     dereferenceStatistic: IStatisticDereferencedLinks,
+    log: (message: string, data?: (() => any)) => void
   ) {
     this.toAggregate = new StatisticsHolder();
     this.toAggregate.set(KeysTrackableStatistics.discoveredLinks, discoverStatistic);
     this.toAggregate.set(KeysTrackableStatistics.dereferencedLinks, dereferenceStatistic);
 
+    this.edgeList = new Set();
+    this.metadata = {};
+
     this.attachListeners();
     this.statisticEvents = new EventEmitter();
+
+    this.log = log;
   }
 
   public attachListeners(): boolean {
@@ -38,7 +45,7 @@ export class AggregateStatisticTraversedTopology implements IStatistic<ITopology
     return true;
   }
 
-  public addListener(cb: (arg0: ITopologyEventData) => void): void {
+  public addListener(cb: (arg0: ITopologyEventNotification) => void): void {
     this.statisticEvents.addListener('data', cb);
   }
 
@@ -48,7 +55,7 @@ export class AggregateStatisticTraversedTopology implements IStatistic<ITopology
     // Aggregate array of metadata entries for single node into one metadata entry with
     // array values
     const aggregatedMetadata: Record<any, any> = {};
-    data.metadataDiscoveredNode.map((metadata: Record<any, any>) => {
+    data.metadataChild.map((metadata: Record<any, any>) => {
       Object.keys(metadata).map((key) => {
         aggregatedMetadata[key] = aggregatedMetadata[key] ?
             [ ...aggregatedMetadata[key], metadata[key] ] :
@@ -60,49 +67,97 @@ export class AggregateStatisticTraversedTopology implements IStatistic<ITopology
     // as that is the most recently updated
     this.metadata[data.edge[1]] = { ...this.metadata[data.edge[1]], ...aggregatedMetadata };
 
-    const updatedTopology: ITopologyEventData = {
-      type: 'dereference',
-      edgeList: this.edgeList,
-      metadata: this.metadata,
+    // Construct update topology event object
+    const topologyNotification: ITopologyEventNotification = {
+      type: 'discover',
     };
 
-    // Emit new topology for other actors that want to use this info (e.g link prioritization)
-    this.emit(updatedTopology);
+    // Construct object containing all changed parts of topology
+    const changedPartsTopology: ITopologyChangeDiscover = {
+        edge: data.edge,
+        metadataChild: this.metadata[data.edge[1]]
+    };
+
+    // Log what data changed in due to this function
+    // We log the changed data in case a program outside of Comunica wants access to the tracked topology
+    // as that program won't have access to this object.
+    this.log('Topology Discover Event', 
+        () => changedPartsTopology
+    );
+
+    // Emit event indicating topology changed
+    this.emit(topologyNotification);
   }
 
   public processDereferenceEvent(data: ILink): void {
-    // When a dereference event happens, metadata is extended.
+    // When a dereference event happens, metadata is extended. On overlap most recently updated values are taken
     this.metadata[data.url] = { ...this.metadata[data.url], ...data.metadata };
-    const updatedTopology: ITopologyEventData = {
+    
+    // Make shallow copies of data to emit to logger and event emitter
+    const updatedTopology: ITopologyEventNotification = {
       type: 'dereference',
-      edgeList: this.edgeList,
-      metadata: this.metadata,
     };
 
-    // Emit new topology for other actors that want to use this info (e.g link prioritization)
+    const changedPartsTopology: ITopologyChangeDereference = {
+        dereferenced: data.url,
+        metadata: this.metadata[data.url]
+    };
+
+    this.log('Topology Dereference Event', 
+        () => changedPartsTopology
+    );
+
+    // Emit event indicating topology changed
     this.emit(updatedTopology);
   }
 
-  public emit(data: ITopologyEventData): void {
+  public emit(data: ITopologyEventNotification): void {
     this.statisticEvents.emit('data', data);
+  }
+
+  /**
+   * Getter function for the tracked statistics. Use this where you want to use the topology
+   * in other parts of Comunica. The objects returned by this function will be updated when a 
+   * topology event is emitted.
+   * @returns Representation of tracked topolgy
+   */
+  public getTrackedStatistics(): ITopologyRepresentation{
+    return {
+        edgeList: this.edgeList,
+        metadata: this.metadata
+    }
   }
 }
 
 /**
- * Interface describing what data will be emitted when the topology is updated
- * Will emit all data so far instead of only the update that happened to the topology
+ * Interface describing what data will be emitted when the topology is updated.
+ * Will emit a notification that the topology has changed, prompting consumers of this
+ * aggregate statistic to process the data.
  */
-export interface ITopologyEventData {
+export interface ITopologyEventNotification {
   /**
    * What type of update happened to the topology
    */
   type: 'dereference' | 'discover';
-  /**
-   * The edge list discovered during query execution
-   */
-  edgeList: Set<string>;
-  /**
-   * The metadata for each node
-   */
-  metadata: Record<string, Record<string, any>>;
+}
+
+export interface ITopologyChangeDiscover {
+    edge: [string, string],
+    metadataChild: Record<string, any>
+}
+
+export interface ITopologyChangeDereference {
+    dereferenced: string,
+    metadata: Record<string, any>
+}
+
+export interface ITopologyRepresentation {
+    /**
+     * Edgelist of topology
+     */
+    edgeList: Set<string>;
+    /**
+     * Metadata object: {url: metadata}
+     */
+    metadata: Record<string, Record<string, any>>;
 }

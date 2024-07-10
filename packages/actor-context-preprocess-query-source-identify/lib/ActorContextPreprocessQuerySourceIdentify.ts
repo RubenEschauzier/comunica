@@ -59,8 +59,9 @@ export class ActorContextPreprocessQuerySourceIdentify extends ActorContextPrepr
         .map(async querySourceUnidentified => this.identifySource(querySourceUnidentified, action.context)));
 
       /**
-       * When identifying sources in preprocess actor, we record this source as a seed document
+       * When identifying sources in preprocess actor, we record this as a dereference seed document event 
        */
+      console.log(querySources);
       const statistics: StatisticsHolder = action.context.get(KeysStatisticsTracker.statistics)!;
       const statisticDereferenceLinks = <IStatisticDereferencedLinks> statistics.get(KeysTrackableStatistics.dereferencedLinks);
       if (statisticDereferenceLinks) {
@@ -109,9 +110,9 @@ export class ActorContextPreprocessQuerySourceIdentify extends ActorContextPrepr
 
     // If not in cache, identify the source
     if (!sourcePromise) {
+      console.log(querySourceUnidentified)
       sourcePromise = this.mediatorQuerySourceIdentify.mediate({ querySourceUnidentified, context })
         .then(({ querySource }) => querySource);
-
       // Set in cache
       if (typeof querySourceUnidentified.value === 'string' && this.cache) {
         this.cache.set(querySourceUnidentified.value, sourcePromise);

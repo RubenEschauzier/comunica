@@ -53,11 +53,11 @@ export interface IDiscoverEventData {
   /**
    * Metadata of the discovered node
    */
-  metadataDiscoveredNode: Record<any, any>[];
+  metadataChild: Record<any, any>[];
   /**
    * Metadata of the parent of the discovered ndoe
    */
-  metadataParentDiscoveredNode: Record<any, any>[];
+  metadataParent: Record<any, any>[];
 }
 
 /**

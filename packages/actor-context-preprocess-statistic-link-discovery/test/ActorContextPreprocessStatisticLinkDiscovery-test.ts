@@ -3,6 +3,7 @@ import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/contex
 import { ActionContext, Bus } from '@comunica/core';
 import { ActorContextPreprocessStatisticLinkDiscovery} from '../lib/ActorContextPreprocessStatisticLinkDiscovery';
 import { StatisticLinkDiscovery } from '../lib/StatisticLinkDiscovery';
+jest.mock("../lib/StatisticLinkDiscovery");
 
 describe('ActorContextPreprocessStatisticLinkDiscovery', () => {
   let bus: any;
@@ -13,6 +14,7 @@ describe('ActorContextPreprocessStatisticLinkDiscovery', () => {
 
   describe('An ActorContextPreprocessStatisticLinkDiscovery instance', () => {
     let actor: ActorContextPreprocessStatisticLinkDiscovery;
+    let logFunction: ((message: string, data?: (() => any)) => void);
 
     beforeEach(() => {
       actor = new ActorContextPreprocessStatisticLinkDiscovery({ name: 'actor', bus });
@@ -24,13 +26,18 @@ describe('ActorContextPreprocessStatisticLinkDiscovery', () => {
 
     describe('run', () => {
       it('with only a statisticsHolder', async() => {
+
         const contextIn = new ActionContext({ [KeysStatisticsTracker.statistics.name]: new StatisticsHolder() });
         const { context: contextOut } = await actor.run({ context: contextIn });
-        expect(contextOut).toEqual(new ActionContext({
-          [KeysStatisticsTracker.statistics.name]:
-           new StatisticsHolder([[ KeysTrackableStatistics.discoveredLinks.name, new StatisticLinkDiscovery() ]]),
-        }));
+        
+        expect(contextOut.keys()).toEqual([KeysStatisticsTracker.statistics]);
+        expect((<StatisticsHolder>contextOut.get(KeysStatisticsTracker.statistics)!).keys()).toEqual(
+          [KeysTrackableStatistics.discoveredLinks]
+        );
+
+        expect(StatisticLinkDiscovery).toHaveBeenCalledTimes(1);
       });
+
       it('should error with empty context', async() => {
         await expect(actor.run({ context: new ActionContext() })).rejects.toThrow(new Error(
           'Tried to track link discovery statistic without statisticsHolder object in context',

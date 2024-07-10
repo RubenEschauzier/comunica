@@ -1,7 +1,7 @@
 // eslint-disable-next-line
 import { EventEmitter } from 'events';
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
-import type { IDiscoverEventData, IStatisticDiscoveredLinks, Logger } from '@comunica/types';
+import type { IActionContext, IDiscoverEventData, IStatisticDiscoveredLinks, Logger } from '@comunica/types';
 
 export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
   // Number of discover events tracked
@@ -20,9 +20,9 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
   public statisticEvents: EventEmitter;
 
   // Logger that emits the recorded data.
-  public logger: Logger | undefined;
+  public log: ((message: string, data?: (() => any)) => void);
 
-  public constructor(logger?: Logger) {
+  public constructor(log: (message: string, data?: (() => any)) => void ) {
     this.discoverEvents = 0;
 
     this.edgeList = new Set();
@@ -30,7 +30,7 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
 
     this.statisticEvents = new EventEmitter();
 
-    this.logger = logger;
+    this.log = log;
   }
 
   public setDiscoveredLink(link: ILink, parent: ILink) {
@@ -41,38 +41,36 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
 
     this.edgeList.add(JSON.stringify([ parent.url, link.url ]));
 
-    link.metadata = {
+    const discoveredLinkMetadata = {
       ...link.metadata,
       discoveredTimestamp: Date.now(),
       discoverOrder: this.discoverEvents,
     };
 
-    if (link.metadata) {
+    if (discoveredLinkMetadata) {
       // Retain previous metadata if this link has already been discovered, and add any metadata in the passed link
-      this.metadata[link.url] = this.metadata[link.url] ? [ ...this.metadata[link.url], link.metadata ] : [ link.metadata ];
+      this.metadata[link.url] = this.metadata[link.url] ? [ ...this.metadata[link.url], discoveredLinkMetadata ] : [ discoveredLinkMetadata ];
     }
 
     const discoverEventData: IDiscoverEventData = {
       edge: [ parent.url, link.url ],
-      metadataDiscoveredNode: this.metadata[link.url],
-      metadataParentDiscoveredNode: this.metadata[parent.url],
+      metadataChild: this.metadata[link.url],
+      metadataParent: this.metadata[parent.url],
     };
 
     this.emit(discoverEventData);
 
+    // Log info if available
+    this.log('Discover Event', 
+      () => ({
+        edge: [parent.url, link.url],
+        metadataChild: this.metadata[link.url],
+        metadataParent: this.metadata[parent.url]
+      })
+    );
+
     // Increment number of discover events to track discover order
     this.discoverEvents += 1;
-
-    // TODO Properly handle logging
-    if (this.logger) {
-      this.logger.trace('Discover Event', {
-        data: JSON.stringify({
-          statistic: 'discoveredLinks',
-          discoveredLinks: this.edgeList,
-          metadata: this.metadata,
-        }),
-      });
-    }
 
     return true;
   }

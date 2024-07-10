@@ -11,6 +11,9 @@ import type { Algebra } from 'sparqlalgebrajs';
 import { Factory } from 'sparqlalgebrajs';
 import type { ISourceState, SourceStateGetter } from '../lib/LinkedRdfSourcesAsyncRdfIterator';
 import { MediatedLinkedRdfSourcesAsyncRdfIterator } from '../lib/MediatedLinkedRdfSourcesAsyncRdfIterator';
+import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
+import { StatisticLinkDiscovery } from '@comunica/actor-context-preprocess-statistic-link-discovery';
 
 const DF = new DataFactory();
 const AF = new Factory();
@@ -21,6 +24,7 @@ setTaskScheduler(task => setImmediate(task));
 describe('MediatedLinkedRdfSourcesAsyncRdfIterator', () => {
   describe('A MediatedLinkedRdfSourcesAsyncRdfIterator instance', () => {
     let context: IActionContext;
+    let statisticsHolder: StatisticsHolder;
     let sourceFactory: () => any;
     let operation: Algebra.Operation;
     let mediatorMetadataAccumulate: MediatorRdfMetadataAccumulate;
@@ -29,7 +33,8 @@ describe('MediatedLinkedRdfSourcesAsyncRdfIterator', () => {
     let sourceStateGetter: SourceStateGetter;
 
     beforeEach(() => {
-      context = new ActionContext({});
+      statisticsHolder = new StatisticsHolder()
+      context = new ActionContext({}).set(KeysStatisticsTracker.statistics, statisticsHolder);
       AF.createPattern(
         DF.namedNode('s'),
         DF.namedNode('p'),
@@ -358,6 +363,26 @@ describe('MediatedLinkedRdfSourcesAsyncRdfIterator', () => {
         source.destroy();
         await new Promise(setImmediate);
       });
+
+      // it('should update discover statistic data', async() => {
+      //   jest.useFakeTimers();
+      //   jest.setSystemTime(new Date('2021-01-01T00:00:00Z').getTime());    
+      //   const mockLogFunction = jest.fn((message: string, data?: (() => any)) => { });
+
+      //   const statisticTracker: StatisticLinkDiscovery = new StatisticLinkDiscovery(mockLogFunction);
+      //   statisticsHolder.set(KeysTrackableStatistics.discoveredLinks, statisticTracker);
+
+      //   // const source = sourceFactory();
+
+      //   // await expect(source.getSourceLinks({ baseURL: 'http://base.org/' })).resolves.toEqual([
+      //   //   { url: 'http://base.org/url1' },
+      //   //   { url: 'http://base.org/url2' },
+      //   // ]);
+      //   // expect(statisticTracker.edgeList).toEqual([
+      //   // ]);  
+      //   // source.destroy();
+      //   // await new Promise(setImmediate);
+      // })
     });
 
     describe('isCloseable', () => {

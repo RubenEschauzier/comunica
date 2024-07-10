@@ -21,7 +21,7 @@ import type {
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
 import type { Algebra } from 'sparqlalgebrajs';
-import type { ITopologyEventData } from '../../actor-context-preprocess-aggregate-statistic-traversed-topology/lib/AggregateStatisticTraversedTopology';
+import type { ITopologyEventNotification } from '../../actor-context-preprocess-aggregate-statistic-traversed-topology/lib/AggregateStatisticTraversedTopology';
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
@@ -332,7 +332,7 @@ export const KeysTrackableStatistics = {
   /**
    * An aggregate statistic that combines discovered and dereferenced statistics to create a single topology
    */
-  traversedTopology: new ActionContextKey<IStatistic<ITopologyEventData>>(
+  traversedTopology: new ActionContextKey<IStatistic<ITopologyEventNotification>>(
     '@comunica/bus-context-preprocess:traversedTopology',
   ),
 };

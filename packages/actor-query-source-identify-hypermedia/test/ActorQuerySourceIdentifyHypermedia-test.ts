@@ -121,7 +121,6 @@ describe('ActorQuerySourceIdentifyHypermedia', () => {
 
       describe('run', () => {
         it('should return a source that can produce a bindings stream and metadata', async() => {
-          console.log(context);
           const { querySource } = await actor.run({ context, querySourceUnidentified });
           const bindings = querySource.source.queryBindings(operation, context);
           await expect(bindings).toEqualBindingsStream([
