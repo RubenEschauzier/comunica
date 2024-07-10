@@ -1,3 +1,4 @@
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 import { BindingsFactory } from '@comunica/bindings-factory';
 import type { MediatorDereferenceRdf } from '@comunica/bus-dereference-rdf';
 import type { MediatorQuerySourceIdentifyHypermedia } from '@comunica/bus-query-source-identify-hypermedia';
@@ -17,7 +18,6 @@ import { ActorQuerySourceIdentifyHypermedia } from '../lib/ActorQuerySourceIdent
 import { mediators as utilMediators } from './MediatorDereferenceRdf-util';
 import 'jest-rdf';
 import '@comunica/jest';
-import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 
 const BF = new BindingsFactory();
 const DF = new DataFactory();

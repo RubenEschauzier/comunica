@@ -1,15 +1,15 @@
 import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
+import { StatisticLinkDereference } from '@comunica/actor-context-preprocess-statistic-link-dereference';
 import type { MediatorContextPreprocess } from '@comunica/bus-context-preprocess';
 import type { ActorHttpInvalidateListenable } from '@comunica/bus-http-invalidate';
 import type { IActionQuerySourceIdentify, MediatorQuerySourceIdentify } from '@comunica/bus-query-source-identify';
-import { KeysInitQuery, KeysQueryOperation, KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
+import { KeysInitQuery, KeysQueryOperation, KeysStatisticsTracker, KeysTrackableStatistics }
+  from '@comunica/context-entries';
 import type { IAction } from '@comunica/core';
 import { ActionContext, ActionContextKey, Bus } from '@comunica/core';
 import type { IActionContext, IQuerySourceWrapper } from '@comunica/types';
 import { RdfStore } from 'rdf-stores';
 import { ActorContextPreprocessQuerySourceIdentify } from '../lib/ActorContextPreprocessQuerySourceIdentify';
-import { StatisticLinkDiscovery } from '@comunica/actor-context-preprocess-statistic-link-discovery';
-import { StatisticLinkDereference } from '@comunica/actor-context-preprocess-statistic-link-dereference';
 
 describe('ActorContextPreprocessQuerySourceIdentify', () => {
   let bus: any;
@@ -213,15 +213,17 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
         ]);
       });
 
-      it('should record dereference events when passed dereference statistic', async () => {
+      it('should record dereference events when passed dereference statistic', async() => {
         jest.useFakeTimers();
-        jest.setSystemTime(new Date('2021-01-01T00:00:00Z').getTime());    
-        const mockLogFunction = jest.fn((message: string, data?: (() => any)) => { });
+        jest.setSystemTime(new Date('2021-01-01T00:00:00Z').getTime());
+        const mockLogFunction = jest.fn((message: string, data?: (() => any)) => {});
 
         // Define actor that does return required field source with reference value
         mediatorQuerySourceIdentify = <any> {
           async mediate(action: IActionQuerySourceIdentify) {
-            return { querySource: <any> { ofUnidentified: action.querySourceUnidentified, source: {referenceValue: "mock"} }};
+            return {
+              querySource: <any> { ofUnidentified: action.querySourceUnidentified, source: { referenceValue: 'mock' }},
+            };
           },
         };
         actor = new ActorContextPreprocessQuerySourceIdentify({
@@ -232,11 +234,11 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
           mediatorQuerySourceIdentify,
           mediatorContextPreprocess,
         });
-  
+
         const statisticTracker: StatisticLinkDereference = new StatisticLinkDereference(mockLogFunction);
 
-        ( <StatisticsHolder> contextIn.get(KeysStatisticsTracker.statistics)!).
-        set(KeysTrackableStatistics.dereferencedLinks, statisticTracker);
+        const statHolderContext: StatisticsHolder = contextIn.get(KeysStatisticsTracker.statistics)!;
+        statHolderContext.set(KeysTrackableStatistics.dereferencedLinks, statisticTracker);
 
         const contextSource = { a: 'b' };
         contextIn = contextIn
@@ -248,17 +250,15 @@ describe('ActorContextPreprocessQuerySourceIdentify', () => {
         expect(contextOut).not.toBe(contextIn);
 
         expect(statisticTracker.dereferenceOrder).toEqual([
-          { url: "mock",
-            metadata: {
-              dereferenceOrder: 0,
-              dereferencedTimestamp: Date.now(),
-              seed: true,
-              type: "Object"
-            }
-          }
+          { url: 'mock', metadata: {
+            dereferenceOrder: 0,
+            dereferencedTimestamp: Date.now(),
+            seed: true,
+            type: 'Object',
+          }},
         ]);
         jest.useRealTimers();
-      })
+      });
     });
   });
 

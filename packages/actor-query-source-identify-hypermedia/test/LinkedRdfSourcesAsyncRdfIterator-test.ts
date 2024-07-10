@@ -1,4 +1,6 @@
 import { Readable } from 'node:stream';
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
+import { StatisticLinkDereference } from '@comunica/actor-context-preprocess-statistic-link-dereference';
 import { LinkQueueFifo } from '@comunica/actor-rdf-resolve-hypermedia-links-queue-fifo';
 import { BindingsFactory } from '@comunica/bindings-factory';
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
@@ -15,8 +17,6 @@ import { Factory } from 'sparqlalgebrajs';
 import type { ISourceState, SourceStateGetter } from '../lib/LinkedRdfSourcesAsyncRdfIterator';
 import { LinkedRdfSourcesAsyncRdfIterator } from '../lib/LinkedRdfSourcesAsyncRdfIterator';
 import '@comunica/jest';
-import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
-import { StatisticLinkDereference } from '@comunica/actor-context-preprocess-statistic-link-dereference';
 
 // Use require instead of import for default exports, to be compatible with variants of esModuleInterop in tsconfig.
 const EventEmitter = require('node:events');
@@ -150,6 +150,10 @@ describe('LinkedRdfSourcesAsyncRdfIterator', () => {
         },
       };
     };
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   it('A LinkedRdfSourcesAsyncRdfIterator instance with negative maxIterators', () => {
@@ -679,14 +683,15 @@ describe('LinkedRdfSourcesAsyncRdfIterator', () => {
         });
       })).rejects.toThrow(new Error('accumulateMetadata error'));
     });
-    it('records dereference events when passed a dereference statistic', async () => {
+    it('records dereference events when passed a dereference statistic', async() => {
       jest.useFakeTimers();
-      jest.setSystemTime(new Date('2021-01-01T00:00:00Z').getTime());    
-      const mockLogFunction = jest.fn((message: string, data?: (() => any)) => { });
+      jest.setSystemTime(new Date('2021-01-01T00:00:00Z').getTime());
+      const mockLogFunction = jest.fn((message: string, data?: (() => any)) => {});
 
       const statisticTracker: StatisticLinkDereference = new StatisticLinkDereference(mockLogFunction);
-      ( <StatisticsHolder> context.get(KeysStatisticsTracker.statistics)!).
-      set(KeysTrackableStatistics.dereferencedLinks, statisticTracker);
+
+      const statHolderContext: StatisticsHolder = context.get(KeysStatisticsTracker.statistics)!;
+      statHolderContext.set(KeysTrackableStatistics.dereferencedLinks, statisticTracker);
 
       data = toBindings([[
         [ 'a', 'b', 'c' ],
@@ -696,24 +701,21 @@ describe('LinkedRdfSourcesAsyncRdfIterator', () => {
       const it = new DummyIterator(operation, queryBindingsOptions, context, 'first', sourceStateGetter);
 
       // Define it before end event to ensure Date.now() gets mocked properly
-      const expectedData = [{ 
-        url: "P1",
+      const expectedData = [{
+        url: 'P1',
         metadata: {
           dereferenceOrder: 0,
           dereferencedTimestamp: Date.now(),
           requestedPage: 1,
-          type: "Object"
-      }}];
+          type: 'Object',
+        },
+      }];
 
-      it.on('data' , () => {
-      });
+      it.on('data', () => {});
       it.on('end', () => {
-        expect(statisticTracker.dereferenceOrder).toEqual(expectedData);  
+        expect(statisticTracker.dereferenceOrder).toEqual(expectedData);
       });
     });
-    afterEach(()=>{
-      jest.useRealTimers();
-    })
   });
 });
 

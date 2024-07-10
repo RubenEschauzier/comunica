@@ -1,8 +1,11 @@
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
+import { StatisticLinkDiscovery } from '@comunica/actor-context-preprocess-statistic-link-discovery';
 import { LinkQueueFifo } from '@comunica/actor-rdf-resolve-hypermedia-links-queue-fifo';
 import { BindingsFactory } from '@comunica/bindings-factory';
 import type { MediatorRdfMetadataAccumulate } from '@comunica/bus-rdf-metadata-accumulate';
 import type { MediatorRdfResolveHypermediaLinks, ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { MediatorRdfResolveHypermediaLinksQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
+import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
 import type { IActionContext, IQuerySource } from '@comunica/types';
 import { setTaskScheduler } from 'asynciterator';
@@ -11,9 +14,6 @@ import type { Algebra } from 'sparqlalgebrajs';
 import { Factory } from 'sparqlalgebrajs';
 import type { ISourceState, SourceStateGetter } from '../lib/LinkedRdfSourcesAsyncRdfIterator';
 import { MediatedLinkedRdfSourcesAsyncRdfIterator } from '../lib/MediatedLinkedRdfSourcesAsyncRdfIterator';
-import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
-import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
-import { StatisticLinkDiscovery } from '@comunica/actor-context-preprocess-statistic-link-discovery';
 
 const DF = new DataFactory();
 const AF = new Factory();
@@ -33,7 +33,7 @@ describe('MediatedLinkedRdfSourcesAsyncRdfIterator', () => {
     let sourceStateGetter: SourceStateGetter;
 
     beforeEach(() => {
-      statisticsHolder = new StatisticsHolder()
+      statisticsHolder = new StatisticsHolder();
       context = new ActionContext({}).set(KeysStatisticsTracker.statistics, statisticsHolder);
       AF.createPattern(
         DF.namedNode('s'),
@@ -303,6 +303,11 @@ describe('MediatedLinkedRdfSourcesAsyncRdfIterator', () => {
     });
 
     describe('getSourceLinks', () => {
+      // Else isClosable tests will time out due to async nature of 'should update discover statistic data'
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
       it('should get urls based on mediatorRdfResolveHypermediaLinks', async() => {
         const source = sourceFactory();
         jest.spyOn(mediatorRdfResolveHypermediaLinks, 'mediate');
@@ -365,49 +370,43 @@ describe('MediatedLinkedRdfSourcesAsyncRdfIterator', () => {
       });
 
       it('should update discover statistic data', async() => {
-        const mockLogFunction = jest.fn((message: string, data?: (() => any)) => { });
+        const mockLogFunction = jest.fn((message: string, data?: (() => any)) => {});
         jest.useFakeTimers();
-        jest.setSystemTime(new Date('2021-01-01T00:00:00Z').getTime());    
-  
+        jest.setSystemTime(new Date('2021-01-01T00:00:00Z').getTime());
+
         const statisticTracker: StatisticLinkDiscovery = new StatisticLinkDiscovery(mockLogFunction);
         statisticsHolder.set(KeysTrackableStatistics.discoveredLinks, statisticTracker);
 
         const source = sourceFactory();
         // Here we pass a partial source state object, as the link attribute is required to track
         // discover events
-        await expect(source.getSourceLinks({ baseURL: 'http://base.org/' }, {link: {url: 'http://source.org/'}})).resolves.toEqual([
+        await expect(source.getSourceLinks({ baseURL: 'http://base.org/' }, { link: { url: 'http://source.org/' }})).resolves.toEqual([
           { url: 'http://base.org/url1' },
           { url: 'http://base.org/url2' },
         ]);
 
         expect(statisticTracker.edgeList).toEqual(
-          new Set([JSON.stringify(['http://source.org/', 'http://base.org/url1']),
-          JSON.stringify(['http://source.org/', 'http://base.org/url2'])])
+          new Set([ JSON.stringify([ 'http://source.org/', 'http://base.org/url1' ]), JSON.stringify([ 'http://source.org/', 'http://base.org/url2' ]) ]),
         );
 
         expect(statisticTracker.metadata).toEqual({
           'http://base.org/url1': [
             {
               discoveredTimestamp: Date.now(),
-              discoverOrder: 0
-            }
-          ],            
+              discoverOrder: 0,
+            },
+          ],
           'http://base.org/url2': [
             {
               discoveredTimestamp: Date.now(),
-              discoverOrder: 1
-            }
-          ]
+              discoverOrder: 1,
+            },
+          ],
         });
 
         jest.useRealTimers();
         source.destroy();
         await new Promise(setImmediate);
-
-      });
-      // Else isClosable tests will time out due to async nature of 'should update discover statistic data'
-      afterEach(()=>{
-        jest.useRealTimers();
       });
     });
 

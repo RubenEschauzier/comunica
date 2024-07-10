@@ -1,7 +1,7 @@
-// eslint-disable-next-line
+// eslint-disable-next-line import/no-nodejs-modules
 import { EventEmitter } from 'events';
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
-import type { IActionContext, IDiscoverEventData, IStatisticDiscoveredLinks, Logger } from '@comunica/types';
+import type { IDiscoverEventData, IStatisticDiscoveredLinks } from '@comunica/types';
 
 export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
   // Number of discover events tracked
@@ -22,7 +22,7 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
   // Logger that emits the recorded data.
   public log: ((message: string, data?: (() => any)) => void);
 
-  public constructor(log: (message: string, data?: (() => any)) => void ) {
+  public constructor(log: (message: string, data?: (() => any)) => void) {
     this.discoverEvents = 0;
 
     this.edgeList = new Set();
@@ -33,7 +33,7 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
     this.log = log;
   }
 
-  public setDiscoveredLink(link: ILink, parent: ILink) {
+  public setDiscoveredLink(link: ILink, parent: ILink): boolean {
     // If self-edge or duplicate edge we don't track.
     if (link.url === parent.url || this.edgeList.has(JSON.stringify([ parent.url, link.url ]))) {
       return false;
@@ -49,7 +49,9 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
 
     if (discoveredLinkMetadata) {
       // Retain previous metadata if this link has already been discovered, and add any metadata in the passed link
-      this.metadata[link.url] = this.metadata[link.url] ? [ ...this.metadata[link.url], discoveredLinkMetadata ] : [ discoveredLinkMetadata ];
+      this.metadata[link.url] = this.metadata[link.url] ?
+          [ ...this.metadata[link.url], discoveredLinkMetadata ] :
+          [ discoveredLinkMetadata ];
     }
 
     const discoverEventData: IDiscoverEventData = {
@@ -61,13 +63,11 @@ export class StatisticLinkDiscovery implements IStatisticDiscoveredLinks {
     this.emit(discoverEventData);
 
     // Log info if available
-    this.log('Discover Event', 
-      () => ({
-        edge: [parent.url, link.url],
-        metadataChild: this.metadata[link.url],
-        metadataParent: this.metadata[parent.url]
-      })
-    );
+    this.log('Discover Event', () => ({
+      edge: [ parent.url, link.url ],
+      metadataChild: this.metadata[link.url],
+      metadataParent: this.metadata[parent.url],
+    }));
 
     // Increment number of discover events to track discover order
     this.discoverEvents += 1;

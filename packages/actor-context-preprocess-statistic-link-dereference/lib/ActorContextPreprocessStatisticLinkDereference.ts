@@ -1,17 +1,18 @@
 import type { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
-import type { IActionContextPreprocess, IActorContextPreprocessOutput, IActorContextPreprocessArgs }
+import type {
+  IActionContextPreprocess,
+  IActorContextPreprocessOutput,
+  IActorContextPreprocessArgs }
   from '@comunica/bus-context-preprocess';
 import { ActorContextPreprocess } from '@comunica/bus-context-preprocess';
 import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
 import type { IActorTest } from '@comunica/core';
 import { StatisticLinkDereference } from './StatisticLinkDereference';
-import { IActionContext } from '@comunica/types';
 
 /**
  * A comunica Statistic Link Dereference Context Preprocess Actor.
  */
 export class ActorContextPreprocessStatisticLinkDereference extends ActorContextPreprocess {
-
   public constructor(args: IActorContextPreprocessArgs) {
     super(args);
   }
@@ -29,9 +30,9 @@ export class ActorContextPreprocessStatisticLinkDereference extends ActorContext
 
     // Create StatisticLinkDereference with bound log function with context entry already filled in
     const statisticLinkDereference: StatisticLinkDereference = new StatisticLinkDereference(
-      ((message: string, data?: (() => any)) => this.logInfo(action.context, message, data)).bind(this)
+      ((message: string, data?: (() => any)) => this.logInfo(action.context, message, data)),
     );
-    
+
     statisticsHolder.set(KeysTrackableStatistics.dereferencedLinks, statisticLinkDereference);
 
     return { context: action.context };

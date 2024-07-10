@@ -15,13 +15,13 @@ import type {
   QuerySourceReference,
   IStatisticDereferencedLinks,
   IStatisticDiscoveredLinks,
+  ITopologyEventNotification,
   Logger,
   IStatistic,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
 import type { Algebra } from 'sparqlalgebrajs';
-import type { ITopologyEventNotification } from '../../actor-context-preprocess-aggregate-statistic-traversed-topology/lib/AggregateStatisticTraversedTopology';
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
@@ -322,7 +322,9 @@ export const KeysTrackableStatistics = {
   /**
    * All discovered links during traversal (not only the relevant ones) in form of parent, child
    */
-  discoveredLinks: new ActionContextKey<IStatisticDiscoveredLinks>('@comunica/bus-context-preprocess:discoveredLinks'),
+  discoveredLinks: new ActionContextKey<IStatisticDiscoveredLinks>(
+    '@comunica/bus-context-preprocess:discoveredLinks',
+  ),
   /**
    * Information about what links are dereferenced and when
    */

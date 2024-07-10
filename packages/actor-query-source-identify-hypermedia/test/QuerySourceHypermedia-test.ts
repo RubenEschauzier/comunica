@@ -1,3 +1,4 @@
+import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 import { BindingsFactory } from '@comunica/bindings-factory';
 import type {
   MediatorDereferenceRdf,
@@ -23,7 +24,6 @@ import { MediatedLinkedRdfSourcesAsyncRdfIterator } from '../lib/MediatedLinkedR
 import { QuerySourceHypermedia } from '../lib/QuerySourceHypermedia';
 import { mediators as utilMediators } from './MediatorDereferenceRdf-util';
 import '@comunica/jest';
-import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 
 const DF = new DataFactory();
 const AF = new Factory();

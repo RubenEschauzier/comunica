@@ -6,7 +6,8 @@ import type {
   MediatorRdfResolveHypermediaLinksQueue,
 } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
 import { KeysQueryOperation, KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
-import type { IActionContext, IAggregatedStore, IQueryBindingsOptions, IStatisticDiscoveredLinks, MetadataBindings } from '@comunica/types';
+import type { IActionContext, IAggregatedStore, IQueryBindingsOptions, IStatisticDiscoveredLinks, MetadataBindings }
+  from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { DataFactory } from 'rdf-data-factory';
 import type { Algebra } from 'sparqlalgebrajs';
@@ -153,8 +154,9 @@ export class MediatedLinkedRdfSourcesAsyncRdfIterator extends LinkedRdfSourcesAs
       // Currently only ONE tracker per key
       for (const link of links) {
         const statistics: StatisticsHolder = this.context.get(KeysStatisticsTracker.statistics)!;
-        // Question: Does it make sense to make this fail when there is no statisticsHolder or should there be a ? so it fails gracefully
-        // without error message? If we don't do ? then it will just say there is no new links.
+        // Question: Does it make sense to make this fail when there is no statisticsHolder
+        // or should there be a '?' so it fails gracefully without error message?
+        // If we don't do ? then it will just say there is no new links.
         const traversalTracker = <IStatisticDiscoveredLinks> statistics?.get(KeysTrackableStatistics.discoveredLinks);
         if (traversalTracker) {
           const linkStatistic: ILink = {

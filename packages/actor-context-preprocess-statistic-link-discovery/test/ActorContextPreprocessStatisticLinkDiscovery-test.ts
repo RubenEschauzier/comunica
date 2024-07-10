@@ -1,9 +1,10 @@
 import { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 import { KeysStatisticsTracker, KeysTrackableStatistics } from '@comunica/context-entries';
 import { ActionContext, Bus } from '@comunica/core';
-import { ActorContextPreprocessStatisticLinkDiscovery} from '../lib/ActorContextPreprocessStatisticLinkDiscovery';
+import { ActorContextPreprocessStatisticLinkDiscovery } from '../lib/ActorContextPreprocessStatisticLinkDiscovery';
 import { StatisticLinkDiscovery } from '../lib/StatisticLinkDiscovery';
-jest.mock("../lib/StatisticLinkDiscovery");
+
+jest.mock('../lib/StatisticLinkDiscovery');
 
 describe('ActorContextPreprocessStatisticLinkDiscovery', () => {
   let bus: any;
@@ -26,13 +27,14 @@ describe('ActorContextPreprocessStatisticLinkDiscovery', () => {
 
     describe('run', () => {
       it('with only a statisticsHolder', async() => {
-
         const contextIn = new ActionContext({ [KeysStatisticsTracker.statistics.name]: new StatisticsHolder() });
         const { context: contextOut } = await actor.run({ context: contextIn });
-        
-        expect(contextOut.keys()).toEqual([KeysStatisticsTracker.statistics]);
-        expect((<StatisticsHolder>contextOut.get(KeysStatisticsTracker.statistics)!).keys()).toEqual(
-          [KeysTrackableStatistics.discoveredLinks]
+
+        expect(contextOut.keys()).toEqual([ KeysStatisticsTracker.statistics ]);
+
+        const statHolderFromContext: StatisticsHolder = contextOut.get(KeysStatisticsTracker.statistics)!;
+        expect(statHolderFromContext.keys()).toEqual(
+          [ KeysTrackableStatistics.discoveredLinks ],
         );
 
         expect(StatisticLinkDiscovery).toHaveBeenCalledTimes(1);

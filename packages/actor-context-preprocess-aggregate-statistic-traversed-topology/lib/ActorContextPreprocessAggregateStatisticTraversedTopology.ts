@@ -38,12 +38,13 @@ export class ActorContextPreprocessAggregateStatisticTraversedTopology extends A
 
     // Create AggregateStatisticTraversedTopology with bound log function with context entry already filled in
     const statisticLinkDereference: AggregateStatisticTraversedTopology = new AggregateStatisticTraversedTopology(
-      discoverStatistic, dereferenceStatistic,
-      ((message: string, data?: (() => any)) => this.logInfo(action.context, message, data)).bind(this)
+      discoverStatistic,
+      dereferenceStatistic,
+      (message: string, data?: (() => any)) => this.logInfo(action.context, message, data),
     );
-    
+
     statisticsHolder.set(KeysTrackableStatistics.traversedTopology, statisticLinkDereference);
-    
+
     return { context: action.context };
   }
 }

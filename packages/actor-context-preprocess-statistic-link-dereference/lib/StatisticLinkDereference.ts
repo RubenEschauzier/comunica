@@ -1,8 +1,7 @@
-// eslint-disable-next-line
+// eslint-disable-next-line import/no-nodejs-modules
 import { EventEmitter } from 'events';
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
-import type { IQuerySource, IStatisticDereferencedLinks, Logger } from '@comunica/types';
-import { from } from 'readable-stream';
+import type { IQuerySource, IStatisticDereferencedLinks } from '@comunica/types';
 
 export class StatisticLinkDereference implements IStatisticDereferencedLinks {
   public dereferenceOrder: ILink[];
@@ -18,7 +17,7 @@ export class StatisticLinkDereference implements IStatisticDereferencedLinks {
     this.log = log;
   }
 
-  public setDereferenced(link: ILink, source: IQuerySource) {
+  public setDereferenced(link: ILink, source: IQuerySource): boolean {
     const metadata: Record<string, any> = {
       type: source.constructor.name,
       dereferencedTimestamp: Date.now(),
@@ -46,7 +45,7 @@ export class StatisticLinkDereference implements IStatisticDereferencedLinks {
     this.statisticEvents.addListener('data', cb);
   }
 
-  public emit(data: ILink) {
+  public emit(data: ILink): void {
     this.statisticEvents.emit('data', data);
   }
 }

@@ -1,4 +1,4 @@
-// eslint-disable-next-line
+// eslint-disable-next-line import/no-nodejs-modules
 import type { EventEmitter } from 'events';
 import type { ILink } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { IActionContextKey } from './IActionContext';
@@ -58,6 +58,18 @@ export interface IDiscoverEventData {
    * Metadata of the parent of the discovered ndoe
    */
   metadataParent: Record<any, any>[];
+}
+
+/**
+ * Interface describing what data will be emitted when the topology is updated.
+ * Will emit a notification that the topology has changed, prompting consumers of this
+ * aggregate statistic to process the data.
+ */
+export interface ITopologyEventNotification {
+  /**
+   * What type of update happened to the topology
+   */
+  type: 'dereference' | 'discover';
 }
 
 /**

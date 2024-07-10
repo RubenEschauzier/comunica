@@ -1,4 +1,4 @@
-import type { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults/lib/StatisticsHolder';
+import type { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 import type {
   IActorContextPreprocessOutput,
   IActorContextPreprocessArgs,
@@ -59,10 +59,12 @@ export class ActorContextPreprocessQuerySourceIdentify extends ActorContextPrepr
         .map(async querySourceUnidentified => this.identifySource(querySourceUnidentified, action.context)));
 
       /**
-       * When identifying sources in preprocess actor, we record this as a dereference seed document event 
+       * When identifying sources in preprocess actor, we record this as a dereference seed document event
        */
       const statistics: StatisticsHolder = action.context.get(KeysStatisticsTracker.statistics)!;
-      const statisticDereferenceLinks = <IStatisticDereferencedLinks> statistics.get(KeysTrackableStatistics.dereferencedLinks);
+      const statisticDereferenceLinks = <IStatisticDereferencedLinks> statistics
+        .get(KeysTrackableStatistics.dereferencedLinks);
+
       if (statisticDereferenceLinks) {
         for (const querySource of querySources) {
           const linkStatistic: ILink = {

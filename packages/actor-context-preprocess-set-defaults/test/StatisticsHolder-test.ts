@@ -1,18 +1,16 @@
-import { IActionContextKey, IStatisticsHolder } from "@comunica/types";
-import { StatisticsHolder } from "../lib";
-import { ActionContextKey } from "@comunica/core";
-
+import { ActionContextKey } from '@comunica/core';
+import type { IActionContextKey, IStatisticsHolder } from '@comunica/types';
+import { StatisticsHolder } from '../lib';
 
 describe('StatisticsHolder', () => {
   const key1: IActionContextKey<string> = new ActionContextKey<string>('key1');
   const key2: IActionContextKey<number> = new ActionContextKey<number>('key2');
   const key3: IActionContextKey<boolean[]> = new ActionContextKey<boolean[]>('key3');
-  const key4: IActionContextKey<boolean[]> = new ActionContextKey<boolean[]>('key4');  
+  const key4: IActionContextKey<boolean[]> = new ActionContextKey<boolean[]>('key4');
 
   let statisticsHolder: StatisticsHolder;
 
-  beforeEach(() => {
-  });
+  beforeEach(() => {});
   describe('for an empty instance', () => {
     let statisticsHolder: IStatisticsHolder;
 
@@ -22,8 +20,8 @@ describe('StatisticsHolder', () => {
 
     describe('set', () => {
       it('should add entries', () => {
-        statisticsHolder.set(key1, 'abc')
-        statisticsHolder.set(key2, 123)
+        statisticsHolder.set(key1, 'abc');
+        statisticsHolder.set(key2, 123);
         statisticsHolder.set(key3, [ true, false ]);
 
         expect(statisticsHolder.get(key1)).toBe('abc');
@@ -39,7 +37,7 @@ describe('StatisticsHolder', () => {
 
     describe('get', () => {
       it('should get entries', () => {
-        statisticsHolder.set(key1, 'abc')
+        statisticsHolder.set(key1, 'abc');
         statisticsHolder.set(key3, [ true, false ]);
 
         expect(statisticsHolder.get(key1)).toBe('abc');
@@ -55,10 +53,10 @@ describe('StatisticsHolder', () => {
 
     describe('delete', () => {
       it('should delete existing entries', () => {
-        statisticsHolder.set(key1, 'abc')
-        statisticsHolder.set(key2, 123)
-        statisticsHolder.set(key3, [ true, false ])
-        statisticsHolder.delete(key1)
+        statisticsHolder.set(key1, 'abc');
+        statisticsHolder.set(key2, 123);
+        statisticsHolder.set(key3, [ true, false ]);
+        statisticsHolder.delete(key1);
         statisticsHolder.delete(key3);
 
         expect(statisticsHolder.get(key1)).toBeUndefined();
@@ -67,7 +65,7 @@ describe('StatisticsHolder', () => {
       });
 
       it('should delete non-existing existing entries', () => {
-        statisticsHolder.delete(key1)
+        statisticsHolder.delete(key1);
         statisticsHolder.delete(key3);
 
         expect(statisticsHolder.get(key1)).toBeUndefined();
@@ -78,7 +76,7 @@ describe('StatisticsHolder', () => {
 
     describe('has', () => {
       it('should check entry containment', () => {
-        statisticsHolder.set(key1, 'abc')
+        statisticsHolder.set(key1, 'abc');
         statisticsHolder.set(key3, [ true, false ]);
 
         expect(statisticsHolder.has(key1)).toBe(true);
@@ -89,8 +87,8 @@ describe('StatisticsHolder', () => {
 
     describe('key', () => {
       it('should get the keys of existing entries', () => {
-        statisticsHolder.set(key1, 'abc')
-        statisticsHolder.set(key2, 123)
+        statisticsHolder.set(key1, 'abc');
+        statisticsHolder.set(key2, 123);
         statisticsHolder.set(key3, [ true, false ]);
 
         expect(statisticsHolder.keys()).toEqual([ key1, key2, key3 ]);
@@ -100,9 +98,9 @@ describe('StatisticsHolder', () => {
 
   describe('complex cases', () => {
     it('should bind return type to key', () => {
-      const statisticsHolder: IStatisticsHolder = new StatisticsHolder()
-      statisticsHolder.set(key1, 'abc')
-      statisticsHolder.set(key2, 123)
+      const statisticsHolder: IStatisticsHolder = new StatisticsHolder();
+      statisticsHolder.set(key1, 'abc');
+      statisticsHolder.set(key2, 123);
       statisticsHolder.set(key3, [ true, false ]);
 
       const value1: string | undefined = statisticsHolder.get(key1);
