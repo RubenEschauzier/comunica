@@ -364,25 +364,51 @@ describe('MediatedLinkedRdfSourcesAsyncRdfIterator', () => {
         await new Promise(setImmediate);
       });
 
-      // it('should update discover statistic data', async() => {
-      //   jest.useFakeTimers();
-      //   jest.setSystemTime(new Date('2021-01-01T00:00:00Z').getTime());    
-      //   const mockLogFunction = jest.fn((message: string, data?: (() => any)) => { });
+      it('should update discover statistic data', async() => {
+        const mockLogFunction = jest.fn((message: string, data?: (() => any)) => { });
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2021-01-01T00:00:00Z').getTime());    
+  
+        const statisticTracker: StatisticLinkDiscovery = new StatisticLinkDiscovery(mockLogFunction);
+        statisticsHolder.set(KeysTrackableStatistics.discoveredLinks, statisticTracker);
 
-      //   const statisticTracker: StatisticLinkDiscovery = new StatisticLinkDiscovery(mockLogFunction);
-      //   statisticsHolder.set(KeysTrackableStatistics.discoveredLinks, statisticTracker);
+        const source = sourceFactory();
+        // Here we pass a partial source state object, as the link attribute is required to track
+        // discover events
+        await expect(source.getSourceLinks({ baseURL: 'http://base.org/' }, {link: {url: 'http://source.org/'}})).resolves.toEqual([
+          { url: 'http://base.org/url1' },
+          { url: 'http://base.org/url2' },
+        ]);
 
-      //   // const source = sourceFactory();
+        expect(statisticTracker.edgeList).toEqual(
+          new Set([JSON.stringify(['http://source.org/', 'http://base.org/url1']),
+          JSON.stringify(['http://source.org/', 'http://base.org/url2'])])
+        );
 
-      //   // await expect(source.getSourceLinks({ baseURL: 'http://base.org/' })).resolves.toEqual([
-      //   //   { url: 'http://base.org/url1' },
-      //   //   { url: 'http://base.org/url2' },
-      //   // ]);
-      //   // expect(statisticTracker.edgeList).toEqual([
-      //   // ]);  
-      //   // source.destroy();
-      //   // await new Promise(setImmediate);
-      // })
+        expect(statisticTracker.metadata).toEqual({
+          'http://base.org/url1': [
+            {
+              discoveredTimestamp: Date.now(),
+              discoverOrder: 0
+            }
+          ],            
+          'http://base.org/url2': [
+            {
+              discoveredTimestamp: Date.now(),
+              discoverOrder: 1
+            }
+          ]
+        });
+
+        jest.useRealTimers();
+        source.destroy();
+        await new Promise(setImmediate);
+
+      });
+      // Else isClosable tests will time out due to async nature of 'should update discover statistic data'
+      afterEach(()=>{
+        jest.useRealTimers();
+      });
     });
 
     describe('isCloseable', () => {

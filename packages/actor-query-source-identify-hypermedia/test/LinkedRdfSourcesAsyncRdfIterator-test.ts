@@ -695,23 +695,25 @@ describe('LinkedRdfSourcesAsyncRdfIterator', () => {
       ]]);
       const it = new DummyIterator(operation, queryBindingsOptions, context, 'first', sourceStateGetter);
 
+      // Define it before end event to ensure Date.now() gets mocked properly
+      const expectedData = [{ 
+        url: "P1",
+        metadata: {
+          dereferenceOrder: 0,
+          dereferencedTimestamp: Date.now(),
+          requestedPage: 1,
+          type: "Object"
+      }}];
+
       it.on('data' , () => {
-      })
+      });
       it.on('end', () => {
-        expect(statisticTracker.dereferenceOrder).toEqual([
-          { url: "P1",
-            metadata: {
-              dereferenceOrder: 0,
-              dereferencedTimestamp: Date.now(),
-              requestedPage: 1,
-              type: "Object"
-            }
-          }
-        ]);  
-      })
+        expect(statisticTracker.dereferenceOrder).toEqual(expectedData);  
+      });
+    });
+    afterEach(()=>{
       jest.useRealTimers();
     })
-
   });
 });
 
