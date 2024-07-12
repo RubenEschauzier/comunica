@@ -136,7 +136,6 @@ implements IQueryEngine<QueryStringContextInner, QueryAlgebraContextInner> {
     if ('explain' in result) {
       return result;
     }
-
     return QueryEngineBase.internalToFinalResult(result);
   }
 

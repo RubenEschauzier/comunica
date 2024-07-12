@@ -2,7 +2,7 @@
 
 [![npm version](https://badge.fury.io/js/%40comunica%2Factor-context-preprocess-statistic-link-dereference.svg)](https://www.npmjs.com/package/@comunica/actor-context-preprocess-statistic-link-dereference)
 
-A comunica Statistic Dereference Order Context Preprocess Actor.
+A comunica Statistic Dereference Order Context Preprocess Actor. This actor tracks the order of dereference events, the dereferenced link, and metadata associated with the dereferenced link.
 
 This module is part of the [Comunica framework](https://github.com/comunica/comunica),
 and should only be used by [developers that want to build their own query engine](https://comunica.dev/docs/modify/).
@@ -33,9 +33,3 @@ After installing, this package can be added to your engine's configuration as fo
   ]
 }
 ```
-
-### Config Parameters
-
-TODO: fill in parameters (this section can be removed if there are none)
-
-* `someParam`: Description of the param

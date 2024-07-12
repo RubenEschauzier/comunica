@@ -10,8 +10,6 @@ import type { FunctionArgumentsCache, Logger } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { StatisticsHolder } from './StatisticsHolder';
 
-// TODO MAKE THIS NICE
-
 /**
  * A comunica Set Defaults Context Preprocess Actor.
  */

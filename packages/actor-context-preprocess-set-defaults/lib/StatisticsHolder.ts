@@ -1,6 +1,9 @@
 import { ActionContextKey } from '@comunica/core';
 import type { IActionContextKey, IStatisticsHolder } from '@comunica/types';
 
+/**
+ * A mutable map wrapper that uses ActionContextKeys as keys.
+ */
 export class StatisticsHolder implements IStatisticsHolder {
   private readonly map: Map<string, any>;
 

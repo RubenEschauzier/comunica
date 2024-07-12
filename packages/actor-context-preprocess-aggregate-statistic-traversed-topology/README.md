@@ -2,7 +2,8 @@
 
 [![npm version](https://badge.fury.io/js/%40comunica%2Factor-context-preprocess-aggregate-statistic-traversed-topology.svg)](https://www.npmjs.com/package/@comunica/actor-context-preprocess-aggregate-statistic-traversed-topology)
 
-A comunica Aggregate Statistic Traversed Topology Context Preprocess Actor.
+A comunica Aggregate Statistic Traversed Topology Context Preprocess Actor. This statistic requires both link discover and dereference events to be tracked.
+It listens for new link events and constructs the topology of the dereferenced subweb.
 
 This module is part of the [Comunica framework](https://github.com/comunica/comunica),
 and should only be used by [developers that want to build their own query engine](https://comunica.dev/docs/modify/).
@@ -33,9 +34,3 @@ After installing, this package can be added to your engine's configuration as fo
   ]
 }
 ```
-
-### Config Parameters
-
-TODO: fill in parameters (this section can be removed if there are none)
-
-* `someParam`: Description of the param

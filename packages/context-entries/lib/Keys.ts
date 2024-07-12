@@ -15,7 +15,6 @@ import type {
   IStatisticDereferencedLinks,
   IStatisticDiscoveredLinks,
   ITopologyEventNotification,
-  Logger,
   IStatistic,
   IStatisticsHolder,
 } from '@comunica/types';
@@ -312,10 +311,6 @@ export const KeysStatisticsTracker = {
   statistics: new ActionContextKey<IStatisticsHolder>(
     '@comunica/actor-context-preprocess-set-default:statistics',
   ),
-  /**
-   * TODO: Make nicer. Statistic logger.
-   */
-  statisticsLogger: new ActionContextKey<Logger>('@comunica/actor-context-preprocess-set-default:statisticsLogger'),
 };
 
 export const KeysTrackableStatistics = {

@@ -266,6 +266,7 @@ export class CliArgsHandlerBase implements ICliArgsHandler {
     if (args.noCache) {
       context[KeysInitQuery.noCache.name] = true;
     }
+
     // Define if results should be deduplicated
     if (args.distinctConstruct) {
       context[KeysInitQuery.distinctConstruct.name] = true;
