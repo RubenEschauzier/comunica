@@ -1,4 +1,3 @@
-import type { StatisticsHolder } from '@comunica/actor-context-preprocess-set-defaults';
 import type {
   IActorContextPreprocessOutput,
   IActorContextPreprocessArgs,
@@ -19,6 +18,7 @@ import type {
   IActionContext,
   IQuerySourceUnidentifiedExpanded,
   IStatisticDereferencedLinks,
+  IStatisticsHolder,
 } from '@comunica/types';
 import { LRUCache } from 'lru-cache';
 
@@ -49,6 +49,7 @@ export class ActorContextPreprocessQuerySourceIdentify extends ActorContextPrepr
 
   public async run(action: IAction): Promise<IActorContextPreprocessOutput> {
     let context = action.context;
+
     // Rewrite sources
     if (context.has(KeysInitQuery.querySourcesUnidentified)) {
       const querySourcesUnidentified: QuerySourceUnidentified[] = action.context
@@ -61,7 +62,7 @@ export class ActorContextPreprocessQuerySourceIdentify extends ActorContextPrepr
       /**
        * When identifying sources in preprocess actor, we record this as a dereference seed document event
        */
-      const statistics: StatisticsHolder = action.context.get(KeysStatisticsTracker.statistics)!;
+      const statistics: IStatisticsHolder = action.context.get(KeysStatisticsTracker.statistics)!;
       const statisticDereferenceLinks = <IStatisticDereferencedLinks> statistics
         .get(KeysTrackableStatistics.dereferencedLinks);
 
@@ -113,6 +114,7 @@ export class ActorContextPreprocessQuerySourceIdentify extends ActorContextPrepr
     if (!sourcePromise) {
       sourcePromise = this.mediatorQuerySourceIdentify.mediate({ querySourceUnidentified, context })
         .then(({ querySource }) => querySource);
+
       // Set in cache
       if (typeof querySourceUnidentified.value === 'string' && this.cache) {
         this.cache.set(querySourceUnidentified.value, sourcePromise);
