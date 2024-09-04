@@ -29,6 +29,8 @@
     "performance/*/lib/**/*"
   ],
   "exclude": [
-    "**/node_modules"
+    "**/node_modules",
+    "**/node_modules/rdf-store-stream.js/node_modules"
+
   ]
 }

@@ -171,6 +171,7 @@ export class ActorOptimizeQueryOperationFilterPushdown extends ActorOptimizeQuer
   }
 
   /**
+   * Move this to UTIL package from Comunica 3.0
    * Collected all sources that are defined within the given operation of children recursively.
    * @param operation An operation.
    */
