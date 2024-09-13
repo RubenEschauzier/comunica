@@ -1,7 +1,7 @@
 import { IndexBasedJoinSampler } from '../lib/IndexBasedJoinSampler';
 import '@comunica/jest';
 
-describe('ActorRdfJoinMultiEmpty', () => {
+describe('IndexBasedJoinSampler', () => {
   let joinSampler: any;
   let spyOnMathRandom: any;
 
@@ -97,43 +97,42 @@ describe('ActorRdfJoinMultiEmpty', () => {
     });
   });
   describe('set sample relation', () => {
+    let sample: Record<string, string>;
+    beforeEach(() => {
+      sample = {'v0': 'sub', 'v1': 'pred', 'v2': 'obj'};
+    })
     it('should correctly fill subject when joinVariable is "s"', () => {
-      const sample = [ 'sub', 'pred', 'obj' ];
-      const result = joinSampler.setSampleRelation(sample, null, 'pred', 'obj', 's');
+      const result = joinSampler.setSampleRelation(sample, null, 'pred', 'obj', 's', 'v0');
       expect(result).toEqual([ 'sub', 'pred', 'obj' ]);
     });
 
     it('should correctly fill predicate when joinVariable is "p"', () => {
-      const sample = [ 'sub', 'pred', 'obj' ];
-      const result = joinSampler.setSampleRelation(sample, 'sub', null, 'obj', 'p');
+      const result = joinSampler.setSampleRelation(sample, 'sub', null, 'obj', 'p', 'v1');
       expect(result).toEqual([ 'sub', 'pred', 'obj' ]);
     });
 
     it('should correctly fill object when joinVariable is "o"', () => {
-      const sample = [ 'sub', 'pred', 'obj' ];
-      const result = joinSampler.setSampleRelation(sample, 'sub', 'pred', null, 'o');
+      const result = joinSampler.setSampleRelation(sample, 'sub', 'pred', null, 'o', 'v2');
       expect(result).toEqual([ 'sub', 'pred', 'obj' ]);
     });
 
-    it('should handle empty sample array correctly', () => {
-      const sample: string[] = [];
+    it('should handle empty sample correctly', () => {
+      const sample: Record<string,string> = {};
       expect(() => {
-        joinSampler.setSampleRelation(sample, 'sub', 'pred', 'obj', 's');
+        joinSampler.setSampleRelation(sample, 'sub', 'pred', 'obj', 's', 'v0');
       }).toThrow(
-        new Error('Sampled triples should always be size 3, got 0'),
+        new Error('Sample should contain atleast a binding'),
       );
     });
 
     it('should handle null values for parameters', () => {
-      const sample = [ 'sub', 'pred', 'obj' ];
-      const result = joinSampler.setSampleRelation(sample, null, null, null, 's');
-      expect(result).toEqual([ sample[0], null, null ]);
+      const result = joinSampler.setSampleRelation(sample, null, null, null, 's', 'v0');
+      expect(result).toEqual([ 'sub', null, null ]);
     });
 
     it('should throw an error for an invalid joinVariable', () => {
-      const sample = [ 'sub', 'pred', 'obj' ];
       expect(() => {
-        joinSampler.setSampleRelation(sample, 'sub', 'pred', 'obj', 'invalid');
+        joinSampler.setSampleRelation(sample, 'sub', 'pred', 'obj', 'invalid', 'v0');
       }).toThrow('Invalid join variable');
     });
   });
@@ -207,8 +206,8 @@ describe('ActorRdfJoinMultiEmpty', () => {
       const result = joinSampler.initializeSamplesEnumeration(resultSets);
 
       expect(result).toEqual({
-        '[0]': [[ 'a1', 'b1' ], [ 'c1', 'd1' ]],
-        '[1]': [[ 'a2', 'b2' ], [ 'c2', 'd2' ]],
+        '[0]': {sample: [[ 'a1', 'b1' ], [ 'c1', 'd1' ]], estimatedCardinality: 2},
+        '[1]': {sample: [[ 'a2', 'b2' ], [ 'c2', 'd2' ]], estimatedCardinality: 2}
       });
     });
 
@@ -219,7 +218,7 @@ describe('ActorRdfJoinMultiEmpty', () => {
       const result = joinSampler.initializeSamplesEnumeration(resultSets);
 
       expect(result).toEqual({
-        '[0]': [[ 'a1', 'b1' ], [ 'c1', 'd1' ]],
+        '[0]': {sample: [[ 'a1', 'b1' ], [ 'c1', 'd1' ]], estimatedCardinality: 2},
       });
     });
 
@@ -232,9 +231,9 @@ describe('ActorRdfJoinMultiEmpty', () => {
       const result = joinSampler.initializeSamplesEnumeration(resultSets);
 
       expect(result).toEqual({
-        '[0]': [],
-        '[1]': [[ 'a2', 'b2' ], [ 'c2', 'd2' ]],
-        '[2]': [],
+        '[0]': {sample: [], estimatedCardinality: 0},
+        '[1]': {sample:[[ 'a2', 'b2' ], [ 'c2', 'd2' ]], estimatedCardinality: 2},
+        '[2]': {sample:[], estimatedCardinality: 0},
       });
     });
 
@@ -246,8 +245,8 @@ describe('ActorRdfJoinMultiEmpty', () => {
       const result = joinSampler.initializeSamplesEnumeration(resultSets);
 
       expect(result).toEqual({
-        '[0]': [[ 'a1', 'b1' ]],
-        '[1]': [[ 'a1', 'b1' ]],
+        '[0]': {sample: [[ 'a1', 'b1' ]], estimatedCardinality: 1 } ,
+        '[1]': {sample: [[ 'a1', 'b1' ]], estimatedCardinality: 1}
       });
     });
   });
@@ -330,23 +329,23 @@ describe('ActorRdfJoinMultiEmpty', () => {
     });
 
     it('should work with two triple patterns in star', () => {
-      expect(joinSampler.determineJoinVariable([ operation1 ], operation2)).toBe('s');
+      expect(joinSampler.determineJoinVariable([ operation1 ], operation2)).toEqual({joinLocation: 's', joinVariable: 'v0'});
     });
     it('should work with two triple patterns in path (object)', () => {
-      expect(joinSampler.determineJoinVariable([ operation1 ], operation3)).toBe('s');
+      expect(joinSampler.determineJoinVariable([ operation1 ], operation3)).toEqual({joinLocation: 's', joinVariable: 'v1'});
     });
     it('should work with two triple patterns in path (subject)', () => {
-      expect(joinSampler.determineJoinVariable([ operation3 ], operation1)).toBe('o');
+      expect(joinSampler.determineJoinVariable([ operation3 ], operation1)).toEqual({joinLocation: 'o', joinVariable: 'v1'});
     });
     it('should work with two triple patterns with predicate join', () => {
-      expect(joinSampler.determineJoinVariable([ operation4 ], operation5)).toBe('p');
+      expect(joinSampler.determineJoinVariable([ operation4 ], operation5)).toEqual({joinLocation: 'p', joinVariable: 'p0'});
     });
     it('should correctly identify cartesian joins', () => {
-      expect(joinSampler.determineJoinVariable([ operation1 ], operation6)).toBe('c');
-      expect(joinSampler.determineJoinVariable([ operation5 ], operation6)).toBe('c');
+      expect(joinSampler.determineJoinVariable([ operation1 ], operation6)).toEqual({joinLocation: 'c', joinVariable: ''});
+      expect(joinSampler.determineJoinVariable([ operation5 ], operation6)).toEqual({joinLocation: 'c', joinVariable: ''});
     });
     it('should work with multiple triple patterns in intermediate result', () => {
-      expect(joinSampler.determineJoinVariable([ operation1, operation2 ], operation6)).toBe('s');
+      expect(joinSampler.determineJoinVariable([ operation1, operation2 ], operation6)).toEqual({joinLocation: 's', joinVariable: 'v2'});
     });
   });
 
@@ -716,17 +715,37 @@ describe('ActorRdfJoinMultiEmpty', () => {
       it('should sample all patterns in query', () => {
         expect(joinSampler.sampleTriplePatternsQuery(1, store, {'': sampleArrayIndex}, 
           [operation1, operation2]
-         )).toEqual([[['s3', 'p1', 'o2']], [['s1', 'p2', 'o3']]])
+         )).toEqual([[{'v0': 's3', 'v2': 'o2'}], [{'v1':'s1', 'v2':'o3'}]])
       });
       it('should get all triples for n > number of triples', () => {
         expect(joinSampler.sampleTriplePatternsQuery(10, store, {'': sampleArrayIndex}, 
           [operation1, operation2]
-         )).toEqual([[['s1', 'p1', 'o1'], ['s3', 'p1', 'o2'], ['s1', 'p1', 'o2'], ['s2', 'p1', 'o4']], 
-          [['s1', 'p2', 'o3']]])
+         )).toEqual([[{'v0':'s1', 'v2':'o1'}, {'v0':'s3', 'v2':'o2'}, {'v0':'s1', 'v2':'o2'}, 
+          {'v0':'s2', 'v2':'o4'}], [{'v1':'s1', 'v2':'o3'}]])
       });
     });
-    describe('sampleJoin', () => {
+    describe('countCandidates', () => {
+      let operation1: any;
+      let operation2: any; 
+
       beforeEach(() => {
+        operation1 = {
+          subject: { termType: 'Variable', value: 'v0' },
+          predicate: {
+            termType: 'NamedNode',
+            value: 'p1',
+          },
+          object: { termType: 'Variable', value: 'v1' },
+        };
+        operation2 = {
+          subject: { termType: 'Variable', value: 'v0' },
+          predicate: {
+            termType: 'NamedNode',
+            value: 'p2',
+          },
+          object: { termType: 'Variable', value: 'v2' },
+        };
+
         // Redefine arrayIndex to get more extensive result sets
         sampleArrayIndex = {
           subjects: {
@@ -778,22 +797,182 @@ describe('ActorRdfJoinMultiEmpty', () => {
           },
         };
       });
-  
-      it('should sample star-subject joins', () => {
-        // Get all triple in triple pattern
-        const samples = joinSampler.sampleIndex(
-          null, 'p2', null, 
-          Number.POSITIVE_INFINITY, sampleArrayIndex
-        );
-        const spyOnSampleArray = jest.spyOn(joinSampler, 'sampleArray').mockReturnValue([3, 4]);
-        
-        expect(joinSampler.sampleJoin(2, samples, null, "p1", null, "s", {'': sampleArrayIndex}))
-        .toEqual(
-          [['s1', 'p1', 'p2', 'o5', 'o3'], ['s2', 'p1', 'p2', 'o4', 'o4']]
+
+      it('should correctly count', () => {
+        const samples: Record<string,string>[] = joinSampler.sampleIndex(
+          null, 'p2', null, Number.POSITIVE_INFINITY, sampleArrayIndex
+        ).map((x: string[]) => {
+          return {'v0': x[0], 'v2': x[2]}
+        });
+        expect(samples).toEqual(
+          [{'v0': 's1' , 'v2': 'o3'},{'v0': 's2' , 'v2': 'o1'}, {'v0': 's2' , 'v2': 'o4'}]
+        );  
+
+        expect(joinSampler.candidateCounts(samples, null, 'p1', null, 's', 'v0', {'': sampleArrayIndex})).toEqual(
+          {
+            counts: [3, 2, 2],
+            sampleRelations: [['s1', 'p1', null], ['s2', 'p1', null], ['s2', 'p1', null]]
+          }
         )
       });
-      it('should sample subject - object joins', () => {
+    });
+    describe('sampleJoin', () => {
+      let operation1: any;
+      let operation2: any; 
+      let operation3: any;
+      let operation4: any;
+      let operation5: any;
+      let operation6: any;
+      beforeEach(() => {
+        operation1 = {
+          subject: { termType: 'Variable', value: 'v0' },
+          predicate: {
+            termType: 'NamedNode',
+            value: 'p1',
+          },
+          object: { termType: 'Variable', value: 'v1' },
+        };
+        operation2 = {
+          subject: { termType: 'Variable', value: 'v0' },
+          predicate: {
+            termType: 'NamedNode',
+            value: 'p2',
+          },
+          object: { termType: 'Variable', value: 'v2' },
+        };
+        operation3 = {
+          subject: { termType: 'Variable', value: 'v1' },
+          predicate: {
+            termType: 'NamedNode',
+            value: 'p1',
+          },
+          object: { termType: 'Variable', value: 'v2' },
+        };
+        operation4 = {
+          subject: {
+            termType: 'NamedNode',
+            value: 's1',
+          },
+          predicate: { termType: 'Variable', value: 'p0' },
+          object: { termType: 'Variable', value: 'v1' },
+        };
+        operation5 = {
+          subject: {
+            termType: 'NamedNode',
+            value: 's2',
+          },
+          predicate: { termType: 'Variable', value: 'p0' },
+          object: {
+            termType: 'NamedNode',
+            value: 'o1',
+          },
+        };
+        operation6 = {
+          subject: { termType: 'Variable', value: 'v2' },
+          predicate: {
+            termType: 'NamedNode',
+            value: 'p2',
+          },
+          object: { termType: 'Variable', value: 'v3' },
+        };
+  
+        // Redefine arrayIndex to get more extensive result sets
+        sampleArrayIndex = {
+          subjects: {
+            s1: {
+              p1: [ 'o1', 'o2', 'o5' ],
+              p2: [ 'o3' , 's2', 's3'],
+            },
+            s2: {
+              p1: [ 'o4', 'o5', 's3' ],
+              p2: [ 'o1', 'o4' ]
+            },
+            s3: {
+              p1: [ 'o2', 'o4' ],
+            },
+          },
+          predicates: {
+            p1: {
+              s3: [ 's2' ],
+              o1: [ 's1' ],
+              o2: [ 's3', 's1' ],
+              o4: [ 's2', 's3' ],
+              o5: [ 's1', 's2']
+            },
+            p2: {
+              s2: [ 's1' ],
+              s3: [ 's1' ],
+              o3: [ 's1' ],
+              o1: [ 's2' ],
+              o4: [ 's2' ]
+            },
+          },
+          objects: {
+            s2: {
+              s1: [ 'p2' ]
+            },
+            s3: {
+              s1: [ 'p2' ],
+              s2: [ 'p1' ]
+            },
+            o1: {
+              s1: [ 'p1' ],
+              s2: [ 'p2' ]
+            },
+            o2: {
+              s1: [ 'p1' ],
+              s3: [ 'p1' ],
+            },
+            o3: {
+              s1: [ 'p2' ],
+            },
+            o4: {
+              s2: [ 'p1', 'p2' ],
+              s3: [ 'p1' ]
+            },
+            o5: {
+              s1: [ 'p1' ],
+              s2: [ 'p2' ]
+            }
+          },
+        };
+      });
+      function arraysHaveSameElements(arr1: any[], arr2: any[]): boolean {
+        return arr1.length === arr2.length && arr1.every(element => arr2.includes(element));
+    }
+      it('should sample star-subject joins', () => {
+        // Get all triple in triple pattern
+        const samples: Record<string,string>[] = joinSampler.sampleIndex(
+          null, 'p2', null, Number.POSITIVE_INFINITY, sampleArrayIndex
+        ).map((x: string[]) => {
+          return {'v0': x[0], 'v2': x[2]}
+        });
 
+        expect(samples).toEqual(
+          [ {'v0': 's1' , 'v2': 's2'}, {'v0': 's1' , 'v2': 's3'}, {'v0': 's1' , 'v2': 'o3'}, 
+            {'v0': 's2' , 'v2': 'o1'}, {'v0': 's2' , 'v2': 'o4'},
+          ]
+        );  
+        const spyOnSampleArray = jest.spyOn(joinSampler, 'sampleArray').mockReturnValue([3, 4]);
+        const output = joinSampler.sampleJoin(2, samples, null, "p1", null, operation1, 'v0', 's', {'': sampleArrayIndex});
+        expect(output.sample).toEqual([{'v0': 's1', 'v1': 'o5', 'v2':'s2'}, {'v0': 's1', 'v1': 'o1', 'v2': 's3'}]);
+        expect(output.selectivity).toBeCloseTo(3);
+      });
+
+      it('should sample subject - object joins', () => {
+        const samples: Record<string,string>[] = joinSampler.sampleIndex(
+          null, 'p1', null, Number.POSITIVE_INFINITY, sampleArrayIndex
+        ).map((x: string[]) => {
+          return {'v0': x[0], 'v1': x[2]}
+        });
+        expect(samples).toEqual(
+          [{'v0': 's2' , 'v1': 's3'} ,{'v0': 's1' , 'v1': 'o1'}, {'v0': 's3' , 'v1': 'o2'}, {'v0': 's1' , 'v1': 'o2'},
+            {'v0': 's2' , 'v1': 'o4'}, {'v0': 's3' , 'v1': 'o4'}, {'v0': 's1' , 'v1': 'o5'}, {'v0': 's2' , 'v1': 'o5'}]
+        );
+        const spyOnSampleArray = jest.spyOn(joinSampler, 'sampleArray').mockReturnValue([1]);
+        const output = joinSampler.sampleJoin(1, samples, null, 'p1', null, operation3, 'v1', 's', {'': sampleArrayIndex});
+        // TODO MAKE BETTER TEST CASE WITH BETTER GRAPH
+        expect(output.sample).toEqual([{'v0': 's2', 'v1': 's3', 'v2': 'o2'}])
       });
       it('should sample subject - predicate joins', () => {
 
@@ -814,6 +993,9 @@ describe('ActorRdfJoinMultiEmpty', () => {
 
       });
       it('should sample object-predicate joins', () => {
+
+      });
+      it('should sample with samples consisting of more than one triple pattern', () => {
 
       });
       it('should correctly sample empty', () => {
