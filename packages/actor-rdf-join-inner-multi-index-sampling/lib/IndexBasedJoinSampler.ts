@@ -3,11 +3,9 @@ import type * as RDF from '@rdfjs/types';
 import { Store, Parser } from 'n3';
 import type { Operation } from 'sparqlalgebrajs/lib/algebra';
 import { FifoQueue } from './FifoQueue';
-import { Term } from '@comunica/expression-evaluator/lib/expressions';
-import { KeysCore } from '@comunica/context-entries';
 
 /**
- * A comunica Inner Multi Index Sampling RDF Join Actor.
+ * Sampling-based cardinality estimation
  */
 export class IndexBasedJoinSampler {
   public budget: number;
@@ -16,20 +14,27 @@ export class IndexBasedJoinSampler {
     this.budget = budget;
   }
 
-  public run(n: number, store: any, arrayIndex: Record<string, ArrayIndex>, tps: Operation[]) {
+  public run(tps: Operation[], nJoinSamples: number, nTpSamples: number, store: any, arrayIndex: Record<string, ArrayIndex>): Record<string, ISampleResult> {
     // Get all triples matching triple pattern
-    const sampledTriplePatterns = this.sampleTriplePatternsQuery(Number.POSITIVE_INFINITY, store, arrayIndex, tps);
-    this.bottomUpEnumeration(n, store, arrayIndex, sampledTriplePatterns, tps);
+    const sampledTriplePatterns = this.sampleTriplePatternsQuery(nTpSamples, store, arrayIndex, tps);
+    return this.bottomUpEnumeration(nJoinSamples, sampledTriplePatterns, tps, store, arrayIndex);
   }
 
-  public bottomUpEnumeration(n: number, store: any, arrayIndex: Record<string, ArrayIndex>, resultSets: Record<string,string>[][], tps: Operation[]) {
+  public bottomUpEnumeration(
+    n: number,
+    resultSets: Record<string, string>[][],
+    tps: Operation[],
+    store: any,
+    arrayIndex: Record<string, ArrayIndex>,
+  ): Record<string, ISampleResult> {
     // Samples are stored by their two participating expressions like [[1], [2]] joining result set
     // 1 and 2, while [[1,2],[3]] joins result sets of join between 1,2 and result set of 3.
     const samples: Record<string, ISampleResult> = this.initializeSamplesEnumeration(resultSets);
 
     const problemQueue = new FifoQueue<number[][]>();
-    this.joinCombinations(tps.length).map(join => problemQueue.enqueue(join));
-
+    for (const join of this.joinCombinations(tps.length)) {
+      problemQueue.enqueue(join);
+    }
     while (!problemQueue.isEmpty()) {
       // The combination of triple patterns we're evaluating
       const combination = problemQueue.dequeue()!;
@@ -45,16 +50,15 @@ export class IndexBasedJoinSampler {
         // TODO Circle back to cross products if we have exhausted all non-cross products
         continue;
       }
-      const samplingOutput: ISampleOutput = this.sampleJoin(n, baseSample.sample, 
-        spo[0], spo[1], spo[2], tps[combination[1][0]],
-        joinVariable.joinVariable, joinVariable.joinLocation, arrayIndex);
+
+      const samplingOutput: ISampleOutput = this.sampleJoin(n, baseSample.sample, spo[0], spo[1], spo[2], tps[combination[1][0]], joinVariable.joinVariable, joinVariable.joinLocation, arrayIndex);
       /**
-       * Update samples by multiplying the base sample estimated cardinality with the estimated 
+       * Update samples by multiplying the base sample estimated cardinality with the estimated
        * selectivity
        */
-      samples[JSON.stringify(combination)] = {
-        sample: samplingOutput.sample, 
-        estimatedCardinality: samplingOutput.selectivity * baseSample.estimatedCardinality 
+      samples[JSON.stringify(combination.flat())] = {
+        sample: samplingOutput.sample,
+        estimatedCardinality: samplingOutput.selectivity * baseSample.estimatedCardinality,
       };
       // Generate new combinations and add to queue
       this.generateNewCombinations(combination, tps.length).map(x => problemQueue.enqueue(x));
@@ -62,16 +66,10 @@ export class IndexBasedJoinSampler {
     return samples;
   }
 
-  public sampleJoin(n: number, samples: Record<string, string>[], 
-    s: string | null, p: string | null, o: string | null, operation: Operation,
-    joinVariable: string, joinLocation: 's'|'p'|'o', arrayIndex: Record<string, ArrayIndex>
-  ): ISampleOutput {
-    const operationTriplePattern: any[] = [operation.subject, 
-      operation.predicate, operation.object];
+  public sampleJoin(n: number, samples: Record<string, string>[], s: string | null, p: string | null, o: string | null, operation: Operation, joinVariable: string, joinLocation: 's' | 'p' | 'o', arrayIndex: Record<string, ArrayIndex>): ISampleOutput {
+    const operationTriplePattern: any[] = [ operation.subject, operation.predicate, operation.object ];
     // First count the number of possible join candidates with sample
-    const { counts, sampleRelations } = this.candidateCounts(samples, 
-      s, p, o, joinLocation, joinVariable, arrayIndex
-    );
+    const { counts, sampleRelations } = this.candidateCounts(samples, s, p, o, joinLocation, joinVariable, arrayIndex);
     const sum: number = counts.reduce((acc, count) => acc += count, 0);
     const ids = this.sampleArray([ ...new Array(sum).keys() ], n);
     const joinSample: Record<string, string>[] = [];
@@ -80,57 +78,56 @@ export class IndexBasedJoinSampler {
       for (const [ i, count ] of counts.entries()) {
         searchIndex += count;
         // If count > id we take the joins associated with this sample
-        if (id <= searchIndex) {
+        if (id < searchIndex) {
           // Go back one step
           searchIndex -= count;
-          // Find index
-          const tripleIndex = id - (searchIndex) - 1;
-          console.log(tripleIndex);
-          console.log(this.lookUpIndex(
-            arrayIndex[''], sampleRelations[i][0], sampleRelations[i][1], sampleRelations[i][2]
-          ))
-          const chosenTriple = this.lookUpIndex(
-            arrayIndex[''], sampleRelations[i][0], sampleRelations[i][1], sampleRelations[i][2]
-          )[tripleIndex];
-          console.log(chosenTriple)
-          const associatedSample = {... samples[i]};
-          for (const term of chosenTriple){
-            if (term === null){
 
+          // Find index
+          const tripleIndex = id - (searchIndex);
+
+          // Get the triple associated with index
+          // TODO This materializes all triples that match the sample relation, should implement something to access
+          // only the given index
+          const chosenTriple = this.lookUpIndex(
+            arrayIndex[''],
+            sampleRelations[i][0],
+            sampleRelations[i][1],
+            sampleRelations[i][2],
+          )[tripleIndex];
+
+          // Get the sample triple that was used to find this join candidate
+          const associatedSample = { ...samples[i] };
+
+          // Convert the variables in triple to binding
+          for (const [ k, curr ] of chosenTriple.entries()) {
+            if (this.isVariable(operationTriplePattern[k]) && !associatedSample[operationTriplePattern[k].value]) {
+              associatedSample[operationTriplePattern[k].value] = curr;
             }
           }
-          // Convert the variables in triple to binding
-          chosenTriple.forEach((curr, k) => {
-            if (this.isVariable(operationTriplePattern[k])){
-              if(!associatedSample[operationTriplePattern[k].value]){
-                associatedSample[operationTriplePattern[k].value] = curr;
-              }
-            }
-          });
           joinSample.push(associatedSample);
           break;
         }
       }
     }
-    const selectivity = sum / samples.length;
+    // If we find no candidates selectivity is 0
+    const selectivity = sum > 0 ? sum / samples.length : 0;
     return {
       sample: joinSample,
       selectivity,
     };
   }
 
-  public candidateCounts(samples: Record<string, string>[], s: string | null, p: string | null, o: string | null,
-    joinLocation: 's' | 'p' | 'o', joinVariable: string, arrayIndex: Record<string, ArrayIndex>
-  ): ICandidateCounts {
-    const counts: number[] = []; 
+  public candidateCounts(samples: Record<string, string>[], s: string | null, p: string | null, o: string | null, joinLocation: 's' | 'p' | 'o', joinVariable: string, arrayIndex: Record<string, ArrayIndex>): ICandidateCounts {
+    const counts: number[] = [];
     const sampleRelations: (string | null)[][] = [];
     for (const sample of samples) {
-      const sampleRelation = this.setSampleRelation(sample, s, p, o, 
-        joinLocation, joinVariable);
-        
+      const sampleRelation = this.setSampleRelation(sample, s, p, o, joinLocation, joinVariable);
 
       const candidateCounts: number[] = this.countTriplesJoinRelation(
-        arrayIndex[''], sampleRelation[0], sampleRelation[1], sampleRelation[2]
+        arrayIndex[''],
+        sampleRelation[0],
+        sampleRelation[1],
+        sampleRelation[2],
       );
       const totalCountSample = candidateCounts.reduce((acc, count) => acc += count, 0);
       counts.push(totalCountSample);
@@ -138,25 +135,32 @@ export class IndexBasedJoinSampler {
     }
     return {
       counts,
-      sampleRelations
-    }
+      sampleRelations,
+    };
   }
 
-  public sampleTriplePatternsQuery(n: number, store: any, arrayIndex: Record<string, ArrayIndex>, tps: Operation[]): 
-    Record<string, string>[][] {
-    const sampledTriplePatterns = tps.map(tp => {
+  public sampleTriplePatternsQuery(n: number, store: any, arrayIndex: Record<string, ArrayIndex>, tps: Operation[]):
+  Record<string, string>[][] {
+    const sampledTriplePatterns = tps.map((tp) => {
       const spo: (null | string)[] = this.tpToIds(tp, store);
-      const triplePatternKeys = Object.keys(tp);
+
+      // Undefined means the value of triple pattern doesn't exist in data, so will always return no results
+      if(spo.some((x) => x === undefined)) return [];
+
       const triples = this.sampleIndex(spo[0], spo[1], spo[2], n, arrayIndex['']);
-      
-      return triples.map(triple => 
-        triple.reduce((binding, curr, i) => {
-          if (!spo[i]) {
-            binding[tp[triplePatternKeys[i]].value] = curr;
-          }
-          return binding;
-        }, {} as Record<string, string>)
-      );
+      return triples.map((triple) => {
+        const binding: Record<string, string> = {};
+        if (spo[0] === null) {
+          binding[tp.subject.value] = triple[0];
+        }
+        if (spo[1] === null) {
+          binding[tp.predicate.value] = triple[1];
+        }
+        if (spo[2] === null) {
+          binding[tp.object.value] = triple[2];
+        }
+        return binding;
+      });
     });
     return sampledTriplePatterns;
   }
@@ -175,18 +179,18 @@ export class IndexBasedJoinSampler {
     const indexToUse = this.determineOptimalIndex(s, p, o);
 
     // If no variables, return the number of triples that match
-    if (nVariables === 0){
+    if (nVariables === 0) {
       const objsArray = this.pollIndex(arrayIndex, s, p, o, indexToUse);
       // If we find objects matching s, p
       if (objsArray) {
         const setObjs = new Set(objsArray);
         // If the passed o matches the objects matchin s,p return the triples
         if (setObjs.has(<string> o)) {
-          return [1];
+          return [ 1 ];
         }
       }
       // Else triple doesn't exist in index
-      return [0];
+      return [ 0 ];
     }
     // For one variable in triple pattern return size of array index of triple pattern
     if (nVariables === 1) {
@@ -197,8 +201,8 @@ export class IndexBasedJoinSampler {
     // Two variables we need to iterate over two layers of index
     else if (nVariables === 2) {
       const firstTerms = this.pollIndex(arrayIndex, s, p, o, indexToUse);
-      if (firstTerms.length === 0){
-        return [0];
+      if (firstTerms.length === 0) {
+        return [ 0 ];
       }
       for (const term of firstTerms) {
         // Determine the type of term we retrieve
@@ -217,7 +221,7 @@ export class IndexBasedJoinSampler {
         const secondTerms = this.pollIndex(arrayIndex, s, p, o, indexToUse);
         subTotalCandidateCounts.push(secondTerms.length);
       }
-    } 
+    }
     return subTotalCandidateCounts;
   }
 
@@ -393,10 +397,10 @@ export class IndexBasedJoinSampler {
     return combinations;
   }
 
-  public initializeSamplesEnumeration(resultSets: Record<string,string>[][]) {
+  public initializeSamplesEnumeration(resultSets: Record<string, string>[][]) {
     const samples: Record<string, ISampleResult> = {};
     for (const [ i, resultSet ] of resultSets.entries()) {
-      samples[JSON.stringify([ i ])] = {sample: resultSet, estimatedCardinality: resultSet.length };
+      samples[JSON.stringify([ i ])] = { sample: resultSet, estimatedCardinality: resultSet.length };
     }
     return samples;
   }
@@ -427,10 +431,9 @@ export class IndexBasedJoinSampler {
    * @param joinLocation What variable the join should be executed over
    * @returns
    */
-  public setSampleRelation(sample: Record<string, string>, s: string | null, p: string | null, o: string | null, 
-    joinLocation: 's' | 'p' | 'o', joinVariable: string): (string | null)[] {
-    if (Object.keys(sample).length === 0){
-      throw new Error('Sample should contain atleast a binding')
+  public setSampleRelation(sample: Record<string, string>, s: string | null, p: string | null, o: string | null, joinLocation: 's' | 'p' | 'o', joinVariable: string): (string | null)[] {
+    if (Object.keys(sample).length === 0) {
+      throw new Error('Sample should contain atleast a binding');
     }
     if (joinLocation === 's') {
       return [ sample[joinVariable], p, o ];
@@ -495,7 +498,6 @@ export class IndexBasedJoinSampler {
     return termArrayDict;
   }
 
-
   public sampleArray<T>(array: T[], n: number): T[] {
     if (n > array.length) {
       return array;
@@ -539,7 +541,7 @@ export interface ISampleOutput {
   /**
    *
    */
-  sample: Record<string,string>[];
+  sample: Record<string, string>[];
   /**
    *
    */
@@ -548,9 +550,9 @@ export interface ISampleOutput {
 
 export interface ISampleResult {
   /**
-   * 
+   *
    */
-  sample: Record<string,string>[];
+  sample: Record<string, string>[];
   /**
    * Estimated cardanility associated with join combination
    */
@@ -561,7 +563,7 @@ export interface IJoinVariable {
   /**
    * What location the join variable occurs in the to join triple pattern
    */
-  joinLocation: "s"|"p"|"o"|"c";
+  joinLocation: 's' | 'p' | 'o' | 'c';
   /**
    * The string of the variable
    */
@@ -576,5 +578,5 @@ export interface ICandidateCounts {
   /**
    * Triple pattern used to look up candidates in index
    */
-  sampleRelations: (string | null)[][]
+  sampleRelations: (string | null)[][];
 }

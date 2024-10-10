@@ -99,8 +99,8 @@ describe('IndexBasedJoinSampler', () => {
   describe('set sample relation', () => {
     let sample: Record<string, string>;
     beforeEach(() => {
-      sample = {'v0': 'sub', 'v1': 'pred', 'v2': 'obj'};
-    })
+      sample = { v0: 'sub', v1: 'pred', v2: 'obj' };
+    });
     it('should correctly fill subject when joinVariable is "s"', () => {
       const result = joinSampler.setSampleRelation(sample, null, 'pred', 'obj', 's', 'v0');
       expect(result).toEqual([ 'sub', 'pred', 'obj' ]);
@@ -117,7 +117,7 @@ describe('IndexBasedJoinSampler', () => {
     });
 
     it('should handle empty sample correctly', () => {
-      const sample: Record<string,string> = {};
+      const sample: Record<string, string> = {};
       expect(() => {
         joinSampler.setSampleRelation(sample, 'sub', 'pred', 'obj', 's', 'v0');
       }).toThrow(
@@ -206,8 +206,8 @@ describe('IndexBasedJoinSampler', () => {
       const result = joinSampler.initializeSamplesEnumeration(resultSets);
 
       expect(result).toEqual({
-        '[0]': {sample: [[ 'a1', 'b1' ], [ 'c1', 'd1' ]], estimatedCardinality: 2},
-        '[1]': {sample: [[ 'a2', 'b2' ], [ 'c2', 'd2' ]], estimatedCardinality: 2}
+        '[0]': { sample: [[ 'a1', 'b1' ], [ 'c1', 'd1' ]], estimatedCardinality: 2 },
+        '[1]': { sample: [[ 'a2', 'b2' ], [ 'c2', 'd2' ]], estimatedCardinality: 2 },
       });
     });
 
@@ -218,7 +218,7 @@ describe('IndexBasedJoinSampler', () => {
       const result = joinSampler.initializeSamplesEnumeration(resultSets);
 
       expect(result).toEqual({
-        '[0]': {sample: [[ 'a1', 'b1' ], [ 'c1', 'd1' ]], estimatedCardinality: 2},
+        '[0]': { sample: [[ 'a1', 'b1' ], [ 'c1', 'd1' ]], estimatedCardinality: 2 },
       });
     });
 
@@ -231,9 +231,9 @@ describe('IndexBasedJoinSampler', () => {
       const result = joinSampler.initializeSamplesEnumeration(resultSets);
 
       expect(result).toEqual({
-        '[0]': {sample: [], estimatedCardinality: 0},
-        '[1]': {sample:[[ 'a2', 'b2' ], [ 'c2', 'd2' ]], estimatedCardinality: 2},
-        '[2]': {sample:[], estimatedCardinality: 0},
+        '[0]': { sample: [], estimatedCardinality: 0 },
+        '[1]': { sample: [[ 'a2', 'b2' ], [ 'c2', 'd2' ]], estimatedCardinality: 2 },
+        '[2]': { sample: [], estimatedCardinality: 0 },
       });
     });
 
@@ -245,8 +245,8 @@ describe('IndexBasedJoinSampler', () => {
       const result = joinSampler.initializeSamplesEnumeration(resultSets);
 
       expect(result).toEqual({
-        '[0]': {sample: [[ 'a1', 'b1' ]], estimatedCardinality: 1 } ,
-        '[1]': {sample: [[ 'a1', 'b1' ]], estimatedCardinality: 1}
+        '[0]': { sample: [[ 'a1', 'b1' ]], estimatedCardinality: 1 },
+        '[1]': { sample: [[ 'a1', 'b1' ]], estimatedCardinality: 1 },
       });
     });
   });
@@ -329,23 +329,23 @@ describe('IndexBasedJoinSampler', () => {
     });
 
     it('should work with two triple patterns in star', () => {
-      expect(joinSampler.determineJoinVariable([ operation1 ], operation2)).toEqual({joinLocation: 's', joinVariable: 'v0'});
+      expect(joinSampler.determineJoinVariable([ operation1 ], operation2)).toEqual({ joinLocation: 's', joinVariable: 'v0' });
     });
     it('should work with two triple patterns in path (object)', () => {
-      expect(joinSampler.determineJoinVariable([ operation1 ], operation3)).toEqual({joinLocation: 's', joinVariable: 'v1'});
+      expect(joinSampler.determineJoinVariable([ operation1 ], operation3)).toEqual({ joinLocation: 's', joinVariable: 'v1' });
     });
     it('should work with two triple patterns in path (subject)', () => {
-      expect(joinSampler.determineJoinVariable([ operation3 ], operation1)).toEqual({joinLocation: 'o', joinVariable: 'v1'});
+      expect(joinSampler.determineJoinVariable([ operation3 ], operation1)).toEqual({ joinLocation: 'o', joinVariable: 'v1' });
     });
     it('should work with two triple patterns with predicate join', () => {
-      expect(joinSampler.determineJoinVariable([ operation4 ], operation5)).toEqual({joinLocation: 'p', joinVariable: 'p0'});
+      expect(joinSampler.determineJoinVariable([ operation4 ], operation5)).toEqual({ joinLocation: 'p', joinVariable: 'p0' });
     });
     it('should correctly identify cartesian joins', () => {
-      expect(joinSampler.determineJoinVariable([ operation1 ], operation6)).toEqual({joinLocation: 'c', joinVariable: ''});
-      expect(joinSampler.determineJoinVariable([ operation5 ], operation6)).toEqual({joinLocation: 'c', joinVariable: ''});
+      expect(joinSampler.determineJoinVariable([ operation1 ], operation6)).toEqual({ joinLocation: 'c', joinVariable: '' });
+      expect(joinSampler.determineJoinVariable([ operation5 ], operation6)).toEqual({ joinLocation: 'c', joinVariable: '' });
     });
     it('should work with multiple triple patterns in intermediate result', () => {
-      expect(joinSampler.determineJoinVariable([ operation1, operation2 ], operation6)).toEqual({joinLocation: 's', joinVariable: 'v2'});
+      expect(joinSampler.determineJoinVariable([ operation1, operation2 ], operation6)).toEqual({ joinLocation: 's', joinVariable: 'v2' });
     });
   });
 
@@ -568,26 +568,28 @@ describe('IndexBasedJoinSampler', () => {
       });
       it('should return triples matching subject-predicate with subj & pred', () => {
         expect(joinSampler.lookUpIndex(sampleArrayIndex, 's1', 'p1', null)).toEqual(
-          [[ 's1', 'p1' ,'o1'],['s1','p1','o2']]);
+          [[ 's1', 'p1', 'o1' ], [ 's1', 'p1', 'o2' ]],
+        );
       });
       it('should return triples that match a given predicate', () => {
         expect(joinSampler.lookUpIndex(sampleArrayIndex, null, 'p1', null)).toEqual(
-          [[ 's1', 'p1', 'o1' ],
-        ['s3', 'p1', 'o2'],
-      ['s1', 'p1', 'o2'],
-    ['s2', 'p1', 'o4']]);
+          [[ 's1', 'p1', 'o1' ], [ 's3', 'p1', 'o2' ], [ 's1', 'p1', 'o2' ], [ 's2', 'p1', 'o4' ]],
+        );
       });
       it('should return triples matching a given predicate-object pair', () => {
         expect(joinSampler.lookUpIndex(sampleArrayIndex, null, 'p1', 'o1')).toEqual(
-          [[ 's1', 'p1', 'o1' ]]);
+          [[ 's1', 'p1', 'o1' ]],
+        );
       });
       it('should return triples that match the given object', () => {
         expect(joinSampler.lookUpIndex(sampleArrayIndex, null, null, 'o1')).toEqual(
-          [[ 's1', 'p1', 'o1' ]]);
+          [[ 's1', 'p1', 'o1' ]],
+        );
       });
       it('should return predicates that match the subject-object pair', () => {
         expect(joinSampler.lookUpIndex(sampleArrayIndex, 's1', null, 'o1')).toEqual(
-          [[ 's1', 'p1', 'o1' ]]);
+          [[ 's1', 'p1', 'o1' ]],
+        );
       });
       it('throws error when s, p, and o are all null', () => {
         // Expect the function to throw an error when called with null arguments
@@ -597,77 +599,79 @@ describe('IndexBasedJoinSampler', () => {
       });
       it('should return triples that match a given triple (not pattern)', () => {
         expect(joinSampler.lookUpIndex(sampleArrayIndex, 's1', 'p1', 'o1')).toEqual(
-          [[ 's1', 'p1', 'o1' ]]);
+          [[ 's1', 'p1', 'o1' ]],
+        );
       });
       it('should empty array when no triple matches given triple (not pattern)', () => {
         expect(joinSampler.lookUpIndex(sampleArrayIndex, 's1', 'p3', 'o1')).toEqual(
-          []);
-      })
+          [],
+        );
+      });
     });
     describe('countTriplesJoinRelation', () => {
       it('should return the number of triples that match specific triple', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, 's1', 'p1', 'o1'))
-          .toEqual([1]);
+          .toEqual([ 1 ]);
       });
       it('should return an empty array when a triple is not in the index', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, 's6', 'p1', 'o1'))
-          .toEqual([0]);
+          .toEqual([ 0 ]);
       });
       it('should return the number of triples matching predicate - object', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, null, 'p1', 'o2'))
-          .toEqual([2]);
+          .toEqual([ 2 ]);
       });
       it('should return the number of triples matching predicate - object without result', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, null, 'p4', 'o2'))
-          .toEqual([0]);
+          .toEqual([ 0 ]);
       });
       it('should return the number of triples matching subject - object', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, 's1', null, 'o2'))
-          .toEqual([1]);
+          .toEqual([ 1 ]);
       });
       it('should return the number of triples matching subject - object without result', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, 's7', null, 'o2'))
-          .toEqual([0]);
+          .toEqual([ 0 ]);
       });
       it('should return the number of triples matching subject - predicate', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, 's1', 'p2', null))
-        .toEqual([1]);
+          .toEqual([ 1 ]);
       });
       it('should return the number of triples matching subject - predicate without result', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, 's1', 'p3', null))
-        .toEqual([0]);
+          .toEqual([ 0 ]);
       });
       it('should return the number of triples matching subject - predicate without result', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, 's1', 'p3', null))
-        .toEqual([0]);
+          .toEqual([ 0 ]);
       });
       it('should return the number of triples matching subject ', () => {
-        expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, 's1', null , null))
-        .toEqual([2, 1]);
+        expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, 's1', null, null))
+          .toEqual([ 2, 1 ]);
       });
       it('should return the number of triples matching subject without result', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, 's4', null, null))
-        .toEqual([0]);
+          .toEqual([ 0 ]);
       });
       it('should return the number of triples matching predicate ', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, null, 'p1', null))
-        .toEqual([1,2,1]);
+          .toEqual([ 1, 2, 1 ]);
       });
       it('should return the number of triples matching predicate ', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, null, 'p2', null))
-        .toEqual([1]);
+          .toEqual([ 1 ]);
       });
       it('should return the number of triples matching predicate without result', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, null, 'p3', null))
-        .toEqual([0]);
+          .toEqual([ 0 ]);
       });
       it('should return the number of triples matching object ', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, null, null, 'o1'))
-        .toEqual([1]);
+          .toEqual([ 1 ]);
       });
       it('should return the number of triples matching object without result', () => {
         expect(joinSampler.countTriplesJoinRelation(sampleArrayIndex, null, null, 'o5'))
-        .toEqual([0]);
+          .toEqual([ 0 ]);
       });
       it('throws error when s, p, and o are all null', () => {
         // Expect the function to throw an error when called with null arguments
@@ -677,21 +681,22 @@ describe('IndexBasedJoinSampler', () => {
       });
     });
     describe('sampleIndex', () => {
-      it('should sample correctly', () => { 
+      it('should sample correctly', () => {
         spyOnMathRandom = jest.spyOn(global.Math, 'random').mockReturnValue(0.4);
         expect(joinSampler.sampleIndex('s1', null, null, 1, sampleArrayIndex)).toEqual(
-          [['s1', 'p1', 'o2']]
-      )});
+          [[ 's1', 'p1', 'o2' ]],
+        );
+      });
     });
     describe('sampleTriplePatternsQuery', () => {
       let operation1: any;
       let operation2: any;
-      let store: any; 
+      let store: any;
       beforeEach(() => {
         store = {
           _ids: {
-            'pred1': 'p1',
-            'pred2': 'p2',
+            pred1: 'p1',
+            pred2: 'p2',
           },
         };
         operation1 = {
@@ -713,20 +718,15 @@ describe('IndexBasedJoinSampler', () => {
       });
 
       it('should sample all patterns in query', () => {
-        expect(joinSampler.sampleTriplePatternsQuery(1, store, {'': sampleArrayIndex}, 
-          [operation1, operation2]
-         )).toEqual([[{'v0': 's3', 'v2': 'o2'}], [{'v1':'s1', 'v2':'o3'}]])
+        expect(joinSampler.sampleTriplePatternsQuery(1, store, { '': sampleArrayIndex }, [ operation1, operation2 ])).toEqual([[{ v0: 's3', v2: 'o2' }], [{ v1: 's1', v2: 'o3' }]]);
       });
       it('should get all triples for n > number of triples', () => {
-        expect(joinSampler.sampleTriplePatternsQuery(10, store, {'': sampleArrayIndex}, 
-          [operation1, operation2]
-         )).toEqual([[{'v0':'s1', 'v2':'o1'}, {'v0':'s3', 'v2':'o2'}, {'v0':'s1', 'v2':'o2'}, 
-          {'v0':'s2', 'v2':'o4'}], [{'v1':'s1', 'v2':'o3'}]])
+        expect(joinSampler.sampleTriplePatternsQuery(10, store, { '': sampleArrayIndex }, [ operation1, operation2 ])).toEqual([[{ v0: 's1', v2: 'o1' }, { v0: 's3', v2: 'o2' }, { v0: 's1', v2: 'o2' }, { v0: 's2', v2: 'o4' }], [{ v1: 's1', v2: 'o3' }]]);
       });
     });
     describe('countCandidates', () => {
       let operation1: any;
-      let operation2: any; 
+      let operation2: any;
 
       beforeEach(() => {
         operation1 = {
@@ -755,7 +755,7 @@ describe('IndexBasedJoinSampler', () => {
             },
             s2: {
               p1: [ 'o4', 'o5' ],
-              p2: [ 'o1', 'o4' ]
+              p2: [ 'o1', 'o4' ],
             },
             s3: {
               p1: [ 'o2', 'o4' ],
@@ -766,18 +766,18 @@ describe('IndexBasedJoinSampler', () => {
               o1: [ 's1' ],
               o2: [ 's3', 's1' ],
               o4: [ 's2', 's3' ],
-              o5: [ 's1', 's2']
+              o5: [ 's1', 's2' ],
             },
             p2: {
               o3: [ 's1' ],
               o1: [ 's2' ],
-              o4: [ 's2' ]
+              o4: [ 's2' ],
             },
           },
           objects: {
             o1: {
               s1: [ 'p1' ],
-              s2: [ 'p2' ]
+              s2: [ 'p2' ],
             },
             o2: {
               s1: [ 'p1' ],
@@ -788,104 +788,69 @@ describe('IndexBasedJoinSampler', () => {
             },
             o4: {
               s2: [ 'p1', 'p2' ],
-              s3: [ 'p1' ]
+              s3: [ 'p1' ],
             },
             o5: {
               s1: [ 'p1' ],
-              s2: [ 'p2' ]
-            }
+              s2: [ 'p2' ],
+            },
           },
         };
       });
 
       it('should correctly count', () => {
-        const samples: Record<string,string>[] = joinSampler.sampleIndex(
-          null, 'p2', null, Number.POSITIVE_INFINITY, sampleArrayIndex
+        const samples: Record<string, string>[] = joinSampler.sampleIndex(
+          null,
+          'p2',
+          null,
+          Number.POSITIVE_INFINITY,
+          sampleArrayIndex,
         ).map((x: string[]) => {
-          return {'v0': x[0], 'v2': x[2]}
+          return { v0: x[0], v2: x[2] };
         });
         expect(samples).toEqual(
-          [{'v0': 's1' , 'v2': 'o3'},{'v0': 's2' , 'v2': 'o1'}, {'v0': 's2' , 'v2': 'o4'}]
-        );  
+          [{ v0: 's1', v2: 'o3' }, { v0: 's2', v2: 'o1' }, { v0: 's2', v2: 'o4' }],
+        );
 
-        expect(joinSampler.candidateCounts(samples, null, 'p1', null, 's', 'v0', {'': sampleArrayIndex})).toEqual(
+        expect(joinSampler.candidateCounts(samples, null, 'p1', null, 's', 'v0', { '': sampleArrayIndex })).toEqual(
           {
-            counts: [3, 2, 2],
-            sampleRelations: [['s1', 'p1', null], ['s2', 'p1', null], ['s2', 'p1', null]]
-          }
-        )
+            counts: [ 3, 2, 2 ],
+            sampleRelations: [[ 's1', 'p1', null ], [ 's2', 'p1', null ], [ 's2', 'p1', null ]],
+          },
+        );
       });
     });
     describe('sampleJoin', () => {
       let operation1: any;
-      let operation2: any; 
+      let operation2: any;
       let operation3: any;
-      let operation4: any;
-      let operation5: any;
-      let operation6: any;
       beforeEach(() => {
         operation1 = {
           subject: { termType: 'Variable', value: 'v0' },
-          predicate: {
-            termType: 'NamedNode',
-            value: 'p1',
-          },
+          predicate: { termType: 'NamedNode', value: 'p1' },
           object: { termType: 'Variable', value: 'v1' },
         };
         operation2 = {
-          subject: { termType: 'Variable', value: 'v0' },
-          predicate: {
-            termType: 'NamedNode',
-            value: 'p2',
-          },
-          object: { termType: 'Variable', value: 'v2' },
+          subject: { termType: 'NamedNode', value: 's1' },
+          predicate: { termType: 'Variable', value: 'pv0' },
+          object: { termType: 'Variable', value: 'v0' },
         };
         operation3 = {
           subject: { termType: 'Variable', value: 'v1' },
-          predicate: {
-            termType: 'NamedNode',
-            value: 'p1',
-          },
+          predicate: { termType: 'NamedNode', value: 'p1' },
           object: { termType: 'Variable', value: 'v2' },
         };
-        operation4 = {
-          subject: {
-            termType: 'NamedNode',
-            value: 's1',
-          },
-          predicate: { termType: 'Variable', value: 'p0' },
-          object: { termType: 'Variable', value: 'v1' },
-        };
-        operation5 = {
-          subject: {
-            termType: 'NamedNode',
-            value: 's2',
-          },
-          predicate: { termType: 'Variable', value: 'p0' },
-          object: {
-            termType: 'NamedNode',
-            value: 'o1',
-          },
-        };
-        operation6 = {
-          subject: { termType: 'Variable', value: 'v2' },
-          predicate: {
-            termType: 'NamedNode',
-            value: 'p2',
-          },
-          object: { termType: 'Variable', value: 'v3' },
-        };
-  
-        // Redefine arrayIndex to get more extensive result sets
+
+        // Extensive index to do 'integration' testing of this function
         sampleArrayIndex = {
           subjects: {
             s1: {
               p1: [ 'o1', 'o2', 'o5' ],
-              p2: [ 'o3' , 's2', 's3'],
+              p2: [ 'o3', 's2', 's3' ],
             },
             s2: {
               p1: [ 'o4', 'o5', 's3' ],
-              p2: [ 'o1', 'o4' ]
+              p2: [ 'o1', 'o4' ],
             },
             s3: {
               p1: [ 'o2', 'o4' ],
@@ -897,27 +862,27 @@ describe('IndexBasedJoinSampler', () => {
               o1: [ 's1' ],
               o2: [ 's3', 's1' ],
               o4: [ 's2', 's3' ],
-              o5: [ 's1', 's2']
+              o5: [ 's1', 's2' ],
             },
             p2: {
               s2: [ 's1' ],
               s3: [ 's1' ],
               o3: [ 's1' ],
               o1: [ 's2' ],
-              o4: [ 's2' ]
+              o4: [ 's2' ],
             },
           },
           objects: {
             s2: {
-              s1: [ 'p2' ]
+              s1: [ 'p2' ],
             },
             s3: {
               s1: [ 'p2' ],
-              s2: [ 'p1' ]
+              s2: [ 'p1' ],
             },
             o1: {
               s1: [ 'p1' ],
-              s2: [ 'p2' ]
+              s2: [ 'p2' ],
             },
             o2: {
               s1: [ 'p1' ],
@@ -928,80 +893,212 @@ describe('IndexBasedJoinSampler', () => {
             },
             o4: {
               s2: [ 'p1', 'p2' ],
-              s3: [ 'p1' ]
+              s3: [ 'p1' ],
             },
             o5: {
               s1: [ 'p1' ],
-              s2: [ 'p2' ]
-            }
+              s2: [ 'p2' ],
+            },
           },
         };
       });
-      function arraysHaveSameElements(arr1: any[], arr2: any[]): boolean {
-        return arr1.length === arr2.length && arr1.every(element => arr2.includes(element));
-    }
+      // TODO should this include all possible join shapes?
       it('should sample star-subject joins', () => {
         // Get all triple in triple pattern
-        const samples: Record<string,string>[] = joinSampler.sampleIndex(
-          null, 'p2', null, Number.POSITIVE_INFINITY, sampleArrayIndex
+        const samples: Record<string, string>[] = joinSampler.sampleIndex(
+          null,
+          'p2',
+          null,
+          Number.POSITIVE_INFINITY,
+          sampleArrayIndex,
         ).map((x: string[]) => {
-          return {'v0': x[0], 'v2': x[2]}
+          return { v0: x[0], v2: x[2] };
         });
 
         expect(samples).toEqual(
-          [ {'v0': 's1' , 'v2': 's2'}, {'v0': 's1' , 'v2': 's3'}, {'v0': 's1' , 'v2': 'o3'}, 
-            {'v0': 's2' , 'v2': 'o1'}, {'v0': 's2' , 'v2': 'o4'},
-          ]
-        );  
-        const spyOnSampleArray = jest.spyOn(joinSampler, 'sampleArray').mockReturnValue([3, 4]);
-        const output = joinSampler.sampleJoin(2, samples, null, "p1", null, operation1, 'v0', 's', {'': sampleArrayIndex});
-        expect(output.sample).toEqual([{'v0': 's1', 'v1': 'o5', 'v2':'s2'}, {'v0': 's1', 'v1': 'o1', 'v2': 's3'}]);
+          [{ v0: 's1', v2: 's2' }, { v0: 's1', v2: 's3' }, { v0: 's1', v2: 'o3' }, { v0: 's2', v2: 'o1' }, { v0: 's2', v2: 'o4' }],
+        );
+        const spyOnSampleArray = jest.spyOn(joinSampler, 'sampleArray').mockReturnValue([ 2, 3 ]);
+        const output = joinSampler.sampleJoin(2, samples, null, 'p1', null, operation1, 'v0', 's', { '': sampleArrayIndex });
+        expect(output.sample).toEqual([{ v0: 's1', v1: 'o5', v2: 's2' }, { v0: 's1', v1: 'o1', v2: 's3' }]);
         expect(output.selectivity).toBeCloseTo(3);
       });
 
-      it('should sample subject - object joins', () => {
-        const samples: Record<string,string>[] = joinSampler.sampleIndex(
-          null, 'p1', null, Number.POSITIVE_INFINITY, sampleArrayIndex
+      it('should sample object-subject joins', () => {
+        const samples: Record<string, string>[] = joinSampler.sampleIndex(
+          null,
+          'p1',
+          null,
+          Number.POSITIVE_INFINITY,
+          sampleArrayIndex,
         ).map((x: string[]) => {
-          return {'v0': x[0], 'v1': x[2]}
+          return { v0: x[0], v1: x[2] };
         });
         expect(samples).toEqual(
-          [{'v0': 's2' , 'v1': 's3'} ,{'v0': 's1' , 'v1': 'o1'}, {'v0': 's3' , 'v1': 'o2'}, {'v0': 's1' , 'v1': 'o2'},
-            {'v0': 's2' , 'v1': 'o4'}, {'v0': 's3' , 'v1': 'o4'}, {'v0': 's1' , 'v1': 'o5'}, {'v0': 's2' , 'v1': 'o5'}]
+          [{ v0: 's2', v1: 's3' }, { v0: 's1', v1: 'o1' }, { v0: 's3', v1: 'o2' }, { v0: 's1', v1: 'o2' }, { v0: 's2', v1: 'o4' }, { v0: 's3', v1: 'o4' }, { v0: 's1', v1: 'o5' }, { v0: 's2', v1: 'o5' }],
         );
-        const spyOnSampleArray = jest.spyOn(joinSampler, 'sampleArray').mockReturnValue([1]);
-        const output = joinSampler.sampleJoin(1, samples, null, 'p1', null, operation3, 'v1', 's', {'': sampleArrayIndex});
-        // TODO MAKE BETTER TEST CASE WITH BETTER GRAPH
-        expect(output.sample).toEqual([{'v0': 's2', 'v1': 's3', 'v2': 'o2'}])
-      });
-      it('should sample subject - predicate joins', () => {
+        const spyOnSampleArray = jest.spyOn(joinSampler, 'sampleArray').mockReturnValue([ 0 ]);
+        const output = joinSampler.sampleJoin(1, samples, null, 'p1', null, operation3, 'v1', 's', { '': sampleArrayIndex });
 
+        expect(output.sample).toEqual([{ v0: 's2', v1: 's3', v2: 'o2' }]);
+        expect(output.selectivity).toBeCloseTo(0.25);
       });
+
       it('should sample predicate joins', () => {
+        const samples: Record<string, string>[] = joinSampler.sampleIndex(
+          's2',
+          null,
+          null,
+          Number.POSITIVE_INFINITY,
+          sampleArrayIndex,
+        )
+          .map((x: string[]) => {
+            return { pv0: x[1], v1: x[2] };
+          });
+        expect(samples).toEqual(
+          [{ pv0: 'p1', v1: 'o4' }, { pv0: 'p1', v1: 'o5' }, { pv0: 'p1', v1: 's3' }, { pv0: 'p2', v1: 'o1' }, { pv0: 'p2', v1: 'o4' }],
+        );
 
-      });
-      it('should sample subject - predicate joins', () => {
+        const spyOnSampleArray = jest.spyOn(joinSampler, 'sampleArray').mockReturnValue([ 0, 14 ]);
+        const output = joinSampler.sampleJoin(2, samples, 's1', null, null, operation2, 'pv0', 'p', { '': sampleArrayIndex });
 
+        expect(output.sample).toEqual([{ pv0: 'p1', v0: 'o1', v1: 'o4' }, { pv0: 'p2', v0: 's3', v1: 'o4' }]);
+        expect(output.selectivity).toBeCloseTo(3);
       });
-      it('should sample predicate - object joins', () => {
 
-      });
       it('should sample object star joins', () => {
+        const samples: Record<string, string>[] = joinSampler.sampleIndex(
+          null,
+          'p2',
+          null,
+          Number.POSITIVE_INFINITY,
+          sampleArrayIndex,
+        ).map((x: string[]) => {
+          return { v2: x[0], v1: x[2] };
+        });
+        expect(samples).toEqual(
+          [{ v2: 's1', v1: 's2' }, { v2: 's1', v1: 's3' }, { v2: 's1', v1: 'o3' }, { v2: 's2', v1: 'o1' }, { v2: 's2', v1: 'o4' }],
+        );
+        const spyOnSampleArray = jest.spyOn(joinSampler, 'sampleArray').mockReturnValue([ 0, 3 ]);
+        const output = joinSampler.sampleJoin(2, samples, null, 'p1', null, operation1, 'v1', 'o', { '': sampleArrayIndex });
+        expect(output.sample).toEqual([
+          { v0: 's2', v1: 's3', v2: 's1' },
+          { v0: 's3', v1: 'o4', v2: 's2' },
+        ]);
 
+        expect(output.selectivity).toBeCloseTo(0.8);
       });
-      it('should sample object-subject joins', () => {
 
+      it('should sample subject-object joins', () => {
+        const samples: Record<string, string>[] = joinSampler.sampleIndex(
+          null,
+          'p1',
+          null,
+          Number.POSITIVE_INFINITY,
+          sampleArrayIndex,
+        ).map((x: string[]) => {
+          return { v1: x[0], v2: x[2] };
+        });
+        expect(samples).toEqual(
+          [{ v1: 's2', v2: 's3' }, { v1: 's1', v2: 'o1' }, { v1: 's3', v2: 'o2' }, { v1: 's1', v2: 'o2' }, { v1: 's2', v2: 'o4' }, { v1: 's3', v2: 'o4' }, { v1: 's1', v2: 'o5' }, { v1: 's2', v2: 'o5' }],
+        );
+        const spyOnSampleArray = jest.spyOn(joinSampler, 'sampleArray').mockReturnValue([ 0, 1 ]);
+        const output = joinSampler.sampleJoin(2, samples, null, 'p1', null, operation1, 'v1', 'o', { '': sampleArrayIndex });
+        expect(output.sample).toEqual([
+          { v0: 's2', v1: 's3', v2: 'o2' },
+          { v0: 's2', v1: 's3', v2: 'o4' },
+        ]);
+        expect(output.selectivity).toBeCloseTo(0.25);
       });
-      it('should sample object-predicate joins', () => {
 
+      it('should sample with triple pattern with two named nodes', () => {
+        const operationNamedNodes = {
+          subject: { termType: 'Variable', value: 'v0' },
+          predicate: { termType: 'NamedNode', value: 'p1' },
+          object: { termType: 'NamedNode', value: 'o5' },
+        };
+        const samples: Record<string, string>[] = joinSampler.sampleIndex(
+          null,
+          'p1',
+          'o2',
+          Number.POSITIVE_INFINITY,
+          sampleArrayIndex,
+        ).map((x: string[]) => {
+          return { v0: x[0] };
+        });
+        expect(samples).toEqual(
+          [{ v0: 's3' }, { v0: 's1' }],
+        );
+        const spyOnSampleArray = jest.spyOn(joinSampler, 'sampleArray').mockReturnValue([ 0, 1 ]);
+        const output = joinSampler.sampleJoin(1, samples, null, 'p1', 'o5', operationNamedNodes, 'v0', 's', { '': sampleArrayIndex });
+        expect(output.sample).toEqual([
+          { v0: 's1' },
+        ]);
+        expect(output.selectivity).toBeCloseTo(0.5);
       });
+
       it('should sample with samples consisting of more than one triple pattern', () => {
+        const operationNamedNodes = {
+          subject: { termType: 'Variable', value: 'v2' },
+          predicate: { termType: 'NamedNode', value: 'p2' },
+          object: { termType: 'NamedNode', value: 'o4' },
+        };
 
+        // Sample base relation
+        const samples: Record<string, string>[] = joinSampler.sampleIndex(
+          null,
+          'p2',
+          null,
+          Number.POSITIVE_INFINITY,
+          sampleArrayIndex,
+        ).map((x: string[]) => {
+          return { v0: x[0], v2: x[2] };
+        });
+
+        expect(samples).toEqual(
+          [{ v0: 's1', v2: 's2' }, { v0: 's1', v2: 's3' }, { v0: 's1', v2: 'o3' }, { v0: 's2', v2: 'o1' }, { v0: 's2', v2: 'o4' }],
+        );
+        const intermediateOutput = joinSampler.sampleJoin(Number.POSITIVE_INFINITY, samples, null, 'p1', null, operation1, 'v0', 's', { '': sampleArrayIndex });
+        // Downsize sample for ease of use
+        const nextSample = intermediateOutput.sample.slice(0, 5);
+        expect(nextSample).toEqual([
+          { v0: 's1', v1: 'o1', v2: 's2' },
+          { v0: 's1', v1: 'o2', v2: 's2' },
+          { v0: 's1', v1: 'o5', v2: 's2' },
+          { v0: 's1', v1: 'o1', v2: 's3' },
+          { v0: 's1', v1: 'o2', v2: 's3' },
+        ]);
+        const spyOnSampleArray = jest.spyOn(joinSampler, 'sampleArray').mockReturnValue([ 1 ]);
+        const output = joinSampler.sampleJoin(1, nextSample, null, 'p2', 'o4', operationNamedNodes, 'v2', 's', { '': sampleArrayIndex });
+        expect(output.sample).toEqual([{ v0: 's1', v1: 'o2', v2: 's2' }]);
+        expect(output.selectivity).toBeCloseTo(0.6);
       });
-      it('should correctly sample empty', () => {
-
+      it('should correctly sample with given empty sample', () => {
+        const samples: Record<string, string>[] = [];
+        const output = joinSampler.sampleJoin(1, samples, null, 'p1', 'null', operation1, 'v0', 's', { '': sampleArrayIndex });
+        expect(output.sample).toEqual(
+          [],
+        );
+        expect(output.selectivity).toBeCloseTo(0);
       });
-
+      it('should correctly sample with no candidate joins', () => {
+        const samples: Record<string, string>[] = joinSampler.sampleIndex(
+          null,
+          'p2',
+          null,
+          Number.POSITIVE_INFINITY,
+          sampleArrayIndex,
+        ).map((x: string[]) => {
+          return { v0: x[0], v1: x[2] };
+        });
+        expect(samples).toEqual(
+          [{ v0: 's1', v1: 's2' }, { v0: 's1', v1: 's3' }, { v0: 's1', v1: 'o3' }, { v0: 's2', v1: 'o1' }, { v0: 's2', v1: 'o4' }],
+        );
+        const output = joinSampler.sampleJoin(1, samples, 's2', null, null, operation1, 'v1', 'p', { '': sampleArrayIndex });
+        expect(output.sample).toEqual(
+          [],
+        );
+      });
     });
 
     describe('bottomUpEnumeration', () => {});

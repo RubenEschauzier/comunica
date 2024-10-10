@@ -5,19 +5,23 @@ import type { IActionRdfJoin, IActorRdfJoinOutputInner, IActorRdfJoinArgs, Media
 import { ActorRdfJoin } from '@comunica/bus-rdf-join';
 import { KeysQueryOperation } from '@comunica/context-entries';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
-import type { IJoinEntry, IQueryOperationResultBindings, IQuerySourceWrapper, MetadataBindings } from '@comunica/types';
+import type { IJoinEntry, IQuerySourceWrapper, MetadataBindings } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { Store, Parser } from 'n3';
 import { Factory } from 'sparqlalgebrajs';
-import type { ArrayIndex } from './IndexBasedJoinSampler';
+import type { ArrayIndex, ISampleResult } from './IndexBasedJoinSampler';
 import { IndexBasedJoinSampler } from './IndexBasedJoinSampler';
-
+import { JoinGraph } from './JoinGraph'
+import { JoinOrderEnumerator } from './JoinOrderEnumerator';
 /**
  * A comunica Inner Multi Index Sampling RDF Join Actor.
  */
 export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
   public readonly mediatorJoin: MediatorRdfJoin;
   public static readonly FACTORY = new Factory();
+
+  public joinSampler: IndexBasedJoinSampler;
+  public estimates: Record<string, ISampleResult>;
 
   public samplingDone = false;
   public nSamples = 0;
@@ -31,6 +35,7 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
       canHandleUndefs: true,
       isLeaf: false,
     });
+    this.joinSampler = new IndexBasedJoinSampler(10000);
   }
 
   /**
@@ -48,40 +53,23 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
     return store;
   }
 
-  public override async run(action: IActionRdfJoin): Promise<IQueryOperationResultBindings> {
-    if (!this.samplingDone) {
-      const joinSampler = new IndexBasedJoinSampler(10000);
-      // This is test code and highly inefficient, but parse document uri from the source into N3 store
-      // and use that to get samples from adjusted index
-      const querySources: IQuerySourceWrapper[] = action.context.get(KeysQueryOperation.querySources)!;
-      const file: string = <string> (<QuerySourceSkolemized> querySources[0].source).referenceValue;
-      const store = this.parseFile(file);
-
-      // 'any' typing to access _graph which is a private function in typescript
-      const storeWithArrayIndexes: any & Store = store;
-      // Array indexes per graph
-      const arrayIndexes: Record<string, ArrayIndex> = {};
-      // For all stored graphs
-      for (const [ graph, graphIndex ] of Object.entries(storeWithArrayIndexes._graphs)) {
-        // Dictionary for a graph indexes in form of spo, pos, and osp. The final term is represented as an array
-        // for efficient sampling.
-        const graphArrayDict: ArrayIndex = {};
-        // For stored indexes (spo, pos, osp) in graph
-        for (const index of Object.keys(<Record<string, any>>graphIndex)) {
-          const arrayDict = joinSampler.constructArrayDict(storeWithArrayIndexes._graphs[graph][index]);
-          graphArrayDict[index] = arrayDict;
-        }
-        arrayIndexes[graph] = graphArrayDict;
-      }
-      this.samplingDone = true;
-      joinSampler.run(5, store, arrayIndexes, action.entries.map(x => x.operation));
+  protected async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
+    // Call this only once to get cardinalities, then do dynamic programming to find optimal order, perform joins
+    // return joined result + purge cardinalities.
+    if (this.estimates === undefined) {
+      const { store, arrayIndexes } = this.createArrayIndex(action);
+      this.estimates = this.joinSampler.run(
+        action.entries.map(x => x.operation),
+        1_000,
+        Number.POSITIVE_INFINITY,
+        store,
+        arrayIndexes,
+      );
+      const enumerator: JoinOrderEnumerator = new JoinOrderEnumerator(
+        new JoinGraph(action.entries.map(x => x.operation))
+      )
     }
 
-    return super.run(action);
-  }
-
-  protected async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
-    // Determine the two smallest streams by sorting (e.g. via cardinality)
     const firstEntry: IJoinEntry = {
       output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
         .mediate({ type: action.type, entries: [ action.entries[0], action.entries[1] ], context: action.context })),
@@ -110,6 +98,35 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
       requestTime: 0,
     };
   }
+
+  protected createArrayIndex(action: IActionRdfJoin): IConstructedIndexes {
+    // This is test code and highly inefficient, but parse document uri from the source into N3 store
+    // and use that to get samples from adjusted index
+    const querySources: IQuerySourceWrapper[] = action.context.get(KeysQueryOperation.querySources)!;
+    const file: string = <string> (<QuerySourceSkolemized> querySources[0].source).referenceValue;
+    const store = this.parseFile(file);
+
+    // 'any' typing to access _graph which is a private function in typescript
+    const storeWithArrayIndexes: any & Store = store;
+    // Array indexes per graph
+    const arrayIndexes: Record<string, ArrayIndex> = {};
+    // For all stored graphs
+    for (const [ graph, graphIndex ] of Object.entries(storeWithArrayIndexes._graphs)) {
+      // Dictionary for a graph indexes in form of spo, pos, and osp. The final term is represented as an array
+      // for efficient sampling.
+      const graphArrayDict: ArrayIndex = {};
+      // For stored indexes (spo, pos, osp) in graph
+      for (const index of Object.keys(<Record<string, any>>graphIndex)) {
+        const arrayDict = this.joinSampler.constructArrayDict(storeWithArrayIndexes._graphs[graph][index]);
+        graphArrayDict[index] = arrayDict;
+      }
+      arrayIndexes[graph] = graphArrayDict;
+    }
+    return {
+      store,
+      arrayIndexes,
+    };
+  }
 }
 
 export interface IActorRdfJoinMultiIndexSampling extends IActorRdfJoinArgs {
@@ -117,4 +134,15 @@ export interface IActorRdfJoinMultiIndexSampling extends IActorRdfJoinArgs {
    * A mediator for joining Bindings streams
    */
   mediatorJoin: MediatorRdfJoin;
+}
+
+export interface IConstructedIndexes {
+  /**
+   * N3 store
+   */
+  store: any;
+  /**
+   * Created array version of index
+   */
+  arrayIndexes: Record<string, ArrayIndex>;
 }
