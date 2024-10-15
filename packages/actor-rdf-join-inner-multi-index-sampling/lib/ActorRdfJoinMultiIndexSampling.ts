@@ -65,9 +65,25 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
         store,
         arrayIndexes,
       );
-      const enumerator: JoinOrderEnumerator = new JoinOrderEnumerator(
-        new JoinGraph(action.entries.map(x => x.operation))
+      const joinGraph = new JoinGraph(action.entries.map(x => x.operation))
+      joinGraph.constructJoinGraphBFS(joinGraph.getEntries()[0]);
+      // Seperate the enumerator from graph object to allow for easier testing
+      // const enumerator: JoinOrderEnumerator = new JoinOrderEnumerator(
+      //   joinGraph.getAdjencyList()
+      // )
+      // enumerator.enumerateCsg(action.entries.map(x => x.operation));
+      const adjacencyList: Map<number, number[]> = new Map([
+        [0, [1, 2, 3]],
+        [1, [0, 4]],
+        [2, [0, 3, 4]],
+        [3, [0, 2, 4]],
+        [4, [1, 2, 3]]
+      ]);
+
+      const testEnumerator: JoinOrderEnumerator = new JoinOrderEnumerator(
+        adjacencyList
       )
+      testEnumerator.enumerateCsgCmpPairs(5)
     }
 
     const firstEntry: IJoinEntry = {
