@@ -81,9 +81,12 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
       ]);
 
       const testEnumerator: JoinOrderEnumerator = new JoinOrderEnumerator(
-        adjacencyList
+        adjacencyList,
+        this.estimates,
+        joinGraph.getEntries()
       )
-      testEnumerator.enumerateCsgCmpPairs(5)
+      testEnumerator.search()
+      // testEnumerator.enumerateCsgCmpPairs(5)
     }
 
     const firstEntry: IJoinEntry = {

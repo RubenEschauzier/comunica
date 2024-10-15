@@ -1,17 +1,20 @@
-import { IJoinEntry } from "@comunica/types";
 import { Operation } from "sparqlalgebrajs/lib/algebra";
-import type * as RDF from '@rdfjs/types';
-import { timeStamp } from "console";
 import { FifoQueue } from "./FifoQueue";
 
 export class JoinGraph {
     private adjacencyList: Map<number, number[]>;
     private entries: Operation[];
+
+    public entryToVertex: Map<Operation, number>;
+    public vertexToEntry: Map<number, Operation>;
     public size: number;
 
     constructor(entries: Operation[]) {
-        this.entries = entries;
         this.adjacencyList = new Map();
+        this.entries = entries;
+
+        this.entryToVertex = new Map();
+        this.vertexToEntry = new Map();
         this.size = entries.length
     }
 
@@ -22,7 +25,7 @@ export class JoinGraph {
             this.adjacencyList.set(i, []);
             variablesTriplePatterns.push(this.extractVariables(x));
         });
-        
+
         const operationToIndex: Map<Operation, number> = new Map();
         const queue: FifoQueue<Operation> = new FifoQueue();
         const visited: Map<Operation, boolean> = new Map();
@@ -59,6 +62,7 @@ export class JoinGraph {
         for (const op of operationToIndex.keys()){
             this.entries[operationToIndex.get(op)!] = op;
         }
+        // Define a mapping from entry to vertex index
     }
 
     public getJoinConnections(op: Operation, variablesTriplePatterns: Set<string>[]): Operation[]{

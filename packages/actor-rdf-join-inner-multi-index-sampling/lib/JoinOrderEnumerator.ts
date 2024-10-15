@@ -1,13 +1,43 @@
-// TODO: Still has a mistake
+import { Operation } from "sparqlalgebrajs/lib/algebra";
+import { JoinTree } from "./JoinTree";
+import { ISampleResult } from "./IndexBasedJoinSampler";
+
 export class JoinOrderEnumerator{
     private adjacencyList: Map<number, number[]>;
+    private readonly estimates: Record<string, ISampleResult>;
+    private readonly entries: Operation[];
 
-    public constructor(adjacencyList: Map<number, number[]>){
-        this.adjacencyList = adjacencyList
+    public constructor(
+        adjacencyList: Map<number, number[]>, 
+        estimates: Record<string, ISampleResult>,
+        entries: Operation[]
+    ){
+        this.adjacencyList = adjacencyList;
+        this.estimates = estimates;
+        this.entries = entries
     }
 
     public search(){
-        const bestPlan: Map<Set<number>, any> = new Map();
+        const bestPlan: Map<Set<number>, JoinTree> = new Map();
+        for (let i = 0; i < this.entries.length; i++){
+            const singleton = new Set([i]);
+            bestPlan.set(singleton, new JoinTree([], singleton));
+            bestPlan.get(singleton)?.setCost(this.estimates[JSON.stringify([...singleton])].estimatedCardinality);
+        }
+        const csgCmpPairs = this.enumerateCsgCmpPairs(this.entries.length);
+        for (const csgCmpPair of csgCmpPairs){
+            const tree1 = bestPlan.get(csgCmpPair[0])!;
+            const tree2 = bestPlan.get(csgCmpPair[1])!;
+
+            const currPlan = JoinTree.mergeTree(tree1, tree2);
+            //TODO This will fail due to the order being important for the estimated cardinalities. Convert this record<> estimates to Map instead 
+            const cost = tree1.cost + tree2.cost + 
+                this.estimates[JSON.stringify([...currPlan.entries])].estimatedCardinality!;
+            if (!bestPlan.get(currPlan.entries) || bestPlan.get(currPlan.entries)!.cost > cost){
+                bestPlan.set(currPlan.entries, currPlan);
+            }
+        }
+        console.log(bestPlan);
     }
 
     public enumerateCsgCmpPairs(nTps: number){
@@ -21,7 +51,7 @@ export class JoinOrderEnumerator{
                 csgCmpPairs.push([csg, cmp]);
             }
         }
-        console.log(csgCmpPairs);
+        return csgCmpPairs
     }
 
     public enumerateCsg(nTps: number){
