@@ -21,7 +21,7 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
   public static readonly FACTORY = new Factory();
 
   public joinSampler: IndexBasedJoinSampler;
-  public estimates: Record<string, ISampleResult>;
+  public estimates: Map<Set<number>, ISampleResult>;
 
   public samplingDone = false;
   public nSamples = 0;

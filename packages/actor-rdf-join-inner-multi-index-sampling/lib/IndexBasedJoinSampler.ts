@@ -14,7 +14,13 @@ export class IndexBasedJoinSampler {
     this.budget = budget;
   }
 
-  public run(tps: Operation[], nJoinSamples: number, nTpSamples: number, store: any, arrayIndex: Record<string, ArrayIndex>): Record<string, ISampleResult> {
+  public run(
+    tps: Operation[], 
+    nJoinSamples: number, 
+    nTpSamples: number, 
+    store: any, 
+    arrayIndex: Record<string, ArrayIndex>
+  ): Map<Set<number>, ISampleResult> {
     // Get all triples matching triple pattern
     const sampledTriplePatterns = this.sampleTriplePatternsQuery(nTpSamples, store, arrayIndex, tps);
     return this.bottomUpEnumeration(nJoinSamples, sampledTriplePatterns, tps, store, arrayIndex);
@@ -26,11 +32,11 @@ export class IndexBasedJoinSampler {
     tps: Operation[],
     store: any,
     arrayIndex: Record<string, ArrayIndex>,
-  ): Record<string, ISampleResult> {
+  ): Map<Set<number>, ISampleResult> {
     // Samples are stored by their two participating expressions like [[1], [2]] joining result set
     // 1 and 2, while [[1,2],[3]] joins result sets of join between 1,2 and result set of 3.
-    const samples: Record<string, ISampleResult> = this.initializeSamplesEnumeration(resultSets);
-
+    const samples: Map<Set<number>, ISampleResult> = this.initializeSamplesEnumeration(resultSets);
+    console.log(samples)
     const problemQueue = new FifoQueue<number[][]>();
     for (const join of this.joinCombinations(tps.length)) {
       problemQueue.enqueue(join);
@@ -38,8 +44,11 @@ export class IndexBasedJoinSampler {
     while (!problemQueue.isEmpty()) {
       // The combination of triple patterns we're evaluating
       const combination = problemQueue.dequeue()!;
+      console.log(combination[0])
+      console.log(new Set(combination[0]))
       // The intermediate result set we use as input sample for join sampling
-      const baseSample = samples[JSON.stringify(combination[0])];
+      const baseSample = samples.get(new Set(combination[0]))!;
+      console.log(baseSample)
       // The triple patterns already joined to produce the intermediate result set
       const tpInBaseSample = combination[0].map(x => tps[x]);
       // The triple pattern we join with intermediate result set
@@ -51,15 +60,21 @@ export class IndexBasedJoinSampler {
         continue;
       }
 
-      const samplingOutput: ISampleOutput = this.sampleJoin(n, baseSample.sample, spo[0], spo[1], spo[2], tps[combination[1][0]], joinVariable.joinVariable, joinVariable.joinLocation, arrayIndex);
+      const samplingOutput: ISampleOutput = this.sampleJoin(
+        n, baseSample.sample, 
+        spo[0], spo[1], spo[2], 
+        tps[combination[1][0]], 
+        joinVariable.joinVariable, joinVariable.joinLocation, 
+        arrayIndex
+      );
       /**
        * Update samples by multiplying the base sample estimated cardinality with the estimated
        * selectivity
        */
-      samples[JSON.stringify(combination.flat())] = {
+      samples.set(new Set(combination.flat()), {
         sample: samplingOutput.sample,
         estimatedCardinality: samplingOutput.selectivity * baseSample.estimatedCardinality,
-      };
+      });
       // Generate new combinations and add to queue
       this.generateNewCombinations(combination, tps.length).map(x => problemQueue.enqueue(x));
     }
@@ -398,9 +413,9 @@ export class IndexBasedJoinSampler {
   }
 
   public initializeSamplesEnumeration(resultSets: Record<string, string>[][]) {
-    const samples: Record<string, ISampleResult> = {};
+    const samples: Map<Set<number>, ISampleResult> = new Map();
     for (const [ i, resultSet ] of resultSets.entries()) {
-      samples[JSON.stringify([ i ])] = { sample: resultSet, estimatedCardinality: resultSet.length };
+      samples.set(new Set([i]), { sample: resultSet, estimatedCardinality: resultSet.length });
     }
     return samples;
   }

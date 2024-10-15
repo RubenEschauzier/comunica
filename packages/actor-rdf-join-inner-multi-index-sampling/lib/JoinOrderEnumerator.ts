@@ -4,12 +4,12 @@ import { ISampleResult } from "./IndexBasedJoinSampler";
 
 export class JoinOrderEnumerator{
     private adjacencyList: Map<number, number[]>;
-    private readonly estimates: Record<string, ISampleResult>;
+    private readonly estimates: Map<Set<number>, ISampleResult>;
     private readonly entries: Operation[];
 
     public constructor(
         adjacencyList: Map<number, number[]>, 
-        estimates: Record<string, ISampleResult>,
+        estimates: Map<Set<number>, ISampleResult>,
         entries: Operation[]
     ){
         this.adjacencyList = adjacencyList;
@@ -22,7 +22,7 @@ export class JoinOrderEnumerator{
         for (let i = 0; i < this.entries.length; i++){
             const singleton = new Set([i]);
             bestPlan.set(singleton, new JoinTree([], singleton));
-            bestPlan.get(singleton)?.setCost(this.estimates[JSON.stringify([...singleton])].estimatedCardinality);
+            bestPlan.get(singleton)?.setCost(this.estimates.get(singleton)!.estimatedCardinality);
         }
         const csgCmpPairs = this.enumerateCsgCmpPairs(this.entries.length);
         for (const csgCmpPair of csgCmpPairs){
@@ -32,7 +32,7 @@ export class JoinOrderEnumerator{
             const currPlan = JoinTree.mergeTree(tree1, tree2);
             //TODO This will fail due to the order being important for the estimated cardinalities. Convert this record<> estimates to Map instead 
             const cost = tree1.cost + tree2.cost + 
-                this.estimates[JSON.stringify([...currPlan.entries])].estimatedCardinality!;
+                this.estimates.get(currPlan.entries)!.estimatedCardinality!;
             if (!bestPlan.get(currPlan.entries) || bestPlan.get(currPlan.entries)!.cost > cost){
                 bestPlan.set(currPlan.entries, currPlan);
             }
