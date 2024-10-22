@@ -11,8 +11,10 @@ import { Store, Parser } from 'n3';
 import { Factory } from 'sparqlalgebrajs';
 import type { ArrayIndex, ISampleResult } from './IndexBasedJoinSampler';
 import { IndexBasedJoinSampler } from './IndexBasedJoinSampler';
-import { JoinGraph } from './JoinGraph'
+import { JoinGraph } from './JoinGraph';
 import { JoinOrderEnumerator } from './JoinOrderEnumerator';
+import type { JoinTree } from './JoinTree';
+
 /**
  * A comunica Inner Multi Index Sampling RDF Join Actor.
  */
@@ -21,7 +23,7 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
   public static readonly FACTORY = new Factory();
 
   public joinSampler: IndexBasedJoinSampler;
-  public estimates: Map<Set<number>, ISampleResult>;
+  public estimates: Map<string, ISampleResult>;
 
   public samplingDone = false;
   public nSamples = 0;
@@ -56,53 +58,44 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
   protected async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
     // Call this only once to get cardinalities, then do dynamic programming to find optimal order, perform joins
     // return joined result + purge cardinalities.
-    if (this.estimates === undefined) {
-      const { store, arrayIndexes } = this.createArrayIndex(action);
-      this.estimates = this.joinSampler.run(
-        action.entries.map(x => x.operation),
-        1_000,
-        Number.POSITIVE_INFINITY,
-        store,
-        arrayIndexes,
-      );
-      const joinGraph = new JoinGraph(action.entries.map(x => x.operation))
-      joinGraph.constructJoinGraphBFS(joinGraph.getEntries()[0]);
-      // Seperate the enumerator from graph object to allow for easier testing
-      // const enumerator: JoinOrderEnumerator = new JoinOrderEnumerator(
-      //   joinGraph.getAdjencyList()
-      // )
-      // enumerator.enumerateCsg(action.entries.map(x => x.operation));
-      const adjacencyList: Map<number, number[]> = new Map([
-        [0, [1, 2, 3]],
-        [1, [0, 4]],
-        [2, [0, 3, 4]],
-        [3, [0, 2, 4]],
-        [4, [1, 2, 3]]
-      ]);
+    // Highly inefficient, should be moved to creation of store
+    const { store, arrayIndexes } = this.createArrayIndex(action);
 
-      const testEnumerator: JoinOrderEnumerator = new JoinOrderEnumerator(
-        adjacencyList,
-        this.estimates,
-        joinGraph.getEntries()
-      )
-      testEnumerator.search()
-      // testEnumerator.enumerateCsgCmpPairs(5)
-    }
+    // Join Graph reorders entries in breadth-first style from 0 index of entries. So always use the entries of
+    // the join graph to ensure number representations of entries match.
+    const joinGraph = new JoinGraph(action.entries);
+    joinGraph.constructJoinGraphBFS(joinGraph.getEntries()[0]);
 
-    const firstEntry: IJoinEntry = {
-      output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
-        .mediate({ type: action.type, entries: [ action.entries[0], action.entries[1] ], context: action.context })),
-      operation: ActorRdfJoinMultiIndexSampling.FACTORY
-        .createJoin([ action.entries[0].operation, action.entries[1].operation ], false),
-    };
-    const remainingEntries: IJoinEntry[] = action.entries.slice(1);
-    remainingEntries[0] = firstEntry;
+    this.estimates = this.joinSampler.run(
+      joinGraph.getEntries().map(x => x.operation),
+      1_000,
+      Number.POSITIVE_INFINITY,
+      store,
+      arrayIndexes,
+    );
+    // Seperate the enumerator from graph object to allow for easier testing
+    const enumerator: JoinOrderEnumerator = new JoinOrderEnumerator(
+      joinGraph.getAdjencyList(),
+      this.estimates,
+      joinGraph.getEntries().map(x => x.operation),
+    );
+    const joinPlan: JoinTree = enumerator.search();
+    const multiJoinOutput = await joinPlan.executePlan(
+      joinGraph.getEntries(),
+      action,
+      this.joinTwoEntries.bind(this),
+    );
+
     return {
-      result: await this.mediatorJoin.mediate({
-        type: action.type,
-        entries: remainingEntries,
-        context: action.context,
-      }),
+      result: {
+        type: 'bindings',
+        bindingsStream: multiJoinOutput.output.bindingsStream,
+        metadata: async() => await this.constructResultMetadata(
+          action.entries,
+          await ActorRdfJoin.getMetadatas(action.entries),
+          action.context,
+        ),
+      },
     };
   }
 
@@ -144,6 +137,15 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
     return {
       store,
       arrayIndexes,
+    };
+  }
+
+  public async joinTwoEntries(entry1: IJoinEntry, entry2: IJoinEntry, action: IActionRdfJoin): Promise<IJoinEntry> {
+    return {
+      output: ActorQueryOperation.getSafeBindings(await this.mediatorJoin
+        .mediate({ type: action.type, entries: [ entry1, entry2 ], context: action.context })),
+      operation: ActorRdfJoinMultiIndexSampling.FACTORY
+        .createJoin([ entry1.operation, entry2.operation ], false),
     };
   }
 }

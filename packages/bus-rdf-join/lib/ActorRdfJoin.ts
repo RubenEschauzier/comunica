@@ -369,7 +369,6 @@ export abstract class ActorRdfJoin
       } join entries at ${this.limitEntriesMin ? 'least' : 'most'
       }. The input contained ${action.entries.length}.`);
     }
-
     // Check if all streams are bindings streams
     for (const entry of action.entries) {
       if (entry.output.type !== 'bindings') {
