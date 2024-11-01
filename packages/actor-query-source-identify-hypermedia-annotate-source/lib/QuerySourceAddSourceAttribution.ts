@@ -1,4 +1,5 @@
 import { KeysMergeBindingsContext } from '@comunica/context-entries';
+import { ActionContext } from '@comunica/core';
 import type {
   BindingsStream,
   FragmentSelectorShape,
@@ -10,7 +11,8 @@ import type {
 import { Bindings } from '@comunica/utils-bindings-factory';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
-import type { Algebra } from 'sparqlalgebrajs';
+import { DataFactory } from 'rdf-data-factory';
+import { Factory, type Algebra } from 'sparqlalgebrajs';
 
 /**
  * A IQuerySource wrapper that skolemizes outgoing quads and bindings.
@@ -20,6 +22,7 @@ export class QuerySourceAddSourceAttribution implements IQuerySource {
    * The query source to wrap over.
    */
   public readonly innerSource: IQuerySource;
+  public readonly dataFactory: DataFactory = new DataFactory();
 
   public constructor(innerSource: IQuerySource) {
     this.innerSource = innerSource;

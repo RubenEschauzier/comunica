@@ -19,8 +19,8 @@ import type {
   ILink,
 } from '@comunica/types';
 import type { BindingsFactory } from '@comunica/utils-bindings-factory';
-import type * as RDF from '@rdfjs/types';
-import type { AsyncIterator } from 'asynciterator';
+import * as RDF from '@rdfjs/types';
+import { AsyncIterator } from 'asynciterator';
 import { TransformIterator } from 'asynciterator';
 import { LRUCache } from 'lru-cache';
 import { Readable } from 'readable-stream';
@@ -84,6 +84,7 @@ export class QuerySourceHypermedia implements IQuerySource {
   ): BindingsStream {
     // Optimized match with aggregated store if enabled and started.
     const aggregatedStore: IAggregatedStore | undefined = this.getAggregateStore(context);
+    context = context.set(KeysQuerySourceIdentify.source, aggregatedStore);
     if (aggregatedStore && operation.type === 'pattern' && aggregatedStore.started) {
       return new QuerySourceRdfJs(
         aggregatedStore,
@@ -214,6 +215,19 @@ export class QuerySourceHypermedia implements IQuerySource {
       this.logWarning(`Metadata extraction for ${url} failed: ${(<Error> error).message}`);
     }
 
+    const prov = this.dataFactory.namedNode('http://www.w3.org/ns/prov#wasDerivedFrom');
+    const sourceLink = this.dataFactory.literal(link.url);
+    if (aggregatedStore){
+      let quadsMapped = (<AsyncIterator<RDF.Quad>>quads).map((data) => {
+        return (<RDF.DataFactory<RDF.BaseQuad>> this.dataFactory).quad(data, prov, sourceLink);
+      });  
+      aggregatedStore?.import(<RDF.Stream> quadsMapped);
+    }
+    // aggregatedStore?.import(<RDF.Stream<RDF.Quad>>quadsMapped).on('end', () => {
+    //   console.log(aggregatedStore.match(null, prov, null, null).on('data', (data) => {
+    //     console.log(data)
+    //   }));
+    // });
     // Aggregate all discovered quads into a store.
     aggregatedStore?.setBaseMetadata(<MetadataBindings> metadata, false);
     aggregatedStore?.containedSources.add(link.url);

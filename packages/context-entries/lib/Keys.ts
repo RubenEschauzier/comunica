@@ -1,3 +1,4 @@
+import { IRdfJsSourceExtended } from '@comunica/actor-query-source-identify-rdfjs';
 import { ActionContextKey, CONTEXT_KEY_LOGGER } from '@comunica/core';
 import type {
   AsyncExtensionFunctionCreator,
@@ -314,6 +315,10 @@ export const KeysQuerySourceIdentify = {
    * This means that sources annotated with this flag are considered incomplete until all links have been traversed.
    */
   traverse: new ActionContextKey<boolean>('@comunica/bus-query-source-identify:traverse'),
+  /**
+   * Source underlying the QuerySourceRdfJs source
+   */
+  source: new ActionContextKey<IRdfJsSourceExtended>('@comunica/bus-query-source-identify:source')
 };
 
 export const KeysRdfUpdateQuads = {
@@ -328,6 +333,13 @@ export const KeysMergeBindingsContext = {
    * The data sources required to produce the binding
    */
   sourcesBinding: new ActionContextKey<string[]>('@comunica/bus-merge-bindings-context:sourcesBinding'),
+  /**
+   * The data sources required to produce the binding in Promise form.
+   * The promises are resolved by .match calls to underlying store for 
+   * quoted triples denoting provenance
+   */
+  sourcesBindingPromise: new ActionContextKey<Promise<string[]>[]>
+    ('@comunica/bus-merge-bindings-context:sourcesBindingPromise'),
 };
 
 export const KeysRdfJoin = {

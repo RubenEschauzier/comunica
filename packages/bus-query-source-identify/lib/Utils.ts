@@ -1,3 +1,5 @@
+import { IRdfJsSourceExtended } from '@comunica/actor-query-source-identify-rdfjs';
+import { KeysMergeBindingsContext } from '@comunica/context-entries';
 import type { BindingsStream, ComunicaDataFactory, MetadataBindings, MetadataQuads, TermsOrder } from '@comunica/types';
 import type { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { ClosableIterator } from '@comunica/utils-iterator';
@@ -34,6 +36,7 @@ export function quadsToBindings(
   dataFactory: ComunicaDataFactory,
   bindingsFactory: BindingsFactory,
   unionDefaultGraph: boolean,
+  source?: IRdfJsSourceExtended
 ): BindingsStream {
   const variables = getVariables(pattern);
 
@@ -81,15 +84,39 @@ export function quadsToBindings(
       return true;
     });
   }
-
   // Wrap it in a ClosableIterator, so we can propagate destroy calls
-  const it = new ClosableIterator(filteredOutput.map<RDF.Bindings>(quad => bindingsFactory
+  const it = new ClosableIterator(filteredOutput.map<RDF.Bindings>(quad => {
+    let binding = bindingsFactory
     .bindings(Object.keys(elementVariables).map((key) => {
       const keys: QuadTermName[] = <any>key.split('_');
       const variable = elementVariables[key];
       const term = getValueNestedPath(quad, keys);
       return [ dataFactory.variable(variable), term ];
-    }))), {
+    }))
+    // If we have passed a source, we're doing source attribution
+    if (source){
+      const provQuads = source.match(quad, null, null, null);
+      const provPromise: Promise<string[]> = new Promise((resolve, reject) => {
+        const prov: string[] = [];
+    
+        provQuads.on('data', (chunk) => {
+          prov.push(chunk); // Accumulate data chunks
+        });
+    
+        provQuads.on('end', () => {
+          resolve(prov); // Resolve the promise with the array of results when the stream ends
+        });
+    
+        provQuads.on('error', (err) => {
+          reject(err); // Reject the promise if an error occurs
+        });
+      });
+      binding = binding.setContextEntry(KeysMergeBindingsContext.sourcesBindingPromise,
+        provPromise
+      );
+    }
+    return binding
+  }), {
     onClose: () => quads.destroy(),
   });
 
@@ -102,7 +129,6 @@ export function quadsToBindings(
     variables,
     filterNonDefaultQuads || Boolean(duplicateElementLinks),
   );
-
   return it;
 }
 

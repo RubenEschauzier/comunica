@@ -1,5 +1,5 @@
 import { filterMatchingQuotedQuads, quadsToBindings } from '@comunica/bus-query-source-identify';
-import { KeysQueryOperation } from '@comunica/context-entries';
+import { KeysQueryOperation, KeysQuerySourceIdentify } from '@comunica/context-entries';
 import type {
   IQuerySource,
   BindingsStream,
@@ -99,6 +99,7 @@ export class QuerySourceRdfJs implements IQuerySource {
       this.dataFactory,
       this.bindingsFactory,
       Boolean(context.get(KeysQueryOperation.unionDefaultGraph)),
+      context.get(KeysQuerySourceIdentify.source)
     );
   }
 

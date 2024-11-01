@@ -79,7 +79,7 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin<IActorRdfJoinMultiBindTe
         bindingsFactory,
         { bindFilter: true },
       ));
-      const bindingsMerger = (subBindings: Bindings): Bindings | undefined => subBindings.merge(bindings);
+      const bindingsMerger = (subBindings: Bindings): Bindings | undefined => {return subBindings.merge(bindings)};
       return new TransformIterator(async() => (await operationBinder(subOperations, bindings))
         .transform({ map: bindingsMerger }), { maxBufferSize: 128, autoStart: autoStartSubBindings });
     };
