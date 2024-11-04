@@ -18,17 +18,20 @@ import type {
   MetadataBindings,
   ILink,
 } from '@comunica/types';
-import type { BindingsFactory } from '@comunica/utils-bindings-factory';
+import type { Bindings, BindingsFactory } from '@comunica/utils-bindings-factory';
 import * as RDF from '@rdfjs/types';
 import { AsyncIterator } from 'asynciterator';
 import { TransformIterator } from 'asynciterator';
 import { LRUCache } from 'lru-cache';
 import { Readable } from 'readable-stream';
-import type { Algebra } from 'sparqlalgebrajs';
+import { Algebra } from 'sparqlalgebrajs';
 import { Factory } from 'sparqlalgebrajs';
 import type { ISourceState } from './LinkedRdfSourcesAsyncRdfIterator';
 import { MediatedLinkedRdfSourcesAsyncRdfIterator } from './MediatedLinkedRdfSourcesAsyncRdfIterator';
 import { StreamingStoreMetadata } from './StreamingStoreMetadata';
+import { getVariables, quotedQuadProvenanceBinding } from '@comunica/bus-query-source-identify';
+import { BindingsToQuadsIterator } from '@comunica/actor-query-operation-construct';
+import { mapTermsNested } from 'rdf-terms';
 
 export class QuerySourceHypermedia implements IQuerySource {
   public readonly referenceValue: string;
@@ -48,6 +51,8 @@ export class QuerySourceHypermedia implements IQuerySource {
   private readonly cacheSize: number;
   private readonly maxIterators: number;
 
+  private readonly provenance: boolean;
+
   public constructor(
     cacheSize: number,
     firstUrl: string,
@@ -58,6 +63,7 @@ export class QuerySourceHypermedia implements IQuerySource {
     logWarning: (warningMessage: string) => void,
     dataFactory: ComunicaDataFactory,
     bindingsFactory: BindingsFactory,
+    provenance: boolean
   ) {
     this.referenceValue = firstUrl;
     this.cacheSize = cacheSize;
@@ -70,6 +76,7 @@ export class QuerySourceHypermedia implements IQuerySource {
     this.dataFactory = dataFactory;
     this.bindingsFactory = bindingsFactory;
     this.sourcesState = new LRUCache<string, Promise<ISourceState>>({ max: this.cacheSize });
+    this.provenance = provenance;
   }
 
   public async getSelectorShape(context: IActionContext): Promise<FragmentSelectorShape> {
@@ -84,8 +91,11 @@ export class QuerySourceHypermedia implements IQuerySource {
   ): BindingsStream {
     // Optimized match with aggregated store if enabled and started.
     const aggregatedStore: IAggregatedStore | undefined = this.getAggregateStore(context);
-    context = context.set(KeysQuerySourceIdentify.source, aggregatedStore);
     if (aggregatedStore && operation.type === 'pattern' && aggregatedStore.started) {
+      // Pass the aggregated store to the query source rdfjs context so provenance is computed.
+      if (this.provenance){
+        context = context.set(KeysQuerySourceIdentify.source, aggregatedStore);
+      }
       return new QuerySourceRdfJs(
         aggregatedStore,
         context.getSafe(KeysInitQuery.dataFactory),
@@ -101,7 +111,7 @@ export class QuerySourceHypermedia implements IQuerySource {
 
     const dataFactory: ComunicaDataFactory = context.getSafe(KeysInitQuery.dataFactory);
     const algebraFactory = new Factory(dataFactory);
-    const it: MediatedLinkedRdfSourcesAsyncRdfIterator = new MediatedLinkedRdfSourcesAsyncRdfIterator(
+    let it: MediatedLinkedRdfSourcesAsyncRdfIterator = new MediatedLinkedRdfSourcesAsyncRdfIterator(
       this.cacheSize,
       operation,
       options,
@@ -117,7 +127,21 @@ export class QuerySourceHypermedia implements IQuerySource {
       dataFactory,
       algebraFactory,
     );
+
     if (aggregatedStore) {
+      // if (this.provenance && operation.type == 'pattern'){
+      //   it = it.map((data: RDF.Bindings) => {
+      //     console.log(data);
+      //     const quad = QuerySourceHypermedia.bindQuad(data, operation)!;
+      //     const bindingWithProv = <RDF.Bindings> quotedQuadProvenanceBinding(
+      //       quad, <Bindings> data, aggregatedStore, dataFactory
+      //     );
+      //     return bindingWithProv;
+      //   });
+      // }
+      // else if (operation.type !== 'pattern'){
+      //   console.log(operation.type);
+      // }
       aggregatedStore.started = true;
 
       // Kickstart this iterator when derived iterators are created from the aggregatedStore,
@@ -126,7 +150,6 @@ export class QuerySourceHypermedia implements IQuerySource {
       aggregatedStore.addIteratorCreatedListener(listener);
       it.on('end', () => aggregatedStore.removeIteratorCreatedListener(listener));
     }
-
     return it;
   }
 
@@ -215,19 +238,15 @@ export class QuerySourceHypermedia implements IQuerySource {
       this.logWarning(`Metadata extraction for ${url} failed: ${(<Error> error).message}`);
     }
 
-    const prov = this.dataFactory.namedNode('http://www.w3.org/ns/prov#wasDerivedFrom');
-    const sourceLink = this.dataFactory.literal(link.url);
     if (aggregatedStore){
+      const prov = this.dataFactory.namedNode('http://www.w3.org/ns/prov#wasDerivedFrom');
+      const sourceLink = this.dataFactory.literal(link.url);  
       let quadsMapped = (<AsyncIterator<RDF.Quad>>quads).map((data) => {
         return (<RDF.DataFactory<RDF.BaseQuad>> this.dataFactory).quad(data, prov, sourceLink);
       });  
-      aggregatedStore?.import(<RDF.Stream> quadsMapped);
+      aggregatedStore?.import(<RDF.Stream> quadsMapped).on('end', () => {
+      });
     }
-    // aggregatedStore?.import(<RDF.Stream<RDF.Quad>>quadsMapped).on('end', () => {
-    //   console.log(aggregatedStore.match(null, prov, null, null).on('data', (data) => {
-    //     console.log(data)
-    //   }));
-    // });
     // Aggregate all discovered quads into a store.
     aggregatedStore?.setBaseMetadata(<MetadataBindings> metadata, false);
     aggregatedStore?.containedSources.add(link.url);
@@ -306,6 +325,40 @@ export class QuerySourceHypermedia implements IQuerySource {
   public toString(): string {
     return `QuerySourceHypermedia(${this.firstUrl})`;
   }
+
+  /**
+   * Two functions taken from BindingsToQuadIterator. This does not deal with blanknodes.
+   * There must be a better way of doing this, so this is a dirty solution
+   */
+  public static bindTerm(bindings: RDF.Bindings, term: RDF.Term): RDF.Term | undefined {
+    if (term.termType === 'Variable') {
+      return bindings.get(term);
+    }
+    return term;
+  }
+
+  /**
+   * Bind the given quad pattern.
+   * If one of the terms was a variable AND is not bound in the bindings,
+   * a falsy value will be returned.
+   * @param {Bindings} bindings A bindings object.
+   * @param {RDF.Quad} pattern  An RDF quad.
+   * @return {RDF.Quad}         A bound RDF quad or undefined.
+   */
+  public static bindQuad(bindings: RDF.Bindings, pattern: RDF.BaseQuad): RDF.Quad | undefined {
+    try {
+      return mapTermsNested(<RDF.Quad> pattern, (term) => {
+        const boundTerm = BindingsToQuadsIterator.bindTerm(bindings, term);
+        if (!boundTerm) {
+          throw new Error('Unbound term');
+        }
+        return boundTerm;
+      });
+    } catch {
+      // Do nothing
+    }
+  }
+
 }
 
 export interface IMediatorArgs {

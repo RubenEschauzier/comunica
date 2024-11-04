@@ -13,6 +13,11 @@ import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator, BufferedIteratorOptions } from 'asynciterator';
 import { BufferedIterator } from 'asynciterator';
 import type { Algebra } from 'sparqlalgebrajs';
+import { QuerySourceHypermedia } from './QuerySourceHypermedia';
+import { quotedQuadProvenanceBinding } from '@comunica/bus-query-source-identify';
+import { Bindings } from '@comunica/utils-bindings-factory';
+import { IRdfJsSourceExtended } from '@comunica/actor-query-source-identify-rdfjs';
+import { DataFactory } from 'rdf-data-factory';
 
 export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<RDF.Bindings> {
   protected readonly operation: Algebra.Operation;
@@ -201,10 +206,33 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
    * Once the iterator is done, it will either determine a new source, or it will close the linked iterator.
    * @param {ISourceState} startSource The start source state.
    */
-  protected startIterator(startSource: ISourceState): void {
+  protected startIterator(startSource: ISourceState, aggregatedStore?: IRdfJsSourceExtended): void {
     // Delegate the quad pattern query to the given source
     try {
-      const iterator = startSource.source.queryBindings(this.operation, this.context, this.queryBindingsOptions);
+      let iterator = startSource.source.queryBindings(this.operation, this.context, this.queryBindingsOptions);
+      if (aggregatedStore){
+        const dataFactory = new DataFactory();
+        const mappedIterator = iterator.map((data: RDF.Bindings) => {
+          const quad = QuerySourceHypermedia.bindQuad(data, <Algebra.Pattern> this.operation)!;
+          const bindingWithProv = <RDF.Bindings> quotedQuadProvenanceBinding(
+            quad, <Bindings> data, aggregatedStore, dataFactory
+          );
+          return bindingWithProv;
+        });
+        function inheritMetadata(): void {
+          iterator.getProperty('metadata', (metadata: MetadataBindings) => {
+            mappedIterator.setProperty('metadata', metadata);
+            metadata.state.addInvalidateListener(inheritMetadata);
+          });
+        }
+        inheritMetadata();
+        iterator = mappedIterator;
+      }
+      else{
+        console.log("Not passed aggregatedStore")
+        console.log(startSource)
+      }
+
       this.currentIterators.push(iterator);
       let receivedEndEvent = false;
       let receivedMetadata = false;
@@ -228,7 +256,6 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
           this.startIteratorsForNextUrls(startSource.handledDatasets, true);
         }
       });
-
       // Listen for the metadata of the source
       // The metadata property is guaranteed to be set
       iterator.getProperty('metadata', (metadata: MetadataBindings) => {
@@ -255,6 +282,7 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
                 this.preflightMetadata
                   .then(metadataIn => metadataIn.state.invalidate())
                   .catch(() => {
+                    console.log(1)
                     // Ignore errors
                   });
               }

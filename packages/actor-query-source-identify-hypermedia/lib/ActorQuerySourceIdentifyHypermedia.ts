@@ -34,6 +34,7 @@ export class ActorQuerySourceIdentifyHypermedia extends ActorQuerySourceIdentify
   public readonly cacheSize: number;
   public readonly maxIterators: number;
   public readonly aggregateTraversalStore: boolean;
+  public readonly provenance: boolean;
 
   public constructor(args: IActorQuerySourceIdentifyHypermediaArgs) {
     super(args);
@@ -69,6 +70,7 @@ export class ActorQuerySourceIdentifyHypermedia extends ActorQuerySourceIdentify
           warningMessage => this.logWarn(action.context, warningMessage),
           dataFactory,
           await BindingsFactory.create(this.mediatorMergeBindingsContext, action.context, dataFactory),
+          this.provenance
         ),
         context: action.querySourceUnidentified.context ?? new ActionContext(),
       },
@@ -95,6 +97,11 @@ export interface IActorQuerySourceIdentifyHypermediaArgs extends IActorQuerySour
    * @default {true}
    */
   aggregateTraversalStore: boolean;
+  /**
+   * If we're doing triple provenance calculations
+   * @default {false}
+   */
+  provenance: boolean;
   /**
    * The RDF dereference mediator
    */

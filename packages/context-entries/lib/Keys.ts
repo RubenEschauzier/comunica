@@ -338,7 +338,7 @@ export const KeysMergeBindingsContext = {
    * The promises are resolved by .match calls to underlying store for 
    * quoted triples denoting provenance
    */
-  sourcesBindingPromise: new ActionContextKey<Promise<string[]>[]>
+  sourcesBindingStream: new ActionContextKey<RDF.Stream<RDF.BaseQuad>>
     ('@comunica/bus-merge-bindings-context:sourcesBindingPromise'),
 };
 

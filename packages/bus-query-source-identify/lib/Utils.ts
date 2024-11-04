@@ -1,7 +1,7 @@
 import { IRdfJsSourceExtended } from '@comunica/actor-query-source-identify-rdfjs';
 import { KeysMergeBindingsContext } from '@comunica/context-entries';
 import type { BindingsStream, ComunicaDataFactory, MetadataBindings, MetadataQuads, TermsOrder } from '@comunica/types';
-import type { BindingsFactory } from '@comunica/utils-bindings-factory';
+import type { Bindings, BindingsFactory } from '@comunica/utils-bindings-factory';
 import { ClosableIterator } from '@comunica/utils-iterator';
 import { validateMetadataQuads } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
@@ -95,25 +95,15 @@ export function quadsToBindings(
     }))
     // If we have passed a source, we're doing source attribution
     if (source){
-      const provQuads = source.match(quad, null, null, null);
-      const provPromise: Promise<string[]> = new Promise((resolve, reject) => {
-        const prov: string[] = [];
-    
-        provQuads.on('data', (chunk) => {
-          prov.push(chunk); // Accumulate data chunks
-        });
-    
-        provQuads.on('end', () => {
-          resolve(prov); // Resolve the promise with the array of results when the stream ends
-        });
-    
-        provQuads.on('error', (err) => {
-          reject(err); // Reject the promise if an error occurs
-        });
-      });
-      binding = binding.setContextEntry(KeysMergeBindingsContext.sourcesBindingPromise,
-        provPromise
-      );
+      binding = quotedQuadProvenanceBinding(quad, binding, source, dataFactory);
+      // const provQuads = source.match(
+      //   quad, 
+      //   dataFactory.namedNode('http://www.w3.org/ns/prov#wasDerivedFrom'),
+      //   null, null
+      // );
+      // binding = binding.setContextEntry(KeysMergeBindingsContext.sourcesBindingStream,
+      //   provQuads
+      // );
     }
     return binding
   }), {
@@ -320,4 +310,18 @@ export function filterMatchingQuotedQuads(pattern: RDF.BaseQuad, it: AsyncIterat
     it = it.filter(quad => matchPatternMappings(quad, pattern));
   }
   return it;
+}
+
+export function quotedQuadProvenanceBinding(quad: RDF.BaseQuad, binding: Bindings, source: IRdfJsSourceExtended,
+  dataFactory: ComunicaDataFactory
+): Bindings {
+  const provQuads = source.match(
+    quad, 
+    dataFactory.namedNode('http://www.w3.org/ns/prov#wasDerivedFrom'),
+    null, null
+  );
+  binding = binding.setContextEntry(KeysMergeBindingsContext.sourcesBindingStream,
+    provQuads
+  );
+  return binding;
 }

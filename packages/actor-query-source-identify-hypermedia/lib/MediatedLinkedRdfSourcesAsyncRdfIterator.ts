@@ -19,7 +19,6 @@ import type * as RDF from '@rdfjs/types';
 import type { Algebra, Factory } from 'sparqlalgebrajs';
 import type { SourceStateGetter, ISourceState } from './LinkedRdfSourcesAsyncRdfIterator';
 import { LinkedRdfSourcesAsyncRdfIterator } from './LinkedRdfSourcesAsyncRdfIterator';
-import { Quad } from '@comunica/utils-expression-evaluator';
 
 /**
  * An quad iterator that can iterate over consecutive RDF sources
@@ -200,12 +199,7 @@ export class MediatedLinkedRdfSourcesAsyncRdfIterator extends LinkedRdfSourcesAs
         bindings.get('o')!,
         bindings.get('g'),
       ));
-
-      // this.aggregatedStore!.import(<RDF.Stream> stream)
-      // .on('end', () => {
-      //   super.startIterator(startSource);
-      // });
-      
+      // TODO: What is this needed for?      
       const prov = this.dataFactory.namedNode('http://www.w3.org/ns/prov#wasDerivedFrom');
       const source = this.dataFactory.literal(startSource.link.url);
       let mappedStream = stream.map((data: RDF.BaseQuad) => {
@@ -216,11 +210,11 @@ export class MediatedLinkedRdfSourcesAsyncRdfIterator extends LinkedRdfSourcesAs
       this.aggregatedStore.import(<RDF.Stream> mappedStream).on('end', () => {
         this.aggregatedStore!.import(<RDF.Stream> stream)
         .on('end', () => {
-          super.startIterator(startSource);
+          super.startIterator(startSource, this.aggregatedStore);
         });
       });
     } else {
-      super.startIterator(startSource);
+      super.startIterator(startSource, this.aggregatedStore);
     }
   }
 

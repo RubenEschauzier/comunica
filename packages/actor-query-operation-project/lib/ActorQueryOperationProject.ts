@@ -32,7 +32,6 @@ export class ActorQueryOperationProject extends ActorQueryOperationTypedMediated
   public async runOperation(operation: Algebra.Project, context: IActionContext):
   Promise<IQueryOperationResult> {
     const dataFactory: ComunicaDataFactory = context.getSafe(KeysInitQuery.dataFactory);
-
     // Resolve the input
     const output: IQueryOperationResultBindings = getSafeBindings(
       await this.mediatorQueryOperation.mediate({ operation: operation.input, context }),
