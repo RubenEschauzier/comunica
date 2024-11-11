@@ -356,7 +356,6 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
                     nextSourceState.source,
                   );
                 }
-
                 this.iteratorsPendingCreation--;
                 this.startIterator(nextSourceState);
               })
