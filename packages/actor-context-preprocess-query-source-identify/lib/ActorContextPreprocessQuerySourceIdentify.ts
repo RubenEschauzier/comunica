@@ -47,11 +47,12 @@ export class ActorContextPreprocessQuerySourceIdentify extends ActorContextPrepr
 
   public async run(action: IAction): Promise<IActorContextPreprocessOutput> {
     let context = action.context;
-
+    console.trace()
     // Rewrite sources
     if (context.has(KeysInitQuery.querySourcesUnidentified)) {
       const querySourcesUnidentified: QuerySourceUnidentified[] = action.context
         .get(KeysInitQuery.querySourcesUnidentified)!;
+        console.log(querySourcesUnidentified);
       const querySourcesUnidentifiedExpanded = await Promise.all(querySourcesUnidentified
         .map(querySource => this.expandSource(querySource)));
       const querySources: IQuerySourceWrapper[] = await Promise.all(querySourcesUnidentifiedExpanded
@@ -62,12 +63,15 @@ export class ActorContextPreprocessQuerySourceIdentify extends ActorContextPrepr
         .get(KeysStatistics.dereferencedLinks);
       if (statisticDereferenceLinks) {
         for (const querySource of querySources) {
-          statisticDereferenceLinks.updateStatistic({
-            url: <string> querySource.source.referenceValue,
-            metadata: {
-              seed: true,
-            },
-          }, querySource.source);
+          // Only update for string (URL) values.
+          if (typeof querySource.source.referenceValue === "string"){
+            statisticDereferenceLinks.updateStatistic({
+              url: <string> querySource.source.referenceValue,
+              metadata: {
+                seed: true,
+              },
+            }, querySource.source);  
+          }
         }
       }
 
