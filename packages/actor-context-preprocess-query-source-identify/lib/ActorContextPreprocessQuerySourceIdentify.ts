@@ -47,12 +47,10 @@ export class ActorContextPreprocessQuerySourceIdentify extends ActorContextPrepr
 
   public async run(action: IAction): Promise<IActorContextPreprocessOutput> {
     let context = action.context;
-    console.trace()
     // Rewrite sources
     if (context.has(KeysInitQuery.querySourcesUnidentified)) {
       const querySourcesUnidentified: QuerySourceUnidentified[] = action.context
         .get(KeysInitQuery.querySourcesUnidentified)!;
-        console.log(querySourcesUnidentified);
       const querySourcesUnidentifiedExpanded = await Promise.all(querySourcesUnidentified
         .map(querySource => this.expandSource(querySource)));
       const querySources: IQuerySourceWrapper[] = await Promise.all(querySourcesUnidentifiedExpanded
