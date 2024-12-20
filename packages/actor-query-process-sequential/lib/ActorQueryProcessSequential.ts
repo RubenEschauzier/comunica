@@ -54,6 +54,7 @@ export class ActorQueryProcessSequential extends ActorQueryProcess implements IQ
     // Run all query processing steps in sequence
     let { operation, context } = await this.parse(action.query, action.context);
     ({ operation, context } = await this.optimize(operation, context));
+    context = context.set(KeysInitQuery.queryString, action.query);
     const output = await this.evaluate(operation, context);
 
     return { result: output };

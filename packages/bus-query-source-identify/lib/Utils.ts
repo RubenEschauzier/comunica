@@ -5,7 +5,7 @@ import type { Bindings, BindingsFactory } from '@comunica/utils-bindings-factory
 import { ClosableIterator } from '@comunica/utils-iterator';
 import { validateMetadataQuads } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
-import type { AsyncIterator } from 'asynciterator';
+import { AsyncIterator, wrap } from 'asynciterator';
 import { termToString } from 'rdf-string';
 import type { QuadTermName } from 'rdf-terms';
 import {
@@ -315,13 +315,17 @@ export function filterMatchingQuotedQuads(pattern: RDF.BaseQuad, it: AsyncIterat
 export function quotedQuadProvenanceBinding(quad: RDF.BaseQuad, binding: Bindings, source: IRdfJsSourceExtended,
   dataFactory: ComunicaDataFactory
 ): Bindings {
-  const provQuads = source.match(
+  const rawProvQuads = source.match(
     quad, 
     dataFactory.namedNode('http://www.w3.org/ns/prov#wasDerivedFrom'),
     null, null
   );
+  let it: AsyncIterator<RDF.Quad> = rawProvQuads instanceof AsyncIterator ?
+  rawProvQuads :
+  wrap<RDF.Quad>(rawProvQuads, { autoStart: false });
+
   binding = binding.setContextEntry(KeysMergeBindingsContext.sourcesBindingStream,
-    provQuads
+    it
   );
   return binding;
 }

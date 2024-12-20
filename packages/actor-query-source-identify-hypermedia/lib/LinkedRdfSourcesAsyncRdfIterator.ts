@@ -282,7 +282,6 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
                 this.preflightMetadata
                   .then(metadataIn => metadataIn.state.invalidate())
                   .catch(() => {
-                    console.log(1)
                     // Ignore errors
                   });
               }
