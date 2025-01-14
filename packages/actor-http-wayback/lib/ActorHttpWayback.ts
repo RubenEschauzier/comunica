@@ -40,7 +40,11 @@ export class ActorHttpWayback extends ActorHttp {
   public async run(action: IActionHttp): Promise<IActorHttpOutput> {
     let result = await this.mediatorHttp.mediate(action);
 
-    if (result.status === 404 && action.context.get(KeysHttpWayback.recoverBrokenLinks)) {
+    if (!result.response) {
+      return result;
+    }
+
+    if (result.response.status === 404 && action.context.get(KeysHttpWayback.recoverBrokenLinks)) {
       let fallbackResult = await this.mediatorHttp.mediate({
         ...action,
         context: action.context
@@ -48,13 +52,14 @@ export class ActorHttpWayback extends ActorHttp {
           .set<IProxyHandler>(KeysHttpProxy.httpProxyHandler, { getProxy: getProxyHandler(action.context) }),
       });
 
-      // If the wayback machine returns a 200 status then use that result
-      if (fallbackResult.status === 200) {
+      // If the wayback machine returns a 200 status then use that result. The response will never 
+      // be undefined as it is not a validation request
+      if (fallbackResult.response!.status === 200) {
         [ result, fallbackResult ] = [ fallbackResult, result ];
       }
 
       // Consume stream to avoid process
-      const { body } = fallbackResult;
+      const { body } = fallbackResult.response!;
       if (body) {
         if ('cancel' in body && typeof body.cancel === 'function') {
           await body.cancel();
