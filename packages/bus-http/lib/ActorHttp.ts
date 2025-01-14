@@ -1,9 +1,11 @@
 import type { IAction, IActorArgs, IActorOutput, IActorTest, Mediate } from '@comunica/core';
 import { Actor } from '@comunica/core';
 import { readableFromWeb } from 'readable-from-web';
+import CachePolicy = require('http-cache-semantics');
 
 const isStream = require('is-stream');
 const toWebReadableStream = require('readable-stream-node-to-web');
+
 
 /**
  * A base actor for listening to HTTP events.
@@ -129,13 +131,15 @@ export abstract class ActorHttp<TS = undefined> extends Actor<IActionHttp, IActo
 export interface IActionHttp extends IAction {
   input: RequestInfo;
   init?: RequestInit;
+  validate?: CachePolicy
 }
 
 /**
  * The HTTP output, which contains the HTTP response.
  */
-export interface IActorHttpOutput extends IActorOutput, Response {
-
+export interface IActorHttpOutput extends IActorOutput {
+  response?: Response;
+  isValidated?: boolean;
 }
 
 export type IActorHttpArgs<TS = undefined> = IActorArgs<IActionHttp, IActorTest, IActorHttpOutput, TS>;

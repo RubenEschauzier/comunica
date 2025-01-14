@@ -30,16 +30,18 @@ describe('ActorHttpInterceptWayback', () => {
             const request = new Request(input, init);
 
             if (request.url === 'http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <Response> {
+              return <IActorHttpOutput> {response: {
                 status: 404,
                 url: request.url,
-              };
+              }
+            };
             }
 
             if (request.url === 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <Response> {
+              return <IActorHttpOutput> {response: {
                 status: 200,
                 url: request.url,
+               }
               };
             }
 
@@ -75,8 +77,8 @@ describe('ActorHttpInterceptWayback', () => {
           input: 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf',
         });
 
-        expect(result.status).toBe(200);
-        expect(result.url).toBe('http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf');
+        expect(result.response!.status).toBe(200);
+        expect(result.response!.url).toBe('http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf');
       });
 
       it('should return 200 on foaf', async() => {
@@ -85,8 +87,8 @@ describe('ActorHttpInterceptWayback', () => {
           input: 'http://xmlns.com/foaf/spec/20140114.rdf',
         });
 
-        expect(result.status).toBe(200);
-        expect(result.url).toBe('http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf');
+        expect(result.response!.status).toBe(200);
+        expect(result.response!.url).toBe('http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf');
       });
 
       it('should return 200 on foaf with existing proxy', async() => {
@@ -97,8 +99,8 @@ describe('ActorHttpInterceptWayback', () => {
           input: 'http://xmlns.com/foaf/spec/20140114.rdf',
         });
 
-        expect(result.status).toBe(200);
-        expect(result.url).toBe('http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf');
+        expect(result.response!.status).toBe(200);
+        expect(result.response!.url).toBe('http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf');
       });
     });
 
@@ -114,17 +116,19 @@ describe('ActorHttpInterceptWayback', () => {
             const request = new Request(input, init);
 
             if (request.url === 'http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <Response> <unknown> {
+              return <IActorHttpOutput> <unknown> { response: {
                 status: 404,
                 body: Readable.from([ 'page not found' ]),
                 url: request.url,
+                }
               };
             }
 
             if (request.url === 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <Response> {
+              return <IActorHttpOutput> {response: {
                 status: 200,
                 url: request.url,
+              }
               };
             }
 
@@ -160,8 +164,8 @@ describe('ActorHttpInterceptWayback', () => {
           input: 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf',
         });
 
-        expect(result.status).toBe(200);
-        expect(result.url).toBe('http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf');
+        expect(result.response!.status).toBe(200);
+        expect(result.response!.url).toBe('http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf');
       });
 
       it('should return 200 on foaf', async() => {
@@ -170,8 +174,8 @@ describe('ActorHttpInterceptWayback', () => {
           input: 'http://xmlns.com/foaf/spec/20140114.rdf',
         });
 
-        expect(result.status).toBe(200);
-        expect(result.url).toBe('http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf');
+        expect(result.response!.status).toBe(200);
+        expect(result.response!.url).toBe('http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf');
       });
 
       it('should return 200 on foaf with existing proxy', async() => {
@@ -182,8 +186,8 @@ describe('ActorHttpInterceptWayback', () => {
           input: 'http://xmlns.com/foaf/spec/20140114.rdf',
         });
 
-        expect(result.status).toBe(200);
-        expect(result.url).toBe('http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf');
+        expect(result.response!.status).toBe(200);
+        expect(result.response!.url).toBe('http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf');
       });
     });
 
@@ -199,16 +203,18 @@ describe('ActorHttpInterceptWayback', () => {
             const request = new Request(input, init);
 
             if (request.url === 'http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <Response> {
+              return <IActorHttpOutput> {response: {
                 status: 200,
                 url: request.url,
+                }
               };
             }
 
             if (request.url === 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <Response> {
+              return <IActorHttpOutput> {response: {
                 status: 200,
                 url: request.url,
+                }
               };
             }
 
@@ -246,8 +252,8 @@ describe('ActorHttpInterceptWayback', () => {
           input: 'http://xmlns.com/foaf/spec/20140114.rdf',
         });
 
-        expect(result.status).toBe(200);
-        expect(result.url).toBe('http://xmlns.com/foaf/spec/20140114.rdf');
+        expect(result.response!.status).toBe(200);
+        expect(result.response!.url).toBe('http://xmlns.com/foaf/spec/20140114.rdf');
       });
     });
 
@@ -263,16 +269,18 @@ describe('ActorHttpInterceptWayback', () => {
             const request = new Request(input, init);
 
             if (request.url === 'http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <Response> {
+              return <IActorHttpOutput> {response: {
                 status: 200,
                 url: request.url,
+                }
               };
             }
 
             if (request.url === 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <Response> {
+              return <IActorHttpOutput> {response: {
                 status: 404,
                 url: request.url,
+                }
               };
             }
 
@@ -310,8 +318,8 @@ describe('ActorHttpInterceptWayback', () => {
           input: 'http://xmlns.com/foaf/spec/20140114.rdf',
         });
 
-        expect(result.status).toBe(200);
-        expect(result.url).toBe('http://xmlns.com/foaf/spec/20140114.rdf');
+        expect(result.response!.status).toBe(200);
+        expect(result.response!.url).toBe('http://xmlns.com/foaf/spec/20140114.rdf');
       });
     });
 
@@ -327,16 +335,18 @@ describe('ActorHttpInterceptWayback', () => {
             const request = new Request(input, init);
 
             if (request.url === 'http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <Response> {
+              return <IActorHttpOutput> { response: {
                 status: 404,
                 url: request.url,
+                }
               };
             }
 
             if (request.url === 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <Response> {
+              return <IActorHttpOutput> {response: {
                 status: 404,
                 url: request.url,
+                }
               };
             }
 
@@ -374,8 +384,8 @@ describe('ActorHttpInterceptWayback', () => {
           input: 'http://xmlns.com/foaf/spec/20140114.rdf',
         });
 
-        expect(result.status).toBe(404);
-        expect(result.url).toBe('http://xmlns.com/foaf/spec/20140114.rdf');
+        expect(result.response!.status).toBe(404);
+        expect(result.response!.url).toBe('http://xmlns.com/foaf/spec/20140114.rdf');
       });
     });
 
@@ -394,18 +404,20 @@ describe('ActorHttpInterceptWayback', () => {
             body._read = () => { /* Noop */ };
 
             if (request.url === 'http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <Response> {
+              return <IActorHttpOutput> {response:{
                 status: 404,
                 url: request.url,
                 body,
-              };
+              }
+            };
             }
 
             if (request.url === 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <Response> {
+              return <IActorHttpOutput> {response: {
                 status: 404,
                 url: request.url,
                 body,
+                }
               };
             }
 
@@ -426,8 +438,8 @@ describe('ActorHttpInterceptWayback', () => {
           input: 'http://xmlns.com/foaf/spec/20140114.rdf',
         });
 
-        expect(result.status).toBe(404);
-        expect(result.url).toBe('http://xmlns.com/foaf/spec/20140114.rdf');
+        expect(result.response!.status).toBe(404);
+        expect(result.response!.url).toBe('http://xmlns.com/foaf/spec/20140114.rdf');
       });
     });
 
@@ -446,7 +458,7 @@ describe('ActorHttpInterceptWayback', () => {
             const request = new Request(input, init);
 
             if (request.url === 'http://xmlns.com/foaf/spec/20140114.rdf' || request.url === 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <Response> { url: request.url, status: 404, body: responseBody() };
+              return <IActorHttpOutput> {response: { url: request.url, status: 404, body: responseBody() } };
             }
 
             throw new Error('Unexpected URL');
@@ -466,8 +478,8 @@ describe('ActorHttpInterceptWayback', () => {
           input: 'http://xmlns.com/foaf/spec/20140114.rdf',
         });
 
-        expect(result.status).toBe(404);
-        expect(result.url).toBe('http://xmlns.com/foaf/spec/20140114.rdf');
+        expect(result.response!.status).toBe(404);
+        expect(result.response!.url).toBe('http://xmlns.com/foaf/spec/20140114.rdf');
       });
 
       it('should return foaf url when wayback gives a 404 [no cancel on response body]', async() => {
@@ -483,8 +495,8 @@ describe('ActorHttpInterceptWayback', () => {
           input: 'http://xmlns.com/foaf/spec/20140114.rdf',
         });
 
-        expect(result.status).toBe(404);
-        expect(result.url).toBe('http://xmlns.com/foaf/spec/20140114.rdf');
+        expect(result.response!.status).toBe(404);
+        expect(result.response!.url).toBe('http://xmlns.com/foaf/spec/20140114.rdf');
       });
     });
   });

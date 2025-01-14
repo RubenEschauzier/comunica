@@ -77,39 +77,41 @@ export class ActorHttpRetry extends ActorHttp {
         context: action.context.set(ActorHttpRetry.keyWrapped, true),
       });
 
-      if (response.ok) {
+      // If the body does not contain a response, it is a validation request and should 
+      // not be retried
+      if (!response.response || response.response.ok) {
         return response;
       }
+      const res = response.response
 
-      if (retryStatusCodes && retryStatusCodes.includes(response.status)) {
+      if (retryStatusCodes && retryStatusCodes.includes(res.status)) {
         this.logDebug(action.context, 'Status code in force retry list, forcing retry', () => ({
           url: url.href,
-          status: response.status,
-          statusText: response.statusText,
+          status: res.status,
+          statusText: res.statusText,
           currentAttempt: `${attempt} / ${attemptLimit}`,
         }));
         continue;
       }
 
-      if (response.status === 504) {
+      if (res.status === 504) {
         // When the server is acting as a proxy and the source times it, it makes sense to retry
         // with the hope that the source server replies within the timeout
         this.logDebug(action.context, 'Received proxy timeout', () => ({
           url: url.href,
-          status: response.status,
-          statusText: response.statusText,
+          status: res.status,
+          statusText: res.statusText,
           currentAttempt: `${attempt} / ${attemptLimit}`,
         }));
         continue;
       }
-
       if (
         // Status codes 429 (Too Many Requests) and 503 (Temporarily Unavailable) can have Retry-After
-        response.status === 429 || response.status === 503 ||
+        res.status === 429 || res.status === 503 ||
         // DBPedia SPARQL endpoint uses 405 instead of 429 and sends a Retry-After with it to indicate rate limits
-        (response.status === 405 && response.headers.has('retry-after'))
+        (res.status === 405 && res.headers.has('retry-after'))
       ) {
-        const retryAfterHeader = response.headers.get('retry-after');
+        const retryAfterHeader = res.headers.get('retry-after');
 
         if (retryAfterHeader) {
           const retryAfter = ActorHttpRetry.parseRetryAfterHeader(retryAfterHeader);
@@ -126,8 +128,8 @@ export class ActorHttpRetry extends ActorHttp {
           } else {
             this.logDebug(action.context, 'Invalid Retry-After header value from server', () => ({
               url: url.href,
-              status: response.status,
-              statusText: response.statusText,
+              status: res.status,
+              statusText: res.statusText,
               retryAfterHeader,
               currentAttempt: `${attempt} / ${attemptLimit}`,
             }));
@@ -136,35 +138,35 @@ export class ActorHttpRetry extends ActorHttp {
 
         this.logDebug(action.context, 'Server temporarily unavailable', () => ({
           url: url.href,
-          status: response.status,
-          statusText: response.statusText,
+          status: res.status,
+          statusText: res.statusText,
           currentAttempt: `${attempt} / ${attemptLimit}`,
         }));
 
         continue;
       }
 
-      if (response.status >= 400 && response.status < 500) {
+      if (res.status >= 400 && res.status < 500) {
         // When the server reports a missing document, insufficient permissions, bad request or other error
         // in the 400 range except for the rate limit, it makes sense to skip further retries.
         // Sending the same, potentially invalid request for missing or inaccessible resources is unlikely to succeed.
         this.logDebug(action.context, 'Server reported client-side error', () => ({
           url: url.href,
-          status: response.status,
-          statusText: response.statusText,
+          status: res.status,
+          statusText: res.statusText,
           currentAttempt: `${attempt} / ${attemptLimit}`,
         }));
         break;
       }
 
-      if (response.status >= 500 && response.status < 600) {
+      if (res.status >= 500 && res.status < 600) {
         // When a server-side error is encountered, it will likely not be fixable client-side,
         // and sending the same request again will most likely result in the same server-side failure.
         // Therefore, it makes sense not to retry on such errors at all.
         this.logDebug(action.context, 'Server-side error encountered, terminating', () => ({
           url: url.href,
-          status: response.status,
-          statusText: response.statusText,
+          status: res.status,
+          statusText: res.statusText,
           currentAttempt: `${attempt} / ${attemptLimit}`,
         }));
         break;
@@ -173,8 +175,8 @@ export class ActorHttpRetry extends ActorHttp {
       // Error codes not specifically handled should be logged as-is for user to notice
       this.logDebug(action.context, 'Request failed', () => ({
         url: url.href,
-        status: response.status,
-        statusText: response.statusText,
+        status: res.status,
+        statusText: res.statusText,
         currentAttempt: `${attempt} / ${attemptLimit}`,
       }));
     }

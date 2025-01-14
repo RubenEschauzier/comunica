@@ -59,11 +59,11 @@ describe('ActorHttpMemento', () => {
 
           case 'http://example.com/nobody':
             headers.set('link', '<http://example.com/tg/http%3A%2F%2Fexample.com%2For>; rel="timegate"');
-            return Promise.resolve({
+            return Promise.resolve({response: {
               headers,
               ok: true,
               status,
-            });
+            }});
 
           case 'http://example.com/tg/http%3A%2F%2Fexample.com%2For':
 
@@ -93,7 +93,7 @@ describe('ActorHttpMemento', () => {
             status = 404;
         }
 
-        return Promise.resolve({
+        return Promise.resolve({response: {
           body: {
             getReader() {
               return {
@@ -109,7 +109,7 @@ describe('ActorHttpMemento', () => {
           headers,
           ok: true,
           status,
-        });
+        }});
       },
     };
 
@@ -163,9 +163,9 @@ describe('ActorHttpMemento', () => {
         input: new Request('http://example.com/or'),
       };
       const result = await actor.run(action);
-      expect(result.status).toBe(200);
+      expect(result.response!.status).toBe(200);
 
-      const body: any = result.body;
+      const body: any = result.response!.body;
       expect(body.getReader().read()).toBe('memento1');
     });
 
@@ -175,9 +175,9 @@ describe('ActorHttpMemento', () => {
         input: new Request('http://example.com/nobody'),
       };
       const result = await actor.run(action);
-      expect(result.status).toBe(200);
+      expect(result.response!.status).toBe(200);
 
-      const body: any = result.body;
+      const body: any = result.response!.body;
       expect(body.getReader().read()).toBe('memento1');
     });
 
@@ -188,9 +188,9 @@ describe('ActorHttpMemento', () => {
       };
 
       const result = await actor.run(action);
-      expect(result.status).toBe(200);
+      expect(result.response!.status).toBe(200);
 
-      const body: any = result.body;
+      const body: any = result.response!.body;
       expect(body.getReader().read()).toBe('memento2');
     });
 
@@ -201,9 +201,9 @@ describe('ActorHttpMemento', () => {
       };
 
       const result = await actor.run(action);
-      expect(result.status).toBe(200);
+      expect(result.response!.status).toBe(200);
 
-      const body: any = result.body;
+      const body: any = result.response!.body;
       expect(body.getReader().read()).toBe('nolink');
     });
 
@@ -215,9 +215,9 @@ describe('ActorHttpMemento', () => {
       };
 
       const result = await actor.run(action);
-      expect(result.status).toBe(200);
+      expect(result.response!.status).toBe(200);
 
-      const body: any = result.body;
+      const body: any = result.response!.body;
       expect(body.getReader().read()).toBe('memento1');
     });
   });

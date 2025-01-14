@@ -106,13 +106,15 @@ export class ActorHttpNative extends ActorHttp {
             const headers = httpResponse.headers;
 
             const result = <IActorHttpOutput> {
-              body: httpResponse,
-              headers,
-              ok: httpResponse.statusCode < 300,
-              redirected: options.url !== httpResponse.responseUrl,
-              status: httpResponse.statusCode,
-              // When the content came from another resource because of conneg, let Content-Location deliver the url
-              url: headers.has('content-location') ? headers.get('content-location') : httpResponse.responseUrl,
+              response: {
+                body: httpResponse,
+                headers,
+                ok: httpResponse.statusCode < 300,
+                redirected: options.url !== httpResponse.responseUrl,
+                status: httpResponse.statusCode,
+                // When the content came from another resource because of conneg, let Content-Location deliver the url
+                url: headers.has('content-location') ? headers.get('content-location') : httpResponse.responseUrl,
+              }
             };
             resolve(result);
           }

@@ -25,10 +25,10 @@ describe('QuerySourceSparql', () => {
   let ctx: IActionContext;
   let lastQuery: string;
   const mediatorHttp: any = {
-    mediate: jest.fn((action: any) => {
-      const query: string = action.init.method === 'GET' ? action.input : action.init.body.toString();
+    mediate: jest.fn(async (action: any) => {
+      const query = action.init.body.toString();
       lastQuery = query;
-      return {
+      return { response: {
         headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
         body: query.indexOf('COUNT') > 0 ?
           Readable.from([ `{
@@ -60,7 +60,7 @@ describe('QuerySourceSparql', () => {
   }
 }` ]),
         ok: true,
-      };
+      }};
     }),
   };
   let source: QuerySourceSparql;
@@ -165,9 +165,9 @@ describe('QuerySourceSparql', () => {
 
     it('should return data with quoted triples', async() => {
       const thisMediator: any = {
-        mediate: jest.fn((action: any) => {
+        mediate: jest.fn(async (action: any) => {
           const query = action.init.body.toString();
-          return {
+          return {response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -199,7 +199,7 @@ describe('QuerySourceSparql', () => {
   }
 }` ]),
             ok: true,
-          };
+          }};
         }),
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
@@ -219,9 +219,9 @@ describe('QuerySourceSparql', () => {
 
     it('should return data with quoted triple patterns', async() => {
       const thisMediator: any = {
-        mediate: jest.fn((action: any) => {
+        mediate: jest.fn(async (action: any) => {
           const query = action.init.body.toString();
-          return {
+          return {response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -253,7 +253,7 @@ describe('QuerySourceSparql', () => {
   }
 }` ]),
             ok: true,
-          };
+          }};
         }),
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
@@ -279,9 +279,9 @@ describe('QuerySourceSparql', () => {
 
     it('should return data for a web stream', async() => {
       const thisMediator: any = {
-        mediate(action: any) {
+        async mediate(action: any) {
           const query = action.init.body.toString();
-          return {
+          return {response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: require('readable-stream-node-to-web')(query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -313,7 +313,7 @@ describe('QuerySourceSparql', () => {
   }
 }` ])),
             ok: true,
-          };
+          }};
         },
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
@@ -508,14 +508,14 @@ describe('QuerySourceSparql', () => {
 
     it('should emit an error on server errors', async() => {
       const thisMediator: any = {
-        mediate() {
-          return {
+        async mediate() {
+          return {response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: Readable.from([ `empty body` ]),
             ok: false,
             status: 500,
             statusText: 'Error!',
-          };
+          }};
         },
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
@@ -528,9 +528,9 @@ describe('QuerySourceSparql', () => {
 
     it('should emit a warning error for unexpected undefs', async() => {
       const thisMediator: any = {
-        mediate(action: any) {
+        async mediate(action: any) {
           const query = action.init.body.toString();
-          return {
+          return {response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -562,7 +562,7 @@ describe('QuerySourceSparql', () => {
   }
 }` ]),
             ok: true,
-          };
+          }};
         },
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
@@ -580,9 +580,9 @@ describe('QuerySourceSparql', () => {
 
     it('should not emit an error for undef binding results for optionals', async() => {
       const thisMediator: any = {
-        mediate(action: any) {
+        async mediate(action: any) {
           const query = action.init.body.toString();
-          return {
+          return { response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -615,7 +615,7 @@ describe('QuerySourceSparql', () => {
   }
 }` ]),
             ok: true,
-          };
+          }};
         },
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
@@ -647,14 +647,14 @@ describe('QuerySourceSparql', () => {
 
     it('should emit an error for an erroring stream', async() => {
       const thisMediator: any = {
-        mediate() {
+        async mediate() {
           const stream = new PassThrough();
           stream._read = () => setImmediate(() => stream.emit('error', new Error('Some stream error')));
-          return {
+          return {response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: stream,
             ok: true,
-          };
+          }};
         },
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
@@ -668,9 +668,9 @@ describe('QuerySourceSparql', () => {
 
     it('should emit metadata with infinity count for invalid count results', async() => {
       const thisMediator: any = {
-        mediate(action: any) {
+        async mediate(action: any) {
           const query = action.init.body.toString();
-          return {
+          return {response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -702,7 +702,7 @@ describe('QuerySourceSparql', () => {
   }
 }` ]),
             ok: true,
-          };
+          }};
         },
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
@@ -723,9 +723,9 @@ describe('QuerySourceSparql', () => {
 
     it('should emit metadata with infinity count for missing count results', async() => {
       const thisMediator: any = {
-        mediate(action: any) {
+        async mediate(action: any) {
           const query = action.init.body.toString();
-          return {
+          return {response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -757,7 +757,7 @@ describe('QuerySourceSparql', () => {
   }
 }` ]),
             ok: true,
-          };
+          }};
         },
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
@@ -790,9 +790,9 @@ describe('QuerySourceSparql', () => {
 
     it('should return data for HTTP GET requests', async() => {
       const thisMediator: any = {
-        mediate(action: any) {
+        async mediate(action: any) {
           const query = action.input;
-          return {
+          return {response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -824,7 +824,7 @@ describe('QuerySourceSparql', () => {
   }
 }` ]),
             ok: true,
-          };
+          }};
         },
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, true, 64, 10, true, true, 0);
@@ -1065,7 +1065,7 @@ describe('QuerySourceSparql', () => {
       jest.useFakeTimers();
 
       const thisMediator: any = {
-        mediate(action: any) {
+        async mediate(action: any) {
           return new Promise((resolve) => {
             setTimeout(() => {
               resolve(mediatorHttp.mediate(action));
@@ -1158,11 +1158,11 @@ describe('QuerySourceSparql', () => {
   describe('queryQuads', () => {
     it('should return data', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(() => ({
+        mediate: jest.fn(async () => ({response: {
           headers: new Headers({ 'Content-Type': 'text/turtle' }),
           body: Readable.from([ `<s1> <p1> <o1>. <s2> <p2> <o2>.` ]),
           ok: true,
-        })),
+        }})),
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
 
@@ -1189,10 +1189,10 @@ WHERE { undefined:s ?p undefined:o. }` }),
 
     it('should emit metadata', async() => {
       const thisMediator: any = {
-        mediate: jest.fn((action: any) => {
+        mediate: jest.fn(async (action: any) => {
           const query = action.init.body.toString();
           lastQuery = query;
-          return {
+          return {response: {
             headers: new Headers({ 'Content-Type': query.indexOf('COUNT') > 0 ?
               'application/sparql-results+json' :
               'text/turtle' }),
@@ -1210,7 +1210,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
 }` ]) :
               Readable.from([ `<s1> <p1> <o1>. <s2> <p2> <o2>.` ]),
             ok: true,
-          };
+          }};
         }),
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
@@ -1236,11 +1236,11 @@ WHERE { undefined:s ?p undefined:o. }` }),
 
     it('should pass the original queryString if defined', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(() => ({
+        mediate: jest.fn(async () => ({response: {
           headers: new Headers({ 'Content-Type': 'text/turtle' }),
           body: Readable.from([ `<s1> <p1> <o1>. <s2> <p2> <o2>.` ]),
           ok: true,
-        })),
+        }})),
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
 
@@ -1268,7 +1268,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
   describe('queryBoolean', () => {
     it('should return data', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(() => ({
+        mediate: jest.fn(async () => ({response: {
           headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
           body: Readable.from([ `{
   "head": { "vars": [ "p" ]
@@ -1276,7 +1276,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
   "boolean": true
 }` ]),
           ok: true,
-        })),
+        }})),
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
 
@@ -1298,7 +1298,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
 
     it('should pass the original queryString if defined', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(() => ({
+        mediate: jest.fn(async () => ({response: {
           headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
           body: Readable.from([ `{
   "head": { "vars": [ "p" ]
@@ -1306,7 +1306,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
   "boolean": true
 }` ]),
           ok: true,
-        })),
+        }})),
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
 
@@ -1330,11 +1330,11 @@ WHERE { undefined:s ?p undefined:o. }` }),
   describe('queryVoid', () => {
     it('should return data', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(() => ({
+        mediate: jest.fn(async () => ({response: {
           headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
           body: Readable.from([ `OK` ]),
           ok: true,
-        })),
+        }})),
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
 
@@ -1359,11 +1359,11 @@ WHERE { undefined:s ?p undefined:o. }` }),
 
     it('should pass the original queryString if defined', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(() => ({
+        mediate: jest.fn(async () => ({response: {
           headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
           body: Readable.from([ `OK` ]),
           ok: true,
-        })),
+        }})),
       };
       source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0);
 

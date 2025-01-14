@@ -71,45 +71,75 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
 
     let httpResponse: IActorHttpOutput;
     const requestTimeStart = Date.now();
+    // if (action.validate){
+    //   const requestToValidate = new Request(action.url, {headers, method: action.method})
+    //   if (action.validate.satisfiesWithoutRevalidation(this.requestToPolicyRequest(requestToValidate))){
+    //     return {
+    //       url: action.url,
+    //       data: emptyReadable(),
+    //       exists,
+    //       requestTime: 0,
+    //       isValidated: true,
+    //     }
+    //   }
+    // }
     try {
       httpResponse = await this.mediatorHttp.mediate({
         context: action.context,
         init: { headers, method: action.method },
         input: action.url,
       });
+      if (!httpResponse.response){
+        return this.handleDereferenceErrors(action, new Error("Response undefined in dereference actor"))
+      }
     } catch (error: unknown) {
       return this.handleDereferenceErrors(action, error);
     }
     // The response URL can be relative to the given URL
-    const url = resolveRelative(httpResponse.url, action.url);
+    const url = resolveRelative(httpResponse.response.url, action.url);
     const requestTime = Date.now() - requestTimeStart;
 
+    // // 304 indicates we make a revalidation request with cache
+    // if (httpResponse.status === 304){
+    //   throw new Error(`Server returned ${httpResponse.status}`);
+    // }
+
     // Only parse if retrieval was successful
-    if (httpResponse.status !== 200) {
+    if (httpResponse.response.status !== 200) {
       exists = false;
       // Consume the body, to avoid process to hang
-      const bodyString = httpResponse.body ?
-        await stringifyStream(ActorHttp.toNodeReadable(httpResponse.body)) :
+      const bodyString = httpResponse.response.body ?
+        await stringifyStream(ActorHttp.toNodeReadable(httpResponse.response.body)) :
         'empty response';
 
       if (!action.acceptErrors) {
-        const error = new Error(`Could not retrieve ${action.url} (HTTP status ${httpResponse.status}):\n${bodyString}`);
-        return this.handleDereferenceErrors(action, error, httpResponse.headers, requestTime);
+        const error = new Error(`Could not retrieve ${action.url} (HTTP status ${httpResponse.response.status}):\n${bodyString}`);
+        return this.handleDereferenceErrors(action, error, 
+          httpResponse.response.headers, requestTime
+        );
       }
     }
 
-    const mediaType = REGEX_MEDIATYPE.exec(httpResponse.headers.get('content-type') ?? '')?.[0];
+    const mediaType = REGEX_MEDIATYPE.exec(httpResponse.response.headers.get('content-type') ?? '')?.[0];
 
     // Return the parsed quad stream and whether or not only triples are supported
     return {
       url,
-      data: exists ? ActorHttp.toNodeReadable(httpResponse.body) : emptyReadable(),
+      data: exists ? ActorHttp.toNodeReadable(httpResponse.response.body) : emptyReadable(),
       exists,
       requestTime,
-      headers: httpResponse.headers,
+      headers: httpResponse.response.headers,
       mediaType: mediaType === 'text/plain' ? undefined : mediaType,
     };
   }
+
+  // private requestToPolicyRequest(request: Request){
+  //   const hash: Record<string, string> = {};
+  //   request.headers.forEach((value, key) => {
+  //     hash[key] = value;
+  //   });
+  //   return { ...request, headers: hash };
+  // }
 
   protected abstract getMaxAcceptHeaderLength(): number;
 }

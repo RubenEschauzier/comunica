@@ -1,5 +1,5 @@
 import type { IActionSparqlSerialize, IActorQueryResultSerializeOutput } from '@comunica/bus-query-result-serialize';
-import { KeysInitQuery } from '@comunica/context-entries';
+import { KeysHttp, KeysInitQuery } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
 import type {
   IActionContext,
@@ -20,6 +20,7 @@ import type {
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
+import { LRUWebCache } from '../../actor-http-cache/lib/LRUWebCache';
 
 /**
  * Base implementation of a Comunica query engine.
@@ -32,9 +33,14 @@ export class QueryEngineBase<
 >
 implements IQueryEngine<QueryStringContextInner, QueryAlgebraContextInner> {
   private readonly actorInitQuery: ActorInitQueryBase;
-
+  private readonly httpCache: Cache
   public constructor(actorInitQuery: ActorInitQueryBase) {
     this.actorInitQuery = actorInitQuery;
+    // Temp location for cache creation
+    this.httpCache = new LRUWebCache({
+      maxSize: 10000,                 // Maximum 500 items in the cache
+      updateAgeOnGet: true,     // Refresh TTL on access
+    }, true)
   }
 
   public async queryBindings<QueryFormatTypeInner extends QueryFormatType>(
@@ -124,12 +130,13 @@ implements IQueryEngine<QueryStringContextInner, QueryAlgebraContextInner> {
     query: QueryFormatTypeInner,
     context?: QueryFormatTypeInner extends string ? QueryStringContextInner : QueryAlgebraContextInner,
   ): Promise<QueryType | IQueryExplained> {
-    const actionContext: IActionContext = ActionContext.ensureActionContext(context);
+    let actionContext: IActionContext = ActionContext.ensureActionContext(context);
 
     // Invalidate caches if cache argument is set to false
     if (actionContext.get(KeysInitQuery.invalidateCache)) {
       await this.invalidateHttpCache();
     }
+    actionContext = actionContext.set(KeysHttp.cache, this.httpCache);
 
     // Invoke query process
     const { result } = await this.actorInitQuery.mediatorQueryProcess.mediate({ query, context: actionContext });

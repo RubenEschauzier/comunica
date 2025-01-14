@@ -23,15 +23,15 @@ describe('ActorRdfParseJsonLd', () => {
       mediate(args: any) {
         // Error
         if (args.input.includes('error')) {
-          return Promise.resolve({
+          return Promise.resolve({ response: {
             ok: false,
             statusText: 'some error',
             status: 500,
             headers: new Headers({}),
-          });
+          }});
         }
 
-        return Promise.resolve({
+        return Promise.resolve({response: {
           body: Readable.from([ `{
           "@context": {
             "@vocab": "http://example.org/"
@@ -40,7 +40,7 @@ describe('ActorRdfParseJsonLd', () => {
           ok: true,
           status: 200,
           headers: new Headers({ 'Content-Type': 'application/ld+json' }),
-        });
+        }});
       },
     };
     context = new ActionContext({ [KeysInitQuery.dataFactory.name]: DF });
