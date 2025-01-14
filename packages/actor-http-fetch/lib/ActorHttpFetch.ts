@@ -64,8 +64,7 @@ export class ActorHttpFetch extends ActorHttp {
     if (httpTimeout && (!httpBodyTimeout || !response.body)) {
       clearTimeout(timeoutHandle);
     }
-
-    return response;
+    return { response };
   }
 
   /**

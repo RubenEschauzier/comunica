@@ -63,10 +63,12 @@ describe('ActorDereferenceHttp', () => {
             body.emit('error', new Error('Body stream error'));
           };
           return {
-            body,
-            headers: new Headers(),
-            status: 200,
-            url: action.input,
+            response: {
+              body,
+              headers: new Headers(),
+              status: 200,
+              url: action.input,
+            }
           };
         }
 
@@ -105,10 +107,12 @@ describe('ActorDereferenceHttp', () => {
           body = undefined;
         }
         return {
-          body,
-          headers,
-          status,
-          url,
+          response: {
+            body,
+            headers,
+            status,
+            url,
+          }
         };
       };
       actor = new ActorDereferenceHttp({

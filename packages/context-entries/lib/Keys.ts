@@ -82,6 +82,10 @@ export const KeysHttp = {
    * This can be used to, for example, force retries on server-side errors in the 500 range.
    */
   httpRetryStatusCodes: new ActionContextKey<number[]>('@comunica/bus-http:http-retry-status-codes'),
+  /**
+   * An optional HTTP compliant cache used to cache HTTP responses
+   */
+  cache: new ActionContextKey<Cache>('@comuncia/bus-http:cache')
 };
 
 export const KeysHttpWayback = {

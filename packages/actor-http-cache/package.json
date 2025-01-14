@@ -1,0 +1,45 @@
+{
+  "name": "@comunica/actor-http-cache",
+  "version": "4.0.2",
+  "description": "A cache http actor",
+  "lsd:module": true,
+  "main": "lib/index.js",
+  "typings": "lib/index",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/comunica/comunica.git",
+    "directory": "packages/actor-http-cache"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "keywords": [
+    "comunica",
+    "actor",
+    "http",
+    "cache"
+  ],
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/comunica/comunica/issues"
+  },
+  "homepage": "https://comunica.dev/",
+  "files": [
+    "components",
+    "lib/**/*.d.ts",
+    "lib/**/*.js",
+    "lib/**/*.js.map"
+  ],
+  "dependencies": {
+    "@comunica/core": "^4.0.2",
+    "@comunica/bus-http": "^4.0.2",
+    "@types/http-cache-semantics": "^4.0.4",
+    "http-cache-semantics": "^4.1.1"
+  },
+  "scripts": {
+    "build": "npm run build:ts && npm run build:components",
+    "build:ts": "node \"../../node_modules/typescript/bin/tsc\"",
+    "build:components": "componentsjs-generator"
+  }
+}
