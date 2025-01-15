@@ -1,6 +1,6 @@
 import type { IActionHttp, IActorHttpOutput, IActorHttpArgs } from '@comunica/bus-http';
 import { ActorHttp } from '@comunica/bus-http';
-import { KeysHttp } from '@comunica/context-entries';
+import { KeysCaches, KeysHttp } from '@comunica/context-entries';
 import type { TestResult } from '@comunica/core';
 import { passTest } from '@comunica/core';
 import type { IMediatorTypeTime } from '@comunica/mediatortype-time';
@@ -10,6 +10,13 @@ import { version as actorVersion } from '../package.json';
 
 import { FetchInitPreprocessor } from './FetchInitPreprocessor';
 import type { IFetchInitPreprocessor } from './IFetchInitPreprocessor';
+
+import type {
+  Request as CacheRequest,
+  Response as CacheResponse,
+} from 'http-cache-semantics';
+import CachePolicy = require('http-cache-semantics');
+
 
 export class ActorHttpFetch extends ActorHttp {
   private readonly fetchInitPreprocessor: IFetchInitPreprocessor;
@@ -59,7 +66,60 @@ export class ActorHttpFetch extends ActorHttp {
       timeoutHandle = setTimeout(() => timeoutCallback(), httpTimeout);
     }
 
+    const policyCache = action.context.get(KeysCaches.policyCache);
+
+    const requestToValidateCache = policyCache ? ActorHttpFetch.requestToCacheRequest(
+      new Request(action.input, requestInit)) : undefined;  
+    // This is a validation request, so we need to check if re-use is possible given
+    // the policy and request
+    if (action.validate && policyCache){
+      // To do validation requests we need a policy cache, so it should error when not available
+      const oldPolicy = action.validate;
+      // Empty response will be propegated by any wrappers without processing.
+      // Policy does not need to be updated
+      if (oldPolicy.satisfiesWithoutRevalidation(requestToValidateCache!)){
+        return {isValidated: true}
+      }
+      // We have to validate the response and then return it
+      else{
+        const revalidationHeaders = oldPolicy.revalidationHeaders(requestToValidateCache!);
+        const revalidationRequestInit = { ...requestInit, 
+          headers: {
+              ... (<Record<string, string>> (requestInit?.headers)), // Spread existing headers from requestInit
+              ... (<Record<string, string>> revalidationHeaders)   // Add/overwrite with revalidationHeaders
+          }
+        }
+        const response = await fetchFunction(action.input, revalidationRequestInit);
+
+        if (httpTimeout && (!httpBodyTimeout || !response.body)) {
+          clearTimeout(timeoutHandle);
+        }
+    
+        const { policy, modified } = oldPolicy.revalidatedPolicy(
+          ActorHttpFetch.requestToCacheRequest(new Request(action.input, revalidationRequestInit)),
+          ActorHttpFetch.responseToCacheResponse(response)
+        );
+        // Update the policy after revalidation
+        policyCache[ActorHttpFetch.getUrl(action.input)] = policy;
+
+        // If the server returned 304 we can reuse cache and don't have to parse the result 
+        if (!modified){
+          return { isValidated: true }
+        }
+        // If it is modified we return the response
+        return {response, isValidated: false}
+      }
+    }
+
     const response = await fetchFunction(action.input, requestInit);
+
+    // For new request make a policy and put it in cache.
+    if (policyCache){
+      const newPolicyResponse = new CachePolicy(
+        requestToValidateCache!, ActorHttpFetch.responseToCacheResponse(response)
+      );
+      policyCache[ActorHttpFetch.getUrl(action.input)] = newPolicyResponse;
+    }
 
     if (httpTimeout && (!httpBodyTimeout || !response.body)) {
       clearTimeout(timeoutHandle);
@@ -102,6 +162,23 @@ export class ActorHttpFetch extends ActorHttp {
     const bytes = new TextEncoder().encode(value);
     const binString = Array.from(bytes, byte => String.fromCodePoint(byte)).join('');
     return btoa(binString);
+  }
+
+  public static requestToCacheRequest(request: Request): CacheRequest {
+    return { ...request, headers: this.headersToHash(request.headers) };
+  }
+
+  public static responseToCacheResponse(response: Response): CacheResponse {
+      return { ...response, headers: this.headersToHash(response.headers) };
+  }
+
+  public static getUrl(input: RequestInfo): string {
+    if (input instanceof Request) {
+        return input.url; // Access the URL from the Request object
+    }
+    else {
+      return input
+    }
   }
 }
 

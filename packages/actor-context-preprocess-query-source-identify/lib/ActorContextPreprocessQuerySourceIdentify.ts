@@ -102,12 +102,10 @@ export class ActorContextPreprocessQuerySourceIdentify extends ActorContextPrepr
     if (typeof querySourceUnidentified.value === 'string' && this.cache) {
       sourcePromise = this.cache.get(querySourceUnidentified.value)!;
     }
-
     // If not in cache, identify the source
     if (!sourcePromise) {
       sourcePromise = this.mediatorQuerySourceIdentify.mediate({ querySourceUnidentified, context })
         .then(({ querySource }) => querySource);
-
       // Set in cache
       if (typeof querySourceUnidentified.value === 'string' && this.cache) {
         this.cache.set(querySourceUnidentified.value, sourcePromise);
