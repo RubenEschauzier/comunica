@@ -6,7 +6,7 @@ import type { MediatorRdfMetadataAccumulate } from '@comunica/bus-rdf-metadata-a
 import type { MediatorRdfMetadataExtract } from '@comunica/bus-rdf-metadata-extract';
 import type { MediatorRdfResolveHypermediaLinks } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { MediatorRdfResolveHypermediaLinksQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
-import { KeysInitQuery, KeysQuerySourceIdentify } from '@comunica/context-entries';
+import { KeysCaches, KeysInitQuery, KeysQuerySourceIdentify } from '@comunica/context-entries';
 import type {
   BindingsStream,
   ComunicaDataFactory,
@@ -29,6 +29,7 @@ import { Factory } from 'sparqlalgebrajs';
 import type { ISourceState } from './LinkedRdfSourcesAsyncRdfIterator';
 import { MediatedLinkedRdfSourcesAsyncRdfIterator } from './MediatedLinkedRdfSourcesAsyncRdfIterator';
 import { StreamingStoreMetadata } from './StreamingStoreMetadata';
+import CachePolicy = require('http-cache-semantics');
 
 export class QuerySourceHypermedia implements IQuerySource {
   public readonly referenceValue: string;
@@ -169,8 +170,17 @@ export class QuerySourceHypermedia implements IQuerySource {
     let quads: RDF.Stream;
     let metadata: Record<string, any>;
     try {
+      let policy: CachePolicy | undefined = undefined;
+      const storeCache = context.get(KeysCaches.storeCache);
+      const policyCache = context.get(KeysCaches.policyCache);
+      if (storeCache && policyCache){
+        policy = policyCache[link.url];
+        // console.log(policy)
+        // console.log(link.url)
+        // console.log(Array.from(Object.keys(policyCache)))
+      }
       const dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
-        .mediate({ context, url });
+        .mediate({ context, url, validate: policy });
       url = dereferenceRdfOutput.url;
 
       // Determine the metadata
@@ -253,14 +263,14 @@ export class QuerySourceHypermedia implements IQuerySource {
     context: IActionContext,
     aggregatedStore: IAggregatedStore | undefined,
   ): Promise<ISourceState> {
-    let source = this.sourcesState.get(link.url);
-    if (source) {
-      return source;
-    }
-    source = this.getSource(link, handledDatasets, context, aggregatedStore);
-    if (link.url === this.firstUrl || aggregatedStore === undefined) {
-      this.sourcesState.set(link.url, source);
-    }
+    // let source = this.sourcesState.get(link.url);
+    // if (source) {
+    //   return source;
+    // }
+    const source = this.getSource(link, handledDatasets, context, aggregatedStore);
+    // if (link.url === this.firstUrl || aggregatedStore === undefined) {
+    //   this.sourcesState.set(link.url, source);
+    // }
     return source;
   }
 

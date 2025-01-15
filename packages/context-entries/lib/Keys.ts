@@ -24,6 +24,7 @@ import type {
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
 import type { Algebra } from 'sparqlalgebrajs';
+import CachePolicy = require('http-cache-semantics');
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
@@ -87,6 +88,16 @@ export const KeysHttp = {
   cache: new ActionContextKey<Cache>('@comuncia/bus-http:cache')
 };
 
+export const KeysCaches = {
+  /**
+   * Cache for policies on what to cache
+   */
+  policyCache: new ActionContextKey<Record<string, CachePolicy>>('@comunica/actor-query-source-identify-hypermedia:policyCache'),
+  /**
+   * Cache for storing triple stores
+   */
+  storeCache: new ActionContextKey<unknown>('@comunica/actor-query-source-identify-hypermedia:storeCache')
+}
 export const KeysHttpWayback = {
   /**
    * Use the WayBack machine to get the most recent representation of a file if a link is broken.

@@ -2,7 +2,6 @@ import { ActorHttp, IActionHttp, IActorHttpOutput, IActorHttpArgs, MediatorHttp 
 import { MediatorHttpInvalidate } from '@comunica/bus-http-invalidate';
 import { KeysHttp } from '@comunica/context-entries';
 import { ActionContext, ActionContextKey, failTest, IActorTest, passTest, passTestVoid, TestResult } from '@comunica/core';
-import { request } from 'http';
 import type {
   Request as CacheRequest,
   Response as CacheResponse,
