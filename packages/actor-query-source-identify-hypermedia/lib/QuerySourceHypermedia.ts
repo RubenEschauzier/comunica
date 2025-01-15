@@ -6,7 +6,7 @@ import type { MediatorRdfMetadataAccumulate } from '@comunica/bus-rdf-metadata-a
 import type { MediatorRdfMetadataExtract } from '@comunica/bus-rdf-metadata-extract';
 import type { MediatorRdfResolveHypermediaLinks } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { MediatorRdfResolveHypermediaLinksQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
-import { KeysInitQuery, KeysQueryOperation, KeysQuerySourceIdentify } from '@comunica/context-entries';
+import { KeysCaches, KeysInitQuery, KeysQuerySourceIdentify, KeysQueryOperation } from '@comunica/context-entries';
 import type {
   BindingsStream,
   ComunicaDataFactory,
@@ -29,6 +29,7 @@ import { Factory } from 'sparqlalgebrajs';
 import type { ISourceState } from './LinkedRdfSourcesAsyncRdfIterator';
 import { MediatedLinkedRdfSourcesAsyncRdfIterator } from './MediatedLinkedRdfSourcesAsyncRdfIterator';
 import { StreamingStoreMetadata } from './StreamingStoreMetadata';
+import CachePolicy = require('http-cache-semantics');
 
 export class QuerySourceHypermedia implements IQuerySource {
   public readonly referenceValue: string;
@@ -173,6 +174,11 @@ export class QuerySourceHypermedia implements IQuerySource {
     let url = link.url;
     let quads: RDF.Stream;
     let metadata: Record<string, any>;
+
+    // Get http caches
+    const storeCache = context.get(KeysCaches.storeCache);
+    const policyCache = context.get(KeysCaches.policyCache);
+
     if (this.forceSourceType === 'sparql' && context.get(KeysQueryOperation.querySources)?.length === 1) {
       // Skip metadata extraction if we're querying over just a single SPARQL endpoint.
       quads = new Readable();
@@ -180,8 +186,28 @@ export class QuerySourceHypermedia implements IQuerySource {
       ({ metadata } = await this.mediators.mediatorMetadataAccumulate.mediate({ context, mode: 'initialize' }));
     } else {
       try {
-        const dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
-          .mediate({ context, url });
+        let policy: CachePolicy | undefined = undefined;
+        if (storeCache && policyCache){
+          policy = policyCache.get(link.url);
+          
+          // Explicit check for file source to prevent regression due to re-parsing file.
+          if (!link.url.startsWith("http://") && !link.url.startsWith("https://")){
+            if (storeCache.get(link.url)){
+              return storeCache.get(link.url)!;
+            }
+          }
+        }
+
+        let dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
+          .mediate({ context, url, validate: policy });
+        // We can use cache here.
+        if (dereferenceRdfOutput.isValidated){
+          const cachedSource = storeCache!.get(link.url);
+          if (!cachedSource){
+            throw new Error("Tried to use cached entry that does not exist")
+          }
+          return cachedSource;
+        }
         url = dereferenceRdfOutput.url;
 
         // Determine the metadata
@@ -265,14 +291,14 @@ export class QuerySourceHypermedia implements IQuerySource {
     context: IActionContext,
     aggregatedStore: IAggregatedStore | undefined,
   ): Promise<ISourceState> {
-    let source = this.sourcesState.get(link.url);
-    if (source) {
-      return source;
-    }
-    source = this.getSource(link, handledDatasets, context, aggregatedStore);
-    if (link.url === this.firstUrl || aggregatedStore === undefined) {
-      this.sourcesState.set(link.url, source);
-    }
+    // let source = this.sourcesState.get(link.url);
+    // if (source) {
+    //   return source;
+    // }
+    const source = this.getSource(link, handledDatasets, context, aggregatedStore);
+    // if (link.url === this.firstUrl || aggregatedStore === undefined) {
+    //   this.sourcesState.set(link.url, source);
+    // }
     return source;
   }
 
