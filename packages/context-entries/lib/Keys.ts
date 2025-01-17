@@ -20,11 +20,13 @@ import type {
   IStatisticBase,
   IDiscoverEventData,
   ILink,
+  ISourceState,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
 import type { Algebra } from 'sparqlalgebrajs';
 import CachePolicy = require('http-cache-semantics');
+import { LRUCache } from 'lru-cache';
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
@@ -96,7 +98,13 @@ export const KeysCaches = {
   /**
    * Cache for storing triple stores
    */
-  storeCache: new ActionContextKey<unknown>('@comunica/actor-query-source-identify-hypermedia:storeCache')
+  storeCache: new ActionContextKey<unknown>('@comunica/actor-query-source-identify-hypermedia:storeCache'),
+  /**
+   * Cache that stores sources during a single query execution. This prevents expensive http-cache policy evaluations
+   * when the same sources is used in different parts of the engine during a single query.
+   */
+  withinQueryStoreCache: new ActionContextKey<LRUCache<string, Promise<ISourceState>>>
+    ('@comunica/actor-query-source-identify-hypermedia:withinQueryStoreCache')
 }
 export const KeysHttpWayback = {
   /**

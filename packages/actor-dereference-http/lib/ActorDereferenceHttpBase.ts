@@ -71,25 +71,24 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
 
     let httpResponse: IActorHttpOutput;
     const requestTimeStart = Date.now();
-    // if (action.validate){
-    //   const requestToValidate = new Request(action.url, {headers, method: action.method})
-    //   if (action.validate.satisfiesWithoutRevalidation(this.requestToPolicyRequest(requestToValidate))){
-    //     return {
-    //       url: action.url,
-    //       data: emptyReadable(),
-    //       exists,
-    //       requestTime: 0,
-    //       isValidated: true,
-    //     }
-    //   }
-    // }
     try {
       httpResponse = await this.mediatorHttp.mediate({
         context: action.context,
         init: { headers, method: action.method },
         input: action.url,
       });
-      if (!httpResponse.response){
+      if (!httpResponse.response && action.validate){
+        console.log(`Cached: ${action.url}`)
+        return {
+          url: action.url,
+          data: emptyReadable(),
+          exists,
+          requestTime: 0,
+          isValidated: true,
+          mediaType: 'text/turtle',
+        }
+      }
+      else if (!httpResponse.response){
         return this.handleDereferenceErrors(action, new Error("Response undefined in dereference actor"))
       }
     } catch (error: unknown) {
@@ -99,10 +98,6 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
     const url = resolveRelative(httpResponse.response.url, action.url);
     const requestTime = Date.now() - requestTimeStart;
 
-    // // 304 indicates we make a revalidation request with cache
-    // if (httpResponse.status === 304){
-    //   throw new Error(`Server returned ${httpResponse.status}`);
-    // }
 
     // Only parse if retrieval was successful
     if (httpResponse.response.status !== 200) {

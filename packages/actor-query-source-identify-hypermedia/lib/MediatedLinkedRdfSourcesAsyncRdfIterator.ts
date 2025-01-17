@@ -14,10 +14,11 @@ import type {
   ILink,
   IStatisticBase,
   IDiscoverEventData,
+  ISourceState
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { Algebra, Factory } from 'sparqlalgebrajs';
-import type { SourceStateGetter, ISourceState } from './LinkedRdfSourcesAsyncRdfIterator';
+import type { SourceStateGetter } from './LinkedRdfSourcesAsyncRdfIterator';
 import { LinkedRdfSourcesAsyncRdfIterator } from './LinkedRdfSourcesAsyncRdfIterator';
 
 /**
@@ -39,7 +40,6 @@ export class MediatedLinkedRdfSourcesAsyncRdfIterator extends LinkedRdfSourcesAs
   private wasForcefullyClosed = false;
 
   public constructor(
-    cacheSize: number,
     operation: Algebra.Operation,
     queryBindingsOptions: IQueryBindingsOptions | undefined,
     context: IActionContext,
@@ -55,7 +55,6 @@ export class MediatedLinkedRdfSourcesAsyncRdfIterator extends LinkedRdfSourcesAs
     algebraFactory: Factory,
   ) {
     super(
-      cacheSize,
       operation,
       queryBindingsOptions,
       context,
