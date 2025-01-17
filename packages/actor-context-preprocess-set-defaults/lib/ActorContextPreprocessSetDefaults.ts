@@ -7,15 +7,17 @@ import { ActorContextPreprocess } from '@comunica/bus-context-preprocess';
 import { KeysCaches, KeysCore, KeysInitQuery, KeysQuerySourceIdentify } from '@comunica/context-entries';
 import type { IAction, IActorTest, TestResult } from '@comunica/core';
 import { passTestVoid } from '@comunica/core';
-import type { FunctionArgumentsCache, Logger } from '@comunica/types';
+import type { FunctionArgumentsCache, Logger, ISourceState} from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { DataFactory } from 'rdf-data-factory';
+import { LRUCache } from 'lru-cache';
 
 /**
  * A comunica Set Defaults Context Preprocess Actor.
  */
 export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
   private readonly defaultFunctionArgumentsCache: FunctionArgumentsCache;
+  private readonly withinQueryMaxCacheSize: number;
   public readonly logger: Logger;
 
   public constructor(args: IActorContextPreprocessSetDefaultsArgs) {
@@ -40,8 +42,8 @@ export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
         .setDefault(KeysInitQuery.functionArgumentsCache, this.defaultFunctionArgumentsCache)
         .setDefault(KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores, new Map())
         .setDefault(KeysInitQuery.dataFactory, new DataFactory())
-        .setDefault(KeysCaches.policyCache, {})
-        .setDefault(KeysCaches.storeCache, {});
+        .setDefault(KeysCaches.withinQueryStoreCache, 
+          new LRUCache<string, Promise<ISourceState>>({ max: this.withinQueryMaxCacheSize }))
 
       // Handle default query format
       let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };
@@ -71,4 +73,10 @@ export interface IActorContextPreprocessSetDefaultsArgs extends IActorContextPre
    * @default {a <npmd:@comunica/logger-void/^4.0.0/components/LoggerVoid.jsonld#LoggerVoid>}
    */
   logger: Logger;
+  /**
+   * The maximum number of entries in the within-query LRU cache, set to 0 to disable.
+   * @range {integer}
+   * @default {100}
+   */
+  withinQueryMaxCacheSize: number
 }

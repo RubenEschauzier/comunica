@@ -17,6 +17,7 @@ import type {
   IQuerySource,
   MetadataBindings,
   ILink,
+  ISourceState
 } from '@comunica/types';
 import type { BindingsFactory } from '@comunica/utils-bindings-factory';
 import type * as RDF from '@rdfjs/types';
@@ -26,7 +27,6 @@ import { LRUCache } from 'lru-cache';
 import { Readable } from 'readable-stream';
 import type { Algebra } from 'sparqlalgebrajs';
 import { Factory } from 'sparqlalgebrajs';
-import type { ISourceState } from './LinkedRdfSourcesAsyncRdfIterator';
 import { MediatedLinkedRdfSourcesAsyncRdfIterator } from './MediatedLinkedRdfSourcesAsyncRdfIterator';
 import { StreamingStoreMetadata } from './StreamingStoreMetadata';
 import CachePolicy = require('http-cache-semantics');
@@ -41,18 +41,11 @@ export class QuerySourceHypermedia implements IQuerySource {
   public readonly dataFactory: ComunicaDataFactory;
   public readonly bindingsFactory: BindingsFactory;
 
-  /**
-   * A cache for source URLs to source states.
-   */
-  public sourcesState: LRUCache<string, Promise<ISourceState>>;
-
-  private readonly cacheSize: number;
   private readonly maxIterators: number;
 
   private readonly emitPartialCardinalities: boolean;
 
   public constructor(
-    cacheSize: number,
     firstUrl: string,
     forceSourceType: string | undefined,
     maxIterators: number,
@@ -65,7 +58,6 @@ export class QuerySourceHypermedia implements IQuerySource {
 
   ) {
     this.referenceValue = firstUrl;
-    this.cacheSize = cacheSize;
     this.firstUrl = firstUrl;
     this.forceSourceType = forceSourceType;
     this.maxIterators = maxIterators;
@@ -75,7 +67,6 @@ export class QuerySourceHypermedia implements IQuerySource {
     this.logWarning = logWarning;
     this.dataFactory = dataFactory;
     this.bindingsFactory = bindingsFactory;
-    this.sourcesState = new LRUCache<string, Promise<ISourceState>>({ max: this.cacheSize });
   }
 
   public async getSelectorShape(context: IActionContext): Promise<FragmentSelectorShape> {
@@ -97,9 +88,9 @@ export class QuerySourceHypermedia implements IQuerySource {
         this.bindingsFactory,
       ).queryBindings(operation, context);
     }
-
-    // Initialize the sources state on first call
-    if (this.sourcesState.size === 0) {
+    
+    // Initialize the within query cache on first call
+    if (context.getSafe(KeysCaches.withinQueryStoreCache).size === 0) {
       this.getSourceCached({ url: this.firstUrl }, {}, context, aggregatedStore)
         .catch(error => it.destroy(error));
     }
@@ -107,7 +98,6 @@ export class QuerySourceHypermedia implements IQuerySource {
     const dataFactory: ComunicaDataFactory = context.getSafe(KeysInitQuery.dataFactory);
     const algebraFactory = new Factory(dataFactory);
     const it: MediatedLinkedRdfSourcesAsyncRdfIterator = new MediatedLinkedRdfSourcesAsyncRdfIterator(
-      this.cacheSize,
       operation,
       options,
       context,
@@ -291,14 +281,16 @@ export class QuerySourceHypermedia implements IQuerySource {
     context: IActionContext,
     aggregatedStore: IAggregatedStore | undefined,
   ): Promise<ISourceState> {
-    // let source = this.sourcesState.get(link.url);
-    // if (source) {
-    //   return source;
-    // }
-    const source = this.getSource(link, handledDatasets, context, aggregatedStore);
-    // if (link.url === this.firstUrl || aggregatedStore === undefined) {
-    //   this.sourcesState.set(link.url, source);
-    // }
+    const withinQueryCache = context.getSafe(KeysCaches.withinQueryStoreCache);
+    let source = withinQueryCache.get(link.url);
+    if (source) {
+      return source;
+    }
+    console.log("Not within query cache.")
+    source = this.getSource(link, handledDatasets, context, aggregatedStore);
+    if (link.url === this.firstUrl || aggregatedStore === undefined) {
+      withinQueryCache.set(link.url, source);
+    }
     return source;
   }
 
