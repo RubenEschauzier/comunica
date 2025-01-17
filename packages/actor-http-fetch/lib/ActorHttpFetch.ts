@@ -70,17 +70,18 @@ export class ActorHttpFetch extends ActorHttp {
 
     const requestToValidateCache = policyCache ? ActorHttpFetch.requestToCacheRequest(
       new Request(action.input, requestInit)) : undefined;  
+
     // This is a validation request, so we need to check if re-use is possible given
     // the policy and request
     if (action.validate && policyCache){
-      // To do validation requests we need a policy cache, so it should error when not available
       const oldPolicy = action.validate;
+
       // Empty response will be propegated by any wrappers without processing.
       // Policy does not need to be updated
       if (oldPolicy.satisfiesWithoutRevalidation(requestToValidateCache!)){
-        console.log("Satisifies without validation")
-        return {isValidated: true}
+        return { isValidated: true }
       }
+
       // We have to validate the response and then return it
       else{
         const revalidationHeaders = oldPolicy.revalidationHeaders(requestToValidateCache!);
@@ -101,14 +102,13 @@ export class ActorHttpFetch extends ActorHttp {
           ActorHttpFetch.responseToCacheResponse(response)
         );
         // Update the policy after revalidation
-        policyCache[ActorHttpFetch.getUrl(action.input)] = policy;
+        policyCache.set(ActorHttpFetch.getUrl(action.input), policy);
 
         // If the server returned 304 we can reuse cache and don't have to parse the result 
         if (!modified){
-          console.log("Validated and unchanged")
           return { isValidated: true }
         }
-        // If it is modified we return the response
+        // If it is modified we return the response and process like normal
         return {response, isValidated: false}
       }
     }
@@ -120,7 +120,7 @@ export class ActorHttpFetch extends ActorHttp {
       const newPolicyResponse = new CachePolicy(
         requestToValidateCache!, ActorHttpFetch.responseToCacheResponse(response)
       );
-      policyCache[ActorHttpFetch.getUrl(action.input)] = newPolicyResponse;
+      policyCache.set(ActorHttpFetch.getUrl(action.input), newPolicyResponse);
     }
 
     if (httpTimeout && (!httpBodyTimeout || !response.body)) {
