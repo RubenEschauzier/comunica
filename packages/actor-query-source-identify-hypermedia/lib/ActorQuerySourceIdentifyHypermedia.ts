@@ -31,7 +31,6 @@ export class ActorQuerySourceIdentifyHypermedia extends ActorQuerySourceIdentify
   public readonly mediatorRdfResolveHypermediaLinks: MediatorRdfResolveHypermediaLinks;
   public readonly mediatorRdfResolveHypermediaLinksQueue: MediatorRdfResolveHypermediaLinksQueue;
   public readonly mediatorMergeBindingsContext: MediatorMergeBindingsContext;
-  public readonly cacheSize: number;
   public readonly maxIterators: number;
   public readonly aggregateTraversalStore: boolean;
 
@@ -51,7 +50,6 @@ export class ActorQuerySourceIdentifyHypermedia extends ActorQuerySourceIdentify
     return {
       querySource: {
         source: new QuerySourceHypermedia(
-          this.cacheSize,
           <string> action.querySourceUnidentified.value,
           action.querySourceUnidentified.type,
           this.maxIterators,
@@ -77,12 +75,6 @@ export class ActorQuerySourceIdentifyHypermedia extends ActorQuerySourceIdentify
 }
 
 export interface IActorQuerySourceIdentifyHypermediaArgs extends IActorQuerySourceIdentifyArgs {
-  /**
-   * The maximum number of entries in the LRU cache, set to 0 to disable.
-   * @range {integer}
-   * @default {100}
-   */
-  cacheSize: number;
   /**
    * The maximum number of links that can be followed in parallel.
    * @default {64}

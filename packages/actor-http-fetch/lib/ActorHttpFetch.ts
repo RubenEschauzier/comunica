@@ -78,6 +78,7 @@ export class ActorHttpFetch extends ActorHttp {
       // Empty response will be propegated by any wrappers without processing.
       // Policy does not need to be updated
       if (oldPolicy.satisfiesWithoutRevalidation(requestToValidateCache!)){
+        console.log("Satisifies without validation")
         return {isValidated: true}
       }
       // We have to validate the response and then return it
@@ -104,6 +105,7 @@ export class ActorHttpFetch extends ActorHttp {
 
         // If the server returned 304 we can reuse cache and don't have to parse the result 
         if (!modified){
+          console.log("Validated and unchanged")
           return { isValidated: true }
         }
         // If it is modified we return the response
