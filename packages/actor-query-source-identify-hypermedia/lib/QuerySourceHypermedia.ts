@@ -23,7 +23,6 @@ import type { BindingsFactory } from '@comunica/utils-bindings-factory';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import { TransformIterator } from 'asynciterator';
-import { LRUCache } from 'lru-cache';
 import { Readable } from 'readable-stream';
 import type { Algebra } from 'sparqlalgebrajs';
 import { Factory } from 'sparqlalgebrajs';
@@ -165,9 +164,7 @@ export class QuerySourceHypermedia implements IQuerySource {
       const policyCache = context.get(KeysCaches.policyCache);
 
       if (storeCache && policyCache){
-        policy = policyCache[link.url];
-        console.log(`Policy undefined?: ${policy === undefined}`)
-        console.log(Object.keys(policyCache))
+        policy = policyCache.get(link.url);
       }
 
       const dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf

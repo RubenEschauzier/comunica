@@ -1,5 +1,5 @@
 import type { IActionSparqlSerialize, IActorQueryResultSerializeOutput } from '@comunica/bus-query-result-serialize';
-import { KeysHttp, KeysInitQuery } from '@comunica/context-entries';
+import { KeysCaches, KeysHttp, KeysInitQuery } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
 import type {
   IActionContext,
@@ -20,7 +20,9 @@ import type {
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
-import { LRUWebCache } from '../../actor-http-cache/lib/LRUWebCache';
+import { LRUCache } from 'lru-cache';
+
+import CachePolicy = require('http-cache-semantics');
 
 /**
  * Base implementation of a Comunica query engine.
@@ -33,14 +35,17 @@ export class QueryEngineBase<
 >
 implements IQueryEngine<QueryStringContextInner, QueryAlgebraContextInner> {
   private readonly actorInitQuery: ActorInitQueryBase;
-  private readonly httpCache: Cache
+  private readonly policyCache: LRUCache<string, CachePolicy>;
+  private readonly storeCache: LRUCache<string, any>;
+
   public constructor(actorInitQuery: ActorInitQueryBase) {
     this.actorInitQuery = actorInitQuery;
     // Temp location for cache creation
-    this.httpCache = new LRUWebCache({
-      maxSize: 10000,                 // Maximum 500 items in the cache
-      updateAgeOnGet: true,     // Refresh TTL on access
-    }, true)
+    this.policyCache =
+      new LRUCache<string, CachePolicy>({ max: 1000 });
+    this.storeCache =
+      new LRUCache<string, CachePolicy>({ max: 1000 });
+
   }
 
   public async queryBindings<QueryFormatTypeInner extends QueryFormatType>(
@@ -136,7 +141,8 @@ implements IQueryEngine<QueryStringContextInner, QueryAlgebraContextInner> {
     if (actionContext.get(KeysInitQuery.invalidateCache)) {
       await this.invalidateHttpCache();
     }
-    actionContext = actionContext.set(KeysHttp.cache, this.httpCache);
+    actionContext = actionContext.set(KeysCaches.policyCache, this.policyCache)
+                                 .set(KeysCaches.storeCache, this.storeCache);
 
     // Invoke query process
     const { result } = await this.actorInitQuery.mediatorQueryProcess.mediate({ query, context: actionContext });

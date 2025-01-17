@@ -76,9 +76,9 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
         context: action.context,
         init: { headers, method: action.method },
         input: action.url,
+        validate: action.validate
       });
       if (!httpResponse.response && action.validate){
-        console.log(`Cached: ${action.url}`)
         return {
           url: action.url,
           data: emptyReadable(),
@@ -127,14 +127,6 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
       mediaType: mediaType === 'text/plain' ? undefined : mediaType,
     };
   }
-
-  // private requestToPolicyRequest(request: Request){
-  //   const hash: Record<string, string> = {};
-  //   request.headers.forEach((value, key) => {
-  //     hash[key] = value;
-  //   });
-  //   return { ...request, headers: hash };
-  // }
 
   protected abstract getMaxAcceptHeaderLength(): number;
 }
