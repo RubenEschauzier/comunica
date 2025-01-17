@@ -95,11 +95,12 @@ export const KeysCaches = {
   /**
    * Cache for policies on what to cache
    */
-  policyCache: new ActionContextKey<Record<string, CachePolicy>>('@comunica/actor-query-source-identify-hypermedia:policyCache'),
+  policyCache: new ActionContextKey<LRUCache<string, CachePolicy>>
+    ('@comunica/actor-query-source-identify-hypermedia:policyCache'),
   /**
    * Cache for storing triple stores
    */
-  storeCache: new ActionContextKey<unknown>('@comunica/actor-query-source-identify-hypermedia:storeCache'),
+  storeCache: new ActionContextKey<LRUCache<string, any>>('@comunica/actor-query-source-identify-hypermedia:storeCache'),
   /**
    * Cache that stores sources during a single query execution. This prevents expensive http-cache policy evaluations
    * when the same sources is used in different parts of the engine during a single query.
