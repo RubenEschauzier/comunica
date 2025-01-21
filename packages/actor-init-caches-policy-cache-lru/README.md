@@ -1,8 +1,8 @@
-# Comunica Cache Http Actor
+# Comunica Policy Cache Lru Init Caches Actor
 
-[![npm version](https://badge.fury.io/js/%40comunica%2Factor-http-cache.svg)](https://www.npmjs.com/package/@comunica/actor-http-cache)
+[![npm version](https://badge.fury.io/js/%40comunica%2Factor-init-caches-policy-cache-lru.svg)](https://www.npmjs.com/package/@comunica/actor-init-caches-policy-cache-lru)
 
-A comunica Cache Http Actor.
+A comunica Policy Cache Lru Init Caches Actor.
 
 This module is part of the [Comunica framework](https://github.com/comunica/comunica),
 and should only be used by [developers that want to build their own query engine](https://comunica.dev/docs/modify/).
@@ -12,7 +12,7 @@ and should only be used by [developers that want to build their own query engine
 ## Install
 
 ```bash
-$ yarn add @comunica/actor-http-cache
+$ yarn add @comunica/actor-init-caches-policy-cache-lru
 ```
 
 ## Configure
@@ -22,13 +22,13 @@ After installing, this package can be added to your engine's configuration as fo
 {
   "@context": [
     ...
-    "https://linkedsoftwaredependencies.org/bundles/npm/@comunica/actor-http-cache/^1.0.0/components/context.jsonld"  
+    "https://linkedsoftwaredependencies.org/bundles/npm/@comunica/actor-init-caches-policy-cache-lru/^1.0.0/components/context.jsonld"  
   ],
   "actors": [
     ...
     {
-      "@id": "urn:comunica:default:http/actors#cache",
-      "@type": "ActorHttpCache"
+      "@id": "urn:comunica:default:init-caches/actors#policy-cache-lru",
+      "@type": "ActorInitCachesPolicyCacheLru"
     }
   ]
 }

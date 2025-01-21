@@ -158,24 +158,26 @@ export class QuerySourceHypermedia implements IQuerySource {
     let url = link.url;
     let quads: RDF.Stream;
     let metadata: Record<string, any>;
+    
+    // Get http caches
+    const storeCache = context.get(KeysCaches.storeCache);
+    const policyCache = context.get(KeysCaches.policyCache);
+
     try {
       let policy: CachePolicy | undefined = undefined;
-      const storeCache = context.get(KeysCaches.storeCache);
-      const policyCache = context.get(KeysCaches.policyCache);
-
       if (storeCache && policyCache){
         policy = policyCache.get(link.url);
       }
 
-      const dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
+      let dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
         .mediate({ context, url, validate: policy });
-
       // We can use cache here.
       if (dereferenceRdfOutput.isValidated){
-        console.log("Cached by HTTP cache")
-      }
-      else{
-        console.log("NOT Cached by HTTP cache")
+        const cachedSource = storeCache!.get(link.url);
+        if (!cachedSource){
+          throw new Error("Tried to use cached entry that does not exist")
+        }
+        return cachedSource;
       }
       url = dereferenceRdfOutput.url;
 
@@ -219,11 +221,13 @@ export class QuerySourceHypermedia implements IQuerySource {
       // so the user would not be notified of something going wrong otherwise.
       this.logWarning(`Metadata extraction for ${url} failed: ${(<Error> error).message}`);
     }
-
     // Aggregate all discovered quads into a store.
     aggregatedStore?.setBaseMetadata(<MetadataBindings> metadata, false);
     aggregatedStore?.containedSources.add(link.url);
-    aggregatedStore?.import(quads);
+    aggregatedStore?.import(quads).on('error', (err) => {
+      console.log(`Error importing: ${err}`)
+    });
+    
 
     // Determine the source
     const { source, dataset } = await this.mediators.mediatorQuerySourceIdentifyHypermedia.mediate({
@@ -241,7 +245,9 @@ export class QuerySourceHypermedia implements IQuerySource {
       // and next page links are followed after that.
       handledDatasets[dataset] = true;
     }
-
+    // If storeCache is available cache the constructed source
+    storeCache?.set(link.url, { link, source, metadata: <MetadataBindings> metadata, handledDatasets });
+    
     return { link, source, metadata: <MetadataBindings> metadata, handledDatasets };
   }
 
@@ -264,7 +270,6 @@ export class QuerySourceHypermedia implements IQuerySource {
     if (source) {
       return source;
     }
-    console.log("Not within query cache.")
     source = this.getSource(link, handledDatasets, context, aggregatedStore);
     if (link.url === this.firstUrl || aggregatedStore === undefined) {
       withinQueryCache.set(link.url, source);
