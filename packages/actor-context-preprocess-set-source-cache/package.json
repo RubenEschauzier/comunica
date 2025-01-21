@@ -1,14 +1,14 @@
 {
-  "name": "@comunica/actor-init-caches-policy-cache-lru",
+  "name": "@comunica/actor-context-preprocess-set-source-cache",
   "version": "4.0.2",
-  "description": "A policy-cache-lru init-caches actor",
+  "description": "A set-source-cache context-preprocess actor",
   "lsd:module": true,
   "main": "lib/index.js",
   "typings": "lib/index",
   "repository": {
     "type": "git",
     "url": "https://github.com/comunica/comunica.git",
-    "directory": "packages/actor-init-caches-policy-cache-lru"
+    "directory": "packages/actor-context-preprocess-set-source-cache"
   },
   "publishConfig": {
     "access": "public"
@@ -17,8 +17,8 @@
   "keywords": [
     "comunica",
     "actor",
-    "init-caches",
-    "policy-cache-lru"
+    "context-preprocess",
+    "set-source-cache"
   ],
   "license": "MIT",
   "bugs": {
@@ -36,8 +36,8 @@
   },
   "dependencies": {
     "@comunica/core": "^4.0.2",
-    "@comunica/bus-init-caches": "^4.0.2",
-    "http-cache-semantics": "^4.1.1"
+    "@comunica/bus-context-preprocess": "^4.0.2",
+    "lru-cache": "^10.0.0"
   },
   "scripts": {
     "build": "npm run build:ts && npm run build:components",

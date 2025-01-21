@@ -4,6 +4,7 @@
 
     "https://linkedsoftwaredependencies.org/bundles/npm/@comunica/actor-context-preprocess-convert-shortcuts/^4.0.0/components/context.jsonld",
     "https://linkedsoftwaredependencies.org/bundles/npm/@comunica/actor-context-preprocess-set-defaults/^4.0.0/components/context.jsonld",
+    "https://linkedsoftwaredependencies.org/bundles/npm/@comunica/actor-context-preprocess-set-source-cache/^4.0.0/components/context.jsonld",
     "https://linkedsoftwaredependencies.org/bundles/npm/@comunica/actor-context-preprocess-source-to-destination/^4.0.0/components/context.jsonld",
     "https://linkedsoftwaredependencies.org/bundles/npm/@comunica/actor-context-preprocess-query-source-identify/^4.0.0/components/context.jsonld",
     "https://linkedsoftwaredependencies.org/bundles/npm/@comunica/actor-context-preprocess-query-source-skolemize/^4.0.0/components/context.jsonld"
@@ -34,6 +35,11 @@
     {
       "@id": "urn:comunica:default:context-preprocess/actors#query-source-skolemize",
       "@type": "ActorContextPreprocessQuerySourceSkolemize"
+    },
+    {
+      "@id": "urn:comunica:default:context-preprocess/actors#set-source-cache",
+      "@type": "ActorContextPreprocessSetSourceCache",
+      "cacheSize": 1024
     }
   ]
 }

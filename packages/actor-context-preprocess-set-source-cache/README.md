@@ -1,8 +1,8 @@
-# Comunica Policy Cache Lru Init Caches Actor
+# Comunica Set Source Cache Context Preprocess Actor
 
-[![npm version](https://badge.fury.io/js/%40comunica%2Factor-init-caches-policy-cache-lru.svg)](https://www.npmjs.com/package/@comunica/actor-init-caches-policy-cache-lru)
+[![npm version](https://badge.fury.io/js/%40comunica%2Factor-context-preprocess-set-source-cache.svg)](https://www.npmjs.com/package/@comunica/actor-context-preprocess-set-source-cache)
 
-A comunica Policy Cache Lru Init Caches Actor.
+A comunica Set Source Cache Context Preprocess Actor.
 
 This module is part of the [Comunica framework](https://github.com/comunica/comunica),
 and should only be used by [developers that want to build their own query engine](https://comunica.dev/docs/modify/).
@@ -12,7 +12,7 @@ and should only be used by [developers that want to build their own query engine
 ## Install
 
 ```bash
-$ yarn add @comunica/actor-init-caches-policy-cache-lru
+$ yarn add @comunica/actor-context-preprocess-set-source-cache
 ```
 
 ## Configure
@@ -22,13 +22,13 @@ After installing, this package can be added to your engine's configuration as fo
 {
   "@context": [
     ...
-    "https://linkedsoftwaredependencies.org/bundles/npm/@comunica/actor-init-caches-policy-cache-lru/^1.0.0/components/context.jsonld"  
+    "https://linkedsoftwaredependencies.org/bundles/npm/@comunica/actor-context-preprocess-set-source-cache/^1.0.0/components/context.jsonld"  
   ],
   "actors": [
     ...
     {
-      "@id": "urn:comunica:default:init-caches/actors#policy-cache-lru",
-      "@type": "ActorInitCachesPolicyCacheLru"
+      "@id": "urn:comunica:default:context-preprocess/actors#set-source-cache",
+      "@type": "ActorContextPreprocessSetSourceCache"
     }
   ]
 }
