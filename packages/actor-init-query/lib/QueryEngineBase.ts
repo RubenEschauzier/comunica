@@ -1,5 +1,5 @@
 import type { IActionSparqlSerialize, IActorQueryResultSerializeOutput } from '@comunica/bus-query-result-serialize';
-import { KeysCaches, KeysHttp, KeysInitQuery } from '@comunica/context-entries';
+import { KeysInitQuery } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
 import type {
   IActionContext,
@@ -20,7 +20,6 @@ import type {
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
-import { IActorInitCachesOutput } from '@comunica/bus-init-caches';
 
 
 /**
@@ -34,21 +33,8 @@ export class QueryEngineBase<
 >
 implements IQueryEngine<QueryStringContextInner, QueryAlgebraContextInner> {
   private readonly actorInitQuery: ActorInitQueryBase;
-  private readonly cacheInitializations: Promise<IActorInitCachesOutput>;
-  // private readonly policyCache: LRUCache<string, CachePolicy>;
-  // private readonly storeCache: LRUCache<string, any>;
-
   public constructor(actorInitQuery: ActorInitQueryBase) {
     this.actorInitQuery = actorInitQuery;
-    this.cacheInitializations = this.actorInitQuery.mediatorInitCaches.mediate(
-      {cacheContext: new ActionContext(), context: new ActionContext()}
-    );
-    // Temp location for cache creation
-    // this.policyCache =
-    //   new LRUCache<string, CachePolicy>({ max: 1000 });
-    // this.storeCache =
-    //   new LRUCache<string, CachePolicy>({ max: 1000 });
-
   }
 
   public async queryBindings<QueryFormatTypeInner extends QueryFormatType>(
@@ -144,12 +130,12 @@ implements IQueryEngine<QueryStringContextInner, QueryAlgebraContextInner> {
     if (actionContext.get(KeysInitQuery.invalidateCache)) {
       await this.invalidateHttpCache();
     }
-    
-    // Set persistent caches in query context
-    const caches = ( await this.cacheInitializations ).cacheContext;
-    for (const key of caches.keys()) {
-        actionContext = actionContext.set(key, caches.getSafe(key));
-    }
+
+    // // Set persistent caches in query context
+    // const caches = ( await this.cacheInitializations ).cacheContext;
+    // for (const key of caches.keys()) {
+    //     actionContext = actionContext.set(key, caches.getSafe(key));
+    // }
 
     // Invoke query process
     const { result } = await this.actorInitQuery.mediatorQueryProcess.mediate({ query, context: actionContext });

@@ -1,18 +1,18 @@
 import { Bus } from '@comunica/core';
-import { ActorInitCachesStoreCacheLru } from '../lib/ActorInitCachesStoreCacheLru';
+import { ActorContextPreprocessSetSourceCache } from '../lib/ActorContextPreprocessSetSourceCache';
 
-describe('ActorInitCachesStoreCacheLru', () => {
+describe('ActorContextPreprocessSetSourceCache', () => {
   let bus: any;
 
   beforeEach(() => {
     bus = new Bus({ name: 'bus' });
   });
 
-  describe('An ActorInitCachesStoreCacheLru instance', () => {
-    let actor: ActorInitCachesStoreCacheLru;
+  describe('An ActorContextPreprocessSetSourceCache instance', () => {
+    let actor: ActorContextPreprocessSetSourceCache;
 
     beforeEach(() => {
-      actor = new ActorInitCachesStoreCacheLru({ name: 'actor', bus });
+      actor = new ActorContextPreprocessSetSourceCache({ name: 'actor', bus });
     });
 
     it('should test', () => {
