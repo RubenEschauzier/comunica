@@ -85,10 +85,6 @@ export const KeysHttp = {
    * This can be used to, for example, force retries on server-side errors in the 500 range.
    */
   httpRetryStatusCodes: new ActionContextKey<number[]>('@comunica/bus-http:http-retry-status-codes'),
-  /**
-   * An optional HTTP compliant cache used to cache HTTP responses
-   */
-  cache: new ActionContextKey<Cache>('@comuncia/bus-http:cache')
 };
 
 export const KeysCaches = {
@@ -100,7 +96,8 @@ export const KeysCaches = {
   /**
    * Cache for storing triple stores
    */
-  storeCache: new ActionContextKey<LRUCache<string, any>>('@comunica/actor-query-source-identify-hypermedia:storeCache'),
+  storeCache: new ActionContextKey<LRUCache<string, ISourceState>>
+  ('@comunica/actor-query-source-identify-hypermedia:storeCache'),
   /**
    * Cache that stores sources during a single query execution. This prevents expensive http-cache policy evaluations
    * when the same sources is used in different parts of the engine during a single query.

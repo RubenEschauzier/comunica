@@ -39,11 +39,16 @@
     "build:ts": "node \"../../node_modules/typescript/bin/tsc\"",
     "build:components": "componentsjs-generator"
   },
+  "devDependencies": {
+    "@types/http-cache-semantics": "^4.0.4"
+  },
+  
   "dependencies": {
     "@comunica/core": "^4.1.0",
     "@jeswr/stream-to-string": "^2.0.0",
     "is-stream": "^2.0.1",
     "readable-from-web": "^1.0.0",
-    "readable-stream-node-to-web": "^1.0.1"
+    "readable-stream-node-to-web": "^1.0.1",
+    "http-cache-semantics": "^4.1.1"
   }
 }
