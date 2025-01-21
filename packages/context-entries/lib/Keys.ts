@@ -22,6 +22,7 @@ import type {
   PartialResult,
   ILink,
   ISourceState,
+  IStoreCacheEntry,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
@@ -88,6 +89,9 @@ export const KeysHttp = {
 };
 
 export const KeysCaches = {
+  storeCacheTest: new ActionContextKey<LRUCache<string, IStoreCacheEntry>>(
+    ('@comunica/actor-query-source-identify-hypermedia:storeCacheTest'),
+  ),
   /**
    * Cache for policies on what to cache
    */
