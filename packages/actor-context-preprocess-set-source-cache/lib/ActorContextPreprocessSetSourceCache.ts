@@ -33,12 +33,11 @@ export class ActorContextPreprocessSetSourceCache extends ActorContextPreprocess
 
   public async run(action: IActionContextPreprocess): Promise<IActorContextPreprocessOutput> {
     let context = action.context;
-    if (action.initialize){
-      context = context
-        .setDefault(KeysCaches.storeCacheTest, this.storeCacheTest )
-        .setDefault(KeysCaches.policyCache, this.policyCache )
-        .setDefault(KeysCaches.storeCache, this.storeCache );
-    }
+    context = context
+      .setDefault(KeysCaches.storeCacheTest, this.storeCacheTest )
+      .setDefault(KeysCaches.policyCache, this.policyCache )
+      .setDefault(KeysCaches.storeCache, this.storeCache );
+    
     return { context }
   }
 }
