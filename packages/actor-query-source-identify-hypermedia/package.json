@@ -40,6 +40,9 @@
     "build:ts": "node \"../../node_modules/typescript/bin/tsc\"",
     "build:components": "componentsjs-generator"
   },
+  "devDependencies": {
+    "@types/http-cache-semantics": "^4.0.4"
+  },
   "dependencies": {
     "@comunica/actor-query-source-identify-rdfjs": "^4.4.1",
     "@comunica/bus-dereference-rdf": "^4.4.1",
@@ -62,6 +65,7 @@
     "lru-cache": "^10.0.0",
     "rdf-streaming-store": "^2.1.1",
     "readable-stream": "^4.5.2",
-    "sparqlalgebrajs": "^4.3.8"
+    "sparqlalgebrajs": "^4.3.8",
+    "http-cache-semantics": "^4.1.1"
   }
 }

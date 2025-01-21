@@ -1,6 +1,7 @@
 import type { MediatorHttpInvalidate } from '@comunica/bus-http-invalidate';
 import type { IActionInit, IActorInitArgs, IActorOutputInit } from '@comunica/bus-init';
 import { ActorInit } from '@comunica/bus-init';
+import { MediatorInitCaches } from '@comunica/bus-init-caches';
 import type { MediatorQueryProcess } from '@comunica/bus-query-process';
 import type {
   MediatorQueryResultSerializeHandle,
@@ -18,6 +19,7 @@ export class ActorInitQueryBase extends ActorInit implements IActorInitQueryBase
   public readonly mediatorQueryResultSerializeMediaTypeCombiner: MediatorQueryResultSerializeMediaTypes;
   public readonly mediatorQueryResultSerializeMediaTypeFormatCombiner: MediatorQueryResultSerializeMediaTypeFormats;
   public readonly mediatorHttpInvalidate: MediatorHttpInvalidate;
+  public readonly mediatorInitCaches: MediatorInitCaches;
   public readonly mediatorQueryProcess: MediatorQueryProcess;
 
   public readonly queryString?: string;
@@ -55,7 +57,10 @@ export interface IActorInitQueryBaseArgs extends IActorInitArgs {
    * The HTTP cache invalidation mediator
    */
   mediatorHttpInvalidate: MediatorHttpInvalidate;
-
+  /**
+   * The Init Caches mediator responsible for creating the caches during engine initialization
+   */
+  mediatorInitCaches: MediatorInitCaches;
   /**
    * A SPARQL query string
    */

@@ -240,11 +240,13 @@ export class QuerySourceHypermedia implements IQuerySource {
         this.logWarning(`Metadata extraction for ${url} failed: ${(<Error>error).message}`);
       }
     }
-
     // Aggregate all discovered quads into a store.
     aggregatedStore?.setBaseMetadata(<MetadataBindings> metadata, false);
     aggregatedStore?.containedSources.add(link.url);
-    aggregatedStore?.import(quads);
+    aggregatedStore?.import(quads).on('error', (err) => {
+      console.log(`Error importing: ${err}`)
+    });
+    
 
     // Determine the source
     const { source, dataset } = await this.mediators.mediatorQuerySourceIdentifyHypermedia.mediate({
@@ -262,7 +264,9 @@ export class QuerySourceHypermedia implements IQuerySource {
       // and next page links are followed after that.
       handledDatasets[dataset] = true;
     }
-
+    // If storeCache is available cache the constructed source
+    storeCache?.set(link.url, { link, source, metadata: <MetadataBindings> metadata, handledDatasets });
+    
     return { link, source, metadata: <MetadataBindings> metadata, handledDatasets };
   }
 
@@ -285,7 +289,6 @@ export class QuerySourceHypermedia implements IQuerySource {
     if (source) {
       return source;
     }
-    console.log("Not within query cache.")
     source = this.getSource(link, handledDatasets, context, aggregatedStore);
     if (link.url === this.firstUrl || aggregatedStore === undefined) {
       withinQueryCache.set(link.url, source);

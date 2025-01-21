@@ -1,14 +1,14 @@
 {
-  "name": "@comunica/actor-http-cache",
+  "name": "@comunica/actor-init-caches-policy-cache-lru",
   "version": "4.0.2",
-  "description": "A cache http actor",
+  "description": "A policy-cache-lru init-caches actor",
   "lsd:module": true,
   "main": "lib/index.js",
   "typings": "lib/index",
   "repository": {
     "type": "git",
     "url": "https://github.com/comunica/comunica.git",
-    "directory": "packages/actor-http-cache"
+    "directory": "packages/actor-init-caches-policy-cache-lru"
   },
   "publishConfig": {
     "access": "public"
@@ -17,8 +17,8 @@
   "keywords": [
     "comunica",
     "actor",
-    "http",
-    "cache"
+    "init-caches",
+    "policy-cache-lru"
   ],
   "license": "MIT",
   "bugs": {
@@ -31,10 +31,12 @@
     "lib/**/*.js",
     "lib/**/*.js.map"
   ],
+  "devDependencies": {
+    "@types/http-cache-semantics": "^4.0.4"
+  },
   "dependencies": {
     "@comunica/core": "^4.0.2",
-    "@comunica/bus-http": "^4.0.2",
-    "@types/http-cache-semantics": "^4.0.4",
+    "@comunica/bus-init-caches": "^4.0.2",
     "http-cache-semantics": "^4.1.1"
   },
   "scripts": {
