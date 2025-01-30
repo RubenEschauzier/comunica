@@ -19,7 +19,6 @@ export class JoinOrderEnumerator {
 
   public search(): JoinTree {
     const bestPlan: Map<string, JoinTree> = new Map();
-    // Console.log(this.entries);
     for (let i = 0; i < this.entries.length; i++) {
       const singleton = new Set([ i ]);
       const singletonKey = JSON.stringify(JoinOrderEnumerator.sortArrayAsc([ ...singleton ]));

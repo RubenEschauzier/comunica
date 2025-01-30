@@ -8,7 +8,7 @@ import { KeysInitQuery } from '@comunica/context-entries';
 import type { IActorTest, TestResult } from '@comunica/core';
 import { passTestVoid } from '@comunica/core';
 import type { ComunicaDataFactory, FragmentSelectorShape, IActionContext, IQuerySourceWrapper } from '@comunica/types';
-import { doesShapeAcceptOperation, getOperationSource } from '@comunica/utils-query-operation';
+import { doesShapeAcceptOperation, getOperationSource, getSources } from '@comunica/utils-query-operation';
 import type * as RDF from '@rdfjs/types';
 import { mapTermsNested, uniqTerms } from 'rdf-terms';
 import { Factory, Algebra, Util } from 'sparqlalgebrajs';
@@ -62,7 +62,7 @@ export class ActorOptimizeQueryOperationFilterPushdown extends ActorOptimizeQuer
     }
 
     // Collect selector shapes of all operations
-    const sources = this.getSources(operation);
+    const sources = getSources(operation);
     // eslint-disable-next-line ts/no-unnecessary-type-assertion
     const sourceShapes = new Map(<[IQuerySourceWrapper, FragmentSelectorShape][]> await Promise.all(sources
       .map(async source => [ source, await source.source.getSelectorShape(action.context) ])));
@@ -168,29 +168,6 @@ export class ActorOptimizeQueryOperationFilterPushdown extends ActorOptimizeQuer
 
     // Don't push down in all other cases
     return false;
-  }
-
-  /**
-   * Move this to UTIL package from Comunica 3.0
-   * Collected all sources that are defined within the given operation of children recursively.
-   * @param operation An operation.
-   */
-  public getSources(operation: Algebra.Operation): IQuerySourceWrapper[] {
-    const sources = new Set<IQuerySourceWrapper>();
-    const sourceAdder = (subOperation: Algebra.Operation): boolean => {
-      const src = getOperationSource(subOperation);
-      if (src) {
-        sources.add(src);
-      }
-      return false;
-    };
-    Util.recurseOperation(operation, {
-      [Algebra.types.PATTERN]: sourceAdder,
-      [Algebra.types.LINK]: sourceAdder,
-      [Algebra.types.NPS]: sourceAdder,
-      [Algebra.types.SERVICE]: sourceAdder,
-    });
-    return [ ...sources ];
   }
 
   /**

@@ -30,7 +30,7 @@ export class JoinTree {
    * @returns calculated cost
    */
   public calculateCost(): number {
-    // If either left or right is undefined, we are
+    // If either left or right is undefined, we are triple pattern
     if (!this.left || !this.right) {
       return this.estimatedSize;
     }

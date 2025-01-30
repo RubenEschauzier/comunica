@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import type * as RDF from '@rdfjs/types';
 import { Store, Parser } from 'n3';
-import type { Operation } from 'sparqlalgebrajs/lib/algebra';
+import type { Operation, Pattern } from 'sparqlalgebrajs/lib/algebra';
 import { FifoQueue } from './FifoQueue';
 
 /**
@@ -14,28 +14,33 @@ export class IndexBasedJoinSampler {
     this.budget = budget;
   }
 
-  public run(
-    tps: Operation[],
+  public async run(
+    tps: Pattern[],
     nJoinSamples: number,
     nTpSamples: number,
     store: any,
     arrayIndex: Record<string, ArrayIndex>,
-  ): Map<string, ISampleResult> {
+    sampleFn: SampleFn,
+    countFn: CountFn
+  ): Promise<Map<string, ISampleResult>> {
     // Get all triples matching triple pattern
-    const sampledTriplePatterns = this.sampleTriplePatternsQuery(nTpSamples, store, arrayIndex, tps);
-    return this.bottomUpEnumeration(nJoinSamples, sampledTriplePatterns, tps, store, arrayIndex);
+    const { sampledTriplePatterns, cardinalities } = await this.sampleTriplePatternsQueryUpdated(
+      nTpSamples, tps, sampleFn, countFn
+    );
+    return this.bottomUpEnumeration(nJoinSamples, sampledTriplePatterns, cardinalities, tps, store, arrayIndex);
   }
 
   public bottomUpEnumeration(
     n: number,
     resultSets: Record<string, string>[][],
+    cardinalities: number[],
     tps: Operation[],
     store: any,
     arrayIndex: Record<string, ArrayIndex>,
   ): Map<string, ISampleResult> {
     // Samples are stored by their two participating expressions like [[1], [2]] joining result set
     // 1 and 2, while [[1,2],[3]] joins result sets of join between 1,2 and result set of 3.
-    const samples: Map<string, ISampleResult> = this.initializeSamplesEnumeration(resultSets);
+    const samples: Map<string, ISampleResult> = this.initializeSamplesEnumeration(resultSets, cardinalities);
     const problemQueue = new FifoQueue<number[][]>();
     for (const join of this.joinCombinations(tps.length)) {
       problemQueue.enqueue(join);
@@ -55,6 +60,7 @@ export class IndexBasedJoinSampler {
         // TODO Circle back to cross products if we have exhausted all non-cross products
         continue;
       }
+      console.log(spo);
 
       const samplingOutput: ISampleOutput = this.sampleJoin(
         n,
@@ -79,6 +85,50 @@ export class IndexBasedJoinSampler {
       this.generateNewCombinations(combination, tps.length).map(x => problemQueue.enqueue(x));
     }
     return samples;
+  }
+
+  public async sampleJoinUpdated(
+    n: number, samples: Record<string, RDF.Term>[], 
+    s: RDF.Term | undefined, p: RDF.Term | undefined, o: RDF.Term | undefined, g: RDF.Term | undefined,
+    operation: Pattern, 
+    joinVariable: string, joinLocation: 's' | 'p' | 'o', 
+    countFn: CountFn, sampleFn: SampleFn): ISampleOutput{
+    const { counts, sampleRelations } = await this.candidateCountsUpdated(
+      samples, s, p, o, g, joinLocation, joinVariable, countFn
+    );
+    const sum: number = counts.reduce((acc, count) => acc += count, 0);
+    const ids = this.generateSampleIndexes(sum, n);
+
+    // We iterate over each id, we could also iterate over the sampleRelations and find all indexes associated with a sampleRelation
+    const joinSamples: Record<string, RDF.Term>[] = [];
+    for (const id of ids){
+      let searchIndex = 0;
+      for (const [ i, count ] of counts.entries()) {
+        searchIndex += count;
+        // If count > id we take the joins associated with this sample
+        if (id < searchIndex) {
+          // Go back one step
+          searchIndex -= count;
+
+          // Find index
+          const tripleIndex: number = id - (searchIndex);
+          
+          // Sample single quad at index
+          const sampled = [...sampleFn([tripleIndex], ...sampleRelations[i])][0];
+
+          // Get the sample triple that was used to find this join candidate
+          let relevantSample: Record<string, RDF.Term> = { ...samples[i] };
+          relevantSample = this.addQuadToBindings(sampled, relevantSample, operation);
+          joinSamples.push(relevantSample);
+          break;
+        }
+      }
+    }
+    const selectivity = sum > 0 ? sum / samples.length : 0;
+    return {
+      sample: joinSamples,
+      selectivity,
+    };
   }
 
   public sampleJoin(n: number, samples: Record<string, string>[], s: string | null, p: string | null, o: string | null, operation: Operation, joinVariable: string, joinLocation: 's' | 'p' | 'o', arrayIndex: Record<string, ArrayIndex>): ISampleOutput {
@@ -154,6 +204,24 @@ export class IndexBasedJoinSampler {
     };
   }
 
+  public async candidateCountsUpdated(samples: Record<string, RDF.Term>[], 
+    s: RDF.Term | undefined, p: RDF.Term | undefined, o: RDF.Term | undefined, 
+    g: RDF.Term | undefined, joinLocation: 's' | 'p' | 'o', joinVariable: string,
+    countFn: CountFn
+  ): Promise<ICandidateCountsUpdated> {
+    const counts: number[] = [];
+    const sampleRelations: (RDF.Term | undefined)[][] = [];
+    for (const sample of samples) {
+      const sampleRelation = this.setSampleRelationUpdated(sample, s, p, o, g, joinLocation, joinVariable);
+      counts.push(await countFn(...sampleRelation));
+      sampleRelations.push(sampleRelation);
+    }
+    return {
+      counts,
+      sampleRelations,
+    };
+  }
+
   public sampleTriplePatternsQuery(n: number, store: any, arrayIndex: Record<string, ArrayIndex>, tps: Operation[]):
   Record<string, string>[][] {
     const sampledTriplePatterns = tps.map((tp) => {
@@ -180,6 +248,39 @@ export class IndexBasedJoinSampler {
       });
     });
     return sampledTriplePatterns;
+  }
+
+  public async sampleTriplePatternsQueryUpdated(
+    n: number, tps: Pattern[], 
+    sampleFn: SampleFn, countFn: CountFn
+  ):
+  Promise<ISampleTpOutput> {
+    const cardinalities: number[] = [];
+    const sampledTriplePatterns: Record<string, RDF.Term>[][] = [];
+
+    for (const tp of tps){
+      const tpSampleBindings: Record<string, RDF.Term>[] = [];
+      const spogSampleQuery = this.tpToSampleQuery(tp);
+
+      const cardinality = await countFn(...spogSampleQuery);
+      cardinalities.push(cardinality);
+
+      const indexes = this.generateSampleIndexes(cardinality, n);
+      const triples = [...sampleFn(indexes, ...spogSampleQuery)];
+      for (const triple of triples){
+        const binding: Record<string, RDF.Term> = {};
+        if (spogSampleQuery[0] === null) binding[tp.subject.value] = triple.subject;
+        if (spogSampleQuery[1] === null) binding[tp.predicate.value] = triple.predicate;
+        if (spogSampleQuery[2] === null) binding[tp.object.value] = triple.object;
+        if (spogSampleQuery[2] === null) binding[tp.graph.value] = triple.graph;
+        tpSampleBindings.push(binding);
+      }
+      sampledTriplePatterns.push(tpSampleBindings);
+    }
+    return { 
+      sampledTriplePatterns: sampledTriplePatterns,
+      cardinalities: cardinalities
+    };
   }
 
   // Take a random sample of triples matching a pattern out of an index
@@ -372,6 +473,14 @@ export class IndexBasedJoinSampler {
     return [ s, p, o ];
   }
 
+  public tpToSampleQuery(tp: Pattern): (RDF.Term|undefined)[]{
+    const s: RDF.Term | undefined = this.isVariable(tp.subject) ? undefined : tp.subject;
+    const p: RDF.Term | undefined = this.isVariable(tp.predicate) ? undefined : tp.predicate;
+    const o: RDF.Term | undefined = this.isVariable(tp.object) ? undefined : tp.object;
+    const g: RDF.Term | undefined = this.isVariable(tp.graph) ? undefined : tp.graph;
+    return [s, p, o, g]
+  }
+
   /**
    * Determines the variable name that matches in the join
    * If no variables match the two triple patterns are a cartesian join
@@ -414,10 +523,13 @@ export class IndexBasedJoinSampler {
     return combinations;
   }
 
-  public initializeSamplesEnumeration(resultSets: Record<string, string>[][]) {
+  public initializeSamplesEnumeration(
+    resultSets: Record<string, string>[][],
+    cardinalities: number[]
+  ) {
     const samples: Map<string, ISampleResult> = new Map();
     for (const [ i, resultSet ] of resultSets.entries()) {
-      samples.set(JSON.stringify([ i ]), { sample: resultSet, estimatedCardinality: resultSet.length });
+      samples.set(JSON.stringify([ i ]), { sample: resultSet, estimatedCardinality: cardinalities[i] });
     }
     return samples;
   }
@@ -461,6 +573,29 @@ export class IndexBasedJoinSampler {
     if (joinLocation === 'o') {
       return [ s, p, sample[joinVariable] ];
     }
+    throw new Error('Invalid join variable');
+  }
+
+  public setSampleRelationUpdated(sample: Record<string, RDF.Term>, 
+    s: RDF.Term | undefined, p: RDF.Term | undefined, o: RDF.Term | undefined, 
+    g: RDF.Term | undefined, joinLocation: 's' | 'p' | 'o', joinVariable: string
+  ){
+    if (Object.keys(sample).length === 0) {
+      throw new Error('Sample should contain atleast a binding');
+    }
+    if (joinLocation === 's') {
+      return [ g, sample[joinVariable], p, o ];
+    }
+    if (joinLocation === 'p') {
+      return [ g, s, sample[joinVariable], o ];
+    }
+    if (joinLocation === 'o') {
+      return [ g, s, p, sample[joinVariable] ];
+    }
+    if (joinLocation === 'g') {
+      return [sample[joinVariable], s, p, o ];
+    }
+
     throw new Error('Invalid join variable');
   }
 
@@ -514,6 +649,21 @@ export class IndexBasedJoinSampler {
     }
     return termArrayDict;
   }
+  public addQuadToBindings(quad: RDF.Quad, bindings: Record<string, RDF.Term>, pattern: Pattern){
+    if (this.isVariable(pattern.subject) && !bindings[pattern.subject.value]){
+      bindings[pattern.subject.value] = quad.subject;
+    } 
+    if (this.isVariable(pattern.predicate) && !bindings[pattern.predicate.value]){
+      bindings[pattern.predicate.value] = quad.predicate;
+    } 
+    if (this.isVariable(pattern.object) && !bindings[pattern.object.value]){
+      bindings[pattern.object.value] = quad.object;
+    } 
+    if (this.isVariable(pattern.graph) && !bindings[pattern.graph.value]){
+      bindings[pattern.graph.value] = quad.graph;
+    } 
+    return bindings;
+  }
 
   public sampleArray<T>(array: T[], n: number): T[] {
     if (n > array.length) {
@@ -521,7 +671,7 @@ export class IndexBasedJoinSampler {
     }
 
     const result = [];
-    const arrCopy = [ ...array ]; // Create a copy of the array to avoid mutating the original one
+    const arrCopy = [ ...array ];
 
     for (let i = 0; i < n; i++) {
       const randomIndex = Math.floor(Math.random() * (arrCopy.length - i)) + i;
@@ -534,6 +684,11 @@ export class IndexBasedJoinSampler {
     }
 
     return result;
+  }
+
+  public generateSampleIndexes(maxIndex: number, nIndexes: number){
+    const indexArray = Array.from({ length: maxIndex }, (_, i) => i);
+    return this.sampleArray(indexArray, nIndexes);
   }
 
   public sortArray(arr: number[]) {
@@ -569,6 +724,18 @@ export interface ISampleOutput {
   selectivity: number;
 }
 
+export interface ISampleOutputUpdated {
+  /**
+   *
+   */
+  sample: Record<string, RDF.Term>[];
+  /**
+   *
+   */
+  selectivity: number;
+}
+
+
 export interface ISampleResult {
   /**
    *
@@ -601,3 +768,35 @@ export interface ICandidateCounts {
    */
   sampleRelations: (string | null)[][];
 }
+
+export interface ICandidateCountsUpdated {
+  /**
+   * Number of candidates per sampled binding given as input
+   */
+  counts: number[];
+  /**
+   * Triple pattern used to look up candidates in index
+   */
+  sampleRelations: (RDF.Term | undefined)[][];
+}
+
+export interface ISampleTpOutput {
+  sampledTriplePatterns: Record<string, RDF.Term>[][]; 
+  cardinalities: number[]
+}
+
+export type SampleFn = (
+  indexes: number[], 
+  subject?: RDF.Term,
+  predicate?: RDF.Term,
+  object?: RDF.Term,
+  graph?: RDF.Term
+) => RDF.Quad[];
+
+export type CountFn = (
+    subject?: RDF.Term | undefined,
+    predicate?: RDF.Term | undefined,
+    object?: RDF.Term | undefined,
+    graph?: RDF.Term | undefined,
+  ) => number | Promise<number>
+

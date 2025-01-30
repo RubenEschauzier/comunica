@@ -236,7 +236,6 @@ export class QuerySourceHypermedia implements IQuerySource {
       // and next page links are followed after that.
       handledDatasets[dataset] = true;
     }
-    console.log([...(<any>source).source.sample([1,2,7], undefined, undefined, undefined, undefined, )])
     return { link, source, metadata: <MetadataBindings> metadata, handledDatasets };
   }
 
