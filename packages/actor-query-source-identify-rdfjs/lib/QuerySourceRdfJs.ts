@@ -167,17 +167,17 @@ export class QuerySourceRdfJs implements IQuerySource {
   ): Promise<void> {
     throw new Error('queryVoid is not implemented in QuerySourceRdfJs');
   }
-  
-  public sample(indexes: number[], subject?: RDF.Term, predicate?: RDF.Term, object?: RDF.Term, graph?: RDF.Term){
-    if (!this.source.sampleQuads){
-      throw new Error("Tried to sample quads using store that does not implement it");
+
+  public sample(indexes: number[], subject?: RDF.Term, predicate?: RDF.Term, object?: RDF.Term, graph?: RDF.Term) {
+    if (!this.source.sampleQuads) {
+      throw new Error('Tried to sample quads using store that does not implement it');
     }
     return this.source.sampleQuads(indexes, subject, predicate, object, graph);
   }
 
-  public countQuads(subject?: RDF.Term, predicate?: RDF.Term, object?: RDF.Term, graph?: RDF.Term){
-    if (!this.source.countQuads){
-      throw new Error("Tried to count quads using store that does not support it");
+  public countQuads(subject?: RDF.Term, predicate?: RDF.Term, object?: RDF.Term, graph?: RDF.Term) {
+    if (!this.source.countQuads) {
+      throw new Error('Tried to count quads using store that does not support it');
     }
     return this.source.countQuads(subject, predicate, object, graph);
   }

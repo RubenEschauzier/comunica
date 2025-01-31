@@ -8,7 +8,7 @@ import { KeysInitQuery } from '@comunica/context-entries';
 import type { IActorTest, TestResult } from '@comunica/core';
 import { passTestVoid } from '@comunica/core';
 import type { ComunicaDataFactory, FragmentSelectorShape, IActionContext, IQuerySourceWrapper } from '@comunica/types';
-import { doesShapeAcceptOperation, getOperationSource, getSources } from '@comunica/utils-query-operation';
+import { doesShapeAcceptOperation, getSources } from '@comunica/utils-query-operation';
 import type * as RDF from '@rdfjs/types';
 import { mapTermsNested, uniqTerms } from 'rdf-terms';
 import { Factory, Algebra, Util } from 'sparqlalgebrajs';

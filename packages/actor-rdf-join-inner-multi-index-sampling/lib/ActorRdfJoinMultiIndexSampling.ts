@@ -2,21 +2,21 @@ import * as fs from 'node:fs';
 import type { QuerySourceSkolemized } from '@comunica/actor-context-preprocess-query-source-skolemize';
 import type { IActionRdfJoin, IActorRdfJoinOutputInner, IActorRdfJoinArgs, MediatorRdfJoin, IActorRdfJoinTestSideData } from '@comunica/bus-rdf-join';
 import { ActorRdfJoin } from '@comunica/bus-rdf-join';
-import { KeysQueryOperation } from '@comunica/context-entries';
+import type { TestResult } from '@comunica/core';
+import { passTestWithSideData } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
-import type { IJoinEntry, IQuerySource, IQuerySourceWrapper, MetadataBindings } from '@comunica/types';
+import type { IJoinEntry, IQuerySource } from '@comunica/types';
+import { getSafeBindings, getSources } from '@comunica/utils-query-operation';
 import type * as RDF from '@rdfjs/types';
 import { Store, Parser } from 'n3';
 import { Factory } from 'sparqlalgebrajs';
+import type { Pattern } from 'sparqlalgebrajs/lib/algebra';
+import type { QuerySourceHypermedia } from '../../actor-query-source-identify-hypermedia/lib';
 import type { ArrayIndex, ISampleResult } from './IndexBasedJoinSampler';
 import { IndexBasedJoinSampler } from './IndexBasedJoinSampler';
 import { JoinGraph } from './JoinGraph';
 import { JoinOrderEnumerator } from './JoinOrderEnumerator';
 import type { JoinTree } from './JoinTree';
-import { getSafeBindings, getSources } from '@comunica/utils-query-operation';
-import { passTestWithSideData, TestResult } from '@comunica/core';
-import { QuerySourceHypermedia } from '../../actor-query-source-identify-hypermedia/lib';
-import { Pattern } from 'sparqlalgebrajs/lib/algebra';
 
 /**
  * A comunica Inner Multi Index Sampling RDF Join Actor.
@@ -64,22 +64,21 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
     // Highly inefficient, should be moved to creation of store
     const sourcesOperations = action.entries.map(x => getSources(x.operation));
     const sources: Record<string, IQuerySource> = {};
-    sourcesOperations.map(x => x.map(sourceWrapper => {
-      const sourceString =sourceWrapper.source.toString();
-      if (sources[sourceString] === undefined){
+    sourcesOperations.map(x => x.map((sourceWrapper) => {
+      const sourceString = sourceWrapper.source.toString();
+      if (sources[sourceString] === undefined) {
         sources[sourceString] = sourceWrapper.source;
       }
     }));
     const sourceToSample = <QuerySourceHypermedia><unknown>
     (<QuerySourceSkolemized><unknown>sources[Object.keys(sources)[0]]).innerSource;
-    const source = (await sourceToSample.sourcesState.get( [...sourceToSample.sourcesState.keys()][0])!).source;
-    if (!source.sample){
-      throw new Error("Found source that does not support sampling");
+    const source = (await sourceToSample.sourcesState.get([ ...sourceToSample.sourcesState.keys() ][0])!).source;
+    if (!source.sample) {
+      throw new Error('Found source that does not support sampling');
     }
-    if (!source.countQuads){
-      throw new Error("Found source that does not support quad counting");
+    if (!source.countQuads) {
+      throw new Error('Found source that does not support quad counting');
     }
-    const { store, arrayIndexes } = this.createArrayIndex(action);
 
     // Join Graph reorders entries in breadth-first style from 0 index of entries. So always use the entries of
     // the join graph to ensure number representations of entries match.
@@ -88,13 +87,11 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
 
     this.estimates = await this.joinSampler.run(
       joinGraph.getEntries().map(x => <Pattern> x.operation),
-      1_000,
-      Number.POSITIVE_INFINITY,
-      store,
-      arrayIndexes,
+      1000,
       source.sample.bind(source),
-      source.countQuads.bind(source)
+      source.countQuads.bind(source),
     );
+    console.log(this.estimates);
 
     // Seperate the enumerator from graph object to allow for easier testing
     const enumerator: JoinOrderEnumerator = new JoinOrderEnumerator(
@@ -133,36 +130,6 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
       blockingItems: 0,
       requestTime: 0,
     }, sideData);
-  }
-
-
-  protected createArrayIndex(action: IActionRdfJoin): IConstructedIndexes {
-    // This is test code and highly inefficient, but parse document uri from the source into N3 store
-    // and use that to get samples from adjusted index
-    const querySources: IQuerySourceWrapper[] = action.context.get(KeysQueryOperation.querySources)!;
-    const file: string = <string> (<QuerySourceSkolemized> querySources[0].source).referenceValue;
-    const store = this.parseFile(file);
-
-    // 'any' typing to access _graph which is a private function in typescript
-    const storeWithArrayIndexes: any & Store = store;
-    // Array indexes per graph
-    const arrayIndexes: Record<string, ArrayIndex> = {};
-    // For all stored graphs
-    for (const [ graph, graphIndex ] of Object.entries(storeWithArrayIndexes._graphs)) {
-      // Dictionary for a graph indexes in form of spo, pos, and osp. The final term is represented as an array
-      // for efficient sampling.
-      const graphArrayDict: ArrayIndex = {};
-      // For stored indexes (spo, pos, osp) in graph
-      for (const index of Object.keys(<Record<string, any>>graphIndex)) {
-        const arrayDict = this.joinSampler.constructArrayDict(storeWithArrayIndexes._graphs[graph][index]);
-        graphArrayDict[index] = arrayDict;
-      }
-      arrayIndexes[graph] = graphArrayDict;
-    }
-    return {
-      store,
-      arrayIndexes,
-    };
   }
 
   public async joinTwoEntries(entry1: IJoinEntry, entry2: IJoinEntry, action: IActionRdfJoin): Promise<IJoinEntry> {

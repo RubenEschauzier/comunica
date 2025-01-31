@@ -33,7 +33,7 @@ export class JoinGraph {
 
     let currentVertex = 0;
     let nextAvailableIndex = 1;
-    
+
     // Start BFS from the startVertex
     queue.enqueue(start);
     visited.set(start, true);

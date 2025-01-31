@@ -123,20 +123,20 @@ export interface IQuerySource {
     context: IActionContext,
   ) => Promise<void>;
 
-  sample? : (
+  sample?: (
     indexes: number[],
     subject?: RDF.Term,
     predicate?: RDF.Term,
     object?: RDF.Term,
     graph?: RDF.Term
-  ) => RDF.Quad[]
+  ) => RDF.Quad[];
 
   countQuads?: (
     subject?: RDF.Term,
     predicate?: RDF.Term,
     object?: RDF.Term,
     graph?: RDF.Term
-  ) => number | Promise<number>
+  ) => number | Promise<number>;
 
   /**
    * Returns a string representation of this source.
