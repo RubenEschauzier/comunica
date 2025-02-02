@@ -34,7 +34,10 @@ export class IndexBasedJoinSampler {
       sampleFn,
     );
   }
-
+  
+  // TODO: Implement budget-based early quitting. This means track number of sampleFn calls. When doing early stopping, 
+  // we should delegate the rest of the joins to the rdf-join bus. We can signal that we don't know by a special value.
+  // In addition, we should think about how we can use dccp with partial estimates.
   public async bottomUpEnumeration(
     n: number,
     resultSets: Record<string, RDF.Term>[][],
