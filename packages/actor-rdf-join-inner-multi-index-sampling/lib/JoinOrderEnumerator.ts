@@ -30,8 +30,15 @@ export class JoinOrderEnumerator {
       const tree1 = bestPlan.get(JSON.stringify(JoinOrderEnumerator.sortArrayAsc([ ...csgCmpPair[0] ])))!;
       const tree2 = bestPlan.get(JSON.stringify(JoinOrderEnumerator.sortArrayAsc([ ...csgCmpPair[1] ])))!;
       const newEntries = new Set([ ...tree1.entries, ...tree2.entries ]);
+      const estimate = this.estimates.get(JSON.stringify(JoinOrderEnumerator.sortArrayAsc([ ...newEntries ])));
 
-      const estimatedSize = this.estimates.get(JSON.stringify(JoinOrderEnumerator.sortArrayAsc([ ...newEntries ])))!.estimatedCardinality;
+      // If there is no estimated value for entry it means cardinality estimation found 0 estimated cardinality
+      let estimatedSize = 0;
+      if (estimate){
+        estimatedSize = estimate.estimatedCardinality
+      }
+      // const estimatedSize = this.estimates.get(JSON.stringify(JoinOrderEnumerator.sortArrayAsc([ ...newEntries ])))!.estimatedCardinality;
+
       // The order in which joins happen matters for the cost, so evaluate both
       const currPlanLeft = new JoinTree(tree1, tree2, newEntries, estimatedSize);
       const currPlanRight = new JoinTree(tree2, tree1, newEntries, estimatedSize);

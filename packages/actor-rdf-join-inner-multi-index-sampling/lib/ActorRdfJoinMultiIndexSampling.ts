@@ -43,21 +43,6 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
     this.joinSampler = new IndexBasedJoinSampler(1000);
   }
 
-  /**
-   * Temporary function to test the possiblity of using join sampling. This will NOT be used in any 'real' tests
-   * @param fileName Filename to parse
-   */
-  public parseFile(fileName: string) {
-    const parser = new Parser();
-    const store = new Store();
-    const data: string = fs.readFileSync(fileName, 'utf-8');
-    const testResult: RDF.Quad[] = parser.parse(
-      data,
-    );
-    store.addQuads(testResult);
-    return store;
-  }
-
   protected async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
     // Call this only once to get cardinalities, then do dynamic programming to find optimal order, perform joins
     // return joined result + purge cardinalities.
@@ -87,11 +72,10 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
 
     this.estimates = await this.joinSampler.run(
       joinGraph.getEntries().map(x => <Pattern> x.operation),
-      1000,
+      100,
       source.sample.bind(source),
       source.countQuads.bind(source),
     );
-    console.log(this.estimates);
 
     // Seperate the enumerator from graph object to allow for easier testing
     const enumerator: JoinOrderEnumerator = new JoinOrderEnumerator(

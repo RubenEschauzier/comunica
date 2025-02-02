@@ -55,6 +55,13 @@ export class IndexBasedJoinSampler {
       const combination = problemQueue.dequeue()!;
       // The intermediate result set we use as input sample for join sampling
       const baseSample = samples.get(JSON.stringify(this.sortArray(combination[0])))!;
+
+      // If our base sample has no entries, we stop this branch as this will never give us
+      // samples size > 0.
+      if (baseSample.sample.length === 0){
+        continue;
+      }
+
       // The triple patterns already joined to produce the intermediate result set
       const tpInBaseSample = combination[0].map(x => tps[x]);
       // The triple pattern we join with intermediate result set
@@ -79,7 +86,7 @@ export class IndexBasedJoinSampler {
         countFn,
         sampleFn,
       );
-
+      
       /**
        * Update samples by multiplying the base sample estimated cardinality with the estimated
        * selectivity
