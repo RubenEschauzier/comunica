@@ -27,6 +27,7 @@ export class JoinOrderEnumerator {
 
     const csgCmpPairs = this.enumerateCsgCmpPairs(this.entries.length);
     for (const csgCmpPair of csgCmpPairs) {
+      console.log(csgCmpPair);
       const tree1 = bestPlan.get(JSON.stringify(JoinOrderEnumerator.sortArrayAsc([ ...csgCmpPair[0] ])))!;
       const tree2 = bestPlan.get(JSON.stringify(JoinOrderEnumerator.sortArrayAsc([ ...csgCmpPair[1] ])))!;
       const newEntries = new Set([ ...tree1.entries, ...tree2.entries ]);
@@ -37,7 +38,6 @@ export class JoinOrderEnumerator {
       if (estimate){
         estimatedSize = estimate.estimatedCardinality
       }
-      // const estimatedSize = this.estimates.get(JSON.stringify(JoinOrderEnumerator.sortArrayAsc([ ...newEntries ])))!.estimatedCardinality;
 
       // The order in which joins happen matters for the cost, so evaluate both
       const currPlanLeft = new JoinTree(tree1, tree2, newEntries, estimatedSize);
@@ -68,6 +68,9 @@ export class JoinOrderEnumerator {
     return csgCmpPairs;
   }
 
+  // In this function we should not push a csg cmp pair if we don't have a cardinality estimate
+  // This way we only enumerate untill what we know. Either we choose untill all size where we have all samples
+  // of size n, or untill size n + 1 with the +1 partial
   public enumerateCsg(nTps: number) {
     const csgs: Set<number>[] = [];
     for (let i = nTps - 1; i >= 0; i--) {
