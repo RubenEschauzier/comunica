@@ -1,10 +1,10 @@
 import type { IActionRdfJoin } from '@comunica/bus-rdf-join';
 import type { IJoinEntry } from '@comunica/types';
 
-export class JoinTree {
+export class JoinPlan {
   // Left and right entries in join
-  public left: JoinTree | undefined;
-  public right: JoinTree | undefined;
+  public left: JoinPlan | undefined;
+  public right: JoinPlan | undefined;
   // Size of intermediate results produced by this join
   public estimatedSize: number;
 
@@ -12,8 +12,8 @@ export class JoinTree {
   public cost: number;
 
   public constructor(
-    left: JoinTree | undefined,
-    right: JoinTree | undefined,
+    left: JoinPlan | undefined,
+    right: JoinPlan | undefined,
     entries: Set<number>,
     estimatedSize: number,
   ) {

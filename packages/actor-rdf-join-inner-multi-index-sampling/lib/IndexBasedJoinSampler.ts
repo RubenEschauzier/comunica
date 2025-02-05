@@ -1,6 +1,7 @@
 import type * as RDF from '@rdfjs/types';
 import type { Operation, Pattern } from 'sparqlalgebrajs/lib/algebra';
 import { FifoQueue } from './FifoQueue';
+import { string } from '@comunica/utils-expression-evaluator';
 
 /**
  * Sampling-based cardinality estimation
@@ -17,7 +18,7 @@ export class IndexBasedJoinSampler {
     nSamples: number,
     sampleFn: SampleFn,
     countFn: CountFn,
-  ): Promise<Map<string, ISampleResult>> {
+  ): Promise<IEnumerationOutput> {
     // Get all triples matching triple pattern
     const { sampledTriplePatterns, cardinalities } = await this.sampleTriplePatternsQuery(
       nSamples,
@@ -45,11 +46,14 @@ export class IndexBasedJoinSampler {
     tps: Pattern[],
     countFn: CountFn,
     sampleFn: SampleFn,
-  ): Promise<Map<string, ISampleResult>> {
+  ): Promise<IEnumerationOutput> {
     // Samples are stored by their two participating expressions like [[1], [2]] joining result set
     // 1 and 2, while [[1,2],[3]] joins result sets of join between 1,2 and result set of 3.
     const samples: Map<string, ISampleResult> = this.initializeSamplesEnumeration(resultSets, cardinalities);
     const problemQueue = new FifoQueue<number[][]>();
+    let budgetLeft = this.budget;
+    let maxSizeEstimated: number | undefined;
+
     for (const join of this.joinCombinations(tps.length)) {
       problemQueue.enqueue(join);
     }
@@ -98,10 +102,22 @@ export class IndexBasedJoinSampler {
         sample: samplingOutput.sample,
         estimatedCardinality: samplingOutput.selectivity * baseSample.estimatedCardinality,
       });
+
+      budgetLeft -= samplingOutput.sampleCost;
+      if (budgetLeft < 0) {
+        // If there are still problems left in the queue, our estimates are incomplete.
+        // As we iterate over size (small to large) the first element in the queue shows
+        // for what size we have complete estimates.
+        const nextCombination = problemQueue.peek()?.flat();
+        if (nextCombination){
+          maxSizeEstimated = nextCombination.length - 1;
+        }
+        break;
+      }
       // Generate new combinations and add to queue
       this.generateNewCombinations(combination, tps.length).map(x => problemQueue.enqueue(x));
     }
-    return samples;
+    return { estimates: samples, maxSizeEstimated};
   }
 
   public async sampleJoin(
@@ -117,6 +133,7 @@ export class IndexBasedJoinSampler {
     countFn: CountFn,
     sampleFn: SampleFn,
   ): Promise<ISampleOutput> {
+    let sampleCost: number = 0;
     const { counts, sampleRelations } = await this.candidateCounts(
       samples,
       s,
@@ -146,6 +163,7 @@ export class IndexBasedJoinSampler {
 
           // Sample single quad at index
           const sampled = [ ...sampleFn([ tripleIndex ], ...sampleRelations[i]) ][0];
+          sampleCost++;
 
           // Get the sample triple that was used to find this join candidate
           let relevantSample: Record<string, RDF.Term> = { ...samples[i] };
@@ -159,6 +177,7 @@ export class IndexBasedJoinSampler {
     return {
       sample: joinSamples,
       selectivity,
+      sampleCost
     };
   }
 
@@ -377,6 +396,11 @@ export class IndexBasedJoinSampler {
 
 export type ArrayIndex = Record<string, Record<string, Record<string, string[]>>>;
 
+export interface IEnumerationOutput{
+  estimates: Map<string, ISampleResult>;
+  maxSizeEstimated?: number;
+}
+
 export interface ISampleOutput {
   /**
    *
@@ -386,6 +410,10 @@ export interface ISampleOutput {
    *
    */
   selectivity: number;
+  /**
+   * Sample cost (equivalent to the number of SampleFn calls)
+   */
+  sampleCost: number;
 }
 
 export interface ISampleResult {

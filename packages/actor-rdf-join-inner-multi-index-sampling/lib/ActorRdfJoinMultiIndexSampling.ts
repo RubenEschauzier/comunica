@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import type { QuerySourceSkolemized } from '@comunica/actor-context-preprocess-query-source-skolemize';
 import type { IActionRdfJoin, IActorRdfJoinOutputInner, IActorRdfJoinArgs, MediatorRdfJoin, IActorRdfJoinTestSideData } from '@comunica/bus-rdf-join';
 import { ActorRdfJoin } from '@comunica/bus-rdf-join';
-import type { TestResult } from '@comunica/core';
+import { ActionContextKey, failTest, TestResult } from '@comunica/core';
 import { passTestWithSideData } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
 import type { IJoinEntry, IQuerySource } from '@comunica/types';
@@ -12,11 +12,12 @@ import { Store, Parser } from 'n3';
 import { Factory } from 'sparqlalgebrajs';
 import type { Pattern } from 'sparqlalgebrajs/lib/algebra';
 import type { QuerySourceHypermedia } from '../../actor-query-source-identify-hypermedia/lib';
-import type { ArrayIndex, ISampleResult } from './IndexBasedJoinSampler';
+import type { ArrayIndex, IEnumerationOutput, ISampleResult } from './IndexBasedJoinSampler';
 import { IndexBasedJoinSampler } from './IndexBasedJoinSampler';
 import { JoinGraph } from './JoinGraph';
 import { JoinOrderEnumerator } from './JoinOrderEnumerator';
-import type { JoinTree } from './JoinTree';
+import type { JoinPlan } from './JoinPlan';
+import { MetadataValidationState } from '@comunica/utils-metadata';
 
 /**
  * A comunica Inner Multi Index Sampling RDF Join Actor.
@@ -26,7 +27,7 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
   public static readonly FACTORY = new Factory();
 
   public joinSampler: IndexBasedJoinSampler;
-  public estimates: Map<string, ISampleResult>;
+  public estimates: IEnumerationOutput;
 
   public samplingDone = false;
   public nSamples = 0;
@@ -40,13 +41,12 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
       canHandleUndefs: true,
       isLeaf: false,
     });
-    this.joinSampler = new IndexBasedJoinSampler(1000);
+    this.joinSampler = new IndexBasedJoinSampler(10_000);
   }
 
-  protected async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
+  protected override async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
     // Call this only once to get cardinalities, then do dynamic programming to find optimal order, perform joins
     // return joined result + purge cardinalities.
-    // Highly inefficient, should be moved to creation of store
     const sourcesOperations = action.entries.map(x => getSources(x.operation));
     const sources: Record<string, IQuerySource> = {};
     sourcesOperations.map(x => x.map((sourceWrapper) => {
@@ -72,10 +72,21 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
 
     this.estimates = await this.joinSampler.run(
       joinGraph.getEntries().map(x => <Pattern> x.operation),
-      100,
+      250,
       source.sample.bind(source),
       source.countQuads.bind(source),
     );
+
+    if (this.estimates.maxSizeEstimated === 1){
+      console.warn(`${this.name}: Cardinality sampling failed, budget exhausted prematurely.`);
+      return {
+        result: await this.mediatorJoin.mediate({
+          type: action.type,
+          entries: action.entries,
+          context: action.context.set(BUDGET_EXHAUSTED, true)
+        }),
+      };
+    }
 
     // Seperate the enumerator from graph object to allow for easier testing
     const enumerator: JoinOrderEnumerator = new JoinOrderEnumerator(
@@ -84,30 +95,61 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
       joinGraph.getEntries().map(x => x.operation),
     );
 
-    const joinPlan: JoinTree = enumerator.search();
+    const joinPlan: JoinPlan = enumerator.search();
+
     const multiJoinOutput = await joinPlan.executePlan(
       joinGraph.getEntries(),
       action,
       this.joinTwoEntries.bind(this),
     );
 
+    // This is a partial join plan, so we must join the remaining entries too
+    if (joinPlan.entries.size !== action.entries.length){
+      const context = action.context.set(BUDGET_EXHAUSTED, true);
+      const leftOverEntries = joinGraph.getEntries().filter((_, i) => !joinPlan.entries.has(i));
+      const originalMetadataFn = multiJoinOutput.output.metadata();
+
+      multiJoinOutput.output.metadata = async () => {
+        const metadata = await originalMetadataFn;
+        metadata.cardinality = { value: joinPlan.estimatedSize, type: "estimate" };
+        metadata.state = new MetadataValidationState();
+        return metadata;
+      }
+
+      leftOverEntries.push(multiJoinOutput);
+      return {
+        result: await this.mediatorJoin.mediate({
+          type: action.type,
+          entries: leftOverEntries,
+          context: context,
+        }),
+      };
+    }
+    
     return {
       result: {
         type: 'bindings',
         bindingsStream: multiJoinOutput.output.bindingsStream,
-        metadata: async() => await this.constructResultMetadata(
-          action.entries,
-          await ActorRdfJoin.getMetadatas(action.entries),
-          action.context,
-        ),
+        metadata: async() => { 
+          const metadata = await this.constructResultMetadata(
+            action.entries,
+            await ActorRdfJoin.getMetadatas(action.entries),
+            action.context,
+          ) 
+          metadata.cardinality = {value: joinPlan.estimatedSize, type: "estimate"}
+          return metadata;
+        },
       },
     };
   }
 
   protected async getJoinCoefficients(
-    _action: IActionRdfJoin,
+    action: IActionRdfJoin,
     sideData: IActorRdfJoinTestSideData,
   ): Promise<TestResult<IMediatorTypeJoinCoefficients, IActorRdfJoinTestSideData>> {
+    if (action.context.get(BUDGET_EXHAUSTED)){
+      return failTest(`${this.name}: budget exhausted for join sampling.`);
+    }
     return passTestWithSideData({
       iterations: 1,
       persistedItems: 0,
@@ -126,6 +168,7 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
   }
 }
 
+
 export interface IActorRdfJoinMultiIndexSampling extends IActorRdfJoinArgs {
   /**
    * A mediator for joining Bindings streams
@@ -143,3 +186,11 @@ export interface IConstructedIndexes {
    */
   arrayIndexes: Record<string, ArrayIndex>;
 }
+
+/**
+ * Key that indicates to recursive calls to the join bus that there is no more sampling budget
+ * for a given query. So other, non-sampling methods should be used
+ */
+export const BUDGET_EXHAUSTED = new ActionContextKey<boolean>(
+  '@comunica/actor-rdf-join:exhausted',
+);

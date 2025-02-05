@@ -1,6 +1,6 @@
 export class FifoQueue<T> {
   private storage: T[] = [];
-
+  private minSize: number = 0;
   // Add an element to the back of the queue
   enqueue(item: T): void {
     this.storage.push(item);
