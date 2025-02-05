@@ -1,18 +1,21 @@
-import * as fs from 'node:fs';
 import type { QuerySourceSkolemized } from '@comunica/actor-context-preprocess-query-source-skolemize';
-import type { IActionRdfJoin, IActorRdfJoinOutputInner, IActorRdfJoinArgs, MediatorRdfJoin, IActorRdfJoinTestSideData } from '@comunica/bus-rdf-join';
+import type { 
+  IActionRdfJoin, 
+  IActorRdfJoinOutputInner, 
+  IActorRdfJoinArgs, 
+  MediatorRdfJoin, 
+  IActorRdfJoinTestSideData 
+} from '@comunica/bus-rdf-join';
 import { ActorRdfJoin } from '@comunica/bus-rdf-join';
 import { ActionContextKey, failTest, TestResult } from '@comunica/core';
 import { passTestWithSideData } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
 import type { IJoinEntry, IQuerySource } from '@comunica/types';
 import { getSafeBindings, getSources } from '@comunica/utils-query-operation';
-import type * as RDF from '@rdfjs/types';
-import { Store, Parser } from 'n3';
 import { Factory } from 'sparqlalgebrajs';
 import type { Pattern } from 'sparqlalgebrajs/lib/algebra';
-import type { QuerySourceHypermedia } from '../../actor-query-source-identify-hypermedia/lib';
-import type { ArrayIndex, IEnumerationOutput, ISampleResult } from './IndexBasedJoinSampler';
+import type { QuerySourceHypermedia } from '@comunica/actor-query-source-identify-hypermedia';
+import type { ArrayIndex, IEnumerationOutput } from './IndexBasedJoinSampler';
 import { IndexBasedJoinSampler } from './IndexBasedJoinSampler';
 import { JoinGraph } from './JoinGraph';
 import { JoinOrderEnumerator } from './JoinOrderEnumerator';
@@ -29,9 +32,6 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
   public joinSampler: IndexBasedJoinSampler;
   public estimates: IEnumerationOutput;
 
-  public samplingDone = false;
-  public nSamples = 0;
-
   public constructor(args: IActorRdfJoinMultiIndexSampling) {
     super(args, {
       logicalType: 'inner',
@@ -41,7 +41,7 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
       canHandleUndefs: true,
       isLeaf: false,
     });
-    this.joinSampler = new IndexBasedJoinSampler(10_000);
+    this.joinSampler = new IndexBasedJoinSampler(args.budget);
   }
 
   protected override async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
@@ -72,7 +72,7 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
 
     this.estimates = await this.joinSampler.run(
       joinGraph.getEntries().map(x => <Pattern> x.operation),
-      250,
+      500,
       source.sample.bind(source),
       source.countQuads.bind(source),
     );
@@ -174,6 +174,12 @@ export interface IActorRdfJoinMultiIndexSampling extends IActorRdfJoinArgs {
    * A mediator for joining Bindings streams
    */
   mediatorJoin: MediatorRdfJoin;
+  /**
+   * Maximum number of sampleFn calls during sampling
+   * @range {integer}
+   * @default {100_000}
+   */  
+  budget: number;
 }
 
 export interface IConstructedIndexes {
