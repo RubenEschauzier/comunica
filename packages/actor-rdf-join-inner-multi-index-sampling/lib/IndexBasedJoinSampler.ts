@@ -162,7 +162,7 @@ export class IndexBasedJoinSampler {
           const tripleIndex: number = id - (searchIndex);
 
           // Sample single quad at index
-          const sampled = [ ...sampleFn([ tripleIndex ], ...sampleRelations[i]) ][0];
+          const sampled = [ ... await sampleFn([ tripleIndex ], ...sampleRelations[i]) ][0];
           sampleCost++;
 
           // Get the sample triple that was used to find this join candidate
@@ -212,7 +212,7 @@ export class IndexBasedJoinSampler {
       cardinalities.push(cardinality);
 
       const indexes = this.generateSampleIndexes(cardinality, n);
-      const triples = [ ...sampleFn(indexes, ...spogSampleQuery) ];
+      const triples = [ ...await sampleFn(indexes, ...spogSampleQuery) ];
 
       for (const triple of triples) {
         const binding: Record<string, RDF.Term> = {};
@@ -392,6 +392,8 @@ export class IndexBasedJoinSampler {
   public sortArray(arr: number[]) {
     return [ ...arr ].sort((n1, n2) => n1 - n2);
   }
+
+
 }
 
 export type ArrayIndex = Record<string, Record<string, Record<string, string[]>>>;
@@ -460,7 +462,7 @@ export type SampleFn = (
   predicate?: RDF.Term,
   object?: RDF.Term,
   graph?: RDF.Term
-) => RDF.Quad[];
+) => Promise<RDF.Quad[]>;
 
 export type CountFn = (
   subject?: RDF.Term | undefined,

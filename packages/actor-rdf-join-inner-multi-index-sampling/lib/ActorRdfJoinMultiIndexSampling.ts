@@ -12,18 +12,22 @@ import { Store, Parser } from 'n3';
 import { Factory } from 'sparqlalgebrajs';
 import type { Pattern } from 'sparqlalgebrajs/lib/algebra';
 import type { QuerySourceHypermedia } from '../../actor-query-source-identify-hypermedia/lib';
-import type { ArrayIndex, IEnumerationOutput, ISampleResult } from './IndexBasedJoinSampler';
+import type { ArrayIndex, CountFn, IEnumerationOutput, ISampleResult, SampleFn } from './IndexBasedJoinSampler';
 import { IndexBasedJoinSampler } from './IndexBasedJoinSampler';
 import { JoinGraph } from './JoinGraph';
 import { JoinOrderEnumerator } from './JoinOrderEnumerator';
 import type { JoinPlan } from './JoinPlan';
 import { MetadataValidationState } from '@comunica/utils-metadata';
+import { MediatorExtractSources } from '@comunica/bus-extract-sources';
+import { log } from 'node:console';
 
 /**
  * A comunica Inner Multi Index Sampling RDF Join Actor.
  */
 export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
   public readonly mediatorJoin: MediatorRdfJoin;
+  public readonly mediatorExtractSources: MediatorExtractSources;
+
   public static readonly FACTORY = new Factory();
 
   public joinSampler: IndexBasedJoinSampler;
@@ -45,19 +49,27 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
   }
 
   protected override async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
+    const sources = await this.mediatorExtractSources.mediate({
+      operations: action.entries.map(x=>x.operation),
+      context: action.context
+    });
     // Call this only once to get cardinalities, then do dynamic programming to find optimal order, perform joins
     // return joined result + purge cardinalities.
-    const sourcesOperations = action.entries.map(x => getSources(x.operation));
-    const sources: Record<string, IQuerySource> = {};
-    sourcesOperations.map(x => x.map((sourceWrapper) => {
-      const sourceString = sourceWrapper.source.toString();
-      if (sources[sourceString] === undefined) {
-        sources[sourceString] = sourceWrapper.source;
-      }
-    }));
-    const sourceToSample = <QuerySourceHypermedia><unknown>
-    (<QuerySourceSkolemized><unknown>sources[Object.keys(sources)[0]]).innerSource;
-    const source = (await sourceToSample.sourcesState.get([ ...sourceToSample.sourcesState.keys() ][0])!).source;
+    // const sourcesOperations = action.entries.map(x => getSources(x.operation));
+    // const sources: Record<string, IQuerySource> = {};
+    // sourcesOperations.map(x => x.map((sourceWrapper) => {
+    //   const sourceString = sourceWrapper.source.toString();
+    //   if (sources[sourceString] === undefined) {
+    //     sources[sourceString] = sourceWrapper.source;
+    //   }
+    // }));
+    // const sourceToSample = <QuerySourceHypermedia><unknown>
+    // (<QuerySourceSkolemized><unknown>sources[Object.keys(sources)[0]]).innerSource;
+    // const sourceTest = (await sourceToSample.sourcesState.get([ ...sourceToSample.sourcesState.keys() ][0])!).source;
+    const aggSourceFunction = ActorRdfJoinMultiIndexSampling.aggregateSampleFn.bind(null, sources.sources);
+
+    const source = sources.sources[0];
+    
     if (!source.sample) {
       throw new Error('Found source that does not support sampling');
     }
@@ -73,7 +85,7 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
     this.estimates = await this.joinSampler.run(
       joinGraph.getEntries().map(x => <Pattern> x.operation),
       250,
-      source.sample.bind(source),
+      aggSourceFunction,
       source.countQuads.bind(source),
     );
 
@@ -166,6 +178,73 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
         .createJoin([ entry1.operation, entry2.operation ], false),
     };
   }
+
+  public static async aggregateCountFn(sources: IQuerySource[],       
+    subject?: RDF.Term,
+    predicate?: RDF.Term,
+    object?: RDF.Term,
+    graph?: RDF.Term
+  ): Promise<number> {
+    let count = 0;
+    for (const source of sources) {
+      if (!source.countQuads) {
+        throw new Error("Got source without countQuads function");
+      }
+      count += await source.countQuads(subject, predicate, object, graph);
+    }
+    return count;
+  }
+
+  public static async aggregateSampleFn(
+    sources: IQuerySource[],
+    indexes: number[],
+    subject?: RDF.Term,
+    predicate?: RDF.Term,
+    object?: RDF.Term,
+    graph?: RDF.Term
+  ): Promise<RDF.Quad[]>{
+    if (indexes.length === 0){
+      return [];
+    }
+    // Sort high to low and pop index to get first index in sequence
+    indexes.sort((a,b) => b-a);
+    const quads: RDF.Quad[] = []
+    let currentIndex: number | undefined = indexes.pop()!;
+    let searchIndex = 0;
+    for (const source of sources){
+      if (!source.countQuads) {
+        throw new Error("Got source without countQuads function");
+      }
+      const sourceCount = await source.countQuads(subject, predicate, object, graph);
+      const stepAhead = searchIndex + sourceCount
+      if (stepAhead > currentIndex){
+        // When the current source contains the index, we loop over indexes 
+        // to find all indexes belonging to this source.
+        const indexesToSampleFromSource = [currentIndex - searchIndex];
+        while (stepAhead > currentIndex! && currentIndex !== undefined) {
+          currentIndex = indexes.pop();
+          if (currentIndex){
+            indexesToSampleFromSource.push(currentIndex - searchIndex);
+          }
+        }
+        if (!source.sample){
+          throw new Error("Got source without sample function");
+        }
+        // We sample from the source with normalized indexes. As the source 
+        // sample fn assumes indexes within the range of the matching triples in 
+        // the source
+        quads.push(...source.sample(indexesToSampleFromSource, 
+          subject, predicate, object, graph)
+        );
+        if (currentIndex === undefined) {
+          return quads;
+        }        
+      }
+      searchIndex += sourceCount;
+    }
+    return quads;
+  }   
+  
 }
 
 
@@ -174,6 +253,10 @@ export interface IActorRdfJoinMultiIndexSampling extends IActorRdfJoinArgs {
    * A mediator for joining Bindings streams
    */
   mediatorJoin: MediatorRdfJoin;
+  /**
+   * A mediator for extracting sources from a given action
+   */
+  mediatorExtractSources: MediatorExtractSources;
 }
 
 export interface IConstructedIndexes {

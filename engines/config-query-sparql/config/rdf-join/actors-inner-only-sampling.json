@@ -62,7 +62,8 @@
       "@id": "urn:comunica:default:rdf-join/actors#inner-multi-index-sampling",
       "@type": "ActorRdfJoinMultiIndexSampling",
       "mediatorJoin": { "@id": "urn:comunica:default:rdf-join/mediators#main" },
-      "mediatorJoinSelectivity": { "@id": "urn:comunica:default:rdf-join-selectivity/mediators#main" }
+      "mediatorJoinSelectivity": { "@id": "urn:comunica:default:rdf-join-selectivity/mediators#main" },
+      "mediatorExtractSources": { "@id": "urn:comunica:default:extract-sources/mediators#main" }
     }
   ]
 }

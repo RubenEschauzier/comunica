@@ -72,7 +72,7 @@ describe('IndexBasedJoinSampler', () => {
     let quad: RDF.Quad;
     let bindings: Record<string, RDF.Term>;
     beforeEach(() => {
-      quad = DF.quad(DF.namedNode('s'), DF.namedNode('o'), DF.namedNode('o'), DF.namedNode('g'));
+      quad = DF.quad(DF.namedNode('s'), DF.namedNode('p'), DF.namedNode('o'), DF.namedNode('g'));
       bindings = {};
     });
     it('should add variable value at subject', () => {
@@ -624,7 +624,7 @@ describe('IndexBasedJoinSampler', () => {
     let countFn: CountFn;
 
     beforeEach(() => {
-      sampleFn = (indexes: number[], subject?: RDF.Term, predicate?: RDF.Term, object?: RDF.Term, graph?: RDF.Term) => {
+      sampleFn = async (indexes: number[], subject?: RDF.Term, predicate?: RDF.Term, object?: RDF.Term, graph?: RDF.Term) => {
         return [ DF.quad(DF.namedNode('s0'), DF.namedNode('p0'), DF.namedNode('o0'), DF.namedNode('g0')) ];
       };
       countFn = (subject?: RDF.Term, predicate?: RDF.Term, object?: RDF.Term, graph?: RDF.Term) => {
