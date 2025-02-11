@@ -10,6 +10,5 @@
     "ccqs:config/extract-sources/actors.json",
     "ccqs:config/extract-sources/mediators.json",
     "ccqs:config/rdf-join/actors-inner-sampling.json"
-
   ]
 }

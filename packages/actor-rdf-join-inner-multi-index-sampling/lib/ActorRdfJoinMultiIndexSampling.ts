@@ -53,21 +53,9 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
       operations: action.entries.map(x=>x.operation),
       context: action.context
     });
-    // Call this only once to get cardinalities, then do dynamic programming to find optimal order, perform joins
-    // return joined result + purge cardinalities.
-    // const sourcesOperations = action.entries.map(x => getSources(x.operation));
-    // const sources: Record<string, IQuerySource> = {};
-    // sourcesOperations.map(x => x.map((sourceWrapper) => {
-    //   const sourceString = sourceWrapper.source.toString();
-    //   if (sources[sourceString] === undefined) {
-    //     sources[sourceString] = sourceWrapper.source;
-    //   }
-    // }));
-    // const sourceToSample = <QuerySourceHypermedia><unknown>
-    // (<QuerySourceSkolemized><unknown>sources[Object.keys(sources)[0]]).innerSource;
-    // const sourceTest = (await sourceToSample.sourcesState.get([ ...sourceToSample.sourcesState.keys() ][0])!).source;
-    const aggSourceFunction = ActorRdfJoinMultiIndexSampling.aggregateSampleFn.bind(null, sources.sources);
 
+    const aggSourceFn = ActorRdfJoinMultiIndexSampling.aggregateSampleFn.bind(null, sources.sources);
+    const aggCountFn = ActorRdfJoinMultiIndexSampling.aggregateCountFn.bind(null, sources.sources)
     const source = sources.sources[0];
     
     if (!source.sample) {
@@ -85,8 +73,8 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
     this.estimates = await this.joinSampler.run(
       joinGraph.getEntries().map(x => <Pattern> x.operation),
       250,
-      aggSourceFunction,
-      source.countQuads.bind(source),
+      aggSourceFn,
+      aggCountFn,
     );
 
     if (this.estimates.maxSizeEstimated === 1){
