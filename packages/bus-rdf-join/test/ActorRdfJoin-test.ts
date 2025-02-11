@@ -8,9 +8,9 @@ import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import { BufferedIterator, MultiTransformIterator, SingletonIterator } from 'asynciterator';
 import { DataFactory } from 'rdf-data-factory';
-import { ActorRdfJoin } from '../lib/ActorRdfJoin';
 import type { IActionRdfJoin, IActorRdfJoinTestSideData } from '../lib/ActorRdfJoin';
 import '@comunica/utils-jest';
+import { ActorRdfJoin } from '../lib/ActorRdfJoin';
 
 const DF = new DataFactory();
 const BF = new BindingsFactory(DF);
@@ -853,6 +853,45 @@ IActorRdfJoinSelectivityOutput
         cardinality: { type: 'estimate', value: 20 * 0.8 },
         variables: [],
       });
+    });
+
+    it('should only set the cardinality to 0 if an entry\'s cardinality is 0', async() => {
+      expect((await instance.constructResultMetadata([], [
+        {
+          state: new MetadataValidationState(),
+          cardinality: { type: 'estimate', value: Number.MIN_VALUE },
+          variables: [],
+        },
+        {
+          state: new MetadataValidationState(),
+          cardinality: { type: 'estimate', value: Number.MIN_VALUE },
+          variables: [],
+        },
+      ], action.context, {})).cardinality.value).not.toBe(0);
+      expect((await instance.constructResultMetadata([], [
+        {
+          state: new MetadataValidationState(),
+          cardinality: { type: 'estimate', value: Number.MIN_VALUE },
+          variables: [],
+        },
+        {
+          state: new MetadataValidationState(),
+          cardinality: { type: 'estimate', value: 0 },
+          variables: [],
+        },
+      ], action.context, {})).cardinality.value).toBe(0);
+      expect((await instance.constructResultMetadata([], [
+        {
+          state: new MetadataValidationState(),
+          cardinality: { type: 'estimate', value: Number.MIN_VALUE },
+          variables: [],
+        },
+        {
+          state: new MetadataValidationState(),
+          cardinality: { type: 'estimate', value: 0 },
+          variables: [],
+        },
+      ], action.context, {}, true)).cardinality.value).toBe(1 * 0.8);
     });
 
     it('should join variables', async() => {

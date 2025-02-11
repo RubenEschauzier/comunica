@@ -106,6 +106,7 @@ export class QuerySourceHypermedia implements IQuerySource {
       dataFactory,
       algebraFactory,
     );
+
     if (aggregatedStore) {
       aggregatedStore.started = true;
 

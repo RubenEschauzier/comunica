@@ -19,6 +19,7 @@ import type {
   ComunicaDataFactory,
   IStatisticBase,
   IDiscoverEventData,
+  PartialResult,
   ILink,
   ISourceState,
   IStoreCacheEntry,
@@ -366,12 +367,18 @@ export const KeysStatistics = {
    * All discovered links during query execution. Not all of them will necessarily be dereferenced.
    */
   discoveredLinks: new ActionContextKey<IStatisticBase<IDiscoverEventData>>(
-    '@comunica/bus-context-preprocess:discoveredLinks',
+    '@comunica/statistic:discoveredLinks',
   ),
   /**
    * Information about what links are dereferenced and when
    */
   dereferencedLinks: new ActionContextKey<IStatisticBase<ILink>>(
-    '@comunica/bus-context-preprocess:dereferencedLinks',
+    '@comunica/statistic:dereferencedLinks',
+  ),
+  /**
+   * Intermediate results produced during query execution
+   */
+  intermediateResults: new ActionContextKey<IStatisticBase<PartialResult>>(
+    '@comunica/statistic:intermediateResults',
   ),
 };

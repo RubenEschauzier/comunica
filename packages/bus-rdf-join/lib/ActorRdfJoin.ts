@@ -16,6 +16,7 @@ import type {
   IJoinEntryWithMetadata,
   ComunicaDataFactory,
   MetadataVariable,
+  LogicalJoinType,
 } from '@comunica/types';
 import { instrumentIterator } from '@comunica/utils-iterator';
 import { cachifyMetadata, MetadataValidationState } from '@comunica/utils-metadata';
@@ -243,15 +244,25 @@ TS
     if (partialMetadata.cardinality) {
       cardinalityJoined = partialMetadata.cardinality;
     } else {
+      let hasZeroCardinality = false;
       cardinalityJoined = metadatas
         .reduce((acc: RDF.QueryResultCardinality, metadata) => {
           const cardinalityThis = ActorRdfJoin.getCardinality(metadata);
+          if (cardinalityThis.value === 0) {
+            hasZeroCardinality = true;
+          }
           return {
             type: cardinalityThis.type === 'estimate' ? 'estimate' : acc.type,
             value: acc.value * (optional ? Math.max(1, cardinalityThis.value) : cardinalityThis.value),
           };
         }, { type: 'exact', value: 1 });
-      cardinalityJoined.value *= (await this.mediatorJoinSelectivity.mediate({ entries, context })).selectivity;
+      // The cardinality should only be zero if one of the entries has zero cardinality, not due to float overflow
+      if (!hasZeroCardinality || optional) {
+        cardinalityJoined.value *= (await this.mediatorJoinSelectivity.mediate({ entries, context })).selectivity;
+        if (cardinalityJoined.value === 0) {
+          cardinalityJoined.value = Number.MIN_VALUE;
+        }
+      }
     }
 
     return {
@@ -337,7 +348,6 @@ TS
       } join entries at ${this.limitEntriesMin ? 'least' : 'most'
       }. The input contained ${action.entries.length}.`);
     }
-
     // Check if all streams are bindings streams
     for (const entry of action.entries) {
       if (entry.output.type !== 'bindings') {
@@ -516,11 +526,6 @@ export interface IActorRdfJoinInternalOptions {
   requiresVariableOverlap?: boolean;
 }
 
-/**
- * Represents a logical join type.
- */
-export type LogicalJoinType = 'inner' | 'optional' | 'minus';
-
 export interface IActionRdfJoin extends IAction {
   /**
    * The logical join type.
@@ -548,3 +553,6 @@ export interface IActorRdfJoinTestSideData {
 }
 
 export type MediatorRdfJoin = Mediate<IActionRdfJoin, IQueryOperationResultBindings, IMediatorTypeJoinCoefficients>;
+
+// TODO remove this in next major version
+export { LogicalJoinType } from '@comunica/types';

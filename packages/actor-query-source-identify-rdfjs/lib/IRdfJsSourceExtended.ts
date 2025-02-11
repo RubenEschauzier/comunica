@@ -29,4 +29,16 @@ export interface IRdfJsSourceExtended extends RDF.Source {
     object?: RDF.Term,
     graph?: RDF.Term,
   ) => Promise<number> | number;
+
+  /**
+   * Sample quads from the store by their index. The index related the number of quads matching
+   * the pattern. Out of range indexes will either return nothing or error.
+   */
+  sampleQuads?: (
+    indexes: number[],
+    subject?: RDF.Term,
+    predicate?: RDF.Term,
+    object?: RDF.Term,
+    graph?: RDF.Term
+  ) => RDF.Quad[];
 }
