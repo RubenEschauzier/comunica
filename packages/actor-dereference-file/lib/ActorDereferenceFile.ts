@@ -4,6 +4,7 @@ import type { IActionDereference, IActorDereferenceArgs, IActorDereferenceOutput
 import { ActorDereference } from '@comunica/bus-dereference';
 import type { IActorTest, TestResult } from '@comunica/core';
 import { failTest, passTestVoid } from '@comunica/core';
+import { Readable } from 'node:stream';
 
 /**
  * A comunica File Dereference Actor.
@@ -28,8 +29,19 @@ export class ActorDereferenceFile extends ActorDereference {
     return URIRegex.exec(str) !== null;
   }
 
-  public async run({ url }: IActionDereference): Promise<IActorDereferenceOutput> {
+  public async run({ url, validate }: IActionDereference): Promise<IActorDereferenceOutput> {
+    // Validation requests for files are by default without revalidation (parsing again)
     const requestTimeStart = Date.now();
+    if (validate){
+      return { 
+        data: Readable.from([]),
+        requestTime: Date.now() - requestTimeStart,
+        exists: true,
+        url: ActorDereferenceFile.isURI(url) ? url : pathToFileURL(url).href,
+        isValidated: true
+      }
+    }
+
     return {
       data: createReadStream(getPath(url)),
       // This should always be after the creation of the read stream

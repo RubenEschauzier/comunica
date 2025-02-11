@@ -29,6 +29,7 @@ import { Factory } from 'sparqlalgebrajs';
 import { MediatedLinkedRdfSourcesAsyncRdfIterator } from './MediatedLinkedRdfSourcesAsyncRdfIterator';
 import { StreamingStoreMetadata } from './StreamingStoreMetadata';
 import CachePolicy = require('http-cache-semantics');
+import { fileURLToPath } from 'url';
 
 export class QuerySourceHypermedia implements IQuerySource {
   public readonly referenceValue: string;
@@ -164,14 +165,17 @@ export class QuerySourceHypermedia implements IQuerySource {
     const storeCache = context.get(KeysCaches.storeCache);
     const policyCache = context.get(KeysCaches.policyCache);
 
+
     try {
       let policy: CachePolicy | undefined = undefined;
+
       if (storeCache && policyCache){
         policy = policyCache.get(link.url);
       }
 
       let dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
         .mediate({ context, url, validate: policy });
+
       // We can use cache here.
       if (dereferenceRdfOutput.isValidated){
         const cachedSource = storeCache!.get(link.url);
@@ -248,7 +252,13 @@ export class QuerySourceHypermedia implements IQuerySource {
     }
     // If storeCache is available cache the constructed source
     storeCache?.set(link.url, { link, source, metadata: <MetadataBindings> metadata, handledDatasets });
-    
+
+    // In case we use local files, we add a policy to the policy cache to show we can always reuse it.
+    // Local files will not pass through the http fetch actor and thus will not have a policy made for them.    
+    if (url.startsWith('file://')){
+      policyCache?.set(link.url, this.createAlwaysFreshPolicy())
+    }
+
     return { link, source, metadata: <MetadataBindings> metadata, handledDatasets };
   }
 
@@ -301,6 +311,21 @@ export class QuerySourceHypermedia implements IQuerySource {
         return aggregatedStore;
       }
     }
+  }
+
+  private createAlwaysFreshPolicy(){
+    return new CachePolicy(
+      {
+        method: "GET",
+        headers: {}
+      },
+      {
+        status: 200,
+        headers: {
+          "cache-control": "max-age=999999", // Keeps it fresh
+        },
+      }
+    );
   }
 
   public toString(): string {

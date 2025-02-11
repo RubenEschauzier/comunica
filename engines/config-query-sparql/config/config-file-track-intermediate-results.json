@@ -7,8 +7,12 @@
     "ccqs:config/rdf-join/actors-wrap-stream.json",
     "ccqs:config/iterator-transform/actors.json",
     "ccqs:config/iterator-transform/mediators.json",
+
     "ccqs:config/extract-sources/actors.json",
     "ccqs:config/extract-sources/mediators.json",
-    "ccqs:config/rdf-join/actors-inner-sampling.json"
+    "ccqs:config/rdf-join/actors-inner-sampling.json",
+
+    "ccqs:config/context-preprocess/actors-set-cache.json"
+
   ]
 }
