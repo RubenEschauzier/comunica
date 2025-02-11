@@ -29,7 +29,14 @@ import { Factory } from 'sparqlalgebrajs';
 import { MediatedLinkedRdfSourcesAsyncRdfIterator } from './MediatedLinkedRdfSourcesAsyncRdfIterator';
 import { StreamingStoreMetadata } from './StreamingStoreMetadata';
 import CachePolicy = require('http-cache-semantics');
-import { fileURLToPath } from 'url';
+import { types } from 'sparqlalgebrajs/lib/algebra';
+import { DataFactory } from 'rdf-data-factory';
+import { ActionContext } from '@comunica/core';
+
+
+// Temp placements
+const DF = new DataFactory();
+const algebraFactory = new Factory(DF);
 
 export class QuerySourceHypermedia implements IQuerySource {
   public readonly referenceValue: string;
@@ -182,6 +189,30 @@ export class QuerySourceHypermedia implements IQuerySource {
         if (!cachedSource){
           throw new Error("Tried to use cached entry that does not exist")
         }
+        const emptyPattern = algebraFactory.createPattern(
+          DF.variable('s'), DF.variable('p'), 
+          DF.variable('o'), DF.variable('h'), 
+        )
+        const sourceQuads = cachedSource.source.queryQuads(emptyPattern, new ActionContext());
+        const rdfMetadataOutput: IActorRdfMetadataOutput = await this.mediators.mediatorMetadata.mediate(
+          { context, url, quads: sourceQuads, triples: dereferenceRdfOutput.metadata?.triples },
+        );
+        (await this.mediators.mediatorMetadataExtract.mediate({
+          context,
+          url,
+          // The problem appears to be conflicting metadata keys here
+          metadata: rdfMetadataOutput.metadata,
+          headers: dereferenceRdfOutput.headers,
+          requestTime: dereferenceRdfOutput.requestTime,
+        }));
+  
+  
+        aggregatedStore?.setBaseMetadata(<MetadataBindings> cachedSource.metadata, false);
+        aggregatedStore?.containedSources.add(link.url);
+        aggregatedStore?.import(sourceQuads).on('error', (err) => {
+          console.log(`Error importing: ${err}`)
+        });
+    
         return cachedSource;
       }
       url = dereferenceRdfOutput.url;
@@ -258,7 +289,6 @@ export class QuerySourceHypermedia implements IQuerySource {
     if (url.startsWith('file://')){
       policyCache?.set(link.url, this.createAlwaysFreshPolicy())
     }
-
     return { link, source, metadata: <MetadataBindings> metadata, handledDatasets };
   }
 

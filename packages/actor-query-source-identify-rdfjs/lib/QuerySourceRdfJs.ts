@@ -148,10 +148,38 @@ export class QuerySourceRdfJs implements IQuerySource {
   }
 
   public queryQuads(
-    _operation: Algebra.Operation,
-    _context: IActionContext,
+    operation: Algebra.Operation,
+    context: IActionContext,
   ): AsyncIterator<RDF.Quad> {
-    throw new Error('queryQuads is not implemented in QuerySourceRdfJs');
+    if (operation.type !== 'pattern') {
+      throw new Error(`Attempted to pass non-pattern operation '${operation.type}' to QuerySourceRdfJs`);
+    }
+
+    // Check if the source supports quoted triple filtering
+    const quotedTripleFiltering = Boolean(this.source.features?.quotedTripleFiltering);
+
+    // Create an async iterator from the matched quad stream
+    const rawStream = this.source.match(
+      QuerySourceRdfJs.nullifyVariables(operation.subject, quotedTripleFiltering),
+      QuerySourceRdfJs.nullifyVariables(operation.predicate, quotedTripleFiltering),
+      QuerySourceRdfJs.nullifyVariables(operation.object, quotedTripleFiltering),
+      QuerySourceRdfJs.nullifyVariables(operation.graph, quotedTripleFiltering),
+    );
+    let it: AsyncIterator<RDF.Quad> = rawStream instanceof AsyncIterator ?
+      rawStream :
+      wrapAsyncIterator<RDF.Quad>(rawStream, { autoStart: false });
+
+    // Perform post-match-filtering if the source does not support quoted triple filtering.
+    if (!quotedTripleFiltering) {
+      it = filterMatchingQuotedQuads(operation, it);
+    }
+
+    // Determine metadata
+    if (!it.getProperty('metadata')) {
+      this.setMetadata(it, operation)
+        .catch(error => it.destroy(error));
+    }
+    return it;
   }
 
   public queryBoolean(
