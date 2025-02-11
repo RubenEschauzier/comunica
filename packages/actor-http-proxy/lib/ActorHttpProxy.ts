@@ -37,12 +37,16 @@ export class ActorHttpProxy extends ActorHttp {
       context: action.context.delete(KeysHttpProxy.httpProxyHandler),
     });
 
+    if (!output.response){
+      return output;
+    }
+
     // Modify the response URL
     // use defineProperty to allow modification of unmodifiable objects
-    Object.defineProperty(output, 'url', {
+    Object.defineProperty(output.response, 'url', {
       configurable: true,
       enumerable: true,
-      get: () => output.headers.get('x-final-url') ?? requestedUrl,
+      get: () => output.response!.headers.get('x-final-url') ?? requestedUrl,
     });
     return output;
   }

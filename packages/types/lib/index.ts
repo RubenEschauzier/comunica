@@ -18,3 +18,4 @@ export * from './statistics/IPartialResult';
 export * from './ILink';
 export * from './Logger';
 export * from './ExpressionEvaluator';
+export * from './IStoreCacheEntry'

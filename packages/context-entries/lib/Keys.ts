@@ -21,10 +21,14 @@ import type {
   IDiscoverEventData,
   PartialResult,
   ILink,
+  ISourceState,
+  IStoreCacheEntry,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
 import type { Algebra } from 'sparqlalgebrajs';
+import CachePolicy = require('http-cache-semantics');
+import { LRUCache } from 'lru-cache';
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
@@ -84,6 +88,27 @@ export const KeysHttp = {
   httpRetryStatusCodes: new ActionContextKey<number[]>('@comunica/bus-http:http-retry-status-codes'),
 };
 
+export const KeysCaches = {
+  storeCacheTest: new ActionContextKey<LRUCache<string, IStoreCacheEntry>>(
+    ('@comunica/actor-query-source-identify-hypermedia:storeCacheTest'),
+  ),
+  /**
+   * Cache for policies on what to cache
+   */
+  policyCache: new ActionContextKey<LRUCache<string, CachePolicy>>
+    ('@comunica/actor-query-source-identify-hypermedia:policyCache'),
+  /**
+   * Cache for storing triple stores
+   */
+  storeCache: new ActionContextKey<LRUCache<string, ISourceState>>
+  ('@comunica/actor-query-source-identify-hypermedia:storeCache'),
+  /**
+   * Cache that stores sources during a single query execution. This prevents expensive http-cache policy evaluations
+   * when the same sources is used in different parts of the engine during a single query.
+   */
+  withinQueryStoreCache: new ActionContextKey<LRUCache<string, Promise<ISourceState>>>
+    ('@comunica/actor-query-source-identify-hypermedia:withinQueryStoreCache')
+}
 export const KeysHttpWayback = {
   /**
    * Use the WayBack machine to get the most recent representation of a file if a link is broken.

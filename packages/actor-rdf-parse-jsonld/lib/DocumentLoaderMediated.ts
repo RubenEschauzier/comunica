@@ -21,9 +21,10 @@ export class DocumentLoaderMediated extends FetchDocumentLoader {
   protected static createFetcher(mediatorHttp: MediatorHttp, context: IActionContext):
   (input: RequestInfo, init: RequestInit) => Promise<Response> {
     return async(url: RequestInfo, init: RequestInit) => {
-      const response = await mediatorHttp.mediate({ input: url, init, context });
-      response.json = async() => JSON.parse(await stringifyStream(ActorHttp.toNodeReadable(response.body)));
-      return response;
+      const { response, isValidated } = await mediatorHttp.mediate({ input: url, init, context });
+      // Response will never be undefined as the mediator does not receive a validation request.
+      response!.json = async() => JSON.parse(await stringifyStream(ActorHttp.toNodeReadable(response!.body)));
+      return response!;
     };
   }
 }

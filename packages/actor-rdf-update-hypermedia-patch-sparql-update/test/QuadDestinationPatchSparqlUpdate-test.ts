@@ -19,7 +19,9 @@ describe('QuadDestinationPatchSparqlUpdate', () => {
   beforeEach(() => {
     mediatorHttp = {
       mediate: jest.fn(() => ({
-        status: 200,
+        response: {
+          status: 200,
+        }
       })),
     };
     context = new ActionContext({ [KeysRdfUpdateQuads.destination.name]: 'abc' });
@@ -105,17 +107,17 @@ describe('QuadDestinationPatchSparqlUpdate', () => {
     });
 
     it('should throw on a server error', async() => {
-      mediatorHttp.mediate = () => ({ status: 400 });
+      mediatorHttp.mediate = () => ({response: { status: 400 }});
       await expect(destination.update({ insert: fromArray<RDF.Quad>([]) })).rejects
         .toThrow('Could not update abc (HTTP status 400):\nempty response');
     });
 
     it('should close body if available', async() => {
       const cancel = jest.fn();
-      mediatorHttp.mediate = () => ({
+      mediatorHttp.mediate = () => ({response: {
         status: 200,
         body: { cancel },
-      });
+      }});
       await destination.update({ insert: fromArray<RDF.Quad>([]) });
       expect(cancel).toHaveBeenCalledTimes(1);
     });

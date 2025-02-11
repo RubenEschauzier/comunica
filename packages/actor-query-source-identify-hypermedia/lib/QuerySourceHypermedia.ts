@@ -6,7 +6,7 @@ import type { MediatorRdfMetadataAccumulate } from '@comunica/bus-rdf-metadata-a
 import type { MediatorRdfMetadataExtract } from '@comunica/bus-rdf-metadata-extract';
 import type { MediatorRdfResolveHypermediaLinks } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { MediatorRdfResolveHypermediaLinksQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
-import { KeysInitQuery, KeysQuerySourceIdentify } from '@comunica/context-entries';
+import { KeysCaches, KeysInitQuery, KeysQuerySourceIdentify } from '@comunica/context-entries';
 import type {
   BindingsStream,
   ComunicaDataFactory,
@@ -17,18 +17,18 @@ import type {
   IQuerySource,
   MetadataBindings,
   ILink,
+  ISourceState
 } from '@comunica/types';
 import type { BindingsFactory } from '@comunica/utils-bindings-factory';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import { TransformIterator } from 'asynciterator';
-import { LRUCache } from 'lru-cache';
 import { Readable } from 'readable-stream';
 import type { Algebra } from 'sparqlalgebrajs';
 import { Factory } from 'sparqlalgebrajs';
-import type { ISourceState } from './LinkedRdfSourcesAsyncRdfIterator';
 import { MediatedLinkedRdfSourcesAsyncRdfIterator } from './MediatedLinkedRdfSourcesAsyncRdfIterator';
 import { StreamingStoreMetadata } from './StreamingStoreMetadata';
+import CachePolicy = require('http-cache-semantics');
 
 export class QuerySourceHypermedia implements IQuerySource {
   public readonly referenceValue: string;
@@ -40,16 +40,9 @@ export class QuerySourceHypermedia implements IQuerySource {
   public readonly dataFactory: ComunicaDataFactory;
   public readonly bindingsFactory: BindingsFactory;
 
-  /**
-   * A cache for source URLs to source states.
-   */
-  public sourcesState: LRUCache<string, Promise<ISourceState>>;
-
-  private readonly cacheSize: number;
   private readonly maxIterators: number;
 
   public constructor(
-    cacheSize: number,
     firstUrl: string,
     forceSourceType: string | undefined,
     maxIterators: number,
@@ -60,7 +53,6 @@ export class QuerySourceHypermedia implements IQuerySource {
     bindingsFactory: BindingsFactory,
   ) {
     this.referenceValue = firstUrl;
-    this.cacheSize = cacheSize;
     this.firstUrl = firstUrl;
     this.forceSourceType = forceSourceType;
     this.maxIterators = maxIterators;
@@ -69,7 +61,6 @@ export class QuerySourceHypermedia implements IQuerySource {
     this.logWarning = logWarning;
     this.dataFactory = dataFactory;
     this.bindingsFactory = bindingsFactory;
-    this.sourcesState = new LRUCache<string, Promise<ISourceState>>({ max: this.cacheSize });
   }
 
   public async getSelectorShape(context: IActionContext): Promise<FragmentSelectorShape> {
@@ -91,9 +82,9 @@ export class QuerySourceHypermedia implements IQuerySource {
         this.bindingsFactory,
       ).queryBindings(operation, context);
     }
-
-    // Initialize the sources state on first call
-    if (this.sourcesState.size === 0) {
+    
+    // Initialize the within query cache on first call
+    if (context.getSafe(KeysCaches.withinQueryStoreCache).size === 0) {
       this.getSourceCached({ url: this.firstUrl }, {}, context, aggregatedStore)
         .catch(error => it.destroy(error));
     }
@@ -101,7 +92,6 @@ export class QuerySourceHypermedia implements IQuerySource {
     const dataFactory: ComunicaDataFactory = context.getSafe(KeysInitQuery.dataFactory);
     const algebraFactory = new Factory(dataFactory);
     const it: MediatedLinkedRdfSourcesAsyncRdfIterator = new MediatedLinkedRdfSourcesAsyncRdfIterator(
-      this.cacheSize,
       operation,
       options,
       context,
@@ -169,9 +159,27 @@ export class QuerySourceHypermedia implements IQuerySource {
     let url = link.url;
     let quads: RDF.Stream;
     let metadata: Record<string, any>;
+    
+    // Get http caches
+    const storeCache = context.get(KeysCaches.storeCache);
+    const policyCache = context.get(KeysCaches.policyCache);
+
     try {
-      const dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
-        .mediate({ context, url });
+      let policy: CachePolicy | undefined = undefined;
+      if (storeCache && policyCache){
+        policy = policyCache.get(link.url);
+      }
+
+      let dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
+        .mediate({ context, url, validate: policy });
+      // We can use cache here.
+      if (dereferenceRdfOutput.isValidated){
+        const cachedSource = storeCache!.get(link.url);
+        if (!cachedSource){
+          throw new Error("Tried to use cached entry that does not exist")
+        }
+        return cachedSource;
+      }
       url = dereferenceRdfOutput.url;
 
       // Determine the metadata
@@ -214,11 +222,13 @@ export class QuerySourceHypermedia implements IQuerySource {
       // so the user would not be notified of something going wrong otherwise.
       this.logWarning(`Metadata extraction for ${url} failed: ${(<Error> error).message}`);
     }
-
     // Aggregate all discovered quads into a store.
     aggregatedStore?.setBaseMetadata(<MetadataBindings> metadata, false);
     aggregatedStore?.containedSources.add(link.url);
-    aggregatedStore?.import(quads);
+    aggregatedStore?.import(quads).on('error', (err) => {
+      console.log(`Error importing: ${err}`)
+    });
+    
 
     // Determine the source
     const { source, dataset } = await this.mediators.mediatorQuerySourceIdentifyHypermedia.mediate({
@@ -236,6 +246,9 @@ export class QuerySourceHypermedia implements IQuerySource {
       // and next page links are followed after that.
       handledDatasets[dataset] = true;
     }
+    // If storeCache is available cache the constructed source
+    storeCache?.set(link.url, { link, source, metadata: <MetadataBindings> metadata, handledDatasets });
+    
     return { link, source, metadata: <MetadataBindings> metadata, handledDatasets };
   }
 
@@ -253,13 +266,14 @@ export class QuerySourceHypermedia implements IQuerySource {
     context: IActionContext,
     aggregatedStore: IAggregatedStore | undefined,
   ): Promise<ISourceState> {
-    let source = this.sourcesState.get(link.url);
+    const withinQueryCache = context.getSafe(KeysCaches.withinQueryStoreCache);
+    let source = withinQueryCache.get(link.url);
     if (source) {
       return source;
     }
     source = this.getSource(link, handledDatasets, context, aggregatedStore);
     if (link.url === this.firstUrl || aggregatedStore === undefined) {
-      this.sourcesState.set(link.url, source);
+      withinQueryCache.set(link.url, source);
     }
     return source;
   }

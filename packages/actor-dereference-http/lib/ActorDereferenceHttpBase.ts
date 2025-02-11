@@ -76,37 +76,54 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
         context: action.context,
         init: { headers, method: action.method },
         input: action.url,
+        validate: action.validate
       });
+      if (!httpResponse.response && action.validate){
+        return {
+          url: action.url,
+          data: emptyReadable(),
+          exists,
+          requestTime: 0,
+          isValidated: true,
+          mediaType: 'text/turtle',
+        }
+      }
+      else if (!httpResponse.response){
+        return this.handleDereferenceErrors(action, new Error("Response undefined in dereference actor"))
+      }
     } catch (error: unknown) {
       return this.handleDereferenceErrors(action, error);
     }
     // The response URL can be relative to the given URL
-    const url = resolveRelative(httpResponse.url, action.url);
+    const url = resolveRelative(httpResponse.response.url, action.url);
     const requestTime = Date.now() - requestTimeStart;
 
+
     // Only parse if retrieval was successful
-    if (httpResponse.status !== 200) {
+    if (httpResponse.response.status !== 200) {
       exists = false;
       // Consume the body, to avoid process to hang
-      const bodyString = httpResponse.body ?
-        await stringifyStream(ActorHttp.toNodeReadable(httpResponse.body)) :
+      const bodyString = httpResponse.response.body ?
+        await stringifyStream(ActorHttp.toNodeReadable(httpResponse.response.body)) :
         'empty response';
 
       if (!action.acceptErrors) {
-        const error = new Error(`Could not retrieve ${action.url} (HTTP status ${httpResponse.status}):\n${bodyString}`);
-        return this.handleDereferenceErrors(action, error, httpResponse.headers, requestTime);
+        const error = new Error(`Could not retrieve ${action.url} (HTTP status ${httpResponse.response.status}):\n${bodyString}`);
+        return this.handleDereferenceErrors(action, error, 
+          httpResponse.response.headers, requestTime
+        );
       }
     }
 
-    const mediaType = REGEX_MEDIATYPE.exec(httpResponse.headers.get('content-type') ?? '')?.[0];
+    const mediaType = REGEX_MEDIATYPE.exec(httpResponse.response.headers.get('content-type') ?? '')?.[0];
 
     // Return the parsed quad stream and whether or not only triples are supported
     return {
       url,
-      data: exists ? ActorHttp.toNodeReadable(httpResponse.body) : emptyReadable(),
+      data: exists ? ActorHttp.toNodeReadable(httpResponse.response.body) : emptyReadable(),
       exists,
       requestTime,
-      headers: httpResponse.headers,
+      headers: httpResponse.response.headers,
       mediaType: mediaType === 'text/plain' ? undefined : mediaType,
     };
   }

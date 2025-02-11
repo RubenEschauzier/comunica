@@ -1,5 +1,6 @@
 import type { IAction, IActorArgs, IActorOutput, IActorTest, Mediate } from '@comunica/core';
 import { ActorDereferenceBase } from './ActorDereferenceBase';
+import CachePolicy = require('http-cache-semantics');
 
 /**
  * A base actor for dereferencing URLs to (generic) streams.
@@ -65,6 +66,10 @@ export interface IActionDereference extends IAction {
    */
   headers?: Headers;
   /**
+   * Whether the dereference action is to validate a cache entry
+   */
+  validate?: CachePolicy;
+  /**
    * An optional callback to retrieve the mediaType mappings
    */
   mediaTypes?: () => Promise<Record<string, number> | undefined>;
@@ -103,6 +108,10 @@ export interface IActorDereferenceOutput extends IActorOutput {
    * The mediatype of the source
    */
   mediaType?: string;
+  /**
+   * When action.validate is set, this returns if the policy satisfies without revalidation
+   */
+  isValidated?: boolean;
 }
 
 export type IActorDereferenceArgs = IActorArgs<IActionDereference, IActorTest, IActorDereferenceOutput>;

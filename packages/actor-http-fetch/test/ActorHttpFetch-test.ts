@@ -57,7 +57,7 @@ describe('ActorHttpFetch', () => {
     it('should call fetch and return its output', async() => {
       const response = 'response';
       jest.spyOn(globalThis, 'fetch').mockResolvedValue(<any>response);
-      await expect(actor.run({ input, context })).resolves.toBe(response);
+      await expect(actor.run({ input, context })).resolves.toEqual({response});
       expect(actor.prepareRequestHeaders).toHaveBeenCalledTimes(1);
       expect(ActorHttp.headersToHash).toHaveBeenCalledTimes(1);
       expect((<any>actor).fetchInitPreprocessor.handle).toHaveBeenCalledTimes(1);
@@ -71,7 +71,7 @@ describe('ActorHttpFetch', () => {
       const customFetch = jest.fn().mockResolvedValue('custom fetch response');
       const contextWithFetch = context.set(KeysHttp.fetch, customFetch);
       jest.spyOn(globalThis, 'fetch').mockResolvedValue(<any>'default fetch response');
-      await expect(actor.run({ input, context: contextWithFetch })).resolves.toBe(response);
+      await expect(actor.run({ input, context: contextWithFetch })).resolves.toEqual({response});
       expect(actor.prepareRequestHeaders).toHaveBeenCalledTimes(1);
       // TODO: the headersToHash will no longer be called once the workaround in the actor is removed
       expect(ActorHttp.headersToHash).toHaveBeenCalledTimes(2);
@@ -91,7 +91,7 @@ describe('ActorHttpFetch', () => {
       const response = 'response';
       const contextWithFlag = context.set(KeysHttp.includeCredentials, true);
       jest.spyOn(globalThis, 'fetch').mockResolvedValue(<any>response);
-      await expect(actor.run({ input, context: contextWithFlag })).resolves.toBe(response);
+      await expect(actor.run({ input, context: contextWithFlag })).resolves.toEqual({response});
       expect(actor.prepareRequestHeaders).toHaveBeenCalledTimes(1);
       expect(ActorHttp.headersToHash).toHaveBeenCalledTimes(1);
       expect((<any>actor).fetchInitPreprocessor.handle).toHaveBeenCalledTimes(1);
@@ -136,7 +136,7 @@ describe('ActorHttpFetch', () => {
       jest.spyOn(globalThis, 'setTimeout');
       jest.spyOn(globalThis, 'clearTimeout');
       jest.spyOn((<any>actor).fetchInitPreprocessor, 'handle').mockResolvedValue({});
-      await expect(actor.run({ input, context: contextWithTimeout })).resolves.toBe(response);
+      await expect(actor.run({ input, context: contextWithTimeout })).resolves.toEqual({response});
       expect(globalThis.setTimeout).toHaveBeenCalledTimes(1);
       expect(globalThis.setTimeout).toHaveBeenNthCalledWith(1, expect.any(Function), timeoutMilliseconds);
       expect(globalThis.clearTimeout).toHaveBeenCalledTimes(1);
@@ -165,7 +165,7 @@ describe('ActorHttpFetch', () => {
       jest.spyOn(globalThis, 'clearTimeout');
       jest.spyOn((<any>actor).fetchInitPreprocessor, 'handle').mockResolvedValue({});
       const response = await actor.run({ input, context: contextWithTimeout });
-      const responseReader = response.body!.getReader();
+      const responseReader = response.response!.body!.getReader();
       const errorHandler = jest.fn();
       const successHandler = jest.fn();
       responseReader.read().then(successHandler).catch(errorHandler);
@@ -195,7 +195,7 @@ describe('ActorHttpFetch', () => {
       jest.spyOn(globalThis, 'clearTimeout');
       jest.spyOn((<any>actor).fetchInitPreprocessor, 'handle').mockResolvedValue({});
       const response = await actor.run({ input, context: contextWithTimeout });
-      const responseReader = response.body!.getReader();
+      const responseReader = response.response!.body!.getReader();
       await expect(responseReader.read()).resolves.toEqual({ done: false, value: 'abc' });
       expect(globalThis.setTimeout).toHaveBeenCalledTimes(1);
       expect(globalThis.setTimeout).toHaveBeenNthCalledWith(1, expect.any(Function), timeoutMilliseconds);

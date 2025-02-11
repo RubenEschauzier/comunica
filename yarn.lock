@@ -2125,6 +2125,11 @@
   dependencies:
     "@types/unist" "*"
 
+"@types/http-cache-semantics@^4.0.4":
+  version "4.0.4"
+  resolved "https://registry.yarnpkg.com/@types/http-cache-semantics/-/http-cache-semantics-4.0.4.tgz#b979ebad3919799c979b17c72621c0bc0a31c6c4"
+  integrity sha512-1m0bIFVc7eJWyve9S0RnuRgcQqF/Xd5QsUZAZeQFr1Q3/p9JWoQQEqmVy+DPTNpGXwhgIetAoYF8JSc33q29QA==
+
 "@types/http-link-header@^1.0.1":
   version "1.0.5"
   resolved "https://registry.npmjs.org/@types/http-link-header/-/http-link-header-1.0.5.tgz"

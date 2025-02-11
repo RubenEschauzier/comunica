@@ -21,6 +21,7 @@ import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
 
+
 /**
  * Base implementation of a Comunica query engine.
  */
@@ -32,7 +33,6 @@ export class QueryEngineBase<
 >
 implements IQueryEngine<QueryStringContextInner, QueryAlgebraContextInner> {
   private readonly actorInitQuery: ActorInitQueryBase;
-
   public constructor(actorInitQuery: ActorInitQueryBase) {
     this.actorInitQuery = actorInitQuery;
   }
@@ -124,12 +124,18 @@ implements IQueryEngine<QueryStringContextInner, QueryAlgebraContextInner> {
     query: QueryFormatTypeInner,
     context?: QueryFormatTypeInner extends string ? QueryStringContextInner : QueryAlgebraContextInner,
   ): Promise<QueryType | IQueryExplained> {
-    const actionContext: IActionContext = ActionContext.ensureActionContext(context);
+    let actionContext: IActionContext = ActionContext.ensureActionContext(context);
 
     // Invalidate caches if cache argument is set to false
     if (actionContext.get(KeysInitQuery.invalidateCache)) {
       await this.invalidateHttpCache();
     }
+
+    // // Set persistent caches in query context
+    // const caches = ( await this.cacheInitializations ).cacheContext;
+    // for (const key of caches.keys()) {
+    //     actionContext = actionContext.set(key, caches.getSafe(key));
+    // }
 
     // Invoke query process
     const { result } = await this.actorInitQuery.mediatorQueryProcess.mediate({ query, context: actionContext });

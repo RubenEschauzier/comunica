@@ -20,8 +20,10 @@ describe('QuadDestinationPutLdp', () => {
 
   beforeEach(() => {
     mediatorHttp = {
-      mediate: jest.fn(() => ({
-        status: 200,
+      mediate: jest.fn(async () => ({
+        response: {
+          status: 200,
+        }
       })),
     };
     mediatorRdfSerializeMediatypes = {
@@ -119,17 +121,17 @@ describe('QuadDestinationPutLdp', () => {
     });
 
     it('should throw on a server error', async() => {
-      mediatorHttp.mediate = () => ({ status: 400 });
+      mediatorHttp.mediate = async () => ({response: { status: 400 }});
       await expect(destination.update({ insert: <any> 'QUADS' })).rejects
         .toThrow('Could not update abc (HTTP status 400):\nempty response');
     });
 
     it('should close body if available', async() => {
       const cancel = jest.fn();
-      mediatorHttp.mediate = () => ({
+      mediatorHttp.mediate = async () => ( { response: {
         status: 200,
         body: { cancel },
-      });
+      }});
       await destination.update({ insert: <any> 'QUADS' });
       expect(cancel).toHaveBeenCalledTimes(1);
     });

@@ -55,7 +55,6 @@ export interface IActorInitQueryBaseArgs extends IActorInitArgs {
    * The HTTP cache invalidation mediator
    */
   mediatorHttpInvalidate: MediatorHttpInvalidate;
-
   /**
    * A SPARQL query string
    */
