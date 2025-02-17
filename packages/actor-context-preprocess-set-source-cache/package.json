@@ -1,6 +1,6 @@
 {
   "name": "@comunica/actor-context-preprocess-set-source-cache",
-  "version": "4.0.2",
+  "version": "4.1.0",
   "description": "A set-source-cache context-preprocess actor",
   "lsd:module": true,
   "main": "lib/index.js",
@@ -35,8 +35,8 @@
     "@types/http-cache-semantics": "^4.0.4"
   },
   "dependencies": {
-    "@comunica/core": "^4.0.2",
-    "@comunica/bus-context-preprocess": "^4.0.2",
+    "@comunica/core": "^4.1.0",
+    "@comunica/bus-context-preprocess": "^4.1.0",
     "lru-cache": "^10.0.0"
   },
   "scripts": {
