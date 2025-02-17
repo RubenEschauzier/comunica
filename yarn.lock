@@ -10942,7 +10942,7 @@ rdf-store-stream@^3.0.0:
   dependencies:
     rdf-stores "^2.0.0"
 
-rdf-stores@^2.0.0, rdf-stores@^2.1.1:
+rdf-stores@^2.0.0:
   version "2.1.1"
   resolved "https://registry.npmjs.org/rdf-stores/-/rdf-stores-2.1.1.tgz"
   integrity sha512-wYovM7q+12K+dV3AsPbBiAY63Dy1eoOBJ69XoL757Pqwimz2LLCrSwrjMyqc4AB+/wPgDwPeNiQA7IzD6zeAZg==

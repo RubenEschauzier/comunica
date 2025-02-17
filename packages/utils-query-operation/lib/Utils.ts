@@ -10,7 +10,7 @@ import type {
   IQueryOperationResultVoid,
   IQuerySourceWrapper,
 } from '@comunica/types';
-import type { Algebra } from 'sparqlalgebrajs';
+import { Algebra, Util } from 'sparqlalgebrajs';
 
 /**
  * Safely cast a query operation output to a bindings output.
@@ -109,4 +109,27 @@ export function removeOperationSource(operation: Algebra.Operation): void {
   if (operation.metadata && Object.keys(operation.metadata).length === 0) {
     delete operation.metadata;
   }
+}
+
+
+/**
+ * Collected all sources that are defined within the given operation of children recursively.
+ * @param operation An operation.
+ */
+export function getSources(operation: Algebra.Operation): IQuerySourceWrapper[] {
+  const sources = new Set<IQuerySourceWrapper>();
+  const sourceAdder = (subOperation: Algebra.Operation): boolean => {
+    const src = getOperationSource(subOperation);
+    if (src) {
+      sources.add(src);
+    }
+    return false;
+  };
+  Util.recurseOperation(operation, {
+    [Algebra.types.PATTERN]: sourceAdder,
+    [Algebra.types.LINK]: sourceAdder,
+    [Algebra.types.NPS]: sourceAdder,
+    [Algebra.types.SERVICE]: sourceAdder,
+  });
+  return [ ...sources ];
 }

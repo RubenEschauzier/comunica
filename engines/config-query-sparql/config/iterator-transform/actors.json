@@ -9,7 +9,7 @@
     {
       "@id": "urn:comunica:default:iterator-transform/actors#record-intermediate-results",
       "@type": "ActorIteratorTransformRecordIntermediateResults",
-      "wraps": ["inner", "minus", "optional", "project"]
+      "wraps": ["inner"]
     }
   ]
 }
