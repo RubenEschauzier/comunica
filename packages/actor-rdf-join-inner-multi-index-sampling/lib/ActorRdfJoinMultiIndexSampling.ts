@@ -54,32 +54,23 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
       context: action.context
     });
     const sources = [...Object.values(sourcesUnioned)];
-    // Call this only once to get cardinalities, then do dynamic programming to find optimal order, perform joins
-    // return joined result + purge cardinalities.
-    // const sourcesOperations = action.entries.map(x => getSources(x.operation));
-    // const sources: Record<string, IQuerySource> = {};
-    // sourcesOperations.map(x => x.map((sourceWrapper) => {
-    //   const sourceString = sourceWrapper.source.toString();
-    //   if (sources[sourceString] === undefined) {
-    //     sources[sourceString] = sourceWrapper.source;
-    //   }
-    // }));
-    // const sourceToSample = <QuerySourceHypermedia><unknown>
-    // (<QuerySourceSkolemized><unknown>sources[Object.keys(sources)[0]]).innerSource;
-    // const sourceTest = (await sourceToSample.sourcesState.get([ ...sourceToSample.sourcesState.keys() ][0])!).source;
+
+    // Source extraction found no sources to sample over. This can happen
+    // during for example traversal queries. In this case use default join strategy
+    if (sources.length === 0){
+      console.log("Found no entries in cache");
+      return {
+        result: await this.mediatorJoin.mediate({
+          type: action.type,
+          entries: action.entries,
+          context: action.context.set(BUDGET_EXHAUSTED, true),
+        }),
+      };
+    }
+
     const aggSourceFn = ActorRdfJoinMultiIndexSampling.aggregateSampleFn.bind(null, sources);
     const aggCountFn = ActorRdfJoinMultiIndexSampling.aggregateCountFn.bind(null, sources);
-    // const source = sources.sources[0];
-    
-    // if (!source.sample) {
-    //   throw new Error('Found source that does not support sampling');
-    // }
-    // if (!source.countQuads) {
-    //   throw new Error('Found source that does not support quad counting');
-    // }
 
-    // Join Graph reorders entries in breadth-first style from 0 index of entries. So always use the entries of
-    // the join graph to ensure number representations of entries match.
     const joinGraph = new JoinGraph(action.entries);
     joinGraph.constructJoinGraphBFS(joinGraph.getEntries()[0]);
 

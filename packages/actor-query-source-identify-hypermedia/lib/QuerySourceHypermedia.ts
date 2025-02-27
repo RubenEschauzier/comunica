@@ -238,7 +238,7 @@ export class QuerySourceHypermedia implements IQuerySource {
       quads,
       url,
     });
-
+    
     if (dataset) {
       // Mark the dataset as applied
       // This is needed to make sure that things like QPF search forms are only applied once,
