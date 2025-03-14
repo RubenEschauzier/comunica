@@ -255,7 +255,7 @@ export interface IActorRdfJoinMultiIndexSampling extends IActorRdfJoinArgs {
   /**
    * The maximum number of entries in the source cache, set to 0 to disable.
    * @range {integer}
-   * @default {10_000}
+   * @default {10000}
    */
   budget: number
   /**
