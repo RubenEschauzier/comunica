@@ -5,7 +5,7 @@ import type { PartialResult, IStatisticBase } from '@comunica/types';
 
 export class StatisticIntermediateResults extends StatisticBase<PartialResult> {
   public key: ActionContextKey<IStatisticBase<PartialResult>> =
-    KeysStatistics.intermediateResults; ;
+    KeysStatistics.intermediateResults;
 
   public updateStatistic(intermediateResult: PartialResult): boolean {
     intermediateResult.metadata.time = performance.now();

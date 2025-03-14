@@ -19,7 +19,6 @@ import { JoinOrderEnumerator } from './JoinOrderEnumerator';
 import type { JoinPlan } from './JoinPlan';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import { MediatorExtractSources } from '@comunica/bus-extract-sources';
-import { log } from 'node:console';
 
 /**
  * A comunica Inner Multi Index Sampling RDF Join Actor.
@@ -34,7 +33,8 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
   public estimates: IEnumerationOutput;
 
   public samplingDone = false;
-  public nSamples = 0;
+  public nSamples: number;
+  public budget: number;
 
   public constructor(args: IActorRdfJoinMultiIndexSampling) {
     super(args, {
@@ -45,7 +45,7 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
       canHandleUndefs: true,
       isLeaf: false,
     });
-    this.joinSampler = new IndexBasedJoinSampler(10_000);
+    this.joinSampler = new IndexBasedJoinSampler(this.budget);
   }
 
   protected override async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
@@ -53,21 +53,21 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
       operations: action.entries.map(x=>x.operation),
       context: action.context
     });
-    const sources = [...Object.values(sourcesUnioned)];
-
-    // Source extraction found no sources to sample over. This can happen
-    // during for example traversal queries. In this case use default join strategy
-    if (sources.length === 0){
-      console.log("Found no entries in cache");
+    
+    if ([...Object.keys(sourcesUnioned.sources)].length === 0){
+      console.warn("No sources found in sampling.")
       return {
         result: await this.mediatorJoin.mediate({
           type: action.type,
           entries: action.entries,
-          context: action.context.set(BUDGET_EXHAUSTED, true),
+          context: action.context.set(KEY_NESTED_QUERY, true),
         }),
       };
     }
+    const sources = [...Object.values(sourcesUnioned.sources)];
 
+    // Source extraction found no sources to sample over. This can happen
+    // during for example traversal queries. In this case use default join strategy
     const aggSourceFn = ActorRdfJoinMultiIndexSampling.aggregateSampleFn.bind(null, sources);
     const aggCountFn = ActorRdfJoinMultiIndexSampling.aggregateCountFn.bind(null, sources);
 
@@ -76,18 +76,18 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
 
     this.estimates = await this.joinSampler.run(
       joinGraph.getEntries().map(x => <Pattern> x.operation),
-      250,
+      this.nSamples,
       aggSourceFn,
       aggCountFn,
     );
-
+    
     if (this.estimates.maxSizeEstimated === 1){
       console.warn(`${this.name}: Cardinality sampling failed, budget exhausted prematurely.`);
       return {
         result: await this.mediatorJoin.mediate({
           type: action.type,
           entries: action.entries,
-          context: action.context.set(BUDGET_EXHAUSTED, true)
+          context: action.context.set(KEY_BUDGET_EXHAUSTED, true)
         }),
       };
     }
@@ -109,7 +109,7 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
 
     // This is a partial join plan, so we must join the remaining entries too
     if (joinPlan.entries.size !== action.entries.length){
-      const context = action.context.set(BUDGET_EXHAUSTED, true);
+      const context = action.context.set(KEY_BUDGET_EXHAUSTED, true);
       const leftOverEntries = joinGraph.getEntries().filter((_, i) => !joinPlan.entries.has(i));
       const originalMetadataFn = multiJoinOutput.output.metadata();
 
@@ -129,7 +129,6 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
         }),
       };
     }
-    
     return {
       result: {
         type: 'bindings',
@@ -151,9 +150,13 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
     action: IActionRdfJoin,
     sideData: IActorRdfJoinTestSideData,
   ): Promise<TestResult<IMediatorTypeJoinCoefficients, IActorRdfJoinTestSideData>> {
-    if (action.context.get(BUDGET_EXHAUSTED)){
+    if (action.context.get(KEY_BUDGET_EXHAUSTED)){
       return failTest(`${this.name}: budget exhausted for join sampling.`);
     }
+    if (action.context.get(KEY_NESTED_QUERY)){
+      return failTest(`${this.name}: join sampling can't run for nested query calls`);
+    }
+
     return passTestWithSideData({
       iterations: 1,
       persistedItems: 0,
@@ -215,7 +218,7 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
         const indexesToSampleFromSource = [currentIndex - searchIndex];
         while (stepAhead > currentIndex! && currentIndex !== undefined) {
           currentIndex = indexes.pop();
-          if (currentIndex){
+          if (currentIndex && stepAhead > currentIndex!){
             indexesToSampleFromSource.push(currentIndex - searchIndex);
           }
         }
@@ -249,23 +252,32 @@ export interface IActorRdfJoinMultiIndexSampling extends IActorRdfJoinArgs {
    * A mediator for extracting sources from a given action
    */
   mediatorExtractSources: MediatorExtractSources;
-}
-
-export interface IConstructedIndexes {
   /**
-   * N3 store
+   * The maximum number of entries in the source cache, set to 0 to disable.
+   * @range {integer}
+   * @default {10_000}
    */
-  store: any;
+  budget: number
   /**
-   * Created array version of index
+   * The maximum number of entries in the source cache, set to 0 to disable.
+   * @range {integer}
+   * @default {250}
    */
-  arrayIndexes: Record<string, ArrayIndex>;
+  nSamples: number
 }
 
 /**
  * Key that indicates to recursive calls to the join bus that there is no more sampling budget
  * for a given query. So other, non-sampling methods should be used
  */
-export const BUDGET_EXHAUSTED = new ActionContextKey<boolean>(
+export const KEY_BUDGET_EXHAUSTED = new ActionContextKey<boolean>(
   '@comunica/actor-rdf-join:exhausted',
+);
+
+/**
+ * Key indicating join sampling should not be called due to nested query calls
+ */
+
+export const KEY_NESTED_QUERY = new ActionContextKey<boolean>(
+  '@comunica/actor-rdf-join:nested'
 );

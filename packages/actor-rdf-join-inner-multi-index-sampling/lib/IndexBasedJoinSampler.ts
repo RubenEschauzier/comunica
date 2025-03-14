@@ -36,9 +36,6 @@ export class IndexBasedJoinSampler {
     );
   }
   
-  // TODO: Implement budget-based early quitting. This means track number of sampleFn calls. When doing early stopping, 
-  // we should delegate the rest of the joins to the rdf-join bus. We can signal that we don't know by a special value.
-  // In addition, we should think about how we can use dccp with partial estimates.
   public async bottomUpEnumeration(
     n: number,
     resultSets: Record<string, RDF.Term>[][],
@@ -239,15 +236,18 @@ export class IndexBasedJoinSampler {
   }
 
   // Prob use built in when I find it again
-  public isVariable(term: RDF.Term) {
-    return term.termType == 'Variable';
+  public isVariable(term: RDF.Term, allowBlankNode=false) {
+    if (allowBlankNode){
+      return term.termType === 'Variable' || term.termType === 'BlankNode'
+    }
+    return term.termType === 'Variable';
   }
 
   public tpToSampleQuery(tp: Pattern): (RDF.Term | undefined)[] {
-    const s: RDF.Term | undefined = this.isVariable(tp.subject) ? undefined : tp.subject;
-    const p: RDF.Term | undefined = this.isVariable(tp.predicate) ? undefined : tp.predicate;
-    const o: RDF.Term | undefined = this.isVariable(tp.object) ? undefined : tp.object;
-    const g: RDF.Term | undefined = this.isVariable(tp.graph) ? undefined : tp.graph;
+    const s: RDF.Term | undefined = this.isVariable(tp.subject, true) ? undefined : tp.subject;
+    const p: RDF.Term | undefined = this.isVariable(tp.predicate, true) ? undefined : tp.predicate;
+    const o: RDF.Term | undefined = this.isVariable(tp.object, true) ? undefined : tp.object;
+    const g: RDF.Term | undefined = this.isVariable(tp.graph, true) ? undefined : tp.graph;
     return [ s, p, o, g ];
   }
 

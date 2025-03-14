@@ -24,6 +24,7 @@ import { getSafeBindings, materializeOperation } from '@comunica/utils-query-ope
 import { MultiTransformIterator, TransformIterator, UnionIterator } from 'asynciterator';
 import { Factory, Algebra, Util } from 'sparqlalgebrajs';
 
+import { KEY_NESTED_QUERY } from '@comunica/actor-rdf-join-inner-multi-index-sampling'
 /**
  * A comunica Multi-way Bind RDF Join Actor.
  */
@@ -134,6 +135,7 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin<IActorRdfJoinMultiBindTe
     const subContext = action.context
       .set(KeysQueryOperation.joinLeftMetadata, entries[0].metadata)
       .set(KeysQueryOperation.joinRightMetadatas, remainingEntries.map(entry => entry.metadata));
+
     const bindingsStream: BindingsStream = ActorRdfJoinMultiBind.createBindStream(
       this.bindOrder,
       smallestStream.bindingsStream,
@@ -144,7 +146,7 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin<IActorRdfJoinMultiBindTe
           operations[0] :
           algebraFactory.createJoin(operations);
         const output = getSafeBindings(await this.mediatorQueryOperation.mediate(
-          { operation, context: subContext?.set(KeysQueryOperation.joinBindings, operationBindings) },
+          { operation, context: subContext?.set(KeysQueryOperation.joinBindings, operationBindings).set(KEY_NESTED_QUERY, true) },
         ));
         return output.bindingsStream;
       },

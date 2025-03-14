@@ -80,7 +80,7 @@
     "npm-check-updates": "^17.0.0",
     "rdf-data-factory": "^1.1.1",
     "rdf-quad": "^1.5.0",
-    "rdf-stores": "^2.0.0",
+    "rdf-stores": "npm:@rubeneschauzier/rdf-stores@2.1.1-beta.0.1",
     "rdf-test-suite": "^2.0.0",
     "rdf-test-suite-ldf": "^1.5.0",
     "setup-polly-jest": "^0.11.0",
@@ -95,6 +95,8 @@
     "webpack-cli": "^6.0.0"
   },
   "resolutions": {
-    "@rdfjs/types": "1.1.2"
+    "@rdfjs/types": "1.1.2",
+    "rdf-stores": "npm:@rubeneschauzier/rdf-stores@2.1.1-beta.0.1",
+    "rdf-store-stream": "npm:@rubeneschauzier/rdf-store-stream@3.0.0-beta.0.1"
   }
 }
