@@ -256,6 +256,7 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
           this.startIteratorsForNextUrls(startSource.handledDatasets, true);
         }
       });
+      
       // Listen for the metadata of the source
       // The metadata property is guaranteed to be set
       iterator.getProperty('metadata', (metadata: MetadataBindings) => {
