@@ -1,9 +1,9 @@
 import { ActionContext, Bus } from '@comunica/core';
 import type { IActionContext } from '@comunica/types';
-import { ActorMergeBindingsContextUnion } from '../lib/ActorMergeBindingsContextUnion';
-import { SetUnionBindingsContextMergeHandler } from '../lib/SetUnionBindingsContextMergeHandler';
+import { ActorMergeBindingsContextUnion  SetUnionBindingsContextMergeHandler } from '@comunica/actor-merge-bindings-context-union';
 import '@comunica/utils-jest';
 
+// This test does not function properly as it does not test the promise actor
 describe('ActorMergeBindingFactoryContextUnion', () => {
   let bus: any;
 
