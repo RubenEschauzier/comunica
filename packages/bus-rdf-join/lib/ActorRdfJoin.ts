@@ -244,15 +244,25 @@ TS
     if (partialMetadata.cardinality) {
       cardinalityJoined = partialMetadata.cardinality;
     } else {
+      let hasZeroCardinality = false;
       cardinalityJoined = metadatas
         .reduce((acc: RDF.QueryResultCardinality, metadata) => {
           const cardinalityThis = ActorRdfJoin.getCardinality(metadata);
+          if (cardinalityThis.value === 0) {
+            hasZeroCardinality = true;
+          }
           return {
             type: cardinalityThis.type === 'estimate' ? 'estimate' : acc.type,
             value: acc.value * (optional ? Math.max(1, cardinalityThis.value) : cardinalityThis.value),
           };
         }, { type: 'exact', value: 1 });
-      cardinalityJoined.value *= (await this.mediatorJoinSelectivity.mediate({ entries, context })).selectivity;
+      // The cardinality should only be zero if one of the entries has zero cardinality, not due to float overflow
+      if (!hasZeroCardinality || optional) {
+        cardinalityJoined.value *= (await this.mediatorJoinSelectivity.mediate({ entries, context })).selectivity;
+        if (cardinalityJoined.value === 0) {
+          cardinalityJoined.value = Number.MIN_VALUE;
+        }
+      }
     }
 
     return {
@@ -309,35 +319,7 @@ TS
       return failTest(`Bind join can only join entries with at least one common variable`);
     }
 
-    // Determine entries without common variables
-    // These will be placed in the back of the sorted array
-    const entriesWithoutCommonVariables: IJoinEntryWithMetadata[] = [];
-    for (const entry of entries) {
-      let hasCommon = false;
-      for (const variable of entry.metadata.variables) {
-        if (multiOccurrenceVariables.includes(variable.variable.value)) {
-          hasCommon = true;
-          break;
-        }
-      }
-      if (!hasCommon) {
-        entriesWithoutCommonVariables.push(entry);
-      }
-    }
-
-    return passTest((await mediatorJoinEntriesSort.mediate({ entries, context })).entries
-      .sort((entryLeft, entryRight) => {
-        // Sort to make sure that entries without common variables come last in the array.
-        // For all other entries, the original order is kept.
-        const leftWithoutCommonVariables = entriesWithoutCommonVariables.includes(entryLeft);
-        const rightWithoutCommonVariables = entriesWithoutCommonVariables.includes(entryRight);
-        if (leftWithoutCommonVariables === rightWithoutCommonVariables) {
-          return 0;
-        }
-        return leftWithoutCommonVariables ?
-          1 :
-            -1;
-      }));
+    return passTest((await mediatorJoinEntriesSort.mediate({ entries, context })).entries);
   }
 
   /**
@@ -471,16 +453,6 @@ TS
     result.metadata = cachifyMetadata(result.metadata);
 
     return result;
-  }
-
-  /**
-   * Sets KEY_CONTEXT_WRAPPED_RDF_JOIN key in the context to the entries being joined.
-   * @param action The join action being executed
-   * @param context The ActionContext
-   * @returns The updated ActionContext
-   */
-  public setContextWrapped(action: IActionRdfJoin, context: IActionContext): IActionContext {
-    return context.set(KEY_CONTEXT_WRAPPED_RDF_JOIN, action.entries);
   }
 
   /**

@@ -8,7 +8,6 @@ import type {
 import {
   ActorIteratorTransform,
 } from '@comunica/bus-iterator-transform';
-import { KEY_CONTEXT_WRAPPED_RDF_JOIN } from '@comunica/bus-rdf-join';
 import type {
   IActionRdfJoinSelectivity,
   IActorRdfJoinSelectivityOutput }
@@ -23,7 +22,7 @@ import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import { ArrayIterator } from 'asynciterator';
 import { DataFactory } from 'rdf-data-factory';
-import { ActorRdfJoinWrapStream } from '../lib/ActorRdfJoinWrapStream';
+import { KEY_CONTEXT_WRAPPED_RDF_JOIN, ActorRdfJoinWrapStream } from '../lib/ActorRdfJoinWrapStream';
 
 const DF = new DataFactory();
 const BF = new BindingsFactory(DF);
@@ -219,10 +218,14 @@ describe('ActorRdfJoinWrapStream', () => {
 
     it('should correctly invoke transform actors on join result', async() => {
       const output = await actorWrapStream.run(action, undefined!);
-      await output.bindingsStream.toArray();
+      const transformedData = await output.bindingsStream.toArray();
 
       expect(actorTransform1.transformCalls).toBe(2);
       expect(actorTransform2.transformCalls).toBe(2);
+
+      expect(transformedData).toHaveLength(2);
+      expect(transformedData[0].has(DF.variable('a'))).toBeTruthy();
+      expect(transformedData[0].has(DF.variable('c'))).toBeTruthy();
     });
 
     it('should handle undefined context from mediatorJoin', async() => {

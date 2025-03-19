@@ -115,7 +115,12 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin<IActorRdfJoinMultiBindTe
     this.logDebug(
       action.context,
       'First entry for Bind Join: ',
-      () => ({ entry: entries[0].operation, metadata: entries[0].metadata }),
+      () => ({
+        entry: entries[0].operation,
+        cardinality: entries[0].metadata.cardinality,
+        order: entries[0].metadata.order,
+        availableOrders: entries[0].metadata.availableOrders,
+      }),
     );
 
     // Close the non-smallest streams
@@ -225,7 +230,9 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin<IActorRdfJoinMultiBindTe
 
     // Only run this actor if the smallest stream is significantly smaller than the largest stream.
     // We must use Math.max, because the last metadata is not necessarily the biggest, but it's the least preferred.
-    if (metadatas[0].cardinality.value * this.minMaxCardinalityRatio >
+    // If join entries are produced locally, we increase the possibility of doing this bind join, as it's cheap.
+    const isRemoteAccess = requestItemTimes.some(time => time > 0);
+    if (metadatas[0].cardinality.value * this.minMaxCardinalityRatio / (isRemoteAccess ? 1 : 3) >
       Math.max(...metadatas.map(metadata => metadata.cardinality.value))) {
       return failTest(`Actor ${this.name} can only run if the smallest stream is much smaller than largest stream`);
     }
