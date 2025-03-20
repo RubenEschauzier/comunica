@@ -117,7 +117,8 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
         metadata.state = new MetadataValidationState();
         return metadata;
       }
-
+      console.log(await(multiJoinOutput.output.metadata()))
+      console.log(leftOverEntries)
       leftOverEntries.push(multiJoinOutput);
       return {
         result: await this.mediatorJoin.mediate({
