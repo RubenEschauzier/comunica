@@ -30,10 +30,11 @@ export class ActorRdfJoinMultiEmpty extends ActorRdfJoin {
     action: IActionRdfJoin,
   ): Promise<TestResult<IMediatorTypeJoinCoefficients, IActorRdfJoinTestSideData>> {
     if ((await ActorRdfJoin.getMetadatas(action.entries))
-      .every(metadata => ActorRdfJoin.getCardinality(metadata).value > 0)) {
-      return failTest(`Actor ${this.name} can only join entries where at least one is empty`);
+      .some(metadata => ActorRdfJoin.getCardinality(metadata).value === 0 
+        && ActorRdfJoin.getCardinality(metadata).type === 'estimate')) {
+      return super.test(action)
     }
-    return super.test(action);
+    return failTest(`Actor ${this.name} can only join entries where at least one is empty`);
   }
 
   protected override async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
