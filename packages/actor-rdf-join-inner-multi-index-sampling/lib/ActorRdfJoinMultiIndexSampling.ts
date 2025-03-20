@@ -113,12 +113,11 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
 
       multiJoinOutput.output.metadata = async () => {
         const metadata = await originalMetadataFn;
-        metadata.cardinality = { value: joinPlan.estimatedSize, type: "estimate" };
+        metadata.cardinality = { value: Math.max(joinPlan.estimatedSize, 1), type: "estimate" };
         metadata.state = new MetadataValidationState();
         return metadata;
       }
-      console.log(await(multiJoinOutput.output.metadata()))
-      console.log(leftOverEntries)
+      
       leftOverEntries.push(multiJoinOutput);
       return {
         result: await this.mediatorJoin.mediate({
