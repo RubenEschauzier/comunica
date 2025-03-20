@@ -1,18 +1,14 @@
-import * as fs from 'node:fs';
-import type { QuerySourceSkolemized } from '@comunica/actor-context-preprocess-query-source-skolemize';
 import type { IActionRdfJoin, IActorRdfJoinOutputInner, IActorRdfJoinArgs, MediatorRdfJoin, IActorRdfJoinTestSideData } from '@comunica/bus-rdf-join';
 import { ActorRdfJoin } from '@comunica/bus-rdf-join';
 import { ActionContextKey, failTest, TestResult } from '@comunica/core';
 import { passTestWithSideData } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
 import type { IJoinEntry, IQuerySource } from '@comunica/types';
-import { getSafeBindings, getSources } from '@comunica/utils-query-operation';
+import { getSafeBindings,  } from '@comunica/utils-query-operation';
 import type * as RDF from '@rdfjs/types';
-import { Store, Parser } from 'n3';
 import { Factory } from 'sparqlalgebrajs';
 import type { Pattern } from 'sparqlalgebrajs/lib/algebra';
-import type { QuerySourceHypermedia } from '../../actor-query-source-identify-hypermedia/lib';
-import type { ArrayIndex, CountFn, IEnumerationOutput, ISampleResult, SampleFn } from './IndexBasedJoinSampler';
+import type { IEnumerationOutput } from './IndexBasedJoinSampler';
 import { IndexBasedJoinSampler } from './IndexBasedJoinSampler';
 import { JoinGraph } from './JoinGraph';
 import { JoinOrderEnumerator } from './JoinOrderEnumerator';
@@ -49,6 +45,7 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
   }
 
   protected override async getOutput(action: IActionRdfJoin): Promise<IActorRdfJoinOutputInner> {
+    console.log("Start sampling")
     const sourcesUnioned = await this.mediatorExtractSources.mediate({
       operations: action.entries.map(x=>x.operation),
       context: action.context
@@ -109,6 +106,7 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
 
     // This is a partial join plan, so we must join the remaining entries too
     if (joinPlan.entries.size !== action.entries.length){
+      console.log(`Partial plan: ${joinPlan.entries.size}/${action.entries.length}`);
       const context = action.context.set(KEY_BUDGET_EXHAUSTED, true);
       const leftOverEntries = joinGraph.getEntries().filter((_, i) => !joinPlan.entries.has(i));
       const originalMetadataFn = multiJoinOutput.output.metadata();
