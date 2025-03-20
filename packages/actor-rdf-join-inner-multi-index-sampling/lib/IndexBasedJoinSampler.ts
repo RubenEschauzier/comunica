@@ -131,7 +131,7 @@ export class IndexBasedJoinSampler {
     sampleFn: SampleFn,
   ): Promise<ISampleOutput> {
     let sampleCost: number = 0;
-    const { counts, sampleRelations } = await this.candidateCounts(
+    const { counts, countsPerSource, sampleRelations } = await this.candidateCounts(
       samples,
       s,
       p,
@@ -159,7 +159,7 @@ export class IndexBasedJoinSampler {
           const tripleIndex: number = id - (searchIndex);
 
           // Sample single quad at index
-          const sampled = [ ... await sampleFn([ tripleIndex ], ...sampleRelations[i]) ][0];
+          const sampled = [ ... await sampleFn([ tripleIndex ], countsPerSource[i], ...sampleRelations[i]) ][0];
           sampleCost++;
 
           // Get the sample triple that was used to find this join candidate
@@ -180,14 +180,18 @@ export class IndexBasedJoinSampler {
 
   public async candidateCounts(samples: Record<string, RDF.Term>[], s: RDF.Term | undefined, p: RDF.Term | undefined, o: RDF.Term | undefined, g: RDF.Term | undefined, joinLocation: 's' | 'p' | 'o' | 'g', joinVariable: string, countFn: CountFn): Promise<ICandidateCounts> {
     const counts: number[] = [];
+    const countsPerSource: number[][] = [];
     const sampleRelations: (RDF.Term | undefined)[][] = [];
     for (const sample of samples) {
       const sampleRelation = this.setSampleRelation(sample, s, p, o, g, joinLocation, joinVariable);
-      counts.push(await countFn(...sampleRelation));
+      const cardinalitiesPerSource = await countFn(...sampleRelation);
+      counts.push(cardinalitiesPerSource.reduce((acc, val) => acc + val, 0));
+      countsPerSource.push(cardinalitiesPerSource);
       sampleRelations.push(sampleRelation);
     }
     return {
       counts,
+      countsPerSource,
       sampleRelations,
     };
   }
@@ -205,11 +209,12 @@ export class IndexBasedJoinSampler {
       const tpSampleBindings: Record<string, RDF.Term>[] = [];
       const spogSampleQuery = this.tpToSampleQuery(tp);
 
-      const cardinality = await countFn(...spogSampleQuery);
+      const cardinalitiesSources = await countFn(...spogSampleQuery);
+      const cardinality = cardinalitiesSources.reduce((acc, val) => acc + val, 0);
       cardinalities.push(cardinality);
 
       const indexes = this.generateSampleIndexes(cardinality, n);
-      const triples = [ ...await sampleFn(indexes, ...spogSampleQuery) ];
+      const triples = [ ...await sampleFn(indexes, cardinalitiesSources, ...spogSampleQuery) ];
 
       for (const triple of triples) {
         const binding: Record<string, RDF.Term> = {};
@@ -446,6 +451,11 @@ export interface ICandidateCounts {
    */
   counts: number[];
   /**
+   * Number of candidates per sampled binding divided by source,
+   * with inner array denoting the cardinalities per source.
+   */
+  countsPerSource: number[][];
+  /**
    * Triple pattern used to look up candidates in index
    */
   sampleRelations: (RDF.Term | undefined)[][];
@@ -458,6 +468,7 @@ export interface ISampleTpOutput {
 
 export type SampleFn = (
   indexes: number[],
+  counts: number[],
   subject?: RDF.Term,
   predicate?: RDF.Term,
   object?: RDF.Term,
@@ -469,4 +480,4 @@ export type CountFn = (
   predicate?: RDF.Term | undefined,
   object?: RDF.Term | undefined,
   graph?: RDF.Term | undefined,
-) => number | Promise<number>;
+) => number[] | Promise<number[]>;

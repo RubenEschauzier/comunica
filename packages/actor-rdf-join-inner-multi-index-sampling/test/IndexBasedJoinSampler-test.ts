@@ -624,11 +624,11 @@ describe('IndexBasedJoinSampler', () => {
     let countFn: CountFn;
 
     beforeEach(() => {
-      sampleFn = async (indexes: number[], subject?: RDF.Term, predicate?: RDF.Term, object?: RDF.Term, graph?: RDF.Term) => {
+      sampleFn = async (indexes: number[], counts: number[], subject?: RDF.Term, predicate?: RDF.Term, object?: RDF.Term, graph?: RDF.Term) => {
         return [ DF.quad(DF.namedNode('s0'), DF.namedNode('p0'), DF.namedNode('o0'), DF.namedNode('g0')) ];
       };
       countFn = (subject?: RDF.Term, predicate?: RDF.Term, object?: RDF.Term, graph?: RDF.Term) => {
-        return 7;
+        return [7];
       };
     });
     it('should sample triple pattern with subject variable', async() => {

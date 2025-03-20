@@ -177,25 +177,29 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
     predicate?: RDF.Term,
     object?: RDF.Term,
     graph?: RDF.Term
-  ): Promise<number> {
-    let count = 0;
+  ): Promise<number[]> {
+    // let count = 0;
+    const counts = [];
     for (const source of sources) {
       if (!source.countQuads) {
         throw new Error("Got source without countQuads function");
       }
-      count += await source.countQuads(subject, predicate, object, graph);
+      // count += await source.countQuads(subject, predicate, object, graph);
+      counts.push(await source.countQuads(subject, predicate, object, graph));
     }
-    return count;
+    return counts;
   }
 
   public static async aggregateSampleFn(
     sources: IQuerySource[],
     indexes: number[],
+    counts: number[],
     subject?: RDF.Term,
     predicate?: RDF.Term,
     object?: RDF.Term,
     graph?: RDF.Term
   ): Promise<RDF.Quad[]>{
+    indexes = [...indexes];
     if (indexes.length === 0){
       return [];
     }
@@ -204,11 +208,12 @@ export class ActorRdfJoinMultiIndexSampling extends ActorRdfJoin {
     const quads: RDF.Quad[] = []
     let currentIndex: number | undefined = indexes.pop()!;
     let searchIndex = 0;
-    for (const source of sources){
-      if (!source.countQuads) {
-        throw new Error("Got source without countQuads function");
-      }
-      const sourceCount = await source.countQuads(subject, predicate, object, graph);
+    for (const [index, source] of sources.entries()) {
+      // if (!source.countQuads) {
+      //   throw new Error("Got source without countQuads function");
+      // }
+      // const sourceCount = await source.countQuads(subject, predicate, object, graph);
+      const sourceCount = counts[index];
       const stepAhead = searchIndex + sourceCount
       if (stepAhead > currentIndex){
         // When the current source contains the index, we loop over indexes 
