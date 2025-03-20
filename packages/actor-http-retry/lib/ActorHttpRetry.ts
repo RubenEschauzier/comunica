@@ -106,8 +106,12 @@ export class ActorHttpRetry extends ActorHttp {
         continue;
       }
 
-      if (res.status === 429 || res.status === 503) {
-        // When the server reports temporary unavailability, it can also provide a Retry-Header value.
+      if (
+        // Status codes 429 (Too Many Requests) and 503 (Temporarily Unavailable) can have Retry-After
+        res.status === 429 || res.status === 503 ||
+        // DBPedia SPARQL endpoint uses 405 instead of 429 and sends a Retry-After with it to indicate rate limits
+        (res.status === 405 && res.headers.has('retry-after'))
+      ) {
         const retryAfterHeader = res.headers.get('retry-after');
 
         if (retryAfterHeader) {
@@ -120,7 +124,7 @@ export class ActorHttpRetry extends ActorHttp {
             // Record the current host-specific active delay, and add a clean-up timer for this new delay
             this.activeDelays[url.host] = {
               date: retryAfter,
-              timeout: setTimeout(() => delete this.activeDelays[url.host], Date.now() - retryAfter.getTime()),
+              timeout: setTimeout(() => delete this.activeDelays[url.host], retryAfter.getTime() - Date.now()),
             };
           } else {
             this.logDebug(action.context, 'Invalid Retry-After header value from server', () => ({

@@ -83,7 +83,7 @@ jobs:
         uses: coverallsapp/github-action@v2
         with:
           github-token: ${{ secrets.github_token }}
-          flag-name: run-${{ matrix.node-version }}
+          flag-name: ${{ matrix.os }}-${{ matrix.node-version }}
           parallel: true
           fail-on-error: false
 
@@ -248,6 +248,8 @@ jobs:
         run: sh -c "`curl -fsSl https://raw.githubusercontent.com/rubensworks/lerna-docker/master/install.sh`"
       - name: Build Docker images
         run: ~/.lerna-docker/bin/lerna-docker comunica build
+      - name: Test Docker images
+        run: yarn run test:docker
       - name: Deploy Docker images
         if: startsWith(github.ref, 'refs/heads/master') || startsWith(github.ref, 'refs/tags/')
         run: ~/.lerna-docker/bin/lerna-docker comunica push
