@@ -167,16 +167,24 @@ export class QuerySourceHypermedia implements IQuerySource {
       let policy: CachePolicy | undefined = undefined;
       if (storeCache && policyCache){
         policy = policyCache.get(link.url);
+        // Explicit check for file source to prevent regression due to re-parsing file.
+        if (!link.url.startsWith("http://") && !link.url.startsWith("https://")){
+          if (storeCache.get(link.url)){
+            return storeCache.get(link.url)!;
+          }
+        }
       }
 
       let dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
         .mediate({ context, url, validate: policy });
+
       // We can use cache here.
       if (dereferenceRdfOutput.isValidated){
         const cachedSource = storeCache!.get(link.url);
         if (!cachedSource){
           throw new Error("Tried to use cached entry that does not exist")
         }
+        console.log("Returning cached");
         return cachedSource;
       }
       url = dereferenceRdfOutput.url;

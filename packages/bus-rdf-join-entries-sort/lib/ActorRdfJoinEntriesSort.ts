@@ -1,5 +1,6 @@
 import type { IAction, IActorArgs, IActorOutput, Mediate, IActorTest } from '@comunica/core';
 import { Actor } from '@comunica/core';
+import { IMediatorTypeAccuracy } from '@comunica/mediatortype-accuracy';
 import type { IJoinEntryWithMetadata } from '@comunica/types';
 
 /**
@@ -15,7 +16,7 @@ import type { IJoinEntryWithMetadata } from '@comunica/types';
  * @see IActorRdfJoinEntriesSortOutput
  */
 export abstract class ActorRdfJoinEntriesSort<TS = undefined>
-  extends Actor<IActionRdfJoinEntriesSort, IActorTest, IActorRdfJoinEntriesSortOutput, TS> {
+  extends Actor<IActionRdfJoinEntriesSort, IMediatorTypeAccuracy, IActorRdfJoinEntriesSortOutput, TS> {
   /**
    * @param args -
    *   \ @defaultNested {<default_bus> a <cc:components/Bus.jsonld#Bus>} bus

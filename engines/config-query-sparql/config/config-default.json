@@ -66,6 +66,7 @@
     "ccqs:config/rdf-update-quads/actors.json",
     "ccqs:config/rdf-update-quads/mediators.json",
     "ccqs:config/term-comparator-factory/actors.json",
-    "ccqs:config/term-comparator-factory/mediators.json"
+    "ccqs:config/term-comparator-factory/mediators.json",
+    "ccqs:config/context-preprocess/actors-set-cache.json"
   ]
 }
