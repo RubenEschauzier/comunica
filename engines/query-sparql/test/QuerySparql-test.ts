@@ -13,6 +13,7 @@ import 'jest-rdf';
 import '@comunica/utils-jest';
 import { Store } from 'n3';
 import { DataFactory } from 'rdf-data-factory';
+import { RdfStore } from 'rdf-stores';
 import { Factory } from 'sparqlalgebrajs';
 import { QueryEngine } from '../lib/QueryEngine';
 import { fetch as cachedFetch } from './util';
@@ -773,7 +774,9 @@ WHERE {
         expect((await bindingsStream.toArray()).length > 0).toBeTruthy();
       });
 
-      it('with join over union', async() => {
+      // TODO: re-enable this test once https://api.community.hubl.world/skills/ is back up (also performance/benchmark-web/input/queries/hubl...)
+      // eslint-disable-next-line multiline-comment-style, style/spaced-comment, jest/no-commented-out-tests
+      /*it('with join over union', async() => {
         const bindingsStream = await engine.queryBindings(`
 SELECT * WHERE {
   <https://api.community.hubl.world/skills/> <http://www.w3.org/ns/ldp#contains> ?contains.
@@ -786,7 +789,7 @@ SELECT * WHERE {
           sources: [ 'https://api.community.hubl.world/skills/' ],
         });
         expect((await bindingsStream.toArray()).length > 0).toBeTruthy();
-      });
+      });*/
     });
 
     describe('property paths', () => {
@@ -892,6 +895,277 @@ SELECT ?obsId {
 
         expect(bindings1).toMatchObject(expectedResult);
         expect(bindings2).toMatchObject(expectedResult);
+      });
+    });
+
+    describe('with complex property paths', () => {
+      it('should correctly terminate for an n3.js store', async() => {
+        const store = new Store();
+        const A = DF.namedNode('http://example.org/a');
+        const B = DF.namedNode('http://example.org/b');
+        const C = DF.namedNode('http://example.org/c');
+        const P = DF.namedNode('http://example.org/p');
+
+        store.addQuad(A, P, B);
+        store.addQuad(A, P, C);
+        store.addQuad(B, P, A);
+        store.addQuad(B, P, C);
+        store.addQuad(C, P, A);
+        store.addQuad(C, P, B);
+
+        const result = <QueryBindings> await engine.query(`
+        PREFIX : <http://example.org/>
+        SELECT * WHERE {
+            ?a (:p/:p)* :b .
+        }`, { sources: [ store ]});
+
+        await expect(result.execute()).resolves.toEqualBindingsStream([
+          BF.bindings([
+            [ DF.variable('a'), DF.namedNode('http://example.org/b') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('a'), DF.namedNode('http://example.org/c') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('a'), DF.namedNode('http://example.org/a') ],
+          ]),
+        ]);
+      });
+
+      it('should correctly terminate for an rdf-stores store', async() => {
+        const store = RdfStore.createDefault();
+        const A = DF.namedNode('http://example.org/a');
+        const B = DF.namedNode('http://example.org/b');
+        const C = DF.namedNode('http://example.org/c');
+        const P = DF.namedNode('http://example.org/p');
+
+        store.addQuad(DF.quad(A, P, B));
+        store.addQuad(DF.quad(A, P, C));
+        store.addQuad(DF.quad(B, P, A));
+        store.addQuad(DF.quad(B, P, C));
+        store.addQuad(DF.quad(C, P, A));
+        store.addQuad(DF.quad(C, P, B));
+
+        const result = <QueryBindings> await engine.query(`
+        PREFIX : <http://example.org/>
+        SELECT * WHERE {
+            ?a (:p/:p)* :b .
+        }`, { sources: [ store ]});
+
+        await expect(result.execute()).resolves.toEqualBindingsStream([
+          BF.bindings([
+            [ DF.variable('a'), DF.namedNode('http://example.org/b') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('a'), DF.namedNode('http://example.org/a') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('a'), DF.namedNode('http://example.org/c') ],
+          ]),
+        ]);
+      });
+    });
+
+    describe('initialBindings', () => {
+      let initialBindings: Bindings;
+      let sourcesValue1: string;
+
+      beforeEach(() => {
+        initialBindings = BF.bindings([
+          [ DF.variable('a'), DF.namedNode('http://example.org/test#testBinding') ],
+        ]);
+        sourcesValue1 = `
+          @prefix ex: <http://example.org/test#> .
+          
+          ex:testBinding
+            ex:property "testProperty" .
+          `;
+      });
+
+      it('should consider the initialBindings in the bound function', async() => {
+        const context: QueryStringContext = {
+          sources: [
+            {
+              type: 'serialized',
+              value: sourcesValue1,
+              mediaType: 'text/turtle',
+            },
+          ],
+          initialBindings,
+        };
+
+        const expectedResult: Bindings[] = [
+          BF.bindings([
+            [ DF.variable('a'), DF.namedNode('http://example.org/test#testBinding') ],
+          ]),
+        ];
+
+        const bindings = (await engine.queryBindings(`
+        PREFIX ex: <http://example.org/test#>
+        
+        SELECT $a WHERE {
+          {
+            FILTER (bound($a))
+          }
+          $a ex:property "testProperty" .
+          FILTER (bound($a)) .
+        }
+          `, context));
+
+        await expect(bindings).toEqualBindingsStream(expectedResult);
+      });
+
+      it('should consider the initialBindings in the filter function', async() => {
+        const context: QueryStringContext = {
+          sources: [
+            {
+              type: 'serialized',
+              value: sourcesValue1,
+              mediaType: 'text/turtle',
+            },
+          ],
+          initialBindings,
+        };
+
+        const expectedResult: Bindings[] = [
+          BF.bindings([
+            [ DF.variable('a'), DF.namedNode('http://example.org/test#testBinding') ],
+          ]),
+        ];
+
+        const bindings = (await engine.queryBindings(`
+        PREFIX ex: <http://example.org/test#>
+      
+        SELECT $a WHERE {
+          {
+            SELECT * WHERE {
+              FILTER ($a = ex:testBinding) .
+            }
+          }
+        }
+        `, context));
+
+        await expect(bindings).toEqualBindingsStream(expectedResult);
+      });
+
+      it('should consider the initialBindings in the filter function 2', async() => {
+        const context: QueryStringContext = {
+          sources: [
+            {
+              type: 'serialized',
+              value: sourcesValue1,
+              mediaType: 'text/turtle',
+            },
+          ],
+          initialBindings,
+        };
+
+        const expectedResult: Bindings[] = [
+          BF.bindings([
+            [ DF.variable('a'), DF.namedNode('http://example.org/test#testBinding') ],
+          ]),
+        ];
+
+        const bindings = (await engine.queryBindings(`
+        PREFIX ex: <http://example.org/test#>
+      
+        SELECT $a WHERE {
+          {
+            SELECT $a WHERE {
+              FILTER ($a = ex:testBinding) .
+            }
+          }
+        }
+        `, context));
+
+        await expect(bindings).toEqualBindingsStream(expectedResult);
+      });
+
+      it('should consider initialBindings which are not projected', async() => {
+        const initialBindings = BF.bindings([
+          [ DF.variable('predicate'), DF.namedNode('http://example.org/test#predicateEx') ],
+          [ DF.variable('subject'), DF.namedNode('http://example.org/test#subjectEx') ],
+        ]);
+
+        const context: QueryStringContext = {
+          sources: [
+            {
+              type: 'serialized',
+              value: `
+                @prefix ex: <http://example.org/test#> .
+                @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+                        
+                ex:subjectEx
+                    rdf:type ex:Type ;
+                    ex:predicateEx "Predicate"@de ;
+                .`,
+              mediaType: 'text/turtle',
+            },
+          ],
+          initialBindings,
+        };
+
+        const bindings = (await engine.queryBindings(`
+        SELECT $subject ?value WHERE {
+          $subject $predicate ?value .
+          FILTER (!isLiteral(?value) || !langMatches(lang(?value), "de"))
+        }`, context));
+
+        await expect(bindings).toEqualBindingsStream([]);
+      });
+
+      it('should consider initialBindings in the extend operation', async() => {
+        const initialBindings = BF.bindings([
+          [ DF.variable('initialBindingsVariable'), DF.namedNode('http://example.org/test#InitialBindingsValue') ],
+        ]);
+
+        const context: QueryStringContext = {
+          sources: [
+            {
+              type: 'serialized',
+              value: ``,
+              mediaType: 'text/turtle',
+            },
+          ],
+          initialBindings,
+        };
+
+        const bindings = (await engine.queryBindings(`
+        PREFIX ex: <http://example.org/test#>
+        
+        SELECT $initialBindingsVariable
+        WHERE {
+          BIND ($initialBindingsVariable AS ?b) .
+          FILTER (?b = ex:InitialBindingsValue) .
+        }`, context));
+
+        const expectedResult: Bindings[] = [
+          BF.bindings([
+            [ DF.variable('initialBindingsVariable'), DF.namedNode('http://example.org/test#InitialBindingsValue') ],
+          ]),
+        ];
+
+        await expect(bindings).toEqualBindingsStream(expectedResult);
+      });
+
+      it('should not overwrite initialBindings', async() => {
+        const context: QueryStringContext = {
+          sources: [
+            {
+              type: 'serialized',
+              value: ``,
+              mediaType: 'text/turtle',
+            },
+          ],
+          initialBindings,
+        };
+
+        // Reject for existing graph
+        await expect(engine.queryBindings(`
+          SELECT $a
+          WHERE {
+            BIND (true AS $a) .
+          }`, context)).rejects.toThrow('Tried to bind variable ?a in a BIND operator.');
       });
     });
   });
