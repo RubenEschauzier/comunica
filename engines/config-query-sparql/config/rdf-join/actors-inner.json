@@ -56,7 +56,8 @@
       "@type": "ActorRdfJoinMultiSmallest",
       "mediatorJoinSelectivity": { "@id": "urn:comunica:default:rdf-join-selectivity/mediators#main" },
       "mediatorJoinEntriesSort": { "@id": "urn:comunica:default:rdf-join-entries-sort/mediators#main" },
-      "mediatorJoin": { "@id": "urn:comunica:default:rdf-join/mediators#main" }
+      "mediatorJoin": { "@id": "urn:comunica:default:rdf-join/mediators#main" },
+      "minimizeCardinalityProduct": false
     }
   ]
 }

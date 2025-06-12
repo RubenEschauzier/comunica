@@ -48,12 +48,13 @@ describe('ActorRdfJoinMultiSmallest', () => {
     IActionRdfJoinSelectivity, IActorTest, IActorRdfJoinSelectivityOutput>;
     let mediatorJoinEntriesSort: MediatorRdfJoinEntriesSort;
     let mediatorJoin: any;
+    let minimizeCardinalityProduct: boolean;
     let actor: ActorRdfJoinMultiSmallest;
-    let action3: () => IActionRdfJoin;
     let action4: () => IActionRdfJoin;
     let invocationCounter: any;
 
     beforeEach(() => {
+      minimizeCardinalityProduct = true;
       mediatorJoinSelectivity = <any> {
         mediate: async() => ({ selectivity: 1 }),
       };
@@ -78,7 +79,209 @@ describe('ActorRdfJoinMultiSmallest', () => {
         },
       };
       actor = new ActorRdfJoinMultiSmallest(
-        { name: 'actor', bus, mediatorJoin, mediatorJoinSelectivity, mediatorJoinEntriesSort },
+        { name: 'actor', bus, mediatorJoin, mediatorJoinSelectivity, mediatorJoinEntriesSort , minimizeCardinalityProduct},
+      );
+      action4 = () => ({
+        type: 'inner',
+        entries: [
+          {
+            output: {
+              bindingsStream: new ArrayIterator([
+                BF.bindings([
+                  [ DF.variable('a'), DF.literal('a1') ],
+                  [ DF.variable('b'), DF.literal('b1') ],
+                ]),
+                BF.bindings([
+                  [ DF.variable('a'), DF.literal('a2') ],
+                  [ DF.variable('b'), DF.literal('b2') ],
+                ]),
+              ]),
+              metadata: () => Promise.resolve(
+                {
+                  state: new MetadataValidationState(),
+                  cardinality: { type: 'estimate', value: 2 },
+                  pageSize: 100,
+                  requestTime: 10,
+                  canContainUndefs: false,
+                  variables: [ DF.variable('a'), DF.variable('b') ],
+                },
+              ),
+              type: 'bindings',
+            },
+            operation: <any> {},
+          },
+          {
+            output: {
+              bindingsStream: new ArrayIterator([
+                BF.bindings([
+                  [ DF.variable('a'), DF.literal('a1') ],
+                  [ DF.variable('c'), DF.literal('c1') ],
+                ]),
+                BF.bindings([
+                  [ DF.variable('a'), DF.literal('a2') ],
+                  [ DF.variable('c'), DF.literal('c2') ],
+                ]),
+              ]),
+              metadata: () => Promise.resolve(
+                {
+                  state: new MetadataValidationState(),
+                  cardinality: { type: 'estimate', value: 5 },
+                  pageSize: 100,
+                  requestTime: 20,
+                  canContainUndefs: false,
+                  variables: [ DF.variable('a'), DF.variable('c') ],
+                },
+              ),
+              type: 'bindings',
+            },
+            operation: <any> {},
+          },
+          {
+            output: {
+              bindingsStream: new ArrayIterator([
+                BF.bindings([
+                  [ DF.variable('b'), DF.literal('b1') ],
+                  [ DF.variable('d'), DF.literal('d1') ],
+                ]),
+                BF.bindings([
+                  [ DF.variable('b'), DF.literal('b2') ],
+                  [ DF.variable('d'), DF.literal('d2') ],
+                ]),
+              ]),
+              metadata: () => Promise.resolve(
+                {
+                  state: new MetadataValidationState(),
+                  cardinality: { type: 'estimate', value: 20 },
+                  pageSize: 100,
+                  requestTime: 30,
+                  canContainUndefs: false,
+                  variables: [ DF.variable('b'), DF.variable('d') ],
+                },
+              ),
+              type: 'bindings',
+            },
+            operation: <any> {},
+          },
+          {
+            output: {
+              bindingsStream: new ArrayIterator([
+                BF.bindings([
+                  [ DF.variable('d'), DF.literal('d1') ],
+                  [ DF.variable('f'), DF.literal('f1') ],
+                ]),
+                BF.bindings([
+                  [ DF.variable('d'), DF.literal('d2') ],
+                  [ DF.variable('f'), DF.literal('f2') ],
+                ]),
+              ]),
+              metadata: () => Promise.resolve(
+                {
+                  state: new MetadataValidationState(),
+                  cardinality: { type: 'estimate', value: 1 },
+                  pageSize: 100,
+                  requestTime: 30,
+                  canContainUndefs: false,
+                  variables: [ DF.variable('d'), DF.variable('f') ],
+                },
+              ),
+              type: 'bindings',
+            },
+            operation: <any> {},
+          },
+        ],
+        context,
+      });
+    });
+
+    it('should test on 4 streams smallest cardinality product', async() => {
+      const action = action4();
+      await expect(actor.test(action)).resolves.toEqual({
+        iterations: 200,
+        persistedItems: 0,
+        blockingItems: 0,
+        requestTime: 7.5,
+      });
+      action.entries.forEach(entry => entry.output.bindingsStream.destroy());
+    });
+
+    it('should run on 4 streams smallest cardinality product', async() => {
+      const action = action4();
+      const output = await actor.run(action);
+      expect(output.type).toEqual('bindings');
+      expect(await (<any> output).metadata()).toEqual({
+        state: expect.any(MetadataValidationState),
+        cardinality: { type: 'estimate', value: 80 },
+        canContainUndefs: false,
+        variables: [ DF.variable('a'), DF.variable('b'), DF.variable('c'), DF.variable('d'), DF.variable('f')],
+      });
+      await expect(output.bindingsStream).toEqualBindingsStream([
+        BF.bindings([
+          [ DF.variable('a'), DF.literal('a1') ],
+          [ DF.variable('b'), DF.literal('b1') ],
+          [ DF.variable('c'), DF.literal('c1') ],
+          [ DF.variable('d'), DF.literal('d1') ],
+          [ DF.variable('f'), DF.literal('f1') ],
+
+        ]),
+        BF.bindings([
+          [ DF.variable('a'), DF.literal('a2') ],
+          [ DF.variable('b'), DF.literal('b2') ],
+          [ DF.variable('c'), DF.literal('c2') ],
+          [ DF.variable('d'), DF.literal('d2') ],
+          [ DF.variable('f'), DF.literal('f2') ],
+        ]),
+      ]);
+
+      // Check join order
+      expect((<any> action.entries[0]).operation.called).toBe(0);
+      expect((<any> action.entries[1]).operation.called).toBe(0);
+      expect((<any> action.entries[2]).operation.called).toBe(0);
+      expect((<any> action.entries[3]).operation.called).toBe(0);
+      expect((<any> action.entries[4]).operation.called).toBe(0);
+
+    });
+
+  });
+
+  describe('An ActorRdfJoinMultiSmallest instance', () => {
+    let mediatorJoinSelectivity: Mediator<
+    Actor<IActionRdfJoinSelectivity, IActorTest, IActorRdfJoinSelectivityOutput>,
+    IActionRdfJoinSelectivity, IActorTest, IActorRdfJoinSelectivityOutput>;
+    let mediatorJoinEntriesSort: MediatorRdfJoinEntriesSort;
+    let mediatorJoin: any;
+    let minimizeCardinalityProduct: boolean;
+    let actor: ActorRdfJoinMultiSmallest;
+    let action3: () => IActionRdfJoin;
+    let action4: () => IActionRdfJoin;
+    let invocationCounter: any;
+
+    beforeEach(() => {
+      minimizeCardinalityProduct = false;
+      mediatorJoinSelectivity = <any> {
+        mediate: async() => ({ selectivity: 1 }),
+      };
+      mediatorJoinEntriesSort = <any> {
+        async mediate(action: IActionRdfJoinEntriesSort) {
+          const entries = [ ...action.entries ]
+            .sort((left, right) => left.metadata.cardinality.value - right.metadata.cardinality.value);
+          return { entries };
+        },
+      };
+      invocationCounter = 0;
+      mediatorJoin = {
+        mediate(a: any) {
+          if (a.entries.length === 2) {
+            a.entries[0].operation.called = invocationCounter;
+            a.entries[1].operation.called = invocationCounter;
+            invocationCounter++;
+            return new ActorRdfJoinNestedLoop({ name: 'actor', bus, mediatorJoinSelectivity })
+              .run(a);
+          }
+          return actor.run(a);
+        },
+      };
+      actor = new ActorRdfJoinMultiSmallest(
+        { name: 'actor', bus, mediatorJoin, mediatorJoinSelectivity, mediatorJoinEntriesSort , minimizeCardinalityProduct},
       );
       action3 = () => ({
         type: 'inner',
@@ -374,4 +577,252 @@ describe('ActorRdfJoinMultiSmallest', () => {
       expect((<any> action.entries[3]).operation.called).toBe(0);
     });
   });
+
+  // describe('An ActorRdfJoinMultiSmallest instance', () => {
+  //   let mediatorJoinSelectivity: Mediator<
+  //   Actor<IActionRdfJoinSelectivity, IActorTest, IActorRdfJoinSelectivityOutput>,
+  //   IActionRdfJoinSelectivity, IActorTest, IActorRdfJoinSelectivityOutput>;
+  //   let mediatorJoinEntriesSort: MediatorRdfJoinEntriesSort;
+  //   let mediatorJoin: any;
+  //   let minimizeCardinalityProduct: boolean;
+  //   let actor: ActorRdfJoinMultiSmallest;
+  //   let action23: () => IActionRdfJoin;
+  //   let invocationCounter: any;
+
+  //   beforeEach(() => {
+  //     minimizeCardinalityProduct = true;
+  //     mediatorJoinSelectivity = <any> {
+  //       mediate: async() => ({ selectivity: 1 }),
+  //     };
+  //     mediatorJoinEntriesSort = <any> {
+  //       async mediate(action: IActionRdfJoinEntriesSort) {
+  //         const entries = [ ...action.entries ]
+  //           .sort((left, right) => left.metadata.cardinality.value - right.metadata.cardinality.value);
+  //         return { entries };
+  //       },
+  //     };
+  //     invocationCounter = 0;
+  //     mediatorJoin = {
+  //       mediate(a: any) {
+  //         if (a.entries.length === 2) {
+  //           a.entries[0].operation.called = invocationCounter;
+  //           a.entries[1].operation.called = invocationCounter;
+  //           invocationCounter++;
+  //           return new ActorRdfJoinNestedLoop({ name: 'actor', bus, mediatorJoinSelectivity })
+  //             .run(a);
+  //         }
+  //         return actor.run(a);
+  //       },
+  //     };
+  //     actor = new ActorRdfJoinMultiSmallest(
+  //       { name: 'actor', bus, mediatorJoin, mediatorJoinSelectivity, mediatorJoinEntriesSort , minimizeCardinalityProduct},
+  //     );
+  //     action23 = () => ({
+  //       type: 'inner',
+  //       entries: [
+  //         {
+  //           output: {
+  //             bindingsStream: new ArrayIterator([
+  //               BF.bindings([
+  //                 [ DF.variable('a'), DF.literal('a1') ],
+  //                 [ DF.variable('b'), DF.literal('b1') ],
+  //               ]),
+  //               BF.bindings([
+  //                 [ DF.variable('a'), DF.literal('a2') ],
+  //                 [ DF.variable('b'), DF.literal('b2') ],
+  //               ]),
+  //             ]),
+  //             metadata: () => Promise.resolve(
+  //               {
+  //                 state: new MetadataValidationState(),
+  //                 cardinality: { type: 'estimate', value: 4 },
+  //                 pageSize: 100,
+  //                 requestTime: 10,
+  //                 canContainUndefs: false,
+  //                 variables: [ DF.variable('a'), DF.variable('b') ],
+  //               },
+  //             ),
+  //             type: 'bindings',
+  //           },
+  //           operation: <any> {},
+  //         },
+  //         {
+  //           output: {
+  //             bindingsStream: new ArrayIterator([
+  //               BF.bindings([
+  //                 [ DF.variable('a'), DF.literal('a1') ],
+  //                 [ DF.variable('c'), DF.literal('c1') ],
+  //               ]),
+  //               BF.bindings([
+  //                 [ DF.variable('a'), DF.literal('a2') ],
+  //                 [ DF.variable('c'), DF.literal('c2') ],
+  //               ]),
+  //             ]),
+  //             metadata: () => Promise.resolve(
+  //               {
+  //                 state: new MetadataValidationState(),
+  //                 cardinality: { type: 'estimate', value: 5 },
+  //                 pageSize: 100,
+  //                 requestTime: 20,
+  //                 canContainUndefs: false,
+  //                 variables: [ DF.variable('a'), DF.variable('c') ],
+  //               },
+  //             ),
+  //             type: 'bindings',
+  //           },
+  //           operation: <any> {},
+  //         },
+  //         {
+  //           output: {
+  //             bindingsStream: new ArrayIterator([
+  //               BF.bindings([
+  //                 [ DF.variable('a'), DF.literal('a1') ],
+  //                 [ DF.variable('b'), DF.literal('b1') ],
+  //               ]),
+  //               BF.bindings([
+  //                 [ DF.variable('a'), DF.literal('a2') ],
+  //                 [ DF.variable('b'), DF.literal('b2') ],
+  //               ]),
+  //             ]),
+  //             metadata: () => Promise.resolve(
+  //               {
+  //                 state: new MetadataValidationState(),
+  //                 cardinality: { type: 'estimate', value: 2 },
+  //                 pageSize: 100,
+  //                 requestTime: 30,
+  //                 canContainUndefs: false,
+  //                 variables: [ DF.variable('a'), DF.variable('b') ],
+  //               },
+  //             ),
+  //             type: 'bindings',
+  //           },
+  //           operation: <any> {},
+  //         },
+  //         {
+  //           output: {
+  //             bindingsStream: new ArrayIterator([
+  //               BF.bindings([
+  //                 [ DF.variable('d'), DF.literal('d1') ],
+  //                 [ DF.variable('e'), DF.literal('e1') ],
+  //               ]),
+  //               BF.bindings([
+  //                 [ DF.variable('d'), DF.literal('d2') ],
+  //                 [ DF.variable('e'), DF.literal('e2') ],
+  //               ]),
+  //             ]),
+  //             metadata: () => Promise.resolve(
+  //               {
+  //                 state: new MetadataValidationState(),
+  //                 cardinality: { type: 'estimate', value: 5 },
+  //                 pageSize: 100,
+  //                 requestTime: 30,
+  //                 canContainUndefs: false,
+  //                 variables: [ DF.variable('d'), DF.variable('e') ],
+  //               },
+  //             ),
+  //             type: 'bindings',
+  //           },
+  //           operation: <any> {},
+  //         },
+  //         {
+  //           output: {
+  //             bindingsStream: new ArrayIterator([
+  //               BF.bindings([
+  //                 [ DF.variable('d'), DF.literal('d1') ],
+  //                 [ DF.variable('f'), DF.literal('f1') ],
+  //               ]),
+  //               BF.bindings([
+  //                 [ DF.variable('d'), DF.literal('d2') ],
+  //                 [ DF.variable('f'), DF.literal('f2') ],
+  //               ]),
+  //             ]),
+  //             metadata: () => Promise.resolve(
+  //               {
+  //                 state: new MetadataValidationState(),
+  //                 cardinality: { type: 'estimate', value: 1 },
+  //                 pageSize: 100,
+  //                 requestTime: 30,
+  //                 canContainUndefs: false,
+  //                 variables: [ DF.variable('d'), DF.variable('f') ],
+  //               },
+  //             ),
+  //             type: 'bindings',
+  //           },
+  //           operation: <any> {},
+  //         },
+  //         {
+  //           output: {
+  //             bindingsStream: new ArrayIterator([
+  //               BF.bindings([
+  //                 [ DF.variable('e'), DF.literal('e1') ],
+  //                 [ DF.variable('f'), DF.literal('f1') ],
+  //               ]),
+  //               BF.bindings([
+  //                 [ DF.variable('e'), DF.literal('e2') ],
+  //                 [ DF.variable('f'), DF.literal('f2') ],
+  //               ]),
+  //             ]),
+  //             metadata: () => Promise.resolve(
+  //               {
+  //                 state: new MetadataValidationState(),
+  //                 cardinality: { type: 'estimate', value: 3 },
+  //                 pageSize: 100,
+  //                 requestTime: 30,
+  //                 canContainUndefs: false,
+  //                 variables: [ DF.variable('e'), DF.variable('f') ],
+  //               },
+  //             ),
+  //             type: 'bindings',
+  //           },
+  //           operation: <any> {},
+  //         },
+
+  //       ],
+  //       context,
+  //     });
+  //   });
+  // it('should run on 2 disjoint size 3 streams', async() => {
+  //   const action = action23();
+  //   const output = await actor.run(action);
+  //   expect(output.type).toEqual('bindings');
+  //   // expect(await (<any> output).metadata()).toEqual({
+  //   //   state: expect.any(MetadataValidationState),
+  //   //   cardinality: { type: 'estimate', value: 40 },
+  //   //   canContainUndefs: false,
+  //   //   variables: [ DF.variable('a'), DF.variable('c'), DF.variable('b') ],
+  //   // });
+  //   await expect(output.bindingsStream).toEqualBindingsStream([
+  //     BF.bindings([
+  //       [ DF.variable('a'), DF.literal('a1') ],
+  //       [ DF.variable('b'), DF.literal('b1') ],
+  //       [ DF.variable('c'), DF.literal('c1') ],
+  //     ]),
+  //     BF.bindings([
+  //       [ DF.variable('a'), DF.literal('a2') ],
+  //       [ DF.variable('b'), DF.literal('b2') ],
+  //       [ DF.variable('c'), DF.literal('c2') ],
+  //     ]),
+  //     BF.bindings([
+  //       [ DF.variable('d'), DF.literal('d1') ],
+  //       [ DF.variable('e'), DF.literal('e1') ],
+  //       [ DF.variable('f'), DF.literal('f1') ],
+  //     ]),
+  //     BF.bindings([
+  //       [ DF.variable('d'), DF.literal('d2') ],
+  //       [ DF.variable('e'), DF.literal('e2') ],
+  //       [ DF.variable('f'), DF.literal('f2') ],
+  //     ]),
+  //   ]);
+
+  //   // Check join order
+
+  //   expect((<any> action.entries[0]).operation.called).toBe(1);
+  //   expect((<any> action.entries[1]).operation.called).toBe(1);
+  //   expect((<any> action.entries[2]).operation.called).toBe(1);
+  //   expect((<any> action.entries[3]).operation.called).toBe(1);
+  //   expect((<any> action.entries[4]).operation.called).toBe(0);
+  //   expect((<any> action.entries[5]).operation.called).toBe(0);
+
+  // });
+  // });
 });

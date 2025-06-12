@@ -121,7 +121,6 @@ implements IQueryEngine<QueryContext, QueryStringContextInner, QueryAlgebraConte
     context?: QueryFormatTypeInner extends string ? QueryStringContextInner : QueryAlgebraContextInner,
   ): Promise<QueryType | IQueryExplained> {
     context = context || <any>{};
-
     // Expand shortcuts
     for (const key in context) {
       if (this.actorInitQuery.contextKeyShortcuts[key]) {

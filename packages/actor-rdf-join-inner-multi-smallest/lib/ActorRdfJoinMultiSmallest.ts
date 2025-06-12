@@ -20,6 +20,7 @@ import { Factory } from 'sparqlalgebrajs';
 export class ActorRdfJoinMultiSmallest extends ActorRdfJoin {
   public readonly mediatorJoinEntriesSort: MediatorRdfJoinEntriesSort;
   public readonly mediatorJoin: MediatorRdfJoin;
+  public readonly minimizeCardinalityProduct: boolean;
 
   public static readonly FACTORY = new Factory();
 
@@ -30,6 +31,7 @@ export class ActorRdfJoinMultiSmallest extends ActorRdfJoin {
       limitEntries: 3,
       limitEntriesMin: true,
     });
+    this.minimizeCardinalityProduct = args.minimizeCardinalityProduct
   }
 
   /**
@@ -48,31 +50,27 @@ export class ActorRdfJoinMultiSmallest extends ActorRdfJoin {
     // If all result sets are disjoint we just want the sets with lowest cardinality
     return [0,1];
   }
+
   /**
    * Finds join indexes of lowest product of cardinalities of result sets, with priority on result sets that have common variables
    * @param entries A sorted array of entries, sorted on cardinality
    */
   public getFirstValidJoinWithMinimalCardinalityProduct(entries: IJoinEntryWithMetadata[]){
-    const cardinalityProducts: Map<number, number[]> = new Map<number, number[]>();
+    let smallestCardinalityProduct = undefined;;
+    let indexes: number[] = [0,1];
     // Get cardinality products
-    for (let i = 0; i<entries.length; i++){
-      for (let j = 0; j<entries.length; j++){
-        if (i != j){
-          cardinalityProducts.set(entries[i].metadata.cardinality.value*entries[j].metadata.cardinality.value, [i,j]);
+    for (let i = 0; i < entries.length; i++){
+      for (let j = 0; j < entries.length; j++){
+        if (i != j && this.hasCommonVariables(entries[i], entries[j])){
+          const cardProduct = entries[i].metadata.cardinality.value*entries[j].metadata.cardinality.value;
+          if (smallestCardinalityProduct === undefined || cardProduct < smallestCardinalityProduct){
+            smallestCardinalityProduct = cardProduct;
+            indexes = [i,j];
+          }
         }
       }
     }
-    // Sort cardinality products
-    let keys: number[] = [...cardinalityProducts.keys()];
-    keys.sort((a, b)=> a-b);
-    // Get sorted entry indexes
-    const sortedCardinalityProductsJoinIndexes = keys.map(x=>cardinalityProducts.get(x)!);
-    // Iterate over sorted entry indexes and select first index that is not cartesian join
-    for (const joinIndexes of sortedCardinalityProductsJoinIndexes){
-      if (this.hasCommonVariables(entries[joinIndexes[0]], entries[joinIndexes[1]])){
-        return joinIndexes;
-      }
-    }
+    return indexes;
   }
 
   /**
@@ -82,7 +80,9 @@ export class ActorRdfJoinMultiSmallest extends ActorRdfJoin {
    * @returns 
    */
   public hasCommonVariables(entry1: IJoinEntryWithMetadata, entry2: IJoinEntryWithMetadata): boolean{
-    return entry1.metadata.variables.some(v => entry2.metadata.variables.includes(v));
+    const variableNames1 = entry1.metadata.variables.map(x => x.value);
+    const variableNames2 = entry2.metadata.variables.map(x => x.value);
+    return variableNames1.some(v => variableNames2.includes(v));
   }
 
   /**
@@ -106,15 +106,18 @@ export class ActorRdfJoinMultiSmallest extends ActorRdfJoin {
     );
 
     const entriesMetaData = await ActorRdfJoin.getEntriesWithMetadatas(entries);
-    const bestJoinIndexes = this.getJoinIndexes(entriesMetaData);
+
+    let bestJoinIndexes: number[];
+    if (this.minimizeCardinalityProduct){
+      bestJoinIndexes = this.getFirstValidJoinWithMinimalCardinalityProduct(entriesMetaData)
+    }
+    else{
+      bestJoinIndexes = this.getJoinIndexes(entriesMetaData);
+    }
 
     const smallestEntry1 = entries[bestJoinIndexes[0]];
     const smallestEntry2 = entries[bestJoinIndexes[1]];
 
-    if (bestJoinIndexes[0] > bestJoinIndexes[1]){
-      throw new Error("Invalid combination of join indexes, first element larger than second")
-    }
-    
     entries.splice(bestJoinIndexes[1], 1);
     entries.splice(bestJoinIndexes[0], 1);
 
@@ -170,4 +173,8 @@ export interface IActorRdfJoinMultiSmallestArgs extends IActorRdfJoinArgs {
    * A mediator for joining Bindings streams
    */
   mediatorJoin: MediatorRdfJoin;
+  /**
+   * Whether the actor should use minimal cardinality product or just the first non cartesian join
+   */
+  minimizeCardinalityProduct: boolean;
 }
