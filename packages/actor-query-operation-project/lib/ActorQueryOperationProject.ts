@@ -86,7 +86,6 @@ export class ActorQueryOperationProject extends ActorQueryOperationTypedMediated
         return term;
       });
     });
-
     return {
       type: 'bindings',
       bindingsStream,
