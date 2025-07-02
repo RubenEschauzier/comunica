@@ -351,7 +351,8 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
                   statisticDereferenceLinks.updateStatistic(
                     {
                       url: nextSourceState.link.url,
-                      metadata: { ...nextSourceState.metadata, ...nextSourceState.link.metadata },
+                      metadata: { ...nextSourceState.metadata, ...nextSourceState.link.metadata, 
+                        size: (<any>(nextSourceState.source)).source._size },
                     },
                     nextSourceState.source,
                   );

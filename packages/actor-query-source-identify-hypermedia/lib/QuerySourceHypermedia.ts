@@ -18,7 +18,7 @@ import type {
   MetadataBindings,
   ILink,
 } from '@comunica/types';
-import type { Bindings, BindingsFactory } from '@comunica/utils-bindings-factory';
+import type { BindingsFactory } from '@comunica/utils-bindings-factory';
 import * as RDF from '@rdfjs/types';
 import { AsyncIterator } from 'asynciterator';
 import { TransformIterator } from 'asynciterator';
@@ -29,7 +29,6 @@ import { Factory } from 'sparqlalgebrajs';
 import type { ISourceState } from './LinkedRdfSourcesAsyncRdfIterator';
 import { MediatedLinkedRdfSourcesAsyncRdfIterator } from './MediatedLinkedRdfSourcesAsyncRdfIterator';
 import { StreamingStoreMetadata } from './StreamingStoreMetadata';
-import { getVariables, quotedQuadProvenanceBinding } from '@comunica/bus-query-source-identify';
 import { BindingsToQuadsIterator } from '@comunica/actor-query-operation-construct';
 import { mapTermsNested } from 'rdf-terms';
 
