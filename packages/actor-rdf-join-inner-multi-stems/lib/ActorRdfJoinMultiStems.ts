@@ -57,9 +57,6 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     let { metadatas } = sideData;
     metadatas = [ ...metadatas ];
 
-    const { hashFunction } = await this.mediatorHashBindings.mediate({ context: action.context });
-    const timestampGenerator = new TimestampGenerator();
-    const minimalIndexRouter = new RouteFixedMinimalIndex(action.entries.length);
 
     // By sorting the entries and selecting the minimal "not done" entry we route bindings
     // to the streams with smallest cardinality first.
@@ -67,17 +64,21 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
       .map((entry, i) => ({ ...entry, metadata: metadatas[i] })), action.context);
     
     const connectedComponents = ActorRdfJoinMultiStems.findConnectedComponentsInJoinGraph(sortedEntries);
+
+    const { hashFunction } = await this.mediatorHashBindings.mediate({ context: action.context });
+    const timestampGenerator = new TimestampGenerator();
+    const minimalIndexRouter = new RouteFixedMinimalIndex(action.entries.length, connectedComponents.indexes);
+
     // Each eddie controller stream is responsible for one connected component of the join graph.
     const eddieControllerStreams = [];
     // The inputs to each controller
     const eddieEntriesInput: IJoinEntryWithMetadata[][] = [];
-    for (let j = 0; j < connectedComponents.length; j++){
-      const entryJoinVariables: RDF.Variable[][][] = await this.getJoinVariables(connectedComponents[j]);
+    for (let j = 0; j < connectedComponents.entries.length; j++){
+      const entryJoinVariables: RDF.Variable[][][] = await this.getJoinVariables(connectedComponents.entries[j]);
       const stemOperators: EddieOperatorStream[] = [];
       const inputStreams = [];
-      console.log(connectedComponents[j].map(x => x.operation));
 
-      for (const [ i, entry ] of connectedComponents[j].entries()) {
+      for (const [ i, entry ] of connectedComponents.entries[j].entries()) {
         stemOperators.push(
           new EddieOperatorStream(
             entry.output.bindingsStream,
@@ -190,7 +191,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
    */
   static findConnectedComponentsInJoinGraph(
     entries: IJoinEntryWithMetadata[],
-  ) {
+  ): IConnectedComponents {
     function find(idx: number, parent: number[]): number{
       if (parent[idx] === idx) {
         return idx;
@@ -241,14 +242,20 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
 
     // Reconstruct connected components from union-find datastructure
     const connectedComponents: Map<number, IJoinEntryWithMetadata[]> = new Map();
+    const connectedComponentsIndexes: Map<number, number[]> = new Map();
     for (let l = 0; l<n; l++){
       const parentOfEntry = find(l, parent);
       if (!connectedComponents.has(parentOfEntry)){
         connectedComponents.set(parentOfEntry, []);
+        connectedComponentsIndexes.set(parentOfEntry, []);
       }
       connectedComponents.get(parentOfEntry)!.push(entries[l]);
+      connectedComponentsIndexes.get(parentOfEntry)!.push(l);
     }
-    return Array.from(connectedComponents.values());
+    return {
+      entries: Array.from(connectedComponents.values()), 
+      indexes: Array.from(connectedComponentsIndexes.values())
+    }
   }
 }
 
@@ -272,3 +279,7 @@ export interface IActorRdfJoinMultiStemsTestSideData extends IActorRdfJoinTestSi
   sortedEntries: IJoinEntryWithMetadata[];
 }
 
+export interface IConnectedComponents{
+  entries: IJoinEntryWithMetadata[][];
+  indexes: number[][]
+}

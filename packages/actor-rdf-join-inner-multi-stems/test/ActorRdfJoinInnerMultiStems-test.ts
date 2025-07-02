@@ -31,9 +31,9 @@ describe('ActorRdfJoinInnerMultiStems', () => {
         ]
       )
       const disjointEntries = ActorRdfJoinMultiStems.findConnectedComponentsInJoinGraph(entries);
-      expect(disjointEntries[0]).toEqual(entries.slice(0, 4));
-      expect(disjointEntries[1]).toEqual(entries.slice(4, 7));
-      expect(disjointEntries.length).toEqual(2);
+      expect(disjointEntries.entries.length).toEqual(2);
+      expect(disjointEntries.entries).toEqual([entries.slice(0, 4),entries.slice(4, 7)]);
+      expect(disjointEntries.indexes).toEqual([[0,1,2,3],[4,5,6]]);
     });
 
     it('should return each entry as a separate group when all are disjoint', () => {
@@ -44,9 +44,12 @@ describe('ActorRdfJoinInnerMultiStems', () => {
         ['g', 'h']
       ]);
       const disjointEntries = ActorRdfJoinMultiStems.findConnectedComponentsInJoinGraph(entries);
-      expect(disjointEntries.length).toBe(4);
-      disjointEntries.forEach((group, i) => {
+      expect(disjointEntries.entries.length).toBe(4);
+      disjointEntries.entries.forEach((group, i) => {
         expect(group).toEqual([entries[i]]);
+      });
+      disjointEntries.indexes.forEach((group, i) => {
+        expect(group).toEqual([i]);
       });
     });
 
@@ -58,8 +61,8 @@ describe('ActorRdfJoinInnerMultiStems', () => {
         ['d', 'e']
       ]);
       const disjointEntries = ActorRdfJoinMultiStems.findConnectedComponentsInJoinGraph(entries);
-      expect(disjointEntries.length).toBe(1);
-      expect(disjointEntries[0]).toEqual(entries);
+      expect(disjointEntries.entries.length).toBe(1);
+      expect(disjointEntries.entries).toEqual([entries]);
     });
 
     it('should treat entries with one variable as disjoint if no overlaps', () => {
@@ -69,8 +72,9 @@ describe('ActorRdfJoinInnerMultiStems', () => {
         ['c']
       ]);
       const disjointEntries = ActorRdfJoinMultiStems.findConnectedComponentsInJoinGraph(entries);
-      expect(disjointEntries.length).toBe(3);
-      expect(disjointEntries).toEqual([[entries[0]], [entries[1]], [entries[2]]])
+      expect(disjointEntries.entries.length).toBe(3);
+      expect(disjointEntries.entries).toEqual([[entries[0]], [entries[1]], [entries[2]]]);
+      expect(disjointEntries.indexes).toEqual([[0],[1],[2]]);
     });
 
     it('should group all entries connected via a common variable (star shape)', () => {
@@ -81,8 +85,9 @@ describe('ActorRdfJoinInnerMultiStems', () => {
         ['x', 'd']
       ]);
       const disjointEntries = ActorRdfJoinMultiStems.findConnectedComponentsInJoinGraph(entries);
-      expect(disjointEntries.length).toBe(1);
-      expect(disjointEntries[0]).toEqual(entries);
+      expect(disjointEntries.entries.length).toBe(1);
+      expect(disjointEntries.entries).toEqual([entries]);
+      expect(disjointEntries.indexes).toEqual([[0,1,2,3]]);
     });
 
     it('should find multiple disjoint groups in a complex graph with cycles', () => {
@@ -97,11 +102,11 @@ describe('ActorRdfJoinInnerMultiStems', () => {
         ['s', 't'], // 7
       ]);
       const disjointEntries = ActorRdfJoinMultiStems.findConnectedComponentsInJoinGraph(entries);
-      expect(disjointEntries.length).toBe(4);
-      expect(disjointEntries[0]).toEqual(entries.slice(0,3));
-      expect(disjointEntries[1]).toEqual(entries.slice(3,5));
-      expect(disjointEntries[2]).toEqual(entries.slice(5,7));
-      expect(disjointEntries[3]).toEqual(entries.slice(7));
+      expect(disjointEntries.entries.length).toBe(4);
+      expect(disjointEntries.entries).toEqual(
+        [entries.slice(0,3),entries.slice(3,5),entries.slice(5,7),entries.slice(7)]
+      );
+      expect(disjointEntries.indexes).toEqual([[0,1,2],[3,4], [5,6], [7]]);
     });
   });
 });
