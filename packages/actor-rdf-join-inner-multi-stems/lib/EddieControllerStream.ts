@@ -14,17 +14,28 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
   private endTuples: boolean;
   private finishedReading: number[];
 
+  /**
+   * The number of processed bindings since the last update
+   */
+  private bindingsSinceUpdate: number = 0;
+  /**
+   * How often the routing table should be updated.
+   */
+  private routingUpdateFrequency: number = 1000;
+
   public constructor(
     eddieIterators: EddieOperatorStream[],
     router: IEddieRouter,
+    updateFrequency: number
   ) {
     super();
     this.eddieIterators = eddieIterators;
     this.finishedReading = Array.from<number>({ length: eddieIterators.length }).fill(0);
     this.router = router;
-    this.endTuples = false;
-
+    this.routingUpdateFrequency = updateFrequency;
     this.routingTable = this.router.createRouteTable(this.eddieIterators.map(x => x.variables));
+
+    this.endTuples = false;
 
     if (this.eddieIterators.some(it => it.readable)) {
       this.readable = true;
@@ -64,6 +75,7 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
         if (item === null) {
           continue;
         }
+        this.bindingsSinceUpdate++;
         producedResults = true;
 
         const nextEddie = this.routingTable[item.getContextEntry(eddiesContextKeys.eddiesMetadata)!.done];
@@ -72,6 +84,11 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
           return item;
         }
         this.eddieIterators[nextEddie[0].next].push({ item, joinVars: nextEddie[0].joinVars });
+        if (this.bindingsSinceUpdate >= this.routingUpdateFrequency){
+          // TODO: Implement this in router class.
+          this.router.updateRouteTable([{}]);
+          this.bindingsSinceUpdate = 0;
+        }
       }
 
       // If none of the eddieIterators have a match for us

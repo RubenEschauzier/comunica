@@ -63,7 +63,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     const sortedEntries: IJoinEntryWithMetadata[] = await this.sortJoinEntries(action.entries
       .map((entry, i) => ({ ...entry, metadata: metadatas[i] })), action.context);
     
-    const connectedComponents = ActorRdfJoinMultiStems.findConnectedComponentsInJoinGraph(sortedEntries);
+    const connectedComponents = ActorRdfJoin.findConnectedComponentsInJoinGraph(sortedEntries);
 
     const { hashFunction } = await this.mediatorHashBindings.mediate({ context: action.context });
     const timestampGenerator = new TimestampGenerator();
@@ -184,79 +184,6 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     return entryJoinVariables;
   }
 
-  /**
-   * Find all connected components of the join graph using the find-union datastructure
-   * @param entries 
-   * @returns 
-   */
-  static findConnectedComponentsInJoinGraph(
-    entries: IJoinEntryWithMetadata[],
-  ): IConnectedComponents {
-    function find(idx: number, parent: number[]): number{
-      if (parent[idx] === idx) {
-        return idx;
-      }
-      parent[idx] = find(parent[idx], parent);
-      return parent[idx];
-    }
-
-    function union(a: number, b: number, parent: number[], size: number[]){
-      let rootA = find(a, parent);
-      let rootB = find(b, parent);
-      if (rootA === rootB){
-        return;
-      }
-      if (size[rootA] > size[rootB]){
-        parent[rootB] = rootA;
-        size[rootA] += size[rootB];
-      }
-      else{
-        parent[rootA] = rootB;
-        size[rootB] += size[rootA]
-      }
-    }
-
-    const n = entries.length;
-    const parent: number[] = Array.from({ length: n }, (_, i) => i);
-    const size: number[] = Array.from({ length: n }, () => 1); 
-
-    const variableToEntry: Map<string, number[]> = new Map();
-
-    // Map variables to their entries to know which entries to merge
-    for (let i = 0; i < n; i++){
-      const entryVariables = entries[i].metadata.variables.map(variable => variable.variable.value);
-      for (let j = 0; j < entryVariables.length; j++){
-        if (!variableToEntry.has(entryVariables[j])){
-          variableToEntry.set(entryVariables[j], []);
-        }
-        variableToEntry.get(entryVariables[j])!.push(i);
-      }
-    }
-
-    // Union all entries associated with a variable
-    for (const entryIndexes of variableToEntry.values()){
-      for (let k = 1; k < entryIndexes.length; k++){
-        union(entryIndexes[0], entryIndexes[k], parent, size);
-      }
-    }
-
-    // Reconstruct connected components from union-find datastructure
-    const connectedComponents: Map<number, IJoinEntryWithMetadata[]> = new Map();
-    const connectedComponentsIndexes: Map<number, number[]> = new Map();
-    for (let l = 0; l<n; l++){
-      const parentOfEntry = find(l, parent);
-      if (!connectedComponents.has(parentOfEntry)){
-        connectedComponents.set(parentOfEntry, []);
-        connectedComponentsIndexes.set(parentOfEntry, []);
-      }
-      connectedComponents.get(parentOfEntry)!.push(entries[l]);
-      connectedComponentsIndexes.get(parentOfEntry)!.push(l);
-    }
-    return {
-      entries: Array.from(connectedComponents.values()), 
-      indexes: Array.from(connectedComponentsIndexes.values())
-    }
-  }
 }
 
 export interface IActorRdfJoinMultiStemsArgs extends IActorRdfJoinArgs<IActorRdfJoinMultiStemsTestSideData> {
@@ -277,9 +204,4 @@ export interface IActorRdfJoinMultiStemsArgs extends IActorRdfJoinArgs<IActorRdf
 
 export interface IActorRdfJoinMultiStemsTestSideData extends IActorRdfJoinTestSideData {
   sortedEntries: IJoinEntryWithMetadata[];
-}
-
-export interface IConnectedComponents{
-  entries: IJoinEntryWithMetadata[][];
-  indexes: number[][]
 }
