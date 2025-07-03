@@ -15,6 +15,12 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
    * The variables that this operator can do a join on
    */
   public joinVariables: RDF.Variable[][];
+  
+  /** 
+   * Number of 'lottery' tickets. Used for lottery scheduling
+   */
+  public tickets: number = 0;
+
   /**
    * The variables present in the bindings produced by this operator.
    */
@@ -28,14 +34,12 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
   private readonly funHash: HashFunction;
   private readonly funJoin: JoinFunction;
 
-  private readonly readBuffer = true;
   private readonly bitLoc: number;
+
 
   private match: Bindings | null = null;
   private matches: Bindings[] = [];
   private matchIdx = 0;
-
-  private tempTotalReads = 0;
 
   public constructor(
     sourceIterator: BindingsStream,
@@ -72,7 +76,6 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
   override _end() {
     super._end();
     this.sourceIterator.destroy();
-    console.log(`EddieOperatorStream ended, total reads: ${this.tempTotalReads}`);
   }
 
   push(item: IEddieJoinEntry) {
@@ -99,6 +102,9 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
         }
         let result = this.funJoin(item, this.match!);
         if (result !== null) {
+          // Produce result, so reduce ticket count
+          this.tickets -= 1;
+          
           // Here we can just use this.match context entries as we simply are going to
           // set a bit entry to 1, this prevents extra work copying the object. Furthmore
           // as we throw away the intermediate results, mutating the metadata is not a problem
@@ -154,7 +160,6 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
           result.push(item);
         }
 
-        this.tempTotalReads++;
         return item;
       }
 
@@ -165,6 +170,8 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
       this.match = item;
       this.matches = this.tripleMap.get(hash) || [];
       this.matchIdx = 0;
+
+      this.tickets += 1;
     }
   }
 }
