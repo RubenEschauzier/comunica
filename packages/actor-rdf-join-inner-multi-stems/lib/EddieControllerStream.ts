@@ -9,7 +9,7 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
   private readonly eddieIterators: EddieOperatorStream[];
 
   private readonly router: IEddieRouter;
-  private readonly routingTable: Record<string, IEddieRoutingEntry[]>;
+  private routingTable: Record<string, IEddieRoutingEntry[]>;
 
   private endTuples: boolean;
   private finishedReading: number[];
@@ -85,8 +85,7 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
         }
         this.eddieIterators[nextEddie[0].next].push({ item, joinVars: nextEddie[0].joinVars });
         if (this.bindingsSinceUpdate >= this.routingUpdateFrequency){
-          // TODO: Implement this in router class.
-          this.router.updateRouteTable([{}]);
+          this.routingTable = this.router.updateRouteTable(this.eddieIterators);
           this.bindingsSinceUpdate = 0;
         }
       }

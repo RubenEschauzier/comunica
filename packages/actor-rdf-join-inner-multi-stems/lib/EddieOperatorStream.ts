@@ -20,6 +20,10 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
    * Number of 'lottery' tickets. Used for lottery scheduling
    */
   public tickets: number = 0;
+  /**
+   * Selectivity information per 'done' signature
+   */
+  public selectivities: Record<number, ISelectivityData> = {};
 
   /**
    * The variables present in the bindings produced by this operator.
@@ -38,6 +42,7 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
 
 
   private match: Bindings | null = null;
+  private matchMetadata: IEddieBindingsMetadata | null = null; 
   private matches: Bindings[] = [];
   private matchIdx = 0;
 
@@ -93,23 +98,26 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
       while (this.matchIdx < this.matches.length) {
         const item = this.matches[this.matchIdx++];
         const itemMetadata = item.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
-        const matchMetadata = this.match!.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
+        // const matchMetadata = this.match!.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
 
         // If the timestamp of the interal index is newer (so larger)
         // than the intermediate result it is not a valid join candidate
-        if (itemMetadata.timestamp > matchMetadata.timestamp) {
+        if (itemMetadata.timestamp > this.matchMetadata!.timestamp) {
           continue;
         }
         let result = this.funJoin(item, this.match!);
         if (result !== null) {
           // Produce result, so reduce ticket count
           this.tickets -= 1;
+          // Produce result so increment out
+          this.selectivities[this.matchMetadata!.done].out++;
+
           
           // Here we can just use this.match context entries as we simply are going to
           // set a bit entry to 1, this prevents extra work copying the object. Furthmore
           // as we throw away the intermediate results, mutating the metadata is not a problem
           // as we will never try to access it to get the previous metadata state.
-          const copy = { ...matchMetadata };
+          const copy = { ...this.matchMetadata! };
           copy.done |= 1 << this.bitLoc;
           copy.order = [ ...copy.order!, this.bitLoc ];
 
@@ -162,16 +170,21 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
 
         return item;
       }
-
+      this.matchMetadata = item.getContextEntry(eddiesContextKeys.eddiesMetadata)! 
       // We read from the buffer and got variables to join on.
       // So hash on the join variables.
-
       const hash = this.funHash(item, joinVars);
       this.match = item;
       this.matches = this.tripleMap.get(hash) || [];
       this.matchIdx = 0;
 
       this.tickets += 1;
+      // Update selectivity in counter
+      const matchDone = this.matchMetadata.done;
+      if (!this.selectivities[matchDone]){
+        this.selectivities[matchDone] = {in: 0, out: 0}
+      }
+      this.selectivities[matchDone].in++;
     }
   }
 }
@@ -179,6 +192,11 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
 export interface IEddieJoinEntry {
   item: Bindings;
   joinVars: RDF.Variable[];
+}
+
+export interface ISelectivityData {
+  in: number;
+  out: number;
 }
 
 export type HashFunction = (bindings: Bindings, variables: RDF.Variable[]) => number;

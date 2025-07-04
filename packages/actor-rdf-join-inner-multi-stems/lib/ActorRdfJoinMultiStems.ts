@@ -11,7 +11,7 @@ import { DataFactory } from 'rdf-data-factory';
 import { EddieControllerStream, TimestampGenerator } from './EddieControllerStream';
 import type { JoinFunction } from './EddieOperatorStream';
 import { EddieOperatorStream } from './EddieOperatorStream';
-import { RouteFixedMinimalIndex } from './EddieRouters';
+import { RouteFixedMinimalIndex, RouteLotteryScheduling, RouteLotterySchedulingSignature } from './EddieRouters';
 import { Factory } from 'sparqlalgebrajs';
 import { KeysInitQuery } from '@comunica/context-entries';
 
@@ -67,7 +67,10 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
 
     const { hashFunction } = await this.mediatorHashBindings.mediate({ context: action.context });
     const timestampGenerator = new TimestampGenerator();
-    const minimalIndexRouter = new RouteFixedMinimalIndex(action.entries.length, connectedComponents.indexes);
+    // const router = new RouteFixedMinimalIndex(action.entries.length, connectedComponents.indexes);
+    const router = new RouteLotteryScheduling();
+    router.init(action.entries.length);
+    // const router = new RouteLotterySchedulingSignature(action.entries.length, connectedComponents.indexes);
 
     // Each eddie controller stream is responsible for one connected component of the join graph.
     const eddieControllerStreams = [];
@@ -92,7 +95,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
         );
         inputStreams.push(entry);
       }
-      const controllerStream = new EddieControllerStream(stemOperators, minimalIndexRouter);
+      const controllerStream = new EddieControllerStream(stemOperators, router, 1000);
       eddieControllerStreams.push(controllerStream);
       eddieEntriesInput.push(inputStreams);
     }

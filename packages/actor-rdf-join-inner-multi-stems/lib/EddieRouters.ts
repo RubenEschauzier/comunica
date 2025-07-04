@@ -2,6 +2,7 @@ import type { Bindings } from '@comunica/utils-bindings-factory';
 
 import type * as RDF from '@rdfjs/types';
 import { eddiesContextKeys } from './EddieControllerStream';
+import { EddieOperatorStream, ISelectivityData } from './EddieOperatorStream';
 
 export abstract class RouteBase implements IEddieRouter {
   /**
@@ -16,11 +17,14 @@ export abstract class RouteBase implements IEddieRouter {
    * Number of triple patterns
    */
   protected n: number;
-  public constructor(n: number, connectedComponents: number[][]) {
+
+  public constructor() {
     this.routeTable = {};
+  }
+  
+  public init(n: number){
     this.n = n;
   }
-
   public createRouteTable(variables: RDF.Variable[][]): Record<number, IEddieRoutingEntry[]> {
     const n = variables.length;
     const routeTable: Record<number, IEddieRoutingEntry[]> = {};
@@ -30,18 +34,6 @@ export abstract class RouteBase implements IEddieRouter {
     for (let state = 1; state < totalStates; state++) {
       // Build doneVector array from bits of state
       const doneIndexes = this.getSetBitIndexes(state);
-      // const connectedPatterns: number[] = [];
-      // const unconnectedPatterns: number[] = [];
-
-      // // Find for which connected components we have already processed a join.
-      // for (let i = 0; i<this.connectedComponents.length; i++){
-      //   if (this.connectedComponents[i].some(x => doneIndexes.includes(x))){
-      //     connectedPatterns.push(...this.connectedComponents[i]);
-      //   }
-      //   else{
-      //     unconnectedPatterns.push(...this.connectedComponents[i]);
-      //   }
-      // }
 
       // // If all done, there is no next entry
       if (doneIndexes.length === n) {
@@ -51,27 +43,6 @@ export abstract class RouteBase implements IEddieRouter {
       const doneVars = new Set(doneIndexes.flatMap(i => variableValues[i]));
 
       const possibleNext: IEddieRoutingEntry[] = [];
-      // Code to allow cartesian products in eddies but ensure they occur only when 
-      // ALL non-cartesian joins are made
-
-      // for (const nextIdxConnected of connectedPatterns){
-      //   if ((state & (1 << nextIdxConnected)) === 0) {
-      //     const varsNext = variables[nextIdxConnected];
-      //     const joinVars = varsNext.filter(v => doneVars.has(v.value));
-      //     if(joinVars.length === 0){
-      //       throw new Error("Zero join vars in connected components something went wrong");
-      //     }
-      //     possibleNext.push({next: nextIdxConnected, joinVars});
-      //     break;
-      //   }
-      // }
-      // for (const nextIdxUnconnected of unconnectedPatterns){
-      //   if ((state & (1 << nextIdxUnconnected)) === 0) {
-      //     const varsNext = variables[nextIdxUnconnected];
-      //     const joinVars = varsNext.filter(v => doneVars.has(v.value));
-      //     possibleNext.push({next: nextIdxUnconnected, joinVars});
-      //   }
-      // }
       
       for (let nextIdx = 0; nextIdx < n; nextIdx++) {
         if ((state & (1 << nextIdx)) === 0) {
@@ -112,31 +83,6 @@ export abstract class RouteBase implements IEddieRouter {
     return indexes;
   }
 
-  abstract routeBinding(binding: Bindings): number | undefined;
-  abstract updateRouteTable(operatorMetadata: Record<string, any>[]): Record<number, IEddieRoutingEntry[]>;
-}
-
-export class RouteRandom extends RouteBase {
-  public routeBinding(binding: Bindings): number | undefined {
-    const done = binding.getContextEntry(eddiesContextKeys.eddiesMetadata)!.done;
-    if (done === (1 << this.n) - 1) {
-      return undefined;
-    }
-    const indexesReadyEddies = this.getUnSetBitIndexes(done);
-    const nextEntry = this.sampleRandom(indexesReadyEddies);
-    return nextEntry;
-  }
-
-  public updateRouteTable(operatorMetadata: Record<string, any>[]): Record<number, IEddieRoutingEntry[]> {
-    return this.routeTable;
-  };
-
-  private sampleRandom<T>(arr: T[]) {
-    return arr[Math.floor(Math.random() * arr.length)];
-  }
-}
-
-export class RouteFixedMinimalIndex extends RouteBase {
   public routeBinding(binding: Bindings): number | undefined {
     const done = binding.getContextEntry(eddiesContextKeys.eddiesMetadata)!.done;
     if (done === (1 << this.n) - 1) {
@@ -147,16 +93,145 @@ export class RouteFixedMinimalIndex extends RouteBase {
     return Math.min(...indexesReadyEddies);
   }
 
-  public updateRouteTable(operatorMetadata: Record<string, any>[]): Record<number, IEddieRoutingEntry[]> {
+  abstract updateRouteTable(operators: EddieOperatorStream[]): Record<number, IEddieRoutingEntry[]>;
+}
+
+export class RouteRandom extends RouteBase {
+  public override routeBinding(binding: Bindings): number | undefined {
+    const done = binding.getContextEntry(eddiesContextKeys.eddiesMetadata)!.done;
+    if (done === (1 << this.n) - 1) {
+      return undefined;
+    }
+    const indexesReadyEddies = this.getUnSetBitIndexes(done);
+    const nextEntry = this.sampleRandom(indexesReadyEddies);
+    return nextEntry;
+  }
+
+  public updateRouteTable(operators: EddieOperatorStream[]): Record<number, IEddieRoutingEntry[]> {
+    return this.routeTable;
+  };
+
+  private sampleRandom<T>(arr: T[]) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+}
+
+export class RouteFixedMinimalIndex extends RouteBase {
+  public updateRouteTable(operators: EddieOperatorStream[]): Record<number, IEddieRoutingEntry[]> {
     return this.routeTable;
   };
 }
 
+export class RouteLotteryScheduling extends RouteBase {
+
+  public override updateRouteTable(operators: EddieOperatorStream[]): Record<number, IEddieRoutingEntry[]> {
+    const ticketMetadata: Record<string, number>[] = operators.map(op => {
+      return {tickets: op.tickets}
+    });
+
+    const updatedRoutingTable: Record<string, IEddieRoutingEntry[]> = {};
+    for (const [doneKey, routing] of Object.entries(this.routeTable)){
+        const key = parseInt(doneKey, 10);
+        // If size 0 or 1 no choice to be made
+        if (routing.length < 2){
+          updatedRoutingTable[key] = routing;
+          continue;
+        }
+        const ticketWeights: number[] = routing.map(x => x.next).map(idx => ticketMetadata[idx].tickets);
+
+        const minScore = Math.min(...ticketWeights);
+        const offset = minScore < 0 ? -minScore : 0;
+        const ticketWeightsNonNegative = ticketWeights.map(w => w + offset + 1); 
+        updatedRoutingTable[key] = this.reorderWeightedChoice(routing, ticketWeightsNonNegative);
+    }
+
+    return updatedRoutingTable;
+  }
+
+  protected reorderWeightedChoice<T>(items: T[], weights: number[]): T[] {
+    const reordered = [...items];
+    const total = weights.reduce((a, b) => a + b, 0);
+    const r = Math.random() * total;
+    let acc = 0;
+    for (let i = 0; i < items.length; i++) {
+      acc += weights[i];
+      if (r < acc) {
+        const temp = reordered[0];
+        reordered[0] = reordered[i];
+        reordered[i] = temp;
+        return reordered;
+      };
+    }
+    const temp = reordered[0];
+    reordered[0] = reordered[items.length - 1];
+    reordered[items.length - 1] = temp;
+    return reordered; 
+  }
+}
+
+export class RouteLotterySchedulingSignature extends RouteLotteryScheduling {
+  // public override createRouteTable(variables: RDF.Variable[][]): Record<number, IEddieRoutingEntry[]> {
+  //   const routeTable = super.createRouteTable(variables);
+  //   for (const key of Object.keys(routeTable)){
+  //     const keyInt = parseInt(key, 10);
+  //     routeTable[keyInt] = this.shuffle(routeTable[keyInt]);
+  //   }
+  //   this.routeTable = routeTable;
+  //   return routeTable;
+  // }
+  
+  public override updateRouteTable(operators: EddieOperatorStream[]): Record<number, IEddieRoutingEntry[]> {
+    const selectivityMetadata: Record<string, Record<number, ISelectivityData>>[] = this.collectMetadata(operators);
+
+    const updatedRoutingTable: Record<string, IEddieRoutingEntry[]> = {};
+    for (const [doneKey, routing] of Object.entries(this.routeTable)){
+        const key = parseInt(doneKey, 10);
+        // If size 0 or 1 no choice to be made
+        if (routing.length < 2){
+          updatedRoutingTable[key] = routing;
+          continue;
+        }
+        const ticketWeights: number[] = [];
+        for (const idx of routing.map(x => x.next)){
+          let selectivityData = selectivityMetadata[idx].selectivity[key];
+          if (!selectivityData){
+            ticketWeights.push(0);
+          }
+          else{
+            ticketWeights.push(selectivityData.in - selectivityData.out);
+          }
+        }
+
+        const minScore = Math.min(...ticketWeights);
+        const offset = minScore < 0 ? -minScore : 0;
+        const ticketWeightsNonNegative = ticketWeights.map(w => w + offset + 1); 
+        updatedRoutingTable[key] = this.reorderWeightedChoice(routing, ticketWeightsNonNegative);
+    }
+    return updatedRoutingTable;
+  }
+
+  protected collectMetadata(operators: EddieOperatorStream[]){
+    return operators.map(op => {
+      return {selectivity: op.selectivities}
+    });
+  }
+
+  protected shuffle<T>(array: T[]): T[] {
+    const result = array.slice(); // create a copy to avoid mutating original array
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  }
+}
+
 // Eddie routers should support batched routing with certain batchsize
 export interface IEddieRouter {
+  init: (n: number) => void;
   routeBinding: (binding: Bindings) => number | undefined;
   createRouteTable: (variables: RDF.Variable[][]) => Record<number, IEddieRoutingEntry[]>;
-  updateRouteTable: (operatorMetadata: Record<string, any>[]) => Record<number, IEddieRoutingEntry[]>;
+  updateRouteTable: (operators: EddieOperatorStream[]) => Record<number, IEddieRoutingEntry[]>;
 }
 
 export interface IEddieRoutingEntry {
