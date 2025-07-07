@@ -71,7 +71,6 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
       let producedResults = false;
       for (let i = 0; i < this.eddieIterators.length; i++) {
         item = this.eddieIterators[i].read();
-
         if (item === null) {
           continue;
         }

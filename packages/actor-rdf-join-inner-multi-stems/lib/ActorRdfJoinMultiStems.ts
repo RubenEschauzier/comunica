@@ -11,7 +11,7 @@ import { DataFactory } from 'rdf-data-factory';
 import { EddieControllerStream, TimestampGenerator } from './EddieControllerStream';
 import type { JoinFunction } from './EddieOperatorStream';
 import { EddieOperatorStream } from './EddieOperatorStream';
-import { RouteFixedMinimalIndex, RouteLotteryScheduling, RouteLotterySchedulingSignature } from './EddieRouters';
+import { IEddieRouter, RouteFixedMinimalIndex, RouteLotteryScheduling, RouteLotterySchedulingSignature } from './EddieRouters';
 import { Factory } from 'sparqlalgebrajs';
 import { KeysInitQuery } from '@comunica/context-entries';
 
@@ -23,6 +23,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
   public readonly mediatorHashBindings: MediatorHashBindings;
   public readonly mediatorJoinEntriesSort: MediatorRdfJoinEntriesSort;
   public readonly mediatorJoin: MediatorRdfJoin;
+  public readonly router: IEddieRouter;
 
   private readonly DF = new DataFactory();
 
@@ -57,7 +58,6 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     let { metadatas } = sideData;
     metadatas = [ ...metadatas ];
 
-
     // By sorting the entries and selecting the minimal "not done" entry we route bindings
     // to the streams with smallest cardinality first.
     const sortedEntries: IJoinEntryWithMetadata[] = await this.sortJoinEntries(action.entries
@@ -67,11 +67,8 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
 
     const { hashFunction } = await this.mediatorHashBindings.mediate({ context: action.context });
     const timestampGenerator = new TimestampGenerator();
-    // const router = new RouteFixedMinimalIndex(action.entries.length, connectedComponents.indexes);
-    const router = new RouteLotteryScheduling();
-    router.init(action.entries.length);
-    // const router = new RouteLotterySchedulingSignature(action.entries.length, connectedComponents.indexes);
-
+    this.router.init(action.entries.length);
+    
     // Each eddie controller stream is responsible for one connected component of the join graph.
     const eddieControllerStreams = [];
     // The inputs to each controller
@@ -95,7 +92,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
         );
         inputStreams.push(entry);
       }
-      const controllerStream = new EddieControllerStream(stemOperators, router, 1000);
+      const controllerStream = new EddieControllerStream(stemOperators, this.router, 1000);
       eddieControllerStreams.push(controllerStream);
       eddieEntriesInput.push(inputStreams);
     }
@@ -202,6 +199,10 @@ export interface IActorRdfJoinMultiStemsArgs extends IActorRdfJoinArgs<IActorRdf
    * A mediator for joining Bindings streams (TEMP)
    */
   mediatorJoin: MediatorRdfJoin;
+  /**
+   * The routing strategy used
+   */
+  router: IEddieRouter
 
 }
 
