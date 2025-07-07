@@ -3,9 +3,8 @@
     "https://linkedsoftwaredependencies.org/bundles/npm/@comunica/config-query-sparql/^4.0.0/components/context.jsonld"
   ],
   "import": [
-    "ccqs:config/rdf-join/actors-inner-adaptive.json",
+    "ccqs:config/rdf-join/actors-inner-multi-only.json",
     "ccqs:config/rdf-join/actors-minus.json",
-    "ccqs:config/rdf-join/actors-optional.json",
-    "ccqs:config/rdf-join/routers/router-lottery-selectivity.json"
+    "ccqs:config/rdf-join/actors-optional.json"
   ]
 }
