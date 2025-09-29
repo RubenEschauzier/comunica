@@ -107,8 +107,9 @@ export const KeysCaches = {
    * when the same sources is used in different parts of the engine during a single query.
    */
   withinQueryStoreCache: new ActionContextKey<LRUCache<string, Promise<ISourceState>>>
-    ('@comunica/actor-query-source-identify-hypermedia:withinQueryStoreCache')
+    ('@comunica/actor-query-source-identify-hypermedia:withinQueryStoreCache'),
 }
+
 export const KeysHttpWayback = {
   /**
    * Use the WayBack machine to get the most recent representation of a file if a link is broken.

@@ -67,13 +67,14 @@ export class ActorHttpFetch extends ActorHttp {
     }
 
     const policyCache = action.context.get(KeysCaches.policyCache);
+    const storeCache = action.context.get(KeysCaches.storeCache);
 
     const requestToValidateCache = policyCache ? ActorHttpFetch.requestToCacheRequest(
       new Request(action.input, requestInit)) : undefined;  
 
     // This is a validation request, so we need to check if re-use is possible given
     // the policy and request
-    if (action.validate && policyCache){
+    if (action.validate && policyCache && storeCache?.get(ActorHttpFetch.getUrl(action.input))){
       const oldPolicy = action.validate;
 
       // Empty response will be propegated by any wrappers without processing.

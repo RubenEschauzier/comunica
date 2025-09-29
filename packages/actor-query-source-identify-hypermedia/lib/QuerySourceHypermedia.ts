@@ -29,6 +29,7 @@ import { Factory } from 'sparqlalgebrajs';
 import { MediatedLinkedRdfSourcesAsyncRdfIterator } from './MediatedLinkedRdfSourcesAsyncRdfIterator';
 import { StreamingStoreMetadata } from './StreamingStoreMetadata';
 import CachePolicy = require('http-cache-semantics');
+import { ActionContext } from '@comunica/core';
 
 export class QuerySourceHypermedia implements IQuerySource {
   public readonly referenceValue: string;
@@ -167,7 +168,7 @@ export class QuerySourceHypermedia implements IQuerySource {
     // Get http caches
     const storeCache = context.get(KeysCaches.storeCache);
     const policyCache = context.get(KeysCaches.policyCache);
-
+    
     if (this.forceSourceType === 'sparql' && context.get(KeysQueryOperation.querySources)?.length === 1) {
       // Skip metadata extraction if we're querying over just a single SPARQL endpoint.
       quads = new Readable();
@@ -178,10 +179,10 @@ export class QuerySourceHypermedia implements IQuerySource {
         let policy: CachePolicy | undefined = undefined;
         if (storeCache && policyCache){
           policy = policyCache.get(link.url);
-          
           // Explicit check for file source to prevent regression due to re-parsing file.
           if (!link.url.startsWith("http://") && !link.url.startsWith("https://")){
             if (storeCache.get(link.url)){
+              console.log("USING CACHE")
               return storeCache.get(link.url)!;
             }
           }
@@ -193,6 +194,9 @@ export class QuerySourceHypermedia implements IQuerySource {
         if (dereferenceRdfOutput.isValidated){
           const cachedSource = storeCache!.get(link.url);
           if (!cachedSource){
+            console.log(policy)
+            console.log(link.url)
+            console.log("Throwing")
             throw new Error("Tried to use cached entry that does not exist")
           }
           return cachedSource;
