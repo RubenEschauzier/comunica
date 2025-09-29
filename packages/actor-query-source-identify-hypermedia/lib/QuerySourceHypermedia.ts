@@ -112,9 +112,9 @@ export class QuerySourceHypermedia implements IQuerySource {
       dataFactory,
       algebraFactory,
     );
+    
     if (aggregatedStore) {
       aggregatedStore.started = true;
-
       // Kickstart this iterator when derived iterators are created from the aggregatedStore,
       // otherwise the traversal process will not start if this iterator is not the first one to be consumed.
       const listener = (): void => it.kickstart();
@@ -168,7 +168,7 @@ export class QuerySourceHypermedia implements IQuerySource {
     // Get http caches
     const storeCache = context.get(KeysCaches.storeCache);
     const policyCache = context.get(KeysCaches.policyCache);
-    
+
     if (this.forceSourceType === 'sparql' && context.get(KeysQueryOperation.querySources)?.length === 1) {
       // Skip metadata extraction if we're querying over just a single SPARQL endpoint.
       quads = new Readable();
@@ -182,7 +182,6 @@ export class QuerySourceHypermedia implements IQuerySource {
           // Explicit check for file source to prevent regression due to re-parsing file.
           if (!link.url.startsWith("http://") && !link.url.startsWith("https://")){
             if (storeCache.get(link.url)){
-              console.log("USING CACHE")
               return storeCache.get(link.url)!;
             }
           }
@@ -194,9 +193,6 @@ export class QuerySourceHypermedia implements IQuerySource {
         if (dereferenceRdfOutput.isValidated){
           const cachedSource = storeCache!.get(link.url);
           if (!cachedSource){
-            console.log(policy)
-            console.log(link.url)
-            console.log("Throwing")
             throw new Error("Tried to use cached entry that does not exist")
           }
           return cachedSource;
