@@ -30,18 +30,18 @@ describe('ActorHttpInterceptWayback', () => {
             const request = new Request(input, init);
 
             if (request.url === 'http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <IActorHttpOutput> {response: {
+              return <IActorHttpOutput> { response: {
                 status: 404,
                 url: request.url,
-              }
-            };
+              },
+              };
             }
 
             if (request.url === 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <IActorHttpOutput> {response: {
+              return <IActorHttpOutput> { response: {
                 status: 200,
                 url: request.url,
-               }
+              },
               };
             }
 
@@ -120,15 +120,15 @@ describe('ActorHttpInterceptWayback', () => {
                 status: 404,
                 body: Readable.from([ 'page not found' ]),
                 url: request.url,
-                }
+              },
               };
             }
 
             if (request.url === 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <IActorHttpOutput> {response: {
+              return <IActorHttpOutput> { response: {
                 status: 200,
                 url: request.url,
-              }
+              },
               };
             }
 
@@ -203,18 +203,18 @@ describe('ActorHttpInterceptWayback', () => {
             const request = new Request(input, init);
 
             if (request.url === 'http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <IActorHttpOutput> {response: {
+              return <IActorHttpOutput> { response: {
                 status: 200,
                 url: request.url,
-                }
+              },
               };
             }
 
             if (request.url === 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <IActorHttpOutput> {response: {
+              return <IActorHttpOutput> { response: {
                 status: 200,
                 url: request.url,
-                }
+              },
               };
             }
 
@@ -269,18 +269,18 @@ describe('ActorHttpInterceptWayback', () => {
             const request = new Request(input, init);
 
             if (request.url === 'http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <IActorHttpOutput> {response: {
+              return <IActorHttpOutput> { response: {
                 status: 200,
                 url: request.url,
-                }
+              },
               };
             }
 
             if (request.url === 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <IActorHttpOutput> {response: {
+              return <IActorHttpOutput> { response: {
                 status: 404,
                 url: request.url,
-                }
+              },
               };
             }
 
@@ -338,15 +338,15 @@ describe('ActorHttpInterceptWayback', () => {
               return <IActorHttpOutput> { response: {
                 status: 404,
                 url: request.url,
-                }
+              },
               };
             }
 
             if (request.url === 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <IActorHttpOutput> {response: {
+              return <IActorHttpOutput> { response: {
                 status: 404,
                 url: request.url,
-                }
+              },
               };
             }
 
@@ -404,20 +404,20 @@ describe('ActorHttpInterceptWayback', () => {
             body._read = () => { /* Noop */ };
 
             if (request.url === 'http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <IActorHttpOutput> {response:{
+              return <IActorHttpOutput> { response: {
                 status: 404,
                 url: request.url,
                 body,
-              }
-            };
+              },
+              };
             }
 
             if (request.url === 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <IActorHttpOutput> {response: {
+              return <IActorHttpOutput> { response: {
                 status: 404,
                 url: request.url,
                 body,
-                }
+              },
               };
             }
 
@@ -458,7 +458,7 @@ describe('ActorHttpInterceptWayback', () => {
             const request = new Request(input, init);
 
             if (request.url === 'http://xmlns.com/foaf/spec/20140114.rdf' || request.url === 'http://wayback.archive-it.org/http://xmlns.com/foaf/spec/20140114.rdf') {
-              return <IActorHttpOutput> {response: { url: request.url, status: 404, body: responseBody() } };
+              return <IActorHttpOutput> { response: { url: request.url, status: 404, body: responseBody() }};
             }
 
             throw new Error('Unexpected URL');

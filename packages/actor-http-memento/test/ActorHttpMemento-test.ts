@@ -59,7 +59,7 @@ describe('ActorHttpMemento', () => {
 
           case 'http://example.com/nobody':
             headers.set('link', '<http://example.com/tg/http%3A%2F%2Fexample.com%2For>; rel="timegate"');
-            return Promise.resolve({response: {
+            return Promise.resolve({ response: {
               headers,
               ok: true,
               status,
@@ -93,7 +93,7 @@ describe('ActorHttpMemento', () => {
             status = 404;
         }
 
-        return Promise.resolve({response: {
+        return Promise.resolve({ response: {
           body: {
             getReader() {
               return {

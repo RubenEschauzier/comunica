@@ -7,7 +7,7 @@ import { ActorContextPreprocess } from '@comunica/bus-context-preprocess';
 import { KeysCaches } from '@comunica/context-entries';
 import type { IAction, IActorTest, TestResult } from '@comunica/core';
 import { passTestVoid } from '@comunica/core';
-import type { ISourceState, IStoreCacheEntry} from '@comunica/types';
+import type { ISourceState, IStoreCacheEntry } from '@comunica/types';
 import CachePolicy = require('http-cache-semantics');
 import { LRUCache } from 'lru-cache';
 
@@ -15,10 +15,10 @@ import { LRUCache } from 'lru-cache';
  * A comunica Set Source Cache Context Preprocess Actor.
  */
 export class ActorContextPreprocessSetSourceCache extends ActorContextPreprocess {
-  private cacheSize: number;
-  private storeCacheTest: LRUCache<string, IStoreCacheEntry>;
-  private policyCache: LRUCache<string, CachePolicy>;
-  private storeCache: LRUCache<string, ISourceState>;
+  private readonly cacheSize: number;
+  private readonly storeCacheTest: LRUCache<string, IStoreCacheEntry>;
+  private readonly policyCache: LRUCache<string, CachePolicy>;
+  private readonly storeCache: LRUCache<string, ISourceState>;
 
   public constructor(args: IActorContextPreprocessSetSourceCacheArgs) {
     super(args);
@@ -34,14 +34,13 @@ export class ActorContextPreprocessSetSourceCache extends ActorContextPreprocess
   public async run(action: IActionContextPreprocess): Promise<IActorContextPreprocessOutput> {
     let context = action.context;
     context = context
-      .setDefault(KeysCaches.storeCacheTest, this.storeCacheTest )
-      .setDefault(KeysCaches.policyCache, this.policyCache )
-      .setDefault(KeysCaches.storeCache, this.storeCache );
-    
-    return { context }
+      .setDefault(KeysCaches.storeCacheTest, this.storeCacheTest)
+      .setDefault(KeysCaches.policyCache, this.policyCache)
+      .setDefault(KeysCaches.storeCache, this.storeCache);
+
+    return { context };
   }
 }
-
 
 export interface IActorContextPreprocessSetSourceCacheArgs extends IActorContextPreprocessArgs {
   /**
@@ -49,5 +48,5 @@ export interface IActorContextPreprocessSetSourceCacheArgs extends IActorContext
    * @range {integer}
    * @default {100}
    */
-  cacheSize: number
+  cacheSize: number;
 }

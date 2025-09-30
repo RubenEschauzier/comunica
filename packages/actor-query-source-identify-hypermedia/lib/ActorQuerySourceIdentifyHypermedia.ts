@@ -34,6 +34,8 @@ export class ActorQuerySourceIdentifyHypermedia extends ActorQuerySourceIdentify
   public readonly maxIterators: number;
   public readonly aggregateTraversalStore: boolean;
   public readonly emitPartialCardinalities: boolean;
+  public readonly useCacheForCardinalityEstimation: boolean;
+  public readonly minSourcesInCache: number;
 
   public constructor(args: IActorQuerySourceIdentifyHypermediaArgs) {
     super(args);
@@ -57,6 +59,8 @@ export class ActorQuerySourceIdentifyHypermedia extends ActorQuerySourceIdentify
           this.aggregateTraversalStore &&
           Boolean(action.querySourceUnidentified.context?.get(KeysQuerySourceIdentify.traverse)),
           this.emitPartialCardinalities,
+          this.useCacheForCardinalityEstimation,
+          this.minSourcesInCache,
           {
             mediatorMetadata: this.mediatorMetadata,
             mediatorMetadataExtract: this.mediatorMetadataExtract,
@@ -98,6 +102,17 @@ export interface IActorQuerySourceIdentifyHypermediaArgs extends IActorQuerySour
    * @default {false}
    */
   emitPartialCardinalities: boolean;
+  /**
+   * Indicates whether cached sources should be used to estimate the cardinality of triple patterns.
+   * This should be used in combination with the aggregatedStore
+   * @default {false}
+   */
+  useCacheForCardinalityEstimation: boolean;
+  /**
+   * Minimal number of sources in the cache required to do cardinality estimation based on cache contents
+   * @default {64}
+   */
+  minSourcesInCache: number;
   /**
    * The RDF dereference mediator
    */

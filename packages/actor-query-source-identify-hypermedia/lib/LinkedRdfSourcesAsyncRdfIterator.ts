@@ -2,12 +2,11 @@ import type { ILinkQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queu
 import { KeysStatistics } from '@comunica/context-entries';
 import type {
   ILink,
-  IQuerySource,
   IActionContext,
   MetadataBindings,
   IQueryBindingsOptions,
   IStatisticBase,
-  ISourceState
+  ISourceState,
 } from '@comunica/types';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';

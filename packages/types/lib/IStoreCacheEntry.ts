@@ -1,7 +1,7 @@
 import CachePolicy = require('http-cache-semantics');
-import { ISourceState } from './IQuerySource';
+import type { ISourceState } from './IQuerySource';
 
-export interface IStoreCacheEntry{
-    policy: CachePolicy
-    store: ISourceState
+export interface IStoreCacheEntry {
+  policy: CachePolicy;
+  store: ISourceState;
 }

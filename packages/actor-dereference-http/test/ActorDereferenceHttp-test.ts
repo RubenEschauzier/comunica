@@ -68,7 +68,7 @@ describe('ActorDereferenceHttp', () => {
               headers: new Headers(),
               status: 200,
               url: action.input,
-            }
+            },
           };
         }
 
@@ -112,7 +112,7 @@ describe('ActorDereferenceHttp', () => {
             headers,
             status,
             url,
-          }
+          },
         };
       };
       actor = new ActorDereferenceHttp({

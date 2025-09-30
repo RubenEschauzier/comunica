@@ -1,6 +1,7 @@
-import { Actor, IAction, IActorArgs, IActorOutput, IActorTest, Mediate } from '@comunica/core';
-import { IQuerySource } from '@comunica/types';
-import { Operation } from 'sparqlalgebrajs/lib/algebra';
+import type { IAction, IActorArgs, IActorOutput, IActorTest, Mediate } from '@comunica/core';
+import { Actor } from '@comunica/core';
+import type { IQuerySource } from '@comunica/types';
+import type { Operation } from 'sparqlalgebrajs/lib/algebra';
 
 /**
  * A comunica actor for extract-sources events.
@@ -13,11 +14,11 @@ import { Operation } from 'sparqlalgebrajs/lib/algebra';
  * @see IActionExtractSources
  * @see IActorExtractSourcesOutput
  */
-export abstract class ActorExtractSources<TS = undefined> 
+export abstract class ActorExtractSources<TS = undefined>
   extends Actor<IActionExtractSources, IActorTest, IActorExtractSourcesOutput, TS> {
   /**
-  * @param args - @defaultNested {<default_bus> a <cc:components/Bus.jsonld#Bus>} bus
-  */
+   * @param args - @defaultNested {<default_bus> a <cc:components/Bus.jsonld#Bus>} bus
+   */
   public constructor(args: IActorExtractSourcesArgs<TS>) {
     super(args);
   }
@@ -32,7 +33,13 @@ export interface IActorExtractSourcesOutput extends IActorOutput {
 }
 
 export type IActorExtractSourcesArgs<TS = undefined> = IActorArgs<
-IActionExtractSources, IActorTest, IActorExtractSourcesOutput, TS>;
+IActionExtractSources,
+IActorTest,
+IActorExtractSourcesOutput,
+TS
+>;
 
 export type MediatorExtractSources = Mediate<
-IActionExtractSources, IActorExtractSourcesOutput>;
+IActionExtractSources,
+IActorExtractSourcesOutput
+>;

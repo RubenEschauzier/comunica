@@ -25,10 +25,12 @@ import type {
   IStoreCacheEntry,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
-import type { IDocumentLoader } from 'jsonld-context-parser';
-import type { Algebra } from 'sparqlalgebrajs';
+
+// eslint-disable-next-line ts/no-require-imports
 import CachePolicy = require('http-cache-semantics');
-import { LRUCache } from 'lru-cache';
+import type { IDocumentLoader } from 'jsonld-context-parser';
+import type { LRUCache } from 'lru-cache';
+import type { Algebra } from 'sparqlalgebrajs';
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
@@ -96,7 +98,7 @@ export const KeysCaches = {
    * Cache for policies on what to cache
    */
   policyCache: new ActionContextKey<LRUCache<string, CachePolicy>>
-    ('@comunica/actor-query-source-identify-hypermedia:policyCache'),
+  ('@comunica/actor-query-source-identify-hypermedia:policyCache'),
   /**
    * Cache for storing triple stores
    */
@@ -107,8 +109,12 @@ export const KeysCaches = {
    * when the same sources is used in different parts of the engine during a single query.
    */
   withinQueryStoreCache: new ActionContextKey<LRUCache<string, Promise<ISourceState>>>
-    ('@comunica/actor-query-source-identify-hypermedia:withinQueryStoreCache'),
-}
+  ('@comunica/actor-query-source-identify-hypermedia:withinQueryStoreCache'),
+  /**
+   * Flag indicating if the cardinality estimation will be done using count queries over cached documents
+   */
+  useCacheCardinality: new ActionContextKey<boolean>('@comunica/actor-query-source-identify-rdfjs:useCacheCardinality'),
+};
 
 export const KeysHttpWayback = {
   /**

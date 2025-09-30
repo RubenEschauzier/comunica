@@ -14,10 +14,10 @@ describe('ActorRdfUpdateHypermediaSparql', () => {
   beforeEach(() => {
     bus = new Bus({ name: 'bus' });
     mediatorHttp = {
-      mediate: jest.fn(async () => ( {
+      mediate: jest.fn(async() => ({
         response: {
           body: 'BODY',
-        }
+        },
       })),
     };
   });

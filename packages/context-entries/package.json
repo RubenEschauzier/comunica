@@ -37,15 +37,15 @@
   "scripts": {
     "build": "node \"../../node_modules/typescript/bin/tsc\""
   },
-  "devDependencies": {
-    "@types/http-cache-semantics": "^4.0.4"
-  },
   "dependencies": {
     "@comunica/core": "^4.4.0",
     "@comunica/types": "^4.4.0",
     "@rdfjs/types": "*",
+    "http-cache-semantics": "^4.1.1",
     "jsonld-context-parser": "^2.2.2",
-    "sparqlalgebrajs": "^4.3.8",
-    "http-cache-semantics": "^4.1.1"
+    "sparqlalgebrajs": "^4.3.8"
+  },
+  "devDependencies": {
+    "@types/http-cache-semantics": "^4.0.4"
   }
 }

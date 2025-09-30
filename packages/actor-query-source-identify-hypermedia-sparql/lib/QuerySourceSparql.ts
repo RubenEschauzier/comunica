@@ -79,9 +79,9 @@ export class QuerySourceSparql implements IQuerySource {
     this.bindingsFactory = bindingsFactory;
     this.endpointFetcher = new SparqlEndpointFetcher({
       method: forceHttpGet ? 'GET' : 'POST',
-      fetch: async (input: Request | string, init?: RequestInit) => { return (await this.mediatorHttp.mediate(
+      fetch: async(input: Request | string, init?: RequestInit) => (await this.mediatorHttp.mediate(
         { input, init, context: this.lastSourceContext! },
-      )).response! },
+      )).response!,
       prefixVariableQuestionMark: true,
       dataFactory,
       forceGetIfUrlLengthBelow,

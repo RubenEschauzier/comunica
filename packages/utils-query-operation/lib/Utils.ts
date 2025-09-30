@@ -111,7 +111,6 @@ export function removeOperationSource(operation: Algebra.Operation): void {
   }
 }
 
-
 /**
  * Collected all sources that are defined within the given operation of children recursively.
  * @param operation An operation.

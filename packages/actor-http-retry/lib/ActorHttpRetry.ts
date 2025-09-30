@@ -77,12 +77,12 @@ export class ActorHttpRetry extends ActorHttp {
         context: action.context.set(ActorHttpRetry.keyWrapped, true),
       });
 
-      // If the body does not contain a response, it is a validation request and should 
+      // If the body does not contain a response, it is a validation request and should
       // not be retried
       if (!response.response || response.response.ok) {
         return response;
       }
-      const res = response.response
+      const res = response.response;
 
       if (retryStatusCodes && retryStatusCodes.includes(res.status)) {
         this.logDebug(action.context, 'Status code in force retry list, forcing retry', () => ({

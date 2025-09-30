@@ -1,5 +1,6 @@
 import { QuerySourceRdfJs } from '@comunica/actor-query-source-identify-rdfjs';
 import type { IActorDereferenceRdfOutput, MediatorDereferenceRdf } from '@comunica/bus-dereference-rdf';
+import { getVariables } from '@comunica/bus-query-source-identify';
 import type { MediatorQuerySourceIdentifyHypermedia } from '@comunica/bus-query-source-identify-hypermedia';
 import type { IActorRdfMetadataOutput, MediatorRdfMetadata } from '@comunica/bus-rdf-metadata';
 import type { MediatorRdfMetadataAccumulate } from '@comunica/bus-rdf-metadata-accumulate';
@@ -17,19 +18,20 @@ import type {
   IQuerySource,
   MetadataBindings,
   ILink,
-  ISourceState
+  ISourceState,
 } from '@comunica/types';
 import type { BindingsFactory } from '@comunica/utils-bindings-factory';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import { TransformIterator } from 'asynciterator';
+
+// eslint-disable-next-line ts/no-require-imports
+import CachePolicy = require('http-cache-semantics');
 import { Readable } from 'readable-stream';
 import type { Algebra } from 'sparqlalgebrajs';
 import { Factory } from 'sparqlalgebrajs';
 import { MediatedLinkedRdfSourcesAsyncRdfIterator } from './MediatedLinkedRdfSourcesAsyncRdfIterator';
 import { StreamingStoreMetadata } from './StreamingStoreMetadata';
-import CachePolicy = require('http-cache-semantics');
-import { ActionContext } from '@comunica/core';
 
 export class QuerySourceHypermedia implements IQuerySource {
   public readonly referenceValue: string;
@@ -44,6 +46,9 @@ export class QuerySourceHypermedia implements IQuerySource {
   private readonly maxIterators: number;
 
   private readonly emitPartialCardinalities: boolean;
+  private readonly useCacheForCardinalityEstimation: boolean;
+  private readonly minSourcesInCache: number;
+  private readonly operationCardinalityCached: Record<string, number>;
 
   public constructor(
     firstUrl: string,
@@ -51,11 +56,12 @@ export class QuerySourceHypermedia implements IQuerySource {
     maxIterators: number,
     aggregateStore: boolean,
     emitPartialCardinalities: boolean,
+    useCacheForCardinalityEstimation: boolean,
+    minSourcesInCache: number,
     mediators: IMediatorArgs,
     logWarning: (warningMessage: string) => void,
     dataFactory: ComunicaDataFactory,
     bindingsFactory: BindingsFactory,
-
   ) {
     this.referenceValue = firstUrl;
     this.firstUrl = firstUrl;
@@ -64,14 +70,61 @@ export class QuerySourceHypermedia implements IQuerySource {
     this.mediators = mediators;
     this.aggregateStore = aggregateStore;
     this.emitPartialCardinalities = emitPartialCardinalities;
+    this.useCacheForCardinalityEstimation = useCacheForCardinalityEstimation;
+    this.minSourcesInCache = minSourcesInCache;
     this.logWarning = logWarning;
     this.dataFactory = dataFactory;
     this.bindingsFactory = bindingsFactory;
+    this.operationCardinalityCached = {};
   }
 
   public async getSelectorShape(context: IActionContext): Promise<FragmentSelectorShape> {
     const source = await this.getSourceCached({ url: this.firstUrl }, {}, context, this.getAggregateStore(context));
     return source.source.getSelectorShape(context);
+  }
+
+  public keyOperation(operation: Algebra.Operation): string {
+    return JSON.stringify(
+      [ operation.subject.value, operation.predicate.value, operation.object.value, operation.graph.value ],
+    );
+  }
+
+  public async setEstimatedCacheCardinality(
+    source: QuerySourceRdfJs,
+    bindingsStream: BindingsStream,
+    operation: Algebra.Operation,
+    context: IActionContext,
+  ): Promise<void> {
+    const sourceCache = context.get(KeysCaches.storeCache)!;
+    const operationKey = this.keyOperation(operation);
+    let count = 0;
+    if (operationKey in this.operationCardinalityCached) {
+      count = this.operationCardinalityCached[operationKey];
+    } else {
+      // eslint-disable-next-line unicorn/no-useless-spread
+      for (const key of [ ...sourceCache.keys() ]) {
+        const sourceState: ISourceState = sourceCache.get(key)!;
+        const cachedSource = sourceState.source;
+        if ('countQuads' in cachedSource && typeof cachedSource.countQuads === 'function') {
+          count += await cachedSource.countQuads(
+            operation.subject,
+            operation.predicate,
+            operation.object,
+            operation.graph,
+          );
+        }
+      }
+      this.operationCardinalityCached[operationKey] = count;
+    }
+    const variables = getVariables(<Algebra.Pattern>operation).map(variable => ({ variable, canBeUndef: false }));
+    source.setMetadata(
+      bindingsStream,
+      <Algebra.Pattern> operation,
+      context,
+      true,
+      { variables },
+      count,
+    ).catch(error => bindingsStream.destroy(error));
   }
 
   public queryBindings(
@@ -82,13 +135,29 @@ export class QuerySourceHypermedia implements IQuerySource {
     // Optimized match with aggregated store if enabled and started.
     const aggregatedStore: IAggregatedStore | undefined = this.getAggregateStore(context);
     if (aggregatedStore && operation.type === 'pattern' && aggregatedStore.started) {
-      return new QuerySourceRdfJs(
+      const sourceCache = context.get(KeysCaches.storeCache);
+      // If we don't have a cache or enough sources, we use the
+      // default cardinality estimation procedure
+      if (!this.useCacheForCardinalityEstimation || !sourceCache || sourceCache.size < this.minSourcesInCache) {
+        return new QuerySourceRdfJs(
+          aggregatedStore,
+          context.getSafe(KeysInitQuery.dataFactory),
+          this.bindingsFactory,
+        ).queryBindings(operation, context);
+      }
+      context = context.set(KeysCaches.useCacheCardinality, true);
+      const newSource = new QuerySourceRdfJs(
         aggregatedStore,
         context.getSafe(KeysInitQuery.dataFactory),
         this.bindingsFactory,
-      ).queryBindings(operation, context);
+      );
+      const bindingsStream = newSource.queryBindings(operation, context);
+      this.setEstimatedCacheCardinality(newSource, bindingsStream, operation, context).catch(
+        error => bindingsStream.destroy(error),
+      );
+      return bindingsStream;
     }
-    
+
     // Initialize the within query cache on first call
     if (context.getSafe(KeysCaches.withinQueryStoreCache).size === 0) {
       this.getSourceCached({ url: this.firstUrl }, {}, context, aggregatedStore)
@@ -112,7 +181,7 @@ export class QuerySourceHypermedia implements IQuerySource {
       dataFactory,
       algebraFactory,
     );
-    
+
     if (aggregatedStore) {
       aggregatedStore.started = true;
       // Kickstart this iterator when derived iterators are created from the aggregatedStore,
@@ -121,7 +190,8 @@ export class QuerySourceHypermedia implements IQuerySource {
       aggregatedStore.addIteratorCreatedListener(listener);
       it.on('end', () => aggregatedStore.removeIteratorCreatedListener(listener));
     }
-
+    console.log(operation);
+    console.log(it.getProperty('metadata'));
     return it;
   }
 
@@ -176,24 +246,22 @@ export class QuerySourceHypermedia implements IQuerySource {
       ({ metadata } = await this.mediators.mediatorMetadataAccumulate.mediate({ context, mode: 'initialize' }));
     } else {
       try {
-        let policy: CachePolicy | undefined = undefined;
-        if (storeCache && policyCache){
+        let policy: CachePolicy | undefined;
+        if (storeCache && policyCache) {
           policy = policyCache.get(link.url);
           // Explicit check for file source to prevent regression due to re-parsing file.
-          if (!link.url.startsWith("http://") && !link.url.startsWith("https://")){
-            if (storeCache.get(link.url)){
-              return storeCache.get(link.url)!;
-            }
+          if (!link.url.startsWith('http://') && !link.url.startsWith('https://') && storeCache.get(link.url)) {
+            return storeCache.get(link.url)!;
           }
         }
 
-        let dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
+        const dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
           .mediate({ context, url, validate: policy });
         // We can use cache here.
-        if (dereferenceRdfOutput.isValidated){
+        if (dereferenceRdfOutput.isValidated) {
           const cachedSource = storeCache!.get(link.url);
-          if (!cachedSource){
-            throw new Error("Tried to use cached entry that does not exist")
+          if (!cachedSource) {
+            throw new Error('Tried to use cached entry that does not exist');
           }
           return cachedSource;
         }
@@ -244,9 +312,9 @@ export class QuerySourceHypermedia implements IQuerySource {
     aggregatedStore?.setBaseMetadata(<MetadataBindings> metadata, false);
     aggregatedStore?.containedSources.add(link.url);
     aggregatedStore?.import(quads).on('error', (err) => {
-      console.log(`Error importing: ${err}`)
+      // eslint-disable-next-line no-console
+      console.log(`Error importing: ${err}`);
     });
-    
 
     // Determine the source
     const { source, dataset } = await this.mediators.mediatorQuerySourceIdentifyHypermedia.mediate({
@@ -266,7 +334,7 @@ export class QuerySourceHypermedia implements IQuerySource {
     }
     // If storeCache is available cache the constructed source
     storeCache?.set(link.url, { link, source, metadata: <MetadataBindings> metadata, handledDatasets });
-    
+
     return { link, source, metadata: <MetadataBindings> metadata, handledDatasets };
   }
 

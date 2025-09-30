@@ -76,9 +76,9 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
         context: action.context,
         init: { headers, method: action.method },
         input: action.url,
-        validate: action.validate
+        validate: action.validate,
       });
-      if (!httpResponse.response && action.validate){
+      if (!httpResponse.response && action.validate) {
         return {
           url: action.url,
           data: emptyReadable(),
@@ -86,10 +86,10 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
           requestTime: 0,
           isValidated: true,
           mediaType: 'text/turtle',
-        }
+        };
       }
-      else if (!httpResponse.response){
-        return this.handleDereferenceErrors(action, new Error("Response undefined in dereference actor"))
+      if (!httpResponse.response) {
+        return this.handleDereferenceErrors(action, new Error('Response undefined in dereference actor'));
       }
     } catch (error: unknown) {
       return this.handleDereferenceErrors(action, error);
@@ -97,7 +97,6 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
     // The response URL can be relative to the given URL
     const url = resolveRelative(httpResponse.response.url, action.url);
     const requestTime = Date.now() - requestTimeStart;
-
 
     // Only parse if retrieval was successful
     if (httpResponse.response.status !== 200) {
@@ -109,9 +108,7 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
 
       if (!action.acceptErrors) {
         const error = new Error(`Could not retrieve ${action.url} (HTTP status ${httpResponse.response.status}):\n${bodyString}`);
-        return this.handleDereferenceErrors(action, error, 
-          httpResponse.response.headers, requestTime
-        );
+        return this.handleDereferenceErrors(action, error, httpResponse.response.headers, requestTime);
       }
     }
 

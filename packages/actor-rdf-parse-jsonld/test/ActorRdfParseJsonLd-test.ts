@@ -31,7 +31,7 @@ describe('ActorRdfParseJsonLd', () => {
           }});
         }
 
-        return Promise.resolve({response: {
+        return Promise.resolve({ response: {
           body: Readable.from([ `{
           "@context": {
             "@vocab": "http://example.org/"

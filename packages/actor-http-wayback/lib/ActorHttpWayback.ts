@@ -52,7 +52,7 @@ export class ActorHttpWayback extends ActorHttp {
           .set<IProxyHandler>(KeysHttpProxy.httpProxyHandler, { getProxy: getProxyHandler(action.context) }),
       });
 
-      // If the wayback machine returns a 200 status then use that result. The response will never 
+      // If the wayback machine returns a 200 status then use that result. The response will never
       // be undefined as it is not a validation request
       if (fallbackResult.response!.status === 200) {
         [ result, fallbackResult ] = [ fallbackResult, result ];

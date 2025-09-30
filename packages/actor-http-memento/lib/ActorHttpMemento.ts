@@ -40,11 +40,11 @@ export class ActorHttpMemento extends ActorHttp {
 
     // Execute the request and follow the timegate in the response (if any).
     const result: IActorHttpOutput = await this.mediatorHttp.mediate(httpAction);
-    if (!result.response){
-      return result
+    if (!result.response) {
+      return result;
     }
     // Did we ask for a time-negotiated response, but haven't received one?
-    if (headers.has('accept-datetime') && result.response.headers && 
+    if (headers.has('accept-datetime') && result.response.headers &&
     !result.response.headers.has('memento-datetime')) {
       // The links might have a timegate that can help us
       const header = result.response.headers.get('link');

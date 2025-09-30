@@ -1,6 +1,6 @@
 import type { IAction, IActorArgs, IActorOutput, IActorTest, Mediate } from '@comunica/core';
-import { ActorDereferenceBase } from './ActorDereferenceBase';
 import CachePolicy = require('http-cache-semantics');
+import { ActorDereferenceBase } from './ActorDereferenceBase';
 
 /**
  * A base actor for dereferencing URLs to (generic) streams.

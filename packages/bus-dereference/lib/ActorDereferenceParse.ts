@@ -90,7 +90,7 @@ export abstract class ActorDereferenceParse<
 
   public async run(action: IActionDereferenceParse<K>): Promise<IActorDereferenceParseOutput<S, M>> {
     const { context } = action;
-    
+
     const dereference = await this.mediatorDereference.mediate({
       ...action,
       mediaTypes: async() => (await this.mediatorParseMediatypes?.mediate({ context, mediaTypes: true }))?.mediaTypes,

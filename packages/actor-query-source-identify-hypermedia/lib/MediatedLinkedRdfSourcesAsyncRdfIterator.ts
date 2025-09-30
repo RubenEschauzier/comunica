@@ -14,7 +14,7 @@ import type {
   ILink,
   IStatisticBase,
   IDiscoverEventData,
-  ISourceState
+  ISourceState,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { Algebra, Factory } from 'sparqlalgebrajs';

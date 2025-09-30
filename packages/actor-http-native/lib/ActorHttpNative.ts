@@ -114,7 +114,7 @@ export class ActorHttpNative extends ActorHttp {
                 status: httpResponse.statusCode,
                 // When the content came from another resource because of conneg, let Content-Location deliver the url
                 url: headers.has('content-location') ? headers.get('content-location') : httpResponse.responseUrl,
-              }
+              },
             };
             resolve(result);
           }

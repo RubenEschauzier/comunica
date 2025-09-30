@@ -1,5 +1,5 @@
 import { filterMatchingQuotedQuads, getVariables, quadsToBindings } from '@comunica/bus-query-source-identify';
-import { KeysQueryOperation } from '@comunica/context-entries';
+import { KeysCaches, KeysQueryOperation } from '@comunica/context-entries';
 import type {
   IQuerySource,
   BindingsStream,
@@ -141,8 +141,9 @@ export class QuerySourceRdfJs implements IQuerySource {
       it = filterMatchingQuotedQuads(operation, it);
     }
 
-    // Determine metadata
-    if (!it.getProperty('metadata')) {
+    // Determine metadata. If cached cardinalities will be used .setMetadata will be called
+    // later with the cache-based cardinality estimates given.
+    if (!context.get(KeysCaches.useCacheCardinality) && !it.getProperty('metadata')) {
       this.setMetadata(it, operation, context)
         .catch(error => it.destroy(error));
     }
@@ -161,12 +162,13 @@ export class QuerySourceRdfJs implements IQuerySource {
     );
   }
 
-  protected async setMetadata(
+  public async setMetadata(
     it: AsyncIterator<any>,
     operation: Algebra.Pattern,
     context: IActionContext,
     forceEstimateCardinality = false,
     extraMetadata: Record<string, any> = {},
+    cardinalityEstimate?: number,
   ): Promise<void> {
     // Check if the source supports quoted triple filtering
     const quotedTripleFiltering = Boolean('features' in this.source && this.source.features?.quotedTripleFiltering);
@@ -176,38 +178,16 @@ export class QuerySourceRdfJs implements IQuerySource {
     if (operation.graph.termType === 'DefaultGraph' && unionDefaultGraph) {
       operation.graph = this.dummyDefaultGraph;
     }
-
     let cardinality: number;
-    if ('countQuads' in this.source && this.source.countQuads) {
-      // If the source provides a dedicated method for determining cardinality, use that.
-      cardinality = await this.source.countQuads(
-        QuerySourceRdfJs.nullifyVariables(operation.subject, quotedTripleFiltering),
-        QuerySourceRdfJs.nullifyVariables(operation.predicate, quotedTripleFiltering),
-        QuerySourceRdfJs.nullifyVariables(operation.object, quotedTripleFiltering),
-        QuerySourceRdfJs.nullifyVariables(operation.graph, quotedTripleFiltering),
-      );
+    if (cardinalityEstimate) {
+      cardinality = cardinalityEstimate;
     } else {
-      // Otherwise, fallback to a sub-optimal alternative where we just call match again to count the quads.
-      // WARNING: we can NOT reuse the original data stream here,
-      // because we may lose data elements due to things happening async.
-      let i = 0;
-      cardinality = await new Promise((resolve, reject) => {
-        let matches = this.source.match(
-          QuerySourceRdfJs.nullifyVariables(operation.subject, quotedTripleFiltering),
-          QuerySourceRdfJs.nullifyVariables(operation.predicate, quotedTripleFiltering),
-          QuerySourceRdfJs.nullifyVariables(operation.object, quotedTripleFiltering),
-          QuerySourceRdfJs.nullifyVariables(operation.graph, quotedTripleFiltering),
-        );
-
-        // If it's not a stream, turn it into one
-        if (typeof (<any> matches).on !== 'function') {
-          matches = <RDF.Stream>(new ArrayIterator(<RDF.DatasetCore> matches));
-        }
-
-        (<RDF.Stream>matches).on('error', reject);
-        (<RDF.Stream>matches).on('end', () => resolve(i));
-        (<RDF.Stream>matches).on('data', () => i++);
-      });
+      cardinality = await this.countQuads(
+        operation.subject,
+        operation.predicate,
+        operation.object,
+        operation.graph,
+      );
     }
 
     // If `match` would require filtering afterwards, our count will be an over-estimate.
@@ -246,6 +226,50 @@ export class QuerySourceRdfJs implements IQuerySource {
     _context: IActionContext,
   ): Promise<void> {
     throw new Error('queryVoid is not implemented in QuerySourceRdfJs');
+  }
+
+  public async countQuads(
+    subject?: RDF.Term,
+    predicate?: RDF.Term,
+    object?: RDF.Term,
+    graph?: RDF.Term,
+  ): Promise<number> {
+    // Check if the source supports quoted triple filtering
+    const quotedTripleFiltering = Boolean('features' in this.source && this.source.features?.quotedTripleFiltering);
+
+    let cardinality: number;
+    if ('countQuads' in this.source && this.source.countQuads) {
+      // If the source provides a dedicated method for determining cardinality, use that.
+      cardinality = await this.source.countQuads(
+        QuerySourceRdfJs.nullifyVariables(subject, quotedTripleFiltering),
+        QuerySourceRdfJs.nullifyVariables(predicate, quotedTripleFiltering),
+        QuerySourceRdfJs.nullifyVariables(object, quotedTripleFiltering),
+        QuerySourceRdfJs.nullifyVariables(graph, quotedTripleFiltering),
+      );
+    } else {
+      // Otherwise, fallback to a sub-optimal alternative where we just call match again to count the quads.
+      // WARNING: we can NOT reuse the original data stream here,
+      // because we may lose data elements due to things happening async.
+      let i = 0;
+      cardinality = await new Promise((resolve, reject) => {
+        let matches = this.source.match(
+          QuerySourceRdfJs.nullifyVariables(subject, quotedTripleFiltering),
+          QuerySourceRdfJs.nullifyVariables(predicate, quotedTripleFiltering),
+          QuerySourceRdfJs.nullifyVariables(object, quotedTripleFiltering),
+          QuerySourceRdfJs.nullifyVariables(graph, quotedTripleFiltering),
+        );
+
+        // If it's not a stream, turn it into one
+        if (typeof (<any> matches).on !== 'function') {
+          matches = <RDF.Stream>(new ArrayIterator(<RDF.DatasetCore> matches));
+        }
+
+        (<RDF.Stream>matches).on('error', reject);
+        (<RDF.Stream>matches).on('end', () => resolve(i));
+        (<RDF.Stream>matches).on('data', () => i++);
+      });
+    }
+    return cardinality;
   }
 
   public toString(): string {

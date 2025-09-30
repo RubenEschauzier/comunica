@@ -97,8 +97,8 @@ export class ActorHttpLimitRate extends ActorHttp {
         ...action,
         context: action.context.set(ActorHttpLimitRate.keyWrapped, true),
       });
-      if (!response.response){
-        return response
+      if (!response.response) {
+        return response;
       }
 
       registerCompletedRequest(response.response.ok);

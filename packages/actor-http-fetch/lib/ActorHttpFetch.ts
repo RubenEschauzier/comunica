@@ -5,18 +5,15 @@ import type { TestResult } from '@comunica/core';
 import { passTest } from '@comunica/core';
 import type { IMediatorTypeTime } from '@comunica/mediatortype-time';
 
-// eslint-disable-next-line import/extensions
-import { version as actorVersion } from '../package.json';
-
-import { FetchInitPreprocessor } from './FetchInitPreprocessor';
-import type { IFetchInitPreprocessor } from './IFetchInitPreprocessor';
-
 import type {
   Request as CacheRequest,
   Response as CacheResponse,
 } from 'http-cache-semantics';
 import CachePolicy = require('http-cache-semantics');
+import { version as actorVersion } from '../package.json';
 
+import { FetchInitPreprocessor } from './FetchInitPreprocessor';
+import type { IFetchInitPreprocessor } from './IFetchInitPreprocessor';
 
 export class ActorHttpFetch extends ActorHttp {
   private readonly fetchInitPreprocessor: IFetchInitPreprocessor;
@@ -69,57 +66,58 @@ export class ActorHttpFetch extends ActorHttp {
     const policyCache = action.context.get(KeysCaches.policyCache);
     const storeCache = action.context.get(KeysCaches.storeCache);
 
-    const requestToValidateCache = policyCache ? ActorHttpFetch.requestToCacheRequest(
-      new Request(action.input, requestInit)) : undefined;  
+    const requestToValidateCache = policyCache ?
+      ActorHttpFetch.requestToCacheRequest(
+        new Request(action.input, requestInit),
+      ) :
+      undefined;
 
     // This is a validation request, so we need to check if re-use is possible given
     // the policy and request
-    if (action.validate && policyCache && storeCache?.get(ActorHttpFetch.getUrl(action.input))){
+    if (action.validate && policyCache && storeCache?.get(ActorHttpFetch.getUrl(action.input))) {
       const oldPolicy = action.validate;
 
       // Empty response will be propegated by any wrappers without processing.
       // Policy does not need to be updated
-      if (oldPolicy.satisfiesWithoutRevalidation(requestToValidateCache!)){
-        return { isValidated: true }
+      if (oldPolicy.satisfiesWithoutRevalidation(requestToValidateCache!)) {
+        return { isValidated: true };
       }
 
       // We have to validate the response and then return it
-      else{
-        const revalidationHeaders = oldPolicy.revalidationHeaders(requestToValidateCache!);
-        const revalidationRequestInit = { ...requestInit, 
-          headers: {
-              ... (<Record<string, string>> (requestInit?.headers)), // Spread existing headers from requestInit
-              ... (<Record<string, string>> revalidationHeaders)   // Add/overwrite with revalidationHeaders
-          }
-        }
-        const response = await fetchFunction(action.input, revalidationRequestInit);
 
-        if (httpTimeout && (!httpBodyTimeout || !response.body)) {
-          clearTimeout(timeoutHandle);
-        }
-    
-        const { policy, modified } = oldPolicy.revalidatedPolicy(
-          ActorHttpFetch.requestToCacheRequest(new Request(action.input, revalidationRequestInit)),
-          ActorHttpFetch.responseToCacheResponse(response)
-        );
-        // Update the policy after revalidation
-        policyCache.set(ActorHttpFetch.getUrl(action.input), policy);
+      const revalidationHeaders = oldPolicy.revalidationHeaders(requestToValidateCache!);
+      const revalidationRequestInit = { ...requestInit, headers: {
+        ...(<Record<string, string>> (requestInit?.headers)), // Spread existing headers from requestInit
+        ...(<Record<string, string>> revalidationHeaders), // Add/overwrite with revalidationHeaders
+      }};
+      const response = await fetchFunction(action.input, revalidationRequestInit);
 
-        // If the server returned 304 we can reuse cache and don't have to parse the result 
-        if (!modified){
-          return { isValidated: true }
-        }
-        // If it is modified we return the response and process like normal
-        return {response, isValidated: false}
+      if (httpTimeout && (!httpBodyTimeout || !response.body)) {
+        clearTimeout(timeoutHandle);
       }
+
+      const { policy, modified } = oldPolicy.revalidatedPolicy(
+        ActorHttpFetch.requestToCacheRequest(new Request(action.input, revalidationRequestInit)),
+        ActorHttpFetch.responseToCacheResponse(response),
+      );
+        // Update the policy after revalidation
+      policyCache.set(ActorHttpFetch.getUrl(action.input), policy);
+
+      // If the server returned 304 we can reuse cache and don't have to parse the result
+      if (!modified) {
+        return { isValidated: true };
+      }
+      // If it is modified we return the response and process like normal
+      return { response, isValidated: false };
     }
 
     const response = await fetchFunction(action.input, requestInit);
 
     // For new request make a policy and put it in cache.
-    if (policyCache){
+    if (policyCache) {
       const newPolicyResponse = new CachePolicy(
-        requestToValidateCache!, ActorHttpFetch.responseToCacheResponse(response)
+        requestToValidateCache!,
+        ActorHttpFetch.responseToCacheResponse(response),
       );
       policyCache.set(ActorHttpFetch.getUrl(action.input), newPolicyResponse);
     }
@@ -172,16 +170,15 @@ export class ActorHttpFetch extends ActorHttp {
   }
 
   public static responseToCacheResponse(response: Response): CacheResponse {
-      return { ...response, headers: this.headersToHash(response.headers) };
+    return { ...response, headers: this.headersToHash(response.headers) };
   }
 
   public static getUrl(input: RequestInfo): string {
     if (input instanceof Request) {
-        return input.url; // Access the URL from the Request object
+      return input.url; // Access the URL from the Request object
     }
-    else {
-      return input
-    }
+
+    return input;
   }
 }
 

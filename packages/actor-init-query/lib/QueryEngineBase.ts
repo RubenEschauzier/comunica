@@ -21,7 +21,6 @@ import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import type { ActorInitQueryBase } from './ActorInitQueryBase';
 
-
 /**
  * Base implementation of a Comunica query engine.
  */
@@ -124,7 +123,7 @@ implements IQueryEngine<QueryStringContextInner, QueryAlgebraContextInner> {
     query: QueryFormatTypeInner,
     context?: QueryFormatTypeInner extends string ? QueryStringContextInner : QueryAlgebraContextInner,
   ): Promise<QueryType | IQueryExplained> {
-    let actionContext: IActionContext = ActionContext.ensureActionContext(context);
+    const actionContext: IActionContext = ActionContext.ensureActionContext(context);
 
     // Invalidate caches if cache argument is set to false
     if (actionContext.get(KeysInitQuery.invalidateCache)) {

@@ -18,7 +18,7 @@ describe('QuadDestinationSparql', () => {
 
   beforeEach(() => {
     mediatorHttp = {
-      mediate: jest.fn(async () => {
+      mediate: jest.fn(async() => {
         const body = Readable.from([ `RESPONSE` ]);
         (<any>body).cancel = jest.fn();
         return {
@@ -27,7 +27,7 @@ describe('QuadDestinationSparql', () => {
             body,
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             ok: true,
-          }
+          },
         };
       }),
     };
@@ -89,13 +89,13 @@ describe('QuadDestinationSparql', () => {
 
     it('should throw on a server error', async() => {
       const body = Readable.from([ `ERROR` ]);
-      mediatorHttp.mediate = async () => ({
+      mediatorHttp.mediate = async() => ({
         response: {
           status: 400,
           body,
           headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
           ok: false,
-        }
+        },
       });
       (<any>body).cancel = jest.fn();
       await expect(destination.update({ insert: new ArrayIterator<RDF.Quad>([]) })).rejects

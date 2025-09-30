@@ -25,7 +25,7 @@ describe('QuerySourceSparql', () => {
   let ctx: IActionContext;
   let lastQuery: string;
   const mediatorHttp: any = {
-    mediate: jest.fn(async (action: any) => {
+    mediate: jest.fn(async(action: any) => {
       const query = action.init.body.toString();
       lastQuery = query;
       return { response: {
@@ -165,9 +165,9 @@ describe('QuerySourceSparql', () => {
 
     it('should return data with quoted triples', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(async (action: any) => {
+        mediate: jest.fn(async(action: any) => {
           const query = action.init.body.toString();
-          return {response: {
+          return { response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -219,9 +219,9 @@ describe('QuerySourceSparql', () => {
 
     it('should return data with quoted triple patterns', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(async (action: any) => {
+        mediate: jest.fn(async(action: any) => {
           const query = action.init.body.toString();
-          return {response: {
+          return { response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -281,7 +281,7 @@ describe('QuerySourceSparql', () => {
       const thisMediator: any = {
         async mediate(action: any) {
           const query = action.init.body.toString();
-          return {response: {
+          return { response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: require('readable-stream-node-to-web')(query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -509,7 +509,7 @@ describe('QuerySourceSparql', () => {
     it('should emit an error on server errors', async() => {
       const thisMediator: any = {
         async mediate() {
-          return {response: {
+          return { response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: Readable.from([ `empty body` ]),
             ok: false,
@@ -530,7 +530,7 @@ describe('QuerySourceSparql', () => {
       const thisMediator: any = {
         async mediate(action: any) {
           const query = action.init.body.toString();
-          return {response: {
+          return { response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -650,7 +650,7 @@ describe('QuerySourceSparql', () => {
         async mediate() {
           const stream = new PassThrough();
           stream._read = () => setImmediate(() => stream.emit('error', new Error('Some stream error')));
-          return {response: {
+          return { response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: stream,
             ok: true,
@@ -670,7 +670,7 @@ describe('QuerySourceSparql', () => {
       const thisMediator: any = {
         async mediate(action: any) {
           const query = action.init.body.toString();
-          return {response: {
+          return { response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -725,7 +725,7 @@ describe('QuerySourceSparql', () => {
       const thisMediator: any = {
         async mediate(action: any) {
           const query = action.init.body.toString();
-          return {response: {
+          return { response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -792,7 +792,7 @@ describe('QuerySourceSparql', () => {
       const thisMediator: any = {
         async mediate(action: any) {
           const query = action.input;
-          return {response: {
+          return { response: {
             headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
             body: query.indexOf('COUNT') > 0 ?
               Readable.from([ `{
@@ -1158,7 +1158,7 @@ describe('QuerySourceSparql', () => {
   describe('queryQuads', () => {
     it('should return data', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(async () => ({response: {
+        mediate: jest.fn(async() => ({ response: {
           headers: new Headers({ 'Content-Type': 'text/turtle' }),
           body: Readable.from([ `<s1> <p1> <o1>. <s2> <p2> <o2>.` ]),
           ok: true,
@@ -1189,10 +1189,10 @@ WHERE { undefined:s ?p undefined:o. }` }),
 
     it('should emit metadata', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(async (action: any) => {
+        mediate: jest.fn(async(action: any) => {
           const query = action.init.body.toString();
           lastQuery = query;
-          return {response: {
+          return { response: {
             headers: new Headers({ 'Content-Type': query.indexOf('COUNT') > 0 ?
               'application/sparql-results+json' :
               'text/turtle' }),
@@ -1236,7 +1236,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
 
     it('should pass the original queryString if defined', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(async () => ({response: {
+        mediate: jest.fn(async() => ({ response: {
           headers: new Headers({ 'Content-Type': 'text/turtle' }),
           body: Readable.from([ `<s1> <p1> <o1>. <s2> <p2> <o2>.` ]),
           ok: true,
@@ -1268,7 +1268,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
   describe('queryBoolean', () => {
     it('should return data', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(async () => ({response: {
+        mediate: jest.fn(async() => ({ response: {
           headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
           body: Readable.from([ `{
   "head": { "vars": [ "p" ]
@@ -1298,7 +1298,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
 
     it('should pass the original queryString if defined', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(async () => ({response: {
+        mediate: jest.fn(async() => ({ response: {
           headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
           body: Readable.from([ `{
   "head": { "vars": [ "p" ]
@@ -1330,7 +1330,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
   describe('queryVoid', () => {
     it('should return data', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(async () => ({response: {
+        mediate: jest.fn(async() => ({ response: {
           headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
           body: Readable.from([ `OK` ]),
           ok: true,
@@ -1359,7 +1359,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
 
     it('should pass the original queryString if defined', async() => {
       const thisMediator: any = {
-        mediate: jest.fn(async () => ({response: {
+        mediate: jest.fn(async() => ({ response: {
           headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
           body: Readable.from([ `OK` ]),
           ok: true,

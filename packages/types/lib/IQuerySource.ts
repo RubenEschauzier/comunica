@@ -3,8 +3,8 @@ import type { AsyncIterator } from 'asynciterator';
 import type { Algebra } from 'sparqlalgebrajs';
 import type { BindingsStream } from './Bindings';
 import type { IActionContext } from './IActionContext';
+import type { ILink } from './ILink';
 import type { MetadataBindings } from './IMetadata';
-import { ILink } from './ILink';
 
 export interface IQuerySourceSerialized extends IQuerySourceUnidentifiedExpanded {
   type?: 'serialized';
@@ -139,7 +139,6 @@ export interface IQuerySource {
     graph?: RDF.Term
   ) => number | Promise<number>;
 
-
   /**
    * Returns a string representation of this source.
    */
@@ -235,7 +234,6 @@ export type FragmentSelectorShape = {
   max?: number;
   child: FragmentSelectorShape;
 };
-
 
 /**
  * The current state of a source.

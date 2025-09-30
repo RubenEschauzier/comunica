@@ -67,20 +67,20 @@ describe('ActorHttpNative', () => {
     it('should run', async() => {
       mockSetup({ statusCode: 404 });
       await expect(actor.run({ context, input: new Request('http://example.com') })).resolves
-        .toMatchObject({response: { status: 404 }});
+        .toMatchObject({ response: { status: 404 }});
     });
 
     it('should run https', async() => {
       mockSetup({ statusCode: 404 });
       await expect(actor.run({ context, input: new Request('https://example.com') })).resolves
-        .toMatchObject({response: { status: 404 }});
+        .toMatchObject({ response: { status: 404 }});
     });
 
     it('should run with agent options', async() => {
       actor = new ActorHttpNative({ name: 'actor', bus, agentOptions: { name: '007' }});
       mockSetup({ statusCode: 404 });
       await expect(actor.run({ context, input: new Request('http://example.com') })).resolves
-        .toMatchObject({response: { status: 404 }});
+        .toMatchObject({ response: { status: 404 }});
     });
 
     it('can have headers', async() => {
@@ -256,7 +256,7 @@ describe('ActorHttpNative', () => {
         context,
         input: new Request('http://example.com'),
         init: { signal: <any> abortController.signal },
-      })).resolves.toMatchObject({response: { status: 200 }});
+      })).resolves.toMatchObject({ response: { status: 200 }});
     });
 
     it('should handle an abort controller signal that is aborted immediately', async() => {

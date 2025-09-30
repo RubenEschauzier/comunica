@@ -37,7 +37,7 @@ export class ActorHttpProxy extends ActorHttp {
       context: action.context.delete(KeysHttpProxy.httpProxyHandler),
     });
 
-    if (!output.response){
+    if (!output.response) {
       return output;
     }
 
