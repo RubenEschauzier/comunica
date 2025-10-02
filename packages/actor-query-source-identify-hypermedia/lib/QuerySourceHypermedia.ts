@@ -7,7 +7,13 @@ import type { MediatorRdfMetadataAccumulate } from '@comunica/bus-rdf-metadata-a
 import type { MediatorRdfMetadataExtract } from '@comunica/bus-rdf-metadata-extract';
 import type { MediatorRdfResolveHypermediaLinks } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { MediatorRdfResolveHypermediaLinksQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
-import { KeysCaches, KeysInitQuery, KeysQuerySourceIdentify, KeysQueryOperation } from '@comunica/context-entries';
+import { 
+  KeysCaches,
+  KeysInitQuery,
+  KeysQuerySourceIdentify,
+  KeysQueryOperation,
+  KeysRdfJoin,
+} from '@comunica/context-entries';
 import type {
   BindingsStream,
   ComunicaDataFactory,
@@ -136,9 +142,11 @@ export class QuerySourceHypermedia implements IQuerySource {
     const aggregatedStore: IAggregatedStore | undefined = this.getAggregateStore(context);
     if (aggregatedStore && operation.type === 'pattern' && aggregatedStore.started) {
       const sourceCache = context.get(KeysCaches.storeCache);
+      const recursiveJoin = context.get(KeysRdfJoin.isRecursiveJoin);
       // If we don't have a cache or enough sources, we use the
       // default cardinality estimation procedure
-      if (!this.useCacheForCardinalityEstimation || !sourceCache || sourceCache.size < this.minSourcesInCache) {
+      if (true || recursiveJoin === true || !this.useCacheForCardinalityEstimation || !sourceCache ||
+        sourceCache.size < this.minSourcesInCache) {
         return new QuerySourceRdfJs(
           aggregatedStore,
           context.getSafe(KeysInitQuery.dataFactory),
@@ -190,8 +198,6 @@ export class QuerySourceHypermedia implements IQuerySource {
       aggregatedStore.addIteratorCreatedListener(listener);
       it.on('end', () => aggregatedStore.removeIteratorCreatedListener(listener));
     }
-    console.log(operation);
-    console.log(it.getProperty('metadata'));
     return it;
   }
 

@@ -110,7 +110,7 @@ export interface IActorQuerySourceIdentifyHypermediaArgs extends IActorQuerySour
   useCacheForCardinalityEstimation: boolean;
   /**
    * Minimal number of sources in the cache required to do cardinality estimation based on cache contents
-   * @default {64}
+   * @default {128}
    */
   minSourcesInCache: number;
   /**

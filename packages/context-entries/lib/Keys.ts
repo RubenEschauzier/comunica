@@ -378,6 +378,10 @@ export const KeysRdfJoin = {
    * The last physical join actor that was executed.
    */
   lastPhysicalJoin: new ActionContextKey<string>('@comunica/bus-rdf-join:lastPhysicalJoin'),
+  /**
+   * Flag indicating whether this join is a recursive call or not, for example from the bind join
+   */
+  isRecursiveJoin: new ActionContextKey<boolean>('@comunica/bus-rdf-join:isRecursiveJoin'),
 };
 
 export const KeysStatistics = {
