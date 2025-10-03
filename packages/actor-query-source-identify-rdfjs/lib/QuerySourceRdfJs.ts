@@ -1,5 +1,5 @@
 import { filterMatchingQuotedQuads, getVariables, quadsToBindings } from '@comunica/bus-query-source-identify';
-import { KeysCaches, KeysQueryOperation } from '@comunica/context-entries';
+import { KeysQueryOperation } from '@comunica/context-entries';
 import type {
   IQuerySource,
   BindingsStream,
@@ -139,8 +139,7 @@ export class QuerySourceRdfJs implements IQuerySource {
       it = filterMatchingQuotedQuads(operation, it);
     }
 
-    // Determine metadata. If cached cardinalities will be used .setMetadata will be called
-    // later with the cache-based cardinality estimates given.
+    // Determine metadata
     if (!it.getProperty('metadata')) {
       this.setMetadata(it, operation, context)
         .catch(error => it.destroy(error));
