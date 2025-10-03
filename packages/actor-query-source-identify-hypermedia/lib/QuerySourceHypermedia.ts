@@ -95,44 +95,6 @@ export class QuerySourceHypermedia implements IQuerySource {
     );
   }
 
-  public async setEstimatedCacheCardinality(
-    source: QuerySourceRdfJs,
-    bindingsStream: BindingsStream,
-    operation: Algebra.Operation,
-    context: IActionContext,
-  ): Promise<void> {
-    const sourceCache = context.get(KeysCaches.storeCache)!;
-    const operationKey = this.keyOperation(operation);
-    let count = 0;
-    if (operationKey in this.operationCardinalityCached) {
-      count = this.operationCardinalityCached[operationKey];
-    } else {
-      // eslint-disable-next-line unicorn/no-useless-spread
-      for (const key of [ ...sourceCache.keys() ]) {
-        const sourceState: ISourceState = sourceCache.get(key)!;
-        const cachedSource = sourceState.source;
-        if ('countQuads' in cachedSource && typeof cachedSource.countQuads === 'function') {
-          count += await cachedSource.countQuads(
-            operation.subject,
-            operation.predicate,
-            operation.object,
-            operation.graph,
-          );
-        }
-      }
-      this.operationCardinalityCached[operationKey] = count;
-    }
-    const variables = getVariables(<Algebra.Pattern>operation).map(variable => ({ variable, canBeUndef: false }));
-    source.setMetadata(
-      bindingsStream,
-      <Algebra.Pattern> operation,
-      context,
-      true,
-      { variables },
-      count,
-    ).catch(error => bindingsStream.destroy(error));
-  }
-
   public queryBindings(
     operation: Algebra.Operation,
     context: IActionContext,
@@ -141,29 +103,11 @@ export class QuerySourceHypermedia implements IQuerySource {
     // Optimized match with aggregated store if enabled and started.
     const aggregatedStore: IAggregatedStore | undefined = this.getAggregateStore(context);
     if (aggregatedStore && operation.type === 'pattern' && aggregatedStore.started) {
-      const sourceCache = context.get(KeysCaches.storeCache);
-      const recursiveJoin = context.get(KeysRdfJoin.isRecursiveJoin);
-      // If we don't have a cache or enough sources, we use the
-      // default cardinality estimation procedure
-      if (true || recursiveJoin === true || !this.useCacheForCardinalityEstimation || !sourceCache ||
-        sourceCache.size < this.minSourcesInCache) {
-        return new QuerySourceRdfJs(
-          aggregatedStore,
-          context.getSafe(KeysInitQuery.dataFactory),
-          this.bindingsFactory,
-        ).queryBindings(operation, context);
-      }
-      context = context.set(KeysCaches.useCacheCardinality, true);
-      const newSource = new QuerySourceRdfJs(
+      return new QuerySourceRdfJs(
         aggregatedStore,
         context.getSafe(KeysInitQuery.dataFactory),
         this.bindingsFactory,
-      );
-      const bindingsStream = newSource.queryBindings(operation, context);
-      this.setEstimatedCacheCardinality(newSource, bindingsStream, operation, context).catch(
-        error => bindingsStream.destroy(error),
-      );
-      return bindingsStream;
+      ).queryBindings(operation, context);
     }
 
     // Initialize the within query cache on first call

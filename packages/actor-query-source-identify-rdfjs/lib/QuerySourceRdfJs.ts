@@ -141,7 +141,7 @@ export class QuerySourceRdfJs implements IQuerySource {
 
     // Determine metadata. If cached cardinalities will be used .setMetadata will be called
     // later with the cache-based cardinality estimates given.
-    if (!context.get(KeysCaches.useCacheCardinality) && !it.getProperty('metadata')) {
+    if (!it.getProperty('metadata')) {
       this.setMetadata(it, operation, context)
         .catch(error => it.destroy(error));
     }
@@ -160,13 +160,12 @@ export class QuerySourceRdfJs implements IQuerySource {
     );
   }
 
-  public async setMetadata(
+  protected async setMetadata(
     it: AsyncIterator<any>,
     operation: Algebra.Pattern,
     context: IActionContext,
     forceEstimateCardinality = false,
     extraMetadata: Record<string, any> = {},
-    cardinalityEstimate?: number,
   ): Promise<void> {
     // Check if the source supports quoted triple filtering
     const quotedTripleFiltering = Boolean('features' in this.source && this.source.features?.quotedTripleFiltering);
@@ -176,17 +175,13 @@ export class QuerySourceRdfJs implements IQuerySource {
     if (operation.graph.termType === 'DefaultGraph' && unionDefaultGraph) {
       operation.graph = this.dummyDefaultGraph;
     }
-    let cardinality: number;
-    if (cardinalityEstimate) {
-      cardinality = cardinalityEstimate;
-    } else {
-      cardinality = await this.countQuads(
-        operation.subject,
-        operation.predicate,
-        operation.object,
-        operation.graph,
-      );
-    }
+
+    const cardinality = await this.countQuads(
+      operation.subject,
+      operation.predicate,
+      operation.object,
+      operation.graph,
+    );
 
     // If `match` would require filtering afterwards, our count will be an over-estimate.
     const wouldRequirePostFiltering = (!quotedTripleFiltering &&
