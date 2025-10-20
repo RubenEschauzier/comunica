@@ -10,6 +10,8 @@ export class ActionObserverHttp extends ActionObserver<IActionHttp, IActorHttpOu
   public readonly httpInvalidator: ActorHttpInvalidateListenable;
   public readonly observedActors: string[];
   public requests = 0;
+  public cacheHitsNoRequest = 0;
+  public cacheHitsRequest = 0;
 
   /* eslint-disable max-len */
   /**
@@ -20,6 +22,8 @@ export class ActionObserverHttp extends ActionObserver<IActionHttp, IActorHttpOu
     this.bus.subscribeObserver(this);
     this.httpInvalidator.addInvalidateListener(() => {
       this.requests = 0;
+      this.cacheHitsNoRequest = 0;
+      this.cacheHitsRequest = 0;
     });
   }
   /* eslint-enable max-len */
@@ -27,10 +31,19 @@ export class ActionObserverHttp extends ActionObserver<IActionHttp, IActorHttpOu
   public onRun(
     actor: Actor<IActionHttp, IActorTest, IActorHttpOutput, undefined>,
     _action: IActionHttp,
-    _output: Promise<IActorHttpOutput>,
+    output: Promise<IActorHttpOutput>,
   ): void {
     if (this.observedActors.includes(actor.name)) {
       this.requests++;
+      output.then(httpOutput => {
+        if (httpOutput.validationOutput && httpOutput.validationOutput.isValidated){
+          if (httpOutput.validationOutput.requestMade){
+            this.cacheHitsRequest++;
+          } else{
+            this.cacheHitsNoRequest++;
+          }
+        }
+      });
     }
   }
 }

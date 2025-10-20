@@ -69,9 +69,9 @@ describe('ActorHttpProxy', () => {
     it('should do nothing when receiving a validation request', async() => {
       const input = 'http://example.org/';
       const headers = new Headers({});
-      jest.spyOn(mediatorHttp, 'mediate').mockImplementation(() => ({ isValidated: true }));
+      jest.spyOn(mediatorHttp, 'mediate').mockImplementation(() => ({ validationOutput: {isValidated: true, requestMade: false} }));
       await expect(actor.run({ input, context })).resolves
-        .toEqual({ isValidated: true });
+        .toEqual({ validationOutput: {isValidated: true, requestMade: false} });
     });
 
     it('should run when the proxy does not return an x-final-url header', async() => {

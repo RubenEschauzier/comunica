@@ -138,9 +138,13 @@ export interface IActionHttp extends IAction {
  */
 export interface IActorHttpOutput extends IActorOutput {
   response?: Response;
-  isValidated?: boolean;
+  validationOutput?: IValidationOutput;
 }
 
+export interface IValidationOutput{
+  isValidated: boolean;
+  requestMade: boolean;
+}
 export type IActorHttpArgs<TS = undefined> = IActorArgs<IActionHttp, IActorTest, IActorHttpOutput, TS>;
 
 export type MediatorHttp = Mediate<IActionHttp, IActorHttpOutput>;

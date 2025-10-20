@@ -114,7 +114,11 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
           .map(([ key, value ]) => [ key.value, ActorQueryResultSerializeSparqlJson.bindingToJsonBindings(value) ])))}`;
           first = false;
           return res;
-        }).append(wrap(end(() => `\n]}${this.emitMetadata ? `,\n"metadata": { "httpRequests": ${this.httpObserver.requests} }` : ''}}\n`))),
+        }).append(wrap(end(() => `\n]}${this.emitMetadata ? `,\n"metadata": {
+           "httpRequests": ${this.httpObserver.requests}, 
+           "cacheHitsRequest": ${this.httpObserver.cacheHitsRequest}, 
+           "cacheHitsNoRequest": ${this.httpObserver.cacheHitsNoRequest}
+          ` : ''}}\n`))),
       );
     } else {
       data.wrap(<any> wrap((<IQueryOperationResultBoolean> action).execute().then(value => [ `"boolean":${value}\n}\n` ])));

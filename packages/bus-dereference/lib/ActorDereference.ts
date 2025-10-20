@@ -1,6 +1,7 @@
 import type { IAction, IActorArgs, IActorOutput, IActorTest, Mediate } from '@comunica/core';
 import CachePolicy = require('http-cache-semantics');
 import { ActorDereferenceBase } from './ActorDereferenceBase';
+import { IValidationOutput } from '@comunica/bus-http';
 
 /**
  * A base actor for dereferencing URLs to (generic) streams.
@@ -115,7 +116,7 @@ export interface IActorDereferenceOutput extends IActorOutput {
   /**
    * When action.validate is set, this returns if the policy satisfies without revalidation
    */
-  isValidated?: boolean;
+  validationOutput?: IValidationOutput;
 }
 
 export type IActorDereferenceArgs = IActorArgs<IActionDereference, IActorTest, IActorDereferenceOutput>;

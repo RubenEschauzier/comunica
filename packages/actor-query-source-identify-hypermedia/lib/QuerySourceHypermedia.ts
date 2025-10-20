@@ -199,7 +199,7 @@ export class QuerySourceHypermedia implements IQuerySource {
         const dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
           .mediate({ context, url, validate: policy });
         // We can use cache here.
-        if (dereferenceRdfOutput.isValidated) {
+        if (dereferenceRdfOutput.validationOutput?.isValidated) {
           const cachedSource = storeCache!.get(link.url);
           if (!cachedSource) {
             throw new Error('Tried to use cached entry that does not exist');

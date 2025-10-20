@@ -84,7 +84,7 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
           data: emptyReadable(),
           exists,
           requestTime: 0,
-          isValidated: true,
+          validationOutput: httpResponse.validationOutput,
           mediaType: 'text/turtle',
         };
       }
