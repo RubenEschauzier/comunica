@@ -31,7 +31,6 @@ TS = undefined,
     } catch {
       testResults = [];
     }
-
     if (this.filterFailures) {
       const _testResults: IActorReply<A, I, T, O, TS>[] = [];
       for (const result of testResults) {

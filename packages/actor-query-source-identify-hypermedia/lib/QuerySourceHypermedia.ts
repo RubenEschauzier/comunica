@@ -1,18 +1,16 @@
 import { QuerySourceRdfJs } from '@comunica/actor-query-source-identify-rdfjs';
 import type { IActorDereferenceRdfOutput, MediatorDereferenceRdf } from '@comunica/bus-dereference-rdf';
-import { getVariables } from '@comunica/bus-query-source-identify';
 import type { MediatorQuerySourceIdentifyHypermedia } from '@comunica/bus-query-source-identify-hypermedia';
 import type { IActorRdfMetadataOutput, MediatorRdfMetadata } from '@comunica/bus-rdf-metadata';
 import type { MediatorRdfMetadataAccumulate } from '@comunica/bus-rdf-metadata-accumulate';
 import type { MediatorRdfMetadataExtract } from '@comunica/bus-rdf-metadata-extract';
 import type { MediatorRdfResolveHypermediaLinks } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { MediatorRdfResolveHypermediaLinksQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
-import { 
+import {
   KeysCaches,
   KeysInitQuery,
   KeysQuerySourceIdentify,
   KeysQueryOperation,
-  KeysRdfJoin,
 } from '@comunica/context-entries';
 import type {
   BindingsStream,
@@ -52,9 +50,7 @@ export class QuerySourceHypermedia implements IQuerySource {
   private readonly maxIterators: number;
 
   private readonly emitPartialCardinalities: boolean;
-  private readonly useCacheForCardinalityEstimation: boolean;
-  private readonly minSourcesInCache: number;
-  private readonly operationCardinalityCached: Record<string, number>;
+  private readonly algebraFactory;
 
   public constructor(
     firstUrl: string,
@@ -62,8 +58,6 @@ export class QuerySourceHypermedia implements IQuerySource {
     maxIterators: number,
     aggregateStore: boolean,
     emitPartialCardinalities: boolean,
-    useCacheForCardinalityEstimation: boolean,
-    minSourcesInCache: number,
     mediators: IMediatorArgs,
     logWarning: (warningMessage: string) => void,
     dataFactory: ComunicaDataFactory,
@@ -76,12 +70,10 @@ export class QuerySourceHypermedia implements IQuerySource {
     this.mediators = mediators;
     this.aggregateStore = aggregateStore;
     this.emitPartialCardinalities = emitPartialCardinalities;
-    this.useCacheForCardinalityEstimation = useCacheForCardinalityEstimation;
-    this.minSourcesInCache = minSourcesInCache;
     this.logWarning = logWarning;
     this.dataFactory = dataFactory;
     this.bindingsFactory = bindingsFactory;
-    this.operationCardinalityCached = {};
+    this.algebraFactory = new Factory(dataFactory);
   }
 
   public async getSelectorShape(context: IActionContext): Promise<FragmentSelectorShape> {
@@ -117,7 +109,6 @@ export class QuerySourceHypermedia implements IQuerySource {
     }
 
     const dataFactory: ComunicaDataFactory = context.getSafe(KeysInitQuery.dataFactory);
-    const algebraFactory = new Factory(dataFactory);
     const it: MediatedLinkedRdfSourcesAsyncRdfIterator = new MediatedLinkedRdfSourcesAsyncRdfIterator(
       operation,
       options,
@@ -131,7 +122,7 @@ export class QuerySourceHypermedia implements IQuerySource {
       this.mediators.mediatorRdfResolveHypermediaLinks,
       this.mediators.mediatorRdfResolveHypermediaLinksQueue,
       dataFactory,
-      algebraFactory,
+      this.algebraFactory,
     );
 
     if (aggregatedStore) {
@@ -213,31 +204,39 @@ export class QuerySourceHypermedia implements IQuerySource {
           if (!cachedSource) {
             throw new Error('Tried to use cached entry that does not exist');
           }
+          const quads = <RDF.Stream> cachedSource.source.queryBindings(
+            this.algebraFactory.createPattern(
+              this.dataFactory.variable('s'),
+              this.dataFactory.variable('p'),
+              this.dataFactory.variable('o'),
+              this.dataFactory.variable('g'),
+            ),
+            context.set(KeysQueryOperation.unionDefaultGraph, true),
+          ).map(bindings => (<RDF.DataFactory<RDF.BaseQuad>> this.dataFactory).quad(
+            bindings.get('s')!,
+            bindings.get('p')!,
+            bindings.get('o')!,
+            bindings.get('g'),
+          ));
+          const quadMetadataOutput = await this.getMetadataQuads(url, context, dereferenceRdfOutput, quads);
+          metadata = quadMetadataOutput.metadata;
+          const traverseDotMetaOnly = cachedSource.metadata.traverse.filter(
+            (link: ILink) => link.url.endsWith('.meta'),
+          );
+          const traverseNew = [ ...traverseDotMetaOnly, ...metadata.traverse ];
+          cachedSource.metadata.traverse = traverseNew;
           return cachedSource;
         }
         url = dereferenceRdfOutput.url;
 
-        // Determine the metadata
-        const rdfMetadataOutput: IActorRdfMetadataOutput = await this.mediators.mediatorMetadata.mediate(
-          { context, url, quads: dereferenceRdfOutput.data, triples: dereferenceRdfOutput.metadata?.triples },
-        );
-
-        rdfMetadataOutput.data.on('error', () => {
-          // Silence errors in the data stream,
-          // as they will be emitted again in the metadata stream,
-          // and will result in a promise rejection anyways.
-          // If we don't do this, we end up with an unhandled error message
-        });
-
-        metadata = (await this.mediators.mediatorMetadataExtract.mediate({
-          context,
+        const quadMetadataOutput = await this.getMetadataQuads(
           url,
-          // The problem appears to be conflicting metadata keys here
-          metadata: rdfMetadataOutput.metadata,
-          headers: dereferenceRdfOutput.headers,
-          requestTime: dereferenceRdfOutput.requestTime,
-        })).metadata;
-        quads = rdfMetadataOutput.data;
+          context,
+          dereferenceRdfOutput,
+          dereferenceRdfOutput.data,
+        );
+        metadata = quadMetadataOutput.metadata;
+        quads = quadMetadataOutput.rdfMetadataOutput.data;
 
         // Optionally filter the resulting data
         if (link.transform) {
@@ -340,6 +339,34 @@ export class QuerySourceHypermedia implements IQuerySource {
     }
   }
 
+  protected async getMetadataQuads(
+    url: string,
+    context: IActionContext,
+    dereferenceRdfOutput: IActorDereferenceRdfOutput,
+    quads: RDF.Stream<RDF.Quad>,
+  ): Promise<IQuadMetadataExtractOutput> {
+    // Determine the metadata
+    const rdfMetadataOutput: IActorRdfMetadataOutput = await this.mediators.mediatorMetadata.mediate(
+      { context, url, quads, triples: dereferenceRdfOutput.metadata?.triples },
+    );
+
+    rdfMetadataOutput.data.on('error', () => {
+      // Silence errors in the data stream,
+      // as they will be emitted again in the metadata stream,
+      // and will result in a promise rejection anyways.
+      // If we don't do this, we end up with an unhandled error message
+    });
+    const metadata = (await this.mediators.mediatorMetadataExtract.mediate({
+      context,
+      url,
+      // The problem appears to be conflicting metadata keys here
+      metadata: rdfMetadataOutput.metadata,
+      headers: dereferenceRdfOutput.headers,
+      requestTime: dereferenceRdfOutput.requestTime,
+    })).metadata;
+    return { metadata, rdfMetadataOutput };
+  }
+
   public toString(): string {
     return `QuerySourceHypermedia(${this.firstUrl})`;
   }
@@ -353,4 +380,9 @@ export interface IMediatorArgs {
   mediatorQuerySourceIdentifyHypermedia: MediatorQuerySourceIdentifyHypermedia;
   mediatorRdfResolveHypermediaLinks: MediatorRdfResolveHypermediaLinks;
   mediatorRdfResolveHypermediaLinksQueue: MediatorRdfResolveHypermediaLinksQueue;
+}
+
+export interface IQuadMetadataExtractOutput {
+  metadata: Record<string, any>;
+  rdfMetadataOutput: IActorRdfMetadataOutput;
 }

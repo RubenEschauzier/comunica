@@ -43,7 +43,6 @@ export class ActorRdfMetadataAll extends ActorRdfMetadata {
         metadata.push(item);
       }
     };
-
     return { data, metadata };
   }
 }
