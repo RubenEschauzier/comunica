@@ -78,6 +78,7 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
         input: action.url,
         validate: action.validate,
       });
+      // Revalidation request succeeded without changes
       if (!httpResponse.response && action.validate) {
         return {
           url: action.url,

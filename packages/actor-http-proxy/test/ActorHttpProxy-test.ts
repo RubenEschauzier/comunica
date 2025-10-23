@@ -76,7 +76,6 @@ describe('ActorHttpProxy', () => {
 
     it('should run when the proxy does not return an x-final-url header', async() => {
       const input = 'http://example.org/';
-      console.log(await actor.run({ input, context }));
       await expect(actor.run({ input, context })).resolves
         .toEqual({ response: { url: 'http://example.org/', output: 'ABC', headers: new Headers({}) }});
       expect(mediatorHttp.mediate).toHaveBeenCalledWith(

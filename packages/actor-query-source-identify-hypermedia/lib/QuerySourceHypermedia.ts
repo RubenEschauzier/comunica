@@ -175,6 +175,8 @@ export class QuerySourceHypermedia implements IQuerySource {
     let url = link.url;
     let quads: RDF.Stream;
     let metadata: Record<string, any>;
+    // Whether the created source should be cached, is false if we query an endpoint or if fetch fails
+    let cacheSource: boolean = false;
 
     // Get http caches
     const storeCache = context.get(KeysCaches.storeCache);
@@ -198,6 +200,8 @@ export class QuerySourceHypermedia implements IQuerySource {
 
         const dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
           .mediate({ context, url, validate: policy });
+        cacheSource = dereferenceRdfOutput.exists;
+        
         // We can use cache here.
         if (dereferenceRdfOutput.validationOutput?.isValidated) {
           const cachedSource = storeCache!.get(link.url);
@@ -260,10 +264,7 @@ export class QuerySourceHypermedia implements IQuerySource {
     // Aggregate all discovered quads into a store.
     aggregatedStore?.setBaseMetadata(<MetadataBindings> metadata, false);
     aggregatedStore?.containedSources.add(link.url);
-    aggregatedStore?.import(quads).on('error', (err) => {
-      // eslint-disable-next-line no-console
-      console.log(`Error importing: ${err}`);
-    });
+    aggregatedStore?.import(quads);
 
     // Determine the source
     const { source, dataset } = await this.mediators.mediatorQuerySourceIdentifyHypermedia.mediate({
@@ -281,8 +282,10 @@ export class QuerySourceHypermedia implements IQuerySource {
       // and next page links are followed after that.
       handledDatasets[dataset] = true;
     }
-    // If storeCache is available cache the constructed source
-    storeCache?.set(link.url, { link, source, metadata: <MetadataBindings> metadata, handledDatasets });
+    if (cacheSource){
+      // If storeCache is available cache the constructed source
+      storeCache?.set(link.url, { link, source, metadata: <MetadataBindings> metadata, handledDatasets });
+    }
 
     return { link, source, metadata: <MetadataBindings> metadata, handledDatasets };
   }
