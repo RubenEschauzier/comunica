@@ -141,7 +141,7 @@ export interface IActorHttpOutput extends IActorOutput {
   validationOutput?: IValidationOutput;
 }
 
-export interface IValidationOutput{
+export interface IValidationOutput {
   isValidated: boolean;
   requestMade: boolean;
 }

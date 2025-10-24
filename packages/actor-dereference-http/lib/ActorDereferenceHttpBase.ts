@@ -73,24 +73,23 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
     let httpResponse: IActorHttpOutput;
     const requestTimeStart = Date.now();
     const testIsLenient = action.context.get(KeysInitQuery.lenient);
-    if (!testIsLenient){
-      this.logWarn(action.context, "LENIENT IS FALSE")
-    }
     try {
       httpResponse = await this.mediatorHttp.mediate({
         context: action.context,
         init: { headers, method: action.method },
         input: action.url,
-        validate: action.validate
+        validate: action.validate,
       });
     } catch (error: unknown) {
-      this.logWarn(action.context, "Delegating to  handleDereferenceErrors CATCH BLOCK")
+      this.logWarn(action.context, 'Delegating to  handleDereferenceErrors CATCH BLOCK')
       this.logInfo(action.context, `Lenient: ${testIsLenient}`);
-      return this.handleDereferenceErrors(action, error);
+      const output = this.handleDereferenceErrors(action, error);
+      this.logInfo(action.context, `Got output: ${JSON.stringify(output, null, 2)}`);
+      return output;
     }
     // Revalidation request succeeded without changes
     if (!httpResponse.response && action.validate) {
-      console.log("RETURNING HERE")
+      this.logInfo(action.context, 'RETURNING IN !httpResponse.response && action.validate');
       return {
         url: action.url,
         data: emptyReadable(),
@@ -101,7 +100,7 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
       };
     }
     if (!httpResponse.response) {
-      this.logWarn(action.context, "NO RESPONSE IN DEREFERENCE ACTOR");
+      this.logWarn(action.context, 'NO RESPONSE IN DEREFERENCE ACTOR');
       this.logInfo(action.context, `Lenient: ${testIsLenient}`);
       return this.handleDereferenceErrors(action, new Error('Response undefined in dereference actor'));
     }

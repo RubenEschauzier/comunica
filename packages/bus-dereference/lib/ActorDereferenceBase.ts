@@ -57,6 +57,7 @@ TS = undefined,
     if (isHardError(action.context)) {
       throw error;
     }
+    this.logInfo(action.context, 'We made it here at dereferenceErrorHandler lenient')
     this.logWarn(action.context, (<Error> error).message, () => ({ url: action.url }));
     return { ...output, data: emptyReadable<M>() };
   }
