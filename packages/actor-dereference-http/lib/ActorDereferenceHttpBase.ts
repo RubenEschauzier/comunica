@@ -2,6 +2,7 @@ import type { IActionDereference, IActorDereferenceArgs, IActorDereferenceOutput
 import { ActorDereference, emptyReadable } from '@comunica/bus-dereference';
 import type { IActorHttpOutput, MediatorHttp } from '@comunica/bus-http';
 import { ActorHttp } from '@comunica/bus-http';
+import { KeysInitQuery } from '@comunica/context-entries';
 import type { IActorTest, TestResult } from '@comunica/core';
 import { failTest, passTestVoid } from '@comunica/core';
 import { stringify as stringifyStream } from '@jeswr/stream-to-string';
@@ -71,30 +72,40 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
 
     let httpResponse: IActorHttpOutput;
     const requestTimeStart = Date.now();
+    const testIsLenient = action.context.get(KeysInitQuery.lenient);
+    if (!testIsLenient){
+      this.logWarn(action.context, "LENIENT IS FALSE")
+    }
     try {
       httpResponse = await this.mediatorHttp.mediate({
         context: action.context,
         init: { headers, method: action.method },
         input: action.url,
-        validate: action.validate,
+        validate: action.validate
       });
-      // Revalidation request succeeded without changes
-      if (!httpResponse.response && action.validate) {
-        return {
-          url: action.url,
-          data: emptyReadable(),
-          exists,
-          requestTime: 0,
-          validationOutput: httpResponse.validationOutput,
-          mediaType: 'text/turtle',
-        };
-      }
-      if (!httpResponse.response) {
-        return this.handleDereferenceErrors(action, new Error('Response undefined in dereference actor'));
-      }
     } catch (error: unknown) {
+      this.logWarn(action.context, "Delegating to  handleDereferenceErrors CATCH BLOCK")
+      this.logInfo(action.context, `Lenient: ${testIsLenient}`);
       return this.handleDereferenceErrors(action, error);
     }
+    // Revalidation request succeeded without changes
+    if (!httpResponse.response && action.validate) {
+      console.log("RETURNING HERE")
+      return {
+        url: action.url,
+        data: emptyReadable(),
+        exists,
+        requestTime: 0,
+        validationOutput: httpResponse.validationOutput,
+        mediaType: 'text/turtle',
+      };
+    }
+    if (!httpResponse.response) {
+      this.logWarn(action.context, "NO RESPONSE IN DEREFERENCE ACTOR");
+      this.logInfo(action.context, `Lenient: ${testIsLenient}`);
+      return this.handleDereferenceErrors(action, new Error('Response undefined in dereference actor'));
+    }
+    
     // The response URL can be relative to the given URL
     const url = resolveRelative(httpResponse.response.url, action.url);
     const requestTime = Date.now() - requestTimeStart;
@@ -108,6 +119,7 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
         'empty response';
 
       if (!action.acceptErrors) {
+      this.logWarn(action.context, "Delegating to  handleDereferenceErrors COULD NOT RETRIEVE")
         const error = new Error(`Could not retrieve ${action.url} (HTTP status ${httpResponse.response.status}):\n${bodyString}`);
         return this.handleDereferenceErrors(action, error, httpResponse.response.headers, requestTime);
       }

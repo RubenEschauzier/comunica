@@ -84,7 +84,6 @@ export class ActorHttpFetch extends ActorHttp {
       }
 
       // We have to validate the response and then return it
-
       const revalidationHeaders = oldPolicy.revalidationHeaders(requestToValidateCache!);
       const revalidationRequestInit = { ...requestInit, headers: {
         ...(<Record<string, string>> (requestInit?.headers)), // Spread existing headers from requestInit
@@ -109,6 +108,25 @@ export class ActorHttpFetch extends ActorHttp {
       }
       // If it is modified we return the response and process like normal
       return { response, validationOutput: { isValidated: false, requestMade: true } };
+    }
+    var getStackTrace = function() {
+      var obj: Record<string,any> = {};
+      Error.captureStackTrace(obj, getStackTrace);
+      return obj.stack;
+    };
+
+    try {
+      const response = await fetchFunction(action.input, requestInit);
+    } catch (error) {
+      this.logWarn(action.context, "SOMETHING WENT WRONG!!")
+      this.logWarn(action.context, getStackTrace())
+      this.logError(action.context, <string>error, () => ({
+        request: requestInit,
+        input: action.input,
+        headers: ActorHttp.headersToHash(headers),
+        method: init.method,
+      }))
+      throw error;
     }
 
     const response = await fetchFunction(action.input, requestInit);
