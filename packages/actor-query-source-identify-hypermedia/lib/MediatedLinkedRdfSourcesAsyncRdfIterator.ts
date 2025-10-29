@@ -14,10 +14,11 @@ import type {
   ILink,
   IStatisticBase,
   IDiscoverEventData,
+  ISourceState,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { Algebra, Factory } from 'sparqlalgebrajs';
-import type { SourceStateGetter, ISourceState } from './LinkedRdfSourcesAsyncRdfIterator';
+import type { SourceStateGetter } from './LinkedRdfSourcesAsyncRdfIterator';
 import { LinkedRdfSourcesAsyncRdfIterator } from './LinkedRdfSourcesAsyncRdfIterator';
 
 /**

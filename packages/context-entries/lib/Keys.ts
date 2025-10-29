@@ -21,9 +21,14 @@ import type {
   IDiscoverEventData,
   PartialResult,
   ILink,
+  ISourceState,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
+
+// eslint-disable-next-line ts/no-require-imports
+import CachePolicy = require('http-cache-semantics');
 import type { IDocumentLoader } from 'jsonld-context-parser';
+import type { LRUCache } from 'lru-cache';
 import type { Algebra } from 'sparqlalgebrajs';
 
 /**
@@ -38,6 +43,29 @@ export const KeysCore = {
    * A logger instance.
    */
   log: CONTEXT_KEY_LOGGER,
+};
+
+export const KeysCaches = {
+  /**
+   * Cache for policies on what to cache
+   */
+  policyCache: new ActionContextKey<LRUCache<string, CachePolicy>>
+  ('@comunica/actor-query-source-identify-hypermedia:policyCache'),
+  /**
+   * Cache for storing triple stores
+   */
+  storeCache: new ActionContextKey<LRUCache<string, ISourceState>>
+  ('@comunica/actor-query-source-identify-hypermedia:storeCache'),
+  /**
+   * Cache that stores sources during a single query execution. This prevents expensive http-cache policy evaluations
+   * when the same sources is used in different parts of the engine during a single query.
+   */
+  withinQueryStoreCache: new ActionContextKey<LRUCache<string, Promise<ISourceState>>>
+  ('@comunica/actor-query-source-identify-hypermedia:withinQueryStoreCache'),
+  /**
+   * Flag indicating if the cardinality estimation will be done using count queries over cached documents
+   */
+  useCacheCardinality: new ActionContextKey<boolean>('@comunica/actor-query-source-identify-rdfjs:useCacheCardinality'),
 };
 
 export const KeysHttp = {

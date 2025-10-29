@@ -46,6 +46,7 @@
     "@comunica/core": "^4.4.0",
     "@comunica/types": "^4.4.0",
     "@rdfjs/types": "*",
+    "lru-cache": "^10.0.0",
     "rdf-data-factory": "^1.1.2"
   }
 }

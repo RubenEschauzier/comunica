@@ -3,6 +3,7 @@ import type { AsyncIterator } from 'asynciterator';
 import type { Algebra } from 'sparqlalgebrajs';
 import type { BindingsStream } from './Bindings';
 import type { IActionContext } from './IActionContext';
+import type { ILink } from './ILink';
 import type { MetadataBindings } from './IMetadata';
 
 export interface IQuerySourceSerialized extends IQuerySourceUnidentifiedExpanded {
@@ -218,6 +219,29 @@ export type FragmentSelectorShape = {
   max?: number;
   child: FragmentSelectorShape;
 };
+
+/**
+ * The current state of a source.
+ * This is needed for following links within a source.
+ */
+export interface ISourceState {
+  /**
+   * The link to this source.
+   */
+  link: ILink;
+  /**
+   * A source.
+   */
+  source: IQuerySource;
+  /**
+   * The source's initial metadata.
+   */
+  metadata: MetadataBindings;
+  /**
+   * All dataset identifiers that have been passed for this source.
+   */
+  handledDatasets: Record<string, boolean>;
+}
 
 // ----- Examples of FragmentSelectorShapes -----
 // const AF = new Factory();

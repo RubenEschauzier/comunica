@@ -2,11 +2,11 @@ import type { ILinkQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queu
 import { KeysStatistics } from '@comunica/context-entries';
 import type {
   ILink,
-  IQuerySource,
   IActionContext,
   MetadataBindings,
   IQueryBindingsOptions,
   IStatisticBase,
+  ISourceState,
 } from '@comunica/types';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
@@ -347,29 +347,6 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
   protected isCloseable(linkQueue: ILinkQueue, _requireQueueEmpty: boolean): boolean {
     return linkQueue.isEmpty() && !this.areIteratorsRunning();
   }
-}
-
-/**
- * The current state of a source.
- * This is needed for following links within a source.
- */
-export interface ISourceState {
-  /**
-   * The link to this source.
-   */
-  link: ILink;
-  /**
-   * A source.
-   */
-  source: IQuerySource;
-  /**
-   * The source's initial metadata.
-   */
-  metadata: MetadataBindings;
-  /**
-   * All dataset identifiers that have been passed for this source.
-   */
-  handledDatasets: Record<string, boolean>;
 }
 
 export type SourceStateGetter = (link: ILink, handledDatasets: Record<string, boolean>) => Promise<ISourceState>;

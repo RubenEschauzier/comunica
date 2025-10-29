@@ -6,7 +6,7 @@ import type { MediatorRdfMetadataAccumulate } from '@comunica/bus-rdf-metadata-a
 import type { MediatorRdfMetadataExtract } from '@comunica/bus-rdf-metadata-extract';
 import type { MediatorRdfResolveHypermediaLinks } from '@comunica/bus-rdf-resolve-hypermedia-links';
 import type { MediatorRdfResolveHypermediaLinksQueue } from '@comunica/bus-rdf-resolve-hypermedia-links-queue';
-import { KeysInitQuery, KeysQueryOperation, KeysQuerySourceIdentify } from '@comunica/context-entries';
+import { KeysCaches, KeysInitQuery, KeysQueryOperation, KeysQuerySourceIdentify } from '@comunica/context-entries';
 import type {
   BindingsStream,
   ComunicaDataFactory,
@@ -17,6 +17,7 @@ import type {
   IQuerySource,
   MetadataBindings,
   ILink,
+  ISourceState,
 } from '@comunica/types';
 import type { BindingsFactory } from '@comunica/utils-bindings-factory';
 import type * as RDF from '@rdfjs/types';
@@ -26,7 +27,6 @@ import { LRUCache } from 'lru-cache';
 import { Readable } from 'readable-stream';
 import type { Algebra } from 'sparqlalgebrajs';
 import { Factory } from 'sparqlalgebrajs';
-import type { ISourceState } from './LinkedRdfSourcesAsyncRdfIterator';
 import { MediatedLinkedRdfSourcesAsyncRdfIterator } from './MediatedLinkedRdfSourcesAsyncRdfIterator';
 import { StreamingStoreMetadata } from './StreamingStoreMetadata';
 
@@ -265,13 +265,14 @@ export class QuerySourceHypermedia implements IQuerySource {
     context: IActionContext,
     aggregatedStore: IAggregatedStore | undefined,
   ): Promise<ISourceState> {
-    let source = this.sourcesState.get(link.url);
+    const withinQueryCache = context.getSafe(KeysCaches.withinQueryStoreCache);
+    let source = withinQueryCache.get(link.url);
     if (source) {
       return source;
     }
     source = this.getSource(link, handledDatasets, context, aggregatedStore);
     if (link.url === this.firstUrl || aggregatedStore === undefined) {
-      this.sourcesState.set(link.url, source);
+      withinQueryCache.set(link.url, source);
     }
     return source;
   }
