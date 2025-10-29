@@ -41,6 +41,7 @@ export class QuerySourceHypermedia implements IQuerySource {
   public readonly logWarning: (warningMessage: string) => void;
   public readonly dataFactory: ComunicaDataFactory;
   public readonly bindingsFactory: BindingsFactory;
+  public readonly algebraFactory: Factory;
 
   private readonly maxIterators: number;
 
@@ -68,6 +69,7 @@ export class QuerySourceHypermedia implements IQuerySource {
     this.logWarning = logWarning;
     this.dataFactory = dataFactory;
     this.bindingsFactory = bindingsFactory;
+    this.algebraFactory = new Factory(dataFactory);
   }
 
   public async getSelectorShape(context: IActionContext): Promise<FragmentSelectorShape> {
@@ -189,7 +191,34 @@ export class QuerySourceHypermedia implements IQuerySource {
         const dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
           .mediate({ context, url });
         url = dereferenceRdfOutput.url;
-
+        if (dereferenceRdfOutput.validationOutput?.isValidated) {
+          const cachedSource = storeCache!.get(link.url);
+          if (!cachedSource) {
+            throw new Error('Tried to use cached entry that does not exist');
+          }
+          const quads = <RDF.Stream> cachedSource.source.queryBindings(
+            this.algebraFactory.createPattern(
+              this.dataFactory.variable('s'),
+              this.dataFactory.variable('p'),
+              this.dataFactory.variable('o'),
+              this.dataFactory.variable('g'),
+            ),
+            context.set(KeysQueryOperation.unionDefaultGraph, true),
+          ).map(bindings => (<RDF.DataFactory<RDF.BaseQuad>> this.dataFactory).quad(
+            bindings.get('s')!,
+            bindings.get('p')!,
+            bindings.get('o')!,
+            bindings.get('g'),
+          ));
+          // const quadMetadataOutput = await this.getMetadataQuads(url, context, dereferenceRdfOutput, quads);
+          // metadata = quadMetadataOutput.metadata;
+          // const traverseDotMetaOnly = cachedSource.metadata.traverse.filter(
+          //   (link: ILink) => link.url.endsWith('.meta'),
+          // );
+          // const traverseNew = [ ...traverseDotMetaOnly, ...metadata.traverse ];
+          // cachedSource.metadata.traverse = traverseNew;
+          return cachedSource;
+        }
         // Determine the metadata
         const rdfMetadataOutput: IActorRdfMetadataOutput = await this.mediators.mediatorMetadata.mediate(
           { context, url, quads: dereferenceRdfOutput.data, triples: dereferenceRdfOutput.metadata?.triples },

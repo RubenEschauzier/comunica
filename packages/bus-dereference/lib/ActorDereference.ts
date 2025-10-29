@@ -3,6 +3,7 @@ import type { IAction, IActorArgs, IActorOutput, IActorTest, Mediate } from '@co
 // eslint-disable-next-line ts/no-require-imports
 import CachePolicy = require('http-cache-semantics');
 import { ActorDereferenceBase } from './ActorDereferenceBase';
+import { IValidationOutput } from '@comunica/bus-http';
 
 /**
  * A base actor for dereferencing URLs to (generic) streams.
@@ -114,6 +115,12 @@ export interface IActorDereferenceOutput extends IActorOutput {
    * The mediatype of the source
    */
   mediaType?: string;
+  /**
+   * The validation status of a HTTP request. Will be set to true
+   * if the engine can use the cached response
+   */
+  validationOutput?: IValidationOutput;
+
 }
 
 export type IActorDereferenceArgs = IActorArgs<IActionDereference, IActorTest, IActorDereferenceOutput>;
