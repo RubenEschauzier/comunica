@@ -23,6 +23,9 @@ import type { BindingsFactory } from '@comunica/utils-bindings-factory';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import { TransformIterator } from 'asynciterator';
+
+// eslint-disable-next-line ts/no-require-imports
+import CachePolicy = require('http-cache-semantics');
 import { Readable } from 'readable-stream';
 import type { Algebra } from 'sparqlalgebrajs';
 import { Factory } from 'sparqlalgebrajs';
@@ -162,6 +165,11 @@ export class QuerySourceHypermedia implements IQuerySource {
     let url = link.url;
     let quads: RDF.Stream;
     let metadata: Record<string, any>;
+
+    // Get http caches
+    const storeCache = context.get(KeysCaches.storeCache);
+    const policyCache = context.get(KeysCaches.policyCache);
+
     if (this.forceSourceType === 'sparql' && context.get(KeysQueryOperation.querySources)?.length === 1) {
       // Skip metadata extraction if we're querying over just a single SPARQL endpoint.
       quads = new Readable();
@@ -169,6 +177,15 @@ export class QuerySourceHypermedia implements IQuerySource {
       ({ metadata } = await this.mediators.mediatorMetadataAccumulate.mediate({ context, mode: 'initialize' }));
     } else {
       try {
+        let policy: CachePolicy | undefined;
+        if (storeCache && policyCache) {
+          policy = policyCache.get(link.url);
+          // Explicit check for file source to prevent regression due to re-parsing file.
+          if (!link.url.startsWith('http://') && !link.url.startsWith('https://') && storeCache.get(link.url)) {
+            return storeCache.get(link.url)!;
+          }
+        }
+
         const dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
           .mediate({ context, url });
         url = dereferenceRdfOutput.url;

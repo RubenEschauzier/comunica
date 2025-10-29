@@ -1,4 +1,7 @@
 import type { IAction, IActorArgs, IActorOutput, IActorTest, Mediate } from '@comunica/core';
+
+// eslint-disable-next-line ts/no-require-imports
+import CachePolicy = require('http-cache-semantics');
 import { ActorDereferenceBase } from './ActorDereferenceBase';
 
 /**
@@ -64,6 +67,10 @@ export interface IActionDereference extends IAction {
    * Optional HTTP headers to pass.
    */
   headers?: Headers;
+  /**
+   * Optional validation policy for HTTP caching
+   */
+  validate?: CachePolicy;
   /**
    * An optional callback to retrieve the mediaType mappings
    */
