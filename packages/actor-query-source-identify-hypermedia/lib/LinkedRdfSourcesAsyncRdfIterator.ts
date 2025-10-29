@@ -19,7 +19,6 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
   protected readonly queryBindingsOptions: IQueryBindingsOptions | undefined;
   protected readonly context: IActionContext;
 
-  private readonly cacheSize: number;
   protected readonly firstUrl: string;
   private readonly maxIterators: number;
   private readonly sourceStateGetter: SourceStateGetter;
@@ -33,7 +32,6 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
   private preflightMetadata: Promise<MetadataBindings> | undefined;
 
   public constructor(
-    cacheSize: number,
     operation: Algebra.Operation,
     queryBindingsOptions: IQueryBindingsOptions | undefined,
     context: IActionContext,
@@ -44,7 +42,6 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
   ) {
     super({ autoStart: false, ...options });
     this._reading = false;
-    this.cacheSize = cacheSize;
     this.operation = operation;
     this.queryBindingsOptions = queryBindingsOptions;
     this.context = context;

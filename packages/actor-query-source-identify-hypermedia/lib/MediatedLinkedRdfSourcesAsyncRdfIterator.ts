@@ -40,7 +40,6 @@ export class MediatedLinkedRdfSourcesAsyncRdfIterator extends LinkedRdfSourcesAs
   private wasForcefullyClosed = false;
 
   public constructor(
-    cacheSize: number,
     operation: Algebra.Operation,
     queryBindingsOptions: IQueryBindingsOptions | undefined,
     context: IActionContext,
@@ -56,7 +55,6 @@ export class MediatedLinkedRdfSourcesAsyncRdfIterator extends LinkedRdfSourcesAs
     algebraFactory: Factory,
   ) {
     super(
-      cacheSize,
       operation,
       queryBindingsOptions,
       context,
