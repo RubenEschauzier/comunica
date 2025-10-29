@@ -189,7 +189,7 @@ export class QuerySourceHypermedia implements IQuerySource {
         }
 
         const dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
-          .mediate({ context, url });
+          .mediate({ context, url, validate: policy });
         url = dereferenceRdfOutput.url;
         if (dereferenceRdfOutput.validationOutput?.isValidated) {
           const cachedSource = storeCache!.get(link.url);
@@ -210,13 +210,32 @@ export class QuerySourceHypermedia implements IQuerySource {
             bindings.get('o')!,
             bindings.get('g'),
           ));
-          // const quadMetadataOutput = await this.getMetadataQuads(url, context, dereferenceRdfOutput, quads);
-          // metadata = quadMetadataOutput.metadata;
-          // const traverseDotMetaOnly = cachedSource.metadata.traverse.filter(
-          //   (link: ILink) => link.url.endsWith('.meta'),
-          // );
-          // const traverseNew = [ ...traverseDotMetaOnly, ...metadata.traverse ];
-          // cachedSource.metadata.traverse = traverseNew;
+          // Determine the metadata
+          const rdfMetadataOutputCachedSource: IActorRdfMetadataOutput = await this.mediators.mediatorMetadata.mediate(
+            { context, url, quads, triples: dereferenceRdfOutput.metadata?.triples },
+          );
+
+          rdfMetadataOutputCachedSource.data.on('error', () => {
+            // Silence errors in the data stream,
+            // as they will be emitted again in the metadata stream,
+            // and will result in a promise rejection anyways.
+            // If we don't do this, we end up with an unhandled error message
+          });
+
+          const metadataReExtract = (await this.mediators.mediatorMetadataExtract.mediate({
+            context,
+            url,
+            // The problem appears to be conflicting metadata keys here
+            metadata: rdfMetadataOutputCachedSource.metadata,
+            headers: dereferenceRdfOutput.headers,
+            requestTime: dereferenceRdfOutput.requestTime,
+          })).metadata;
+
+          const traverseDotMetaOnly = cachedSource.metadata.traverse.filter(
+            (link: ILink) => link.url.endsWith('.meta'),
+          );
+          const traverseNew = [ ...traverseDotMetaOnly, ...metadataReExtract.traverse ];
+          cachedSource.metadata.traverse = traverseNew;
           return cachedSource;
         }
         // Determine the metadata
