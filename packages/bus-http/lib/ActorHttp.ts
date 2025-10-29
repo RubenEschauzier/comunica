@@ -1,5 +1,8 @@
 import type { IAction, IActorArgs, IActorOutput, IActorTest, Mediate } from '@comunica/core';
 import { Actor } from '@comunica/core';
+
+// eslint-disable-next-line ts/no-require-imports
+import CachePolicy = require('http-cache-semantics');
 import { readableFromWeb } from 'readable-from-web';
 
 const isStream = require('is-stream');
@@ -129,6 +132,7 @@ export abstract class ActorHttp<TS = undefined> extends Actor<IActionHttp, IActo
 export interface IActionHttp extends IAction {
   input: RequestInfo;
   init?: RequestInit;
+  validate?: CachePolicy;
 }
 
 /**

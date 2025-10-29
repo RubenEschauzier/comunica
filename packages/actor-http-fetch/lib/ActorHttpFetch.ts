@@ -1,11 +1,18 @@
 import type { IActionHttp, IActorHttpOutput, IActorHttpArgs } from '@comunica/bus-http';
 import { ActorHttp } from '@comunica/bus-http';
-import { KeysHttp } from '@comunica/context-entries';
+import { KeysCaches, KeysHttp } from '@comunica/context-entries';
 import type { TestResult } from '@comunica/core';
 import { passTest } from '@comunica/core';
 import type { IMediatorTypeTime } from '@comunica/mediatortype-time';
 
-// eslint-disable-next-line import/extensions
+import type {
+  Request as CacheRequest,
+  Response as CacheResponse,
+} from 'http-cache-semantics';
+
+// eslint-disable-next-line ts/no-require-imports
+import CachePolicy = require('http-cache-semantics');
+
 import { version as actorVersion } from '../package.json';
 
 import { FetchInitPreprocessor } from './FetchInitPreprocessor';
@@ -59,10 +66,33 @@ export class ActorHttpFetch extends ActorHttp {
       timeoutHandle = setTimeout(() => timeoutCallback(), httpTimeout);
     }
 
+    const policyCache = action.context.get(KeysCaches.policyCache);
+    const storeCache = action.context.get(KeysCaches.storeCache);
+
+    if (action.validate &&
+        policyCache &&
+        storeCache &&
+        storeCache.get(ActorHttpFetch.getUrl(action.input))
+    ) {
+      const requestToValidateCache = ActorHttpFetch.requestToCacheRequest(
+        new Request(action.input, requestInit),
+      );
+    }
     const response = await fetchFunction(action.input, requestInit);
 
     if (httpTimeout && (!httpBodyTimeout || !response.body)) {
       clearTimeout(timeoutHandle);
+    }
+
+    if (policyCache && storeCache) {
+      const cacheRequest = ActorHttpFetch.requestToCacheRequest(
+        new Request(action.input, requestInit),
+      );
+      const newPolicyResponse = new CachePolicy(
+        cacheRequest,
+        ActorHttpFetch.responseToCacheResponse(response),
+      );
+      policyCache.set(ActorHttpFetch.getUrl(action.input), newPolicyResponse);
     }
 
     return { response };
@@ -103,6 +133,21 @@ export class ActorHttpFetch extends ActorHttp {
     const bytes = new TextEncoder().encode(value);
     const binString = Array.from(bytes, byte => String.fromCodePoint(byte)).join('');
     return btoa(binString);
+  }
+
+  public static requestToCacheRequest(request: Request): CacheRequest {
+    return { ...request, headers: this.headersToHash(request.headers) };
+  }
+
+  public static responseToCacheResponse(response: Response): CacheResponse {
+    return { ...response, headers: this.headersToHash(response.headers) };
+  }
+
+  public static getUrl(input: RequestInfo): string {
+    if (input instanceof Request) {
+      return input.url;
+    }
+    return input;
   }
 }
 
