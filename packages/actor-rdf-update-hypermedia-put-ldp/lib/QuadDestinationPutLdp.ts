@@ -78,7 +78,7 @@ export class QuadDestinationPutLdp implements IQuadDestination {
       input: this.url,
     });
 
-    await validateAndCloseHttpResponse(this.url, httpResponse);
+    await validateAndCloseHttpResponse(this.url, httpResponse.response!);
   }
 
   public async deleteGraphs(

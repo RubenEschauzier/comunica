@@ -134,8 +134,14 @@ export interface IActionHttp extends IAction {
 /**
  * The HTTP output, which contains the HTTP response.
  */
-export interface IActorHttpOutput extends IActorOutput, Response {
+export interface IActorHttpOutput extends IActorOutput {
+  response?: Response;
+  validationOutput?: IValidationOutput;
+}
 
+export interface IValidationOutput {
+  isValidated: boolean;
+  requestMade: boolean;
 }
 
 export type IActorHttpArgs<TS = undefined> = IActorArgs<IActionHttp, IActorTest, IActorHttpOutput, TS>;

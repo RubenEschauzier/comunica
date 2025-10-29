@@ -80,33 +80,42 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
     } catch (error: unknown) {
       return this.handleDereferenceErrors(action, error);
     }
+    const res = httpResponse.response;
+    if (!res) {
+      return {
+        url: action.url,
+        data: emptyReadable(),
+        exists,
+        requestTime: 0,
+      };
+    }
     // The response URL can be relative to the given URL
-    const url = resolveRelative(httpResponse.url, action.url);
+    const url = resolveRelative(res.url, action.url);
     const requestTime = Date.now() - requestTimeStart;
 
     // Only parse if retrieval was successful
-    if (httpResponse.status !== 200) {
+    if (res.status !== 200) {
       exists = false;
       // Consume the body, to avoid process to hang
-      const bodyString = httpResponse.body ?
-        await stringifyStream(ActorHttp.toNodeReadable(httpResponse.body)) :
+      const bodyString = res.body ?
+        await stringifyStream(ActorHttp.toNodeReadable(res.body)) :
         'empty response';
 
       if (!action.acceptErrors) {
-        const error = new Error(`Could not retrieve ${action.url} (HTTP status ${httpResponse.status}):\n${bodyString}`);
-        return this.handleDereferenceErrors(action, error, httpResponse.headers, requestTime);
+        const error = new Error(`Could not retrieve ${action.url} (HTTP status ${res.status}):\n${bodyString}`);
+        return this.handleDereferenceErrors(action, error, res.headers, requestTime);
       }
     }
 
-    const mediaType = REGEX_MEDIATYPE.exec(httpResponse.headers.get('content-type') ?? '')?.[0];
+    const mediaType = REGEX_MEDIATYPE.exec(res.headers.get('content-type') ?? '')?.[0];
 
     // Return the parsed quad stream and whether or not only triples are supported
     return {
       url,
-      data: exists ? ActorHttp.toNodeReadable(httpResponse.body) : emptyReadable(),
+      data: exists ? ActorHttp.toNodeReadable(res.body) : emptyReadable(),
       exists,
       requestTime,
-      headers: httpResponse.headers,
+      headers: res.headers,
       mediaType: mediaType === 'text/plain' ? undefined : mediaType,
     };
   }
