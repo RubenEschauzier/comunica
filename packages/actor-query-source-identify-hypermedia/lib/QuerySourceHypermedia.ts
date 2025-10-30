@@ -188,7 +188,6 @@ export class QuerySourceHypermedia implements IQuerySource {
             return storeCache.get(link.url)!;
           }
         }
-
         const dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
           .mediate({ context, url, validate: policy });
 

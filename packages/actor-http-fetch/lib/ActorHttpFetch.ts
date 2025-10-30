@@ -68,7 +68,6 @@ export class ActorHttpFetch extends ActorHttp {
 
     const policyCache = action.context.get(KeysCaches.policyCache);
     const storeCache = action.context.get(KeysCaches.storeCache);
-
     if (action.validate &&
         policyCache &&
         storeCache &&

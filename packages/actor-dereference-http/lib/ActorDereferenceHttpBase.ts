@@ -76,9 +76,22 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
         context: action.context,
         init: { headers, method: action.method },
         input: action.url,
+        validate: action.validate
       });
     } catch (error: unknown) {
       return this.handleDereferenceErrors(action, error);
+    }
+
+    // If validated request we are using cache
+    if (httpResponse.validationOutput?.isValidated){
+      return {
+        url: action.url,
+        data: emptyReadable(),
+        exists,
+        requestTime: 0,
+        validationOutput: httpResponse.validationOutput,
+        mediaType: 'text/turtle',
+      };
     }
     const res = httpResponse.response;
     if (!res) {
