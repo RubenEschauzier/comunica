@@ -8,7 +8,7 @@ import type {
 } from '@comunica/bus-rdf-join';
 import { ActorRdfJoin } from '@comunica/bus-rdf-join';
 import type { MediatorRdfJoinEntriesSort } from '@comunica/bus-rdf-join-entries-sort';
-import { KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
+import { KeysInitQuery, KeysQueryOperation, KeysRdfJoin } from '@comunica/context-entries';
 import type { TestResult } from '@comunica/core';
 import { passTestWithSideData, failTest } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
@@ -138,7 +138,9 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin<IActorRdfJoinMultiBindTe
     // Bind the remaining patterns for each binding in the stream
     const subContext = action.context
       .set(KeysQueryOperation.joinLeftMetadata, entries[0].metadata)
-      .set(KeysQueryOperation.joinRightMetadatas, remainingEntries.map(entry => entry.metadata));
+      .set(KeysQueryOperation.joinRightMetadatas, remainingEntries.map(entry => entry.metadata))
+      .set(KeysRdfJoin.isRecursiveJoin, true);
+
     const bindingsStream: BindingsStream = ActorRdfJoinMultiBind.createBindStream(
       this.bindOrder,
       smallestStream.bindingsStream,
