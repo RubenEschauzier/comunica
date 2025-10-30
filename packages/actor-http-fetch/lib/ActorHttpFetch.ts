@@ -74,9 +74,43 @@ export class ActorHttpFetch extends ActorHttp {
         storeCache &&
         storeCache.get(ActorHttpFetch.getUrl(action.input))
     ) {
+      const oldPolicy = action.validate;
       const requestToValidateCache = ActorHttpFetch.requestToCacheRequest(
         new Request(action.input, requestInit),
       );
+
+      // Empty response will be propegated by any wrappers without processing.
+      // Policy does not need to be updated
+      if (oldPolicy.satisfiesWithoutRevalidation(requestToValidateCache)) {
+        return { validationOutput: { isValidated: true, requestMade: false }};
+      }
+
+      // We have to validate the response and then return it
+      const revalidationHeaders = oldPolicy.revalidationHeaders(requestToValidateCache);
+      const revalidationRequestInit = { ...requestInit, headers: {
+        ...(<Record<string, string>> (requestInit?.headers)),
+        ...(<Record<string, string>> revalidationHeaders),
+      }};
+
+      const response = await fetchFunction(action.input, revalidationRequestInit);
+
+      if (httpTimeout && (!httpBodyTimeout || !response.body)) {
+        clearTimeout(timeoutHandle);
+      }
+
+      const { policy, modified } = oldPolicy.revalidatedPolicy(
+        ActorHttpFetch.requestToCacheRequest(new Request(action.input, revalidationRequestInit)),
+        ActorHttpFetch.responseToCacheResponse(response),
+      );
+        // Update the policy after revalidation
+      policyCache.set(ActorHttpFetch.getUrl(action.input), policy);
+
+      // If the server returned 304 we can reuse cache and don't have to parse the result
+      if (!modified) {
+        return { validationOutput: { isValidated: true, requestMade: true }};
+      }
+      // If it is modified we return the response and process like normal
+      return { response, validationOutput: { isValidated: false, requestMade: true }};
     }
     const response = await fetchFunction(action.input, requestInit);
 

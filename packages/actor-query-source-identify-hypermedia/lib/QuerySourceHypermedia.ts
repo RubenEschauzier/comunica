@@ -171,6 +171,7 @@ export class QuerySourceHypermedia implements IQuerySource {
     // Get http caches
     const storeCache = context.get(KeysCaches.storeCache);
     const policyCache = context.get(KeysCaches.policyCache);
+    let cacheSource = false;
 
     if (this.forceSourceType === 'sparql' && context.get(KeysQueryOperation.querySources)?.length === 1) {
       // Skip metadata extraction if we're querying over just a single SPARQL endpoint.
@@ -190,7 +191,10 @@ export class QuerySourceHypermedia implements IQuerySource {
 
         const dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediators.mediatorDereferenceRdf
           .mediate({ context, url, validate: policy });
+
         url = dereferenceRdfOutput.url;
+        cacheSource = dereferenceRdfOutput.exists;
+
         if (dereferenceRdfOutput.validationOutput?.isValidated) {
           const cachedSource = storeCache!.get(link.url);
           if (!cachedSource) {
@@ -300,6 +304,11 @@ export class QuerySourceHypermedia implements IQuerySource {
       // This is needed to make sure that things like QPF search forms are only applied once,
       // and next page links are followed after that.
       handledDatasets[dataset] = true;
+    }
+
+    if (cacheSource) {
+      // If storeCache is available cache the constructed source
+      storeCache?.set(link.url, { link, source, metadata: <MetadataBindings> metadata, handledDatasets });
     }
 
     return { link, source, metadata: <MetadataBindings> metadata, handledDatasets };
