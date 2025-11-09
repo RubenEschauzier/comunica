@@ -66,6 +66,10 @@ export const KeysCaches = {
    * Flag indicating if the cardinality estimation will be done using count queries over cached documents
    */
   useCacheCardinality: new ActionContextKey<boolean>('@comunica/actor-query-source-identify-rdfjs:useCacheCardinality'),
+  /**
+   * Flag that makes the query use a clean cache for this query execution
+   */
+  cleanCache: new ActionContextKey<boolean>('@comunica/actor-context-preprocess-set-defaults-traversal-cache:cleanCache'),
 };
 
 export const KeysHttp = {
