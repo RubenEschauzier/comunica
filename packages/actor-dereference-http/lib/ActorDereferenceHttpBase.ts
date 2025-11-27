@@ -76,14 +76,14 @@ export abstract class ActorDereferenceHttpBase extends ActorDereference implemen
         context: action.context,
         init: { headers, method: action.method },
         input: action.url,
-        validate: action.validate
+        validate: action.validate,
       });
     } catch (error: unknown) {
       return this.handleDereferenceErrors(action, error);
     }
 
     // If validated request we are using cache
-    if (httpResponse.validationOutput?.isValidated){
+    if (httpResponse.validationOutput?.isValidated) {
       return {
         url: action.url,
         data: emptyReadable(),

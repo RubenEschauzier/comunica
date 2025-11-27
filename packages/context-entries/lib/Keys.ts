@@ -22,6 +22,7 @@ import type {
   PartialResult,
   ILink,
   ISourceState,
+  ICacheStatistics,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 
@@ -69,7 +70,16 @@ export const KeysCaches = {
   /**
    * Flag that makes the query use a clean cache for this query execution
    */
-  cleanCache: new ActionContextKey<boolean>('@comunica/actor-context-preprocess-set-defaults-traversal-cache:cleanCache'),
+  cleanCache: new ActionContextKey<boolean>(
+    '@comunica/actor-context-preprocess-set-defaults-traversal-cache:cleanCache',
+  ),
+  /**
+   * Object that holds information on caching performance on a per query basis. This information will be logged
+   * and returned as metadata when run as sparql endpoint.
+   */
+  cacheStatistics: new ActionContextKey<ICacheStatistics>(
+    '@comunica/actor-context-preprocess-set-defaults:cacheStatistics',
+  ),
 };
 
 export const KeysHttp = {

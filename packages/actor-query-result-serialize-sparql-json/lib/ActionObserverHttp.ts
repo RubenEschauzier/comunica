@@ -1,5 +1,6 @@
 import type { IActionHttp, IActorHttpOutput } from '@comunica/bus-http';
 import type { ActorHttpInvalidateListenable } from '@comunica/bus-http-invalidate';
+import { KeysCaches } from '@comunica/context-entries';
 import type { Actor, IActionObserverArgs, IActorTest } from '@comunica/core';
 import { ActionObserver } from '@comunica/core';
 
@@ -30,24 +31,26 @@ export class ActionObserverHttp extends ActionObserver<IActionHttp, IActorHttpOu
 
   public onRun(
     actor: Actor<IActionHttp, IActorTest, IActorHttpOutput, undefined>,
-    _action: IActionHttp,
+    action: IActionHttp,
     output: Promise<IActorHttpOutput>,
   ): void {
     if (this.observedActors.includes(actor.name)) {
+      const cacheStatistics = action.context.getSafe(KeysCaches.cacheStatistics);
       this.requests++;
-      output.then(httpOutput => {
-        if (httpOutput.validationOutput && httpOutput.validationOutput.isValidated){
-          if (httpOutput.validationOutput.requestMade){
+      output.then((httpOutput) => {
+        if (httpOutput.validationOutput && httpOutput.validationOutput.isValidated) {
+          if (httpOutput.validationOutput.requestMade) {
             this.cacheHitsRequest++;
-          } else{
+          } else {
             this.cacheHitsNoRequest++;
           }
         }
+        cacheStatistics.hitRate = (this.cacheHitsNoRequest + this.cacheHitsRequest) / this.requests;
+        cacheStatistics.hitRateNoRevalidation = this.cacheHitsNoRequest / this.requests;
       })
-      .catch(err => {
+        .catch(() => {
         // Catch fetch errors, otherwise all fetch failures are hard errors.
-      });
-
+        });
     }
   }
 }

@@ -1,9 +1,9 @@
+import type { IValidationOutput } from '@comunica/bus-http';
 import type { IAction, IActorArgs, IActorOutput, IActorTest, Mediate } from '@comunica/core';
 
 // eslint-disable-next-line ts/no-require-imports
 import CachePolicy = require('http-cache-semantics');
 import { ActorDereferenceBase } from './ActorDereferenceBase';
-import { IValidationOutput } from '@comunica/bus-http';
 
 /**
  * A base actor for dereferencing URLs to (generic) streams.

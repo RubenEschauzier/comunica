@@ -6,9 +6,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import * as querystring from 'node:querystring';
 import type { Writable } from 'node:stream';
 import * as url from 'node:url';
-import { KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
+import { KeysCaches, KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
-import type { ICliArgsHandler, QueryQuads, QueryType } from '@comunica/types';
+import type { ICliArgsHandler, QueryQuads, QueryType, ICacheStatistics } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { ArrayIterator } from 'asynciterator';
 import { Algebra } from 'sparqlalgebrajs';
@@ -41,6 +41,9 @@ export class HttpServiceSparqlEndpoint {
   public readonly engine: Promise<QueryEngineBase>;
 
   public readonly context: any;
+  // Temporary thing so I can see what my cache is doing during query execution. Should not
+  // be pushed anywhere
+  public cacheStatistics: ICacheStatistics;
   public readonly timeout: number;
   public readonly port: number;
   public readonly workers: number;
@@ -55,6 +58,13 @@ export class HttpServiceSparqlEndpoint {
 
   public constructor(args: IHttpServiceSparqlEndpointArgs) {
     this.context = args.context || {};
+    this.cacheStatistics = {
+      hitRate: 0,
+      hitRateNoRevalidation: 0,
+      evictions: 0,
+      evictionsTriples: 0,
+      evictionPercentage: 0,
+    };
     this.timeout = args.timeout ?? 60_000;
     this.port = args.port ?? 3_000;
     this.workers = args.workers ?? 1;
@@ -230,6 +240,8 @@ export class HttpServiceSparqlEndpoint {
             try {
               if (worker.isConnected()) {
                 stderr.write(`Worker ${worker.process.pid} timed out for query ${queryId}.\n`);
+                stderr.write(`Cache statistics:`)
+                stderr.write(JSON.stringify(this.cacheStatistics));
                 worker.send('shutdown');
               }
             } catch (error: unknown) {
@@ -239,6 +251,8 @@ export class HttpServiceSparqlEndpoint {
           }, this.timeout);
         } else if (type === 'end' && workerTimeouts[queryId]) {
           stderr.write(`Worker ${worker.process.pid} has completed query ${queryId}.\n`);
+          stderr.write(`Cache statistics: \n`);
+          stderr.write(`${JSON.stringify(this.cacheStatistics)} \n`);
           clearTimeout(workerTimeouts[queryId]);
           delete workerTimeouts[queryId];
         }
@@ -455,9 +469,21 @@ export class HttpServiceSparqlEndpoint {
     if (readOnly) {
       context = { ...context, [KeysQueryOperation.readOnly.name]: readOnly };
     }
+    const cacheStatistics: ICacheStatistics = {
+      hitRate: 0,
+      hitRateNoRevalidation: 0,
+      evictions: 0,
+      evictionsTriples: 0,
+      evictionPercentage: 0,
+      testId: 50,
+    };
+    this.cacheStatistics = cacheStatistics;
+    context = { ...context, [KeysCaches.cacheStatistics.name]: cacheStatistics };
 
     let result: QueryType;
     try {
+      console.log("WEEE WOOO")
+      console.log(context);
       result = await engine.query(queryBody.value, context);
 
       // For update queries, also await the result
@@ -512,7 +538,11 @@ export class HttpServiceSparqlEndpoint {
 
     let eventEmitter: EventEmitter | undefined;
     try {
-      const { data } = await engine.resultToString(result, mediaType);
+      const { data } = await engine.resultToString(
+        result,
+        mediaType,
+        { [KeysCaches.cacheStatistics.name]: this.cacheStatistics },
+      );
       data.on('error', (error: Error) => {
         stdout.write(`[500] Server error in results: ${error.message} \n`);
         if (!response.writableEnded) {

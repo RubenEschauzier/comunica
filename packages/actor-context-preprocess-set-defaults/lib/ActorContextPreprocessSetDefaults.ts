@@ -7,7 +7,7 @@ import { ActorContextPreprocess } from '@comunica/bus-context-preprocess';
 import { KeysCaches, KeysCore, KeysInitQuery, KeysQuerySourceIdentify } from '@comunica/context-entries';
 import type { IAction, IActorTest, TestResult } from '@comunica/core';
 import { passTestVoid } from '@comunica/core';
-import type { FunctionArgumentsCache, ISourceState, Logger } from '@comunica/types';
+import type { FunctionArgumentsCache, ICacheStatistics, ISourceState, Logger } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { LRUCache } from 'lru-cache';
 import { DataFactory } from 'rdf-data-factory';
@@ -31,7 +31,15 @@ export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
 
   public async run(action: IActionContextPreprocess): Promise<IActorContextPreprocessOutput> {
     let context = action.context;
-
+    const cacheStatistics: ICacheStatistics = {
+      hitRate: 0,
+      hitRateNoRevalidation: 0,
+      evictions: 0,
+      evictionsTriples: 0,
+      evictionPercentage: 0,
+    };
+    console.log("CONTEXT KEYS IN PREPROCESS!!")
+    console.log(context.keys())
     if (action.initialize) {
       // Set default values
       context = context
@@ -44,9 +52,9 @@ export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
         .setDefault(KeysInitQuery.dataFactory, new DataFactory())
         .setDefault(
           KeysCaches.withinQueryStoreCache,
-          new LRUCache<string, Promise<ISourceState>>({ max: this.withinQueryMaxCacheSize })
-        );
-
+          new LRUCache<string, Promise<ISourceState>>({ max: this.withinQueryMaxCacheSize }),
+        )
+        .setDefault(KeysCaches.cacheStatistics, cacheStatistics);
 
       // Handle default query format
       let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };

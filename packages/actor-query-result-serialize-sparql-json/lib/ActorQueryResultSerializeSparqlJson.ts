@@ -15,6 +15,7 @@ import type * as RDF from '@rdfjs/types';
 import { wrap } from 'asynciterator';
 import { Readable } from 'readable-stream';
 import type { ActionObserverHttp } from './ActionObserverHttp';
+import { KeysCaches } from '@comunica/context-entries';
 
 /**
  * A comunica sparql-results+xml Serialize Actor.
@@ -114,12 +115,36 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
           .map(([ key, value ]) => [ key.value, ActorQueryResultSerializeSparqlJson.bindingToJsonBindings(value) ])))}`;
           first = false;
           return res;
-        }).append(wrap(end(() => `\n]}${this.emitMetadata ? `,\n"metadata": {
-           "httpRequests": ${this.httpObserver.requests}, 
-           "cacheHitsRequest": ${this.httpObserver.cacheHitsRequest}, 
-           "cacheHitsNoRequest": ${this.httpObserver.cacheHitsNoRequest}
-          ` : ''}}\n`))),
+        }).append(wrap(end(() => {
+          const cacheStatistics = action.context.getSafe(KeysCaches.cacheStatistics)
+          const snapShotCaching = {
+            httpRequests: this.httpObserver.requests,
+            cacheHitsRequest: this.httpObserver.cacheHitsRequest,
+            cacheHitsNoRequest: this.httpObserver.cacheHitsNoRequest,
+            hitRate: (this.httpObserver.cacheHitsRequest + this.httpObserver.cacheHitsNoRequest) /
+             this.httpObserver.requests,
+            hitRateNoReval: this.httpObserver.cacheHitsNoRequest / this.httpObserver.requests,
+            evictions: cacheStatistics.evictions,
+            evictionsTriples: cacheStatistics.evictionsTriples,
+            evictionsPercentage: cacheStatistics.evictionPercentage,
+          };
+          return `\n]}${this.emitMetadata ? `,\n"metadata": ${JSON.stringify(snapShotCaching)}` : ''}}\n`;
+        }))),
       );
+      // // Write bindings
+      // data.wrap(
+      //   // JSON SPARQL results spec does not allow unbound variables and blank node bindings
+      //   <any> wrap(resultStream).map((bindings) => {
+      //     const res = `${first ? '' : ',\n'}${JSON.stringify(Object.fromEntries([ ...bindings ]
+      //     .map(([ key, value ]) => [ key.value, ActorQueryResultSerializeSparqlJson.bindingToJsonBindings(value) ])))}`;
+      //     first = false;
+      //     return res;
+      //   }).append(wrap(end(() => `\n]}${this.emitMetadata ? `,\n"metadata": {
+      //      "httpRequests": ${this.httpObserver.requests}, 
+      //      "cacheHitsRequest": ${this.httpObserver.cacheHitsRequest}, 
+      //      "cacheHitsNoRequest": ${this.httpObserver.cacheHitsNoRequest}
+      //     ` : ''}}\n`))),
+      // );
     } else {
       data.wrap(<any> wrap((<IQueryOperationResultBoolean> action).execute().then(value => [ `"boolean":${value}\n}\n` ])));
     }
