@@ -38,8 +38,6 @@ export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
       evictionsTriples: 0,
       evictionPercentage: 0,
     };
-    console.log("CONTEXT KEYS IN PREPROCESS!!")
-    console.log(context.keys())
     if (action.initialize) {
       // Set default values
       context = context
@@ -54,7 +52,6 @@ export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
           KeysCaches.withinQueryStoreCache,
           new LRUCache<string, Promise<ISourceState>>({ max: this.withinQueryMaxCacheSize }),
         )
-        .setDefault(KeysCaches.cacheStatistics, cacheStatistics);
 
       // Handle default query format
       let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };

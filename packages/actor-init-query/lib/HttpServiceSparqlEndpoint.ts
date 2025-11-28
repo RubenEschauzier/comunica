@@ -58,13 +58,6 @@ export class HttpServiceSparqlEndpoint {
 
   public constructor(args: IHttpServiceSparqlEndpointArgs) {
     this.context = args.context || {};
-    this.cacheStatistics = {
-      hitRate: 0,
-      hitRateNoRevalidation: 0,
-      evictions: 0,
-      evictionsTriples: 0,
-      evictionPercentage: 0,
-    };
     this.timeout = args.timeout ?? 60_000;
     this.port = args.port ?? 3_000;
     this.workers = args.workers ?? 1;
@@ -240,8 +233,6 @@ export class HttpServiceSparqlEndpoint {
             try {
               if (worker.isConnected()) {
                 stderr.write(`Worker ${worker.process.pid} timed out for query ${queryId}.\n`);
-                stderr.write(`Cache statistics:`)
-                stderr.write(JSON.stringify(this.cacheStatistics));
                 worker.send('shutdown');
               }
             } catch (error: unknown) {
@@ -251,8 +242,6 @@ export class HttpServiceSparqlEndpoint {
           }, this.timeout);
         } else if (type === 'end' && workerTimeouts[queryId]) {
           stderr.write(`Worker ${worker.process.pid} has completed query ${queryId}.\n`);
-          stderr.write(`Cache statistics: \n`);
-          stderr.write(`${JSON.stringify(this.cacheStatistics)} \n`);
           clearTimeout(workerTimeouts[queryId]);
           delete workerTimeouts[queryId];
         }
@@ -308,6 +297,8 @@ export class HttpServiceSparqlEndpoint {
         for (const connection of openConnections) {
           await new Promise<void>(resolve => connection.end('!TIMEDOUT!', resolve));
         }
+        stderr.write(`Cache statistics: \n`);
+        stderr.write(`${JSON.stringify(this.cacheStatistics)} \n`);
 
         // Kill the worker once the connections have been closed
         process.exit(15);
@@ -482,8 +473,6 @@ export class HttpServiceSparqlEndpoint {
 
     let result: QueryType;
     try {
-      console.log("WEEE WOOO")
-      console.log(context);
       result = await engine.query(queryBody.value, context);
 
       // For update queries, also await the result
@@ -562,6 +551,8 @@ export class HttpServiceSparqlEndpoint {
 
     // Send message to master process to indicate the end of an execution
     response.on('close', () => {
+      stderr.write(`Finished query; cache statistics: \n`);
+      stderr.write(`${JSON.stringify(this.cacheStatistics)} \n`);
       process.send!({ type: 'end', queryId });
     });
 

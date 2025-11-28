@@ -116,7 +116,7 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
           first = false;
           return res;
         }).append(wrap(end(() => {
-          const cacheStatistics = action.context.getSafe(KeysCaches.cacheStatistics)
+          const cacheStatistics = action.context.getSafe(KeysCaches.cacheStatistics);
           const snapShotCaching = {
             httpRequests: this.httpObserver.requests,
             cacheHitsRequest: this.httpObserver.cacheHitsRequest,
