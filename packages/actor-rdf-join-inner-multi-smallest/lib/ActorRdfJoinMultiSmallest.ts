@@ -43,9 +43,8 @@ export class ActorRdfJoinMultiSmallest extends ActorRdfJoin<IActorRdfJoinMultiSm
    * Finds join indexes of lowest cardinality result sets, with priority on result sets that have common variables
    * @param entries A sorted array of entries, sorted on cardinality
    */
-  public getJoinIndexes(entries: IJoinEntryWithMetadata[]): [number, number] {
-    // Iterate over all combinations of join indexes,
-    // return the first combination that does not lead to a cartesian product
+  public getJoinIndexes(entries: IJoinEntryWithMetadata[]) {
+    // Iterate over all combinations of join indexes, return the first combination that does not lead to a cartesian product
     for (let i = 0; i < entries.length; i++) {
       for (let j = i + 1; j < entries.length; j++) {
         if (this.hasCommonVariables(entries[i], entries[j])) {

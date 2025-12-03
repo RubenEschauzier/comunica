@@ -3,7 +3,7 @@ import type { Bindings } from '@comunica/utils-bindings-factory';
 
 import { AsyncIterator } from 'asynciterator';
 import type { EddieOperatorStream } from './EddieOperatorStream';
-import type { IEddieRouter, IEddieRoutingEntry } from './EddieRouters';
+import type { IEddieRouter, IEddieRoutingEntry } from './routers/BaseRouter';
 
 export class EddieControllerStream extends AsyncIterator<Bindings> {
   private readonly eddieIterators: EddieOperatorStream[];
@@ -12,21 +12,30 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
   private routingTable: Record<string, IEddieRoutingEntry[]>;
 
   private endTuples: boolean;
+  /**
+   * Array indicating if operator stream at index i has finished
+   * reading the data from its corresponding join entry
+   */
   private finishedReading: number[];
 
   /**
    * The number of processed bindings since the last update
    */
-  private bindingsSinceUpdate: number = 0;
+  private bindingsSinceUpdate = 0;
   /**
    * How often the routing table should be updated.
    */
-  private routingUpdateFrequency: number = 1000;
+  private readonly routingUpdateFrequency: number;
+  /**
+   * Object tracking what orders were used during query execution
+   */
+  private readonly orders: Record<string, number> = {};
+  private nResults = 0;
 
   public constructor(
     eddieIterators: EddieOperatorStream[],
     router: IEddieRouter,
-    updateFrequency: number
+    updateFrequency: number,
   ) {
     super();
     this.eddieIterators = eddieIterators;
@@ -56,35 +65,49 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
         }
       });
     }
+    this.on('end', () => this._end());
   }
 
-  override _end() {
-    super._end();
+  public override _end(): void {
     for (const it of this.eddieIterators) {
       it.destroy();
     }
+    super._end();
   }
 
-  override read() {
+  public override read(): null | Bindings {
     while (true) {
       let item: Bindings | null = null;
       let producedResults = false;
-      for (let i = 0; i < this.eddieIterators.length; i++) {
-        item = this.eddieIterators[i].read();
+      for (const eddieIterator of this.eddieIterators) {
+        item = eddieIterator.read();
         if (item === null) {
           continue;
         }
         this.bindingsSinceUpdate++;
         producedResults = true;
 
-        const nextEddie = this.routingTable[item.getContextEntry(eddiesContextKeys.eddiesMetadata)!.done];
+        const partialResultMetadata = item.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
+        const nextEddie = this.routingTable[partialResultMetadata.done];
+
+        // Track orders used during query execution for debugging purposes
+        const orderAsString = JSON.stringify(partialResultMetadata.order!);
+
+        if (!this.orders[orderAsString]) {
+          this.orders[orderAsString] = 0;
+        }
+
+        this.orders[orderAsString]++;
+
         // All done bits equal to 1
         if (nextEddie === undefined) {
+          this.nResults++;
           return item;
         }
         this.eddieIterators[nextEddie[0].next].push({ item, joinVars: nextEddie[0].joinVars });
-        if (this.bindingsSinceUpdate >= this.routingUpdateFrequency){
-          this.routingTable = this.router.updateRouteTable(this.eddieIterators);
+
+        if (this.bindingsSinceUpdate >= this.routingUpdateFrequency) {
+          this.routingTable = this.router.updateRouteTable(this.eddieIterators, this.routingTable);
           this.bindingsSinceUpdate = 0;
         }
       }
@@ -93,6 +116,7 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
       // this stream is not readable.
       if (this.endTuples && item === null) {
         this._end();
+        return null;
       }
 
       if (this.done || !producedResults) {
@@ -114,9 +138,21 @@ export interface ITimestampGenerator {
 export class TimestampGenerator implements ITimestampGenerator {
   private counter = 0;
 
-  next(): number {
+  public next(): number {
     return this.counter++;
   }
+}
+
+function _bitmaskToVector(doneMask: number, totalCount: number): number[] {
+  const vector: number[] = [];
+  // Iterate through bit positions 0 to N-1
+  for (let i = 0; i < totalCount; i++) {
+    // Shift the mask right by 'i' and check if the last bit is 1
+    const bit = (doneMask >> i) & 1;
+    vector.push(bit);
+  }
+
+  return vector;
 }
 
 export interface IEddieBindingsMetadata {

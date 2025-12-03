@@ -2,19 +2,18 @@ import type { MediatorHashBindings } from '@comunica/bus-hash-bindings';
 import type { IActionRdfJoin, IActorRdfJoinArgs, IActorRdfJoinOutputInner, IActorRdfJoinTestSideData, MediatorRdfJoin } from '@comunica/bus-rdf-join';
 import { ActorRdfJoin } from '@comunica/bus-rdf-join';
 import type { MediatorRdfJoinEntriesSort } from '@comunica/bus-rdf-join-entries-sort';
+import { KeysInitQuery } from '@comunica/context-entries';
 import type { TestResult } from '@comunica/core';
 import { passTestWithSideData } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
 import type { BindingsStream, ComunicaDataFactory, IActionContext, IJoinEntry, IJoinEntryWithMetadata } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { DataFactory } from 'rdf-data-factory';
+import { Factory } from 'sparqlalgebrajs';
 import { EddieControllerStream, TimestampGenerator } from './EddieControllerStream';
 import type { JoinFunction } from './EddieOperatorStream';
 import { EddieOperatorStream } from './EddieOperatorStream';
-import { IEddieRouter, RouteFixedMinimalIndex, RouteLotteryScheduling, RouteLotterySchedulingSignature } from './EddieRouters';
-import { Factory } from 'sparqlalgebrajs';
-import { KeysInitQuery } from '@comunica/context-entries';
-
+import type { IEddieRouterFactory } from './routers/BaseRouter';
 
 /**
  * A comunica Inner Multi Stems RDF Join Actor.
@@ -23,7 +22,8 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
   public readonly mediatorHashBindings: MediatorHashBindings;
   public readonly mediatorJoinEntriesSort: MediatorRdfJoinEntriesSort;
   public readonly mediatorJoin: MediatorRdfJoin;
-  public readonly router: IEddieRouter;
+  public readonly routerFactory: IEddieRouterFactory;
+  public readonly routerUpdateFrequency: number;
 
   private readonly DF = new DataFactory();
 
@@ -62,23 +62,24 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     // to the streams with smallest cardinality first.
     const sortedEntries: IJoinEntryWithMetadata[] = await this.sortJoinEntries(action.entries
       .map((entry, i) => ({ ...entry, metadata: metadatas[i] })), action.context);
-    
     const connectedComponents = ActorRdfJoin.findConnectedComponentsInJoinGraph(sortedEntries);
 
     const { hashFunction } = await this.mediatorHashBindings.mediate({ context: action.context });
     const timestampGenerator = new TimestampGenerator();
-    this.router.init(action.entries.length);
-    
     // Each eddie controller stream is responsible for one connected component of the join graph.
     const eddieControllerStreams = [];
     // The inputs to each controller
     const eddieEntriesInput: IJoinEntryWithMetadata[][] = [];
-    for (let j = 0; j < connectedComponents.entries.length; j++){
-      const entryJoinVariables: RDF.Variable[][][] = await this.getJoinVariables(connectedComponents.entries[j]);
+    for (const connectedComponentEntries of connectedComponents.entries) {
+      let mainEd = false;
+      if (action.entries.length === 5) {
+        mainEd = true;
+      }
+      const entryJoinVariables: RDF.Variable[][][] = await this.getJoinVariables(connectedComponentEntries);
       const stemOperators: EddieOperatorStream[] = [];
       const inputStreams = [];
 
-      for (const [ i, entry ] of connectedComponents.entries[j].entries()) {
+      for (const [ i, entry ] of connectedComponentEntries.entries()) {
         stemOperators.push(
           new EddieOperatorStream(
             entry.output.bindingsStream,
@@ -92,14 +93,15 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
         );
         inputStreams.push(entry);
       }
-      const controllerStream = new EddieControllerStream(stemOperators, this.router, 1000);
+      const router = this.routerFactory.createRouter();
+      const controllerStream = new EddieControllerStream(stemOperators, router, this.routerUpdateFrequency);
       eddieControllerStreams.push(controllerStream);
       eddieEntriesInput.push(inputStreams);
     }
 
-    // In most cases, we will have 1 connected component (no cart joins) and we just return the 
+    // In most cases, we will have 1 connected component (no cart joins) and we just return the
     // controller as join result
-    if (eddieControllerStreams.length === 1){
+    if (eddieControllerStreams.length === 1) {
       return {
         result: {
           type: 'bindings',
@@ -114,13 +116,13 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     }
     const dataFactory: ComunicaDataFactory = action.context.getSafe(KeysInitQuery.dataFactory);
     const algebraFactory = new Factory(dataFactory);
-    
+
     const connectedComponentEntries = [];
-    for (let i = 0; i<eddieControllerStreams.length; i++){
+    for (const [ i, eddieControllerStream ] of eddieControllerStreams.entries()) {
       // Construct metadata from the entries joined by the controller stream.
       const controllerAsEntry: IJoinEntry = {
         output: {
-          bindingsStream: <BindingsStream><unknown>eddieControllerStreams[i],
+          bindingsStream: <BindingsStream><unknown>eddieControllerStream,
           type: 'bindings',
           metadata: async() => await this.constructResultMetadata(
             eddieEntriesInput[i],
@@ -129,7 +131,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
           ),
         },
         operation: algebraFactory
-          .createJoin(eddieEntriesInput[i].map(x=>x.operation), false),
+          .createJoin(eddieEntriesInput[i].map(x => x.operation), false),
       };
       connectedComponentEntries.push(controllerAsEntry);
     }
@@ -139,7 +141,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
         entries: connectedComponentEntries,
         context: action.context,
       }),
-    };      
+    };
   }
 
   protected async getJoinCoefficients(
@@ -183,7 +185,6 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     }
     return entryJoinVariables;
   }
-
 }
 
 export interface IActorRdfJoinMultiStemsArgs extends IActorRdfJoinArgs<IActorRdfJoinMultiStemsTestSideData> {
@@ -202,8 +203,11 @@ export interface IActorRdfJoinMultiStemsArgs extends IActorRdfJoinArgs<IActorRdf
   /**
    * The routing strategy used
    */
-  router: IEddieRouter
-
+  routerFactory: IEddieRouterFactory;
+  /**
+   * Update frequency of routing table, lower values mean more routing policy switches
+   */
+  routerUpdateFrequency: number;
 }
 
 export interface IActorRdfJoinMultiStemsTestSideData extends IActorRdfJoinTestSideData {

@@ -229,15 +229,16 @@ TS
     }
     return state;
   }
+
   /**
    * Find all connected components of the join graph using the find-union datastructure
-   * @param entries 
-   * @returns 
+   * @param entries
+   * @returns
    */
   static findConnectedComponentsInJoinGraph(
     entries: IJoinEntryWithMetadata[],
   ): IConnectedComponents {
-    function find(idx: number, parent: number[]): number{
+    function find(idx: number, parent: number[]): number {
       if (parent[idx] === idx) {
         return idx;
       }
@@ -245,42 +246,41 @@ TS
       return parent[idx];
     }
 
-    function union(a: number, b: number, parent: number[], size: number[]){
-      let rootA = find(a, parent);
-      let rootB = find(b, parent);
-      if (rootA === rootB){
+    function union(a: number, b: number, parent: number[], size: number[]) {
+      const rootA = find(a, parent);
+      const rootB = find(b, parent);
+      if (rootA === rootB) {
         return;
       }
-      if (size[rootA] > size[rootB]){
+      if (size[rootA] > size[rootB]) {
         parent[rootB] = rootA;
         size[rootA] += size[rootB];
-      }
-      else{
+      } else {
         parent[rootA] = rootB;
-        size[rootB] += size[rootA]
+        size[rootB] += size[rootA];
       }
     }
 
     const n = entries.length;
     const parent: number[] = Array.from({ length: n }, (_, i) => i);
-    const size: number[] = Array.from({ length: n }, () => 1); 
+    const size: number[] = Array.from({ length: n }, () => 1);
 
     const variableToEntry: Map<string, number[]> = new Map();
 
     // Map variables to their entries to know which entries to merge
-    for (let i = 0; i < n; i++){
+    for (let i = 0; i < n; i++) {
       const entryVariables = entries[i].metadata.variables.map(variable => variable.variable.value);
-      for (let j = 0; j < entryVariables.length; j++){
-        if (!variableToEntry.has(entryVariables[j])){
-          variableToEntry.set(entryVariables[j], []);
+      for (const entryVariable of entryVariables) {
+        if (!variableToEntry.has(entryVariable)) {
+          variableToEntry.set(entryVariable, []);
         }
-        variableToEntry.get(entryVariables[j])!.push(i);
+        variableToEntry.get(entryVariable)!.push(i);
       }
     }
 
     // Union all entries associated with a variable
-    for (const entryIndexes of variableToEntry.values()){
-      for (let k = 1; k < entryIndexes.length; k++){
+    for (const entryIndexes of variableToEntry.values()) {
+      for (let k = 1; k < entryIndexes.length; k++) {
         union(entryIndexes[0], entryIndexes[k], parent, size);
       }
     }
@@ -288,9 +288,9 @@ TS
     // Reconstruct connected components from union-find datastructure
     const connectedComponents: Map<number, IJoinEntryWithMetadata[]> = new Map();
     const connectedComponentsIndexes: Map<number, number[]> = new Map();
-    for (let l = 0; l<n; l++){
+    for (let l = 0; l < n; l++) {
       const parentOfEntry = find(l, parent);
-      if (!connectedComponents.has(parentOfEntry)){
+      if (!connectedComponents.has(parentOfEntry)) {
         connectedComponents.set(parentOfEntry, []);
         connectedComponentsIndexes.set(parentOfEntry, []);
       }
@@ -298,9 +298,9 @@ TS
       connectedComponentsIndexes.get(parentOfEntry)!.push(l);
     }
     return {
-      entries: Array.from(connectedComponents.values()), 
-      indexes: Array.from(connectedComponentsIndexes.values())
-    }
+      entries: [ ...connectedComponents.values() ],
+      indexes: [ ...connectedComponentsIndexes.values() ],
+    };
   }
 
   /**
@@ -644,9 +644,9 @@ export interface IActorRdfJoinTestSideData {
   metadatas: MetadataBindings[];
 }
 
-export interface IConnectedComponents{
+export interface IConnectedComponents {
   entries: IJoinEntryWithMetadata[][];
-  indexes: number[][]
+  indexes: number[][];
 }
 
 export type MediatorRdfJoin = Mediate<IActionRdfJoin, IQueryOperationResultBindings, IMediatorTypeJoinCoefficients>;
