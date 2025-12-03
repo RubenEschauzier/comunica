@@ -4,6 +4,6 @@
 
     "https://linkedsoftwaredependencies.org/bundles/npm/@comunica/actor-rdf-join-inner-multi-stems/^4.0.0/components/context.jsonld"
   ],
-  "@id": "urn:comunica:default:rdf-join/adaptive-router#lottery-selectivity",
-  "@type": "RouteLotterySchedulingSignature"
+  "@id": "urn:comunica:default:rdf-join/adaptive-router#factory-lottery-signature",
+  "@type": "LotterySignatureRouterFactory"
 }

@@ -35,7 +35,6 @@ export class ActorQueryOperationSlice extends ActorQueryOperationTypedMediated<A
     if (operation.length) {
       context = context.set(KeysQueryOperation.limitIndicator, operation.length);
     }
-
     // Resolve the input
     const output: IQueryOperationResult = await this.mediatorQueryOperation
       .mediate({ operation: operation.input, context });

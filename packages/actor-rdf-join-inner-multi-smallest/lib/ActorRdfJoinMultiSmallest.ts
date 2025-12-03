@@ -43,23 +43,23 @@ export class ActorRdfJoinMultiSmallest extends ActorRdfJoin<IActorRdfJoinMultiSm
    * Finds join indexes of lowest cardinality result sets, with priority on result sets that have common variables
    * @param entries A sorted array of entries, sorted on cardinality
    */
-  public getJoinIndexes(entries: IJoinEntryWithMetadata[]){
+  public getJoinIndexes(entries: IJoinEntryWithMetadata[]) {
     // Iterate over all combinations of join indexes, return the first combination that does not lead to a cartesian product
-    for (let i = 0; i<entries.length; i++){
-      for (let j = i+1; j<entries.length; j++){
-        if (this.hasCommonVariables(entries[i], entries[j])){
-          return [i,j];
+    for (let i = 0; i < entries.length; i++) {
+      for (let j = i + 1; j < entries.length; j++) {
+        if (this.hasCommonVariables(entries[i], entries[j])) {
+          return [ i, j ];
         }
       }
     }
     // If all result sets are disjoint we just want the sets with lowest cardinality
-    return [0,1];
+    return [ 0, 1 ];
   }
 
-  public hasCommonVariables(entry1: IJoinEntryWithMetadata, entry2: IJoinEntryWithMetadata): boolean{
+  public hasCommonVariables(entry1: IJoinEntryWithMetadata, entry2: IJoinEntryWithMetadata): boolean {
     const variableNames1 = entry1.metadata.variables.map(x => x.variable.value);
-    const variableNames2 = entry2.metadata.variables.map(x => x.variable.value);
-    return variableNames1.some(v => variableNames2.includes(v));
+    const variableNames2 = new Set(entry2.metadata.variables.map(x => x.variable.value));
+    return variableNames1.some(v => variableNames2.has(v));
   }
 
   /**

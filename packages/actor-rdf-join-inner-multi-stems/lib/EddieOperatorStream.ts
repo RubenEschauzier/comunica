@@ -15,11 +15,11 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
    * The variables that this operator can do a join on
    */
   public joinVariables: RDF.Variable[][];
-  
-  /** 
+
+  /**
    * Number of 'lottery' tickets. Used for lottery scheduling
    */
-  public tickets: number = 0;
+  public tickets = 0;
   /**
    * Selectivity information per 'done' signature
    */
@@ -40,9 +40,13 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
 
   private readonly bitLoc: number;
 
+  /**
+   * Number of tuples produced by the triple pattern underlying this operator
+   */
+  private nProduced = 0;
 
   private match: Bindings | null = null;
-  private matchMetadata: IEddieBindingsMetadata | null = null; 
+  private matchMetadata: IEddieBindingsMetadata | null = null;
   private matches: Bindings[] = [];
   private matchIdx = 0;
 
@@ -78,18 +82,18 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
     this.bitLoc = bitLoc;
   }
 
-  override _end() {
+  public override _end(): void {
     super._end();
     this.sourceIterator.destroy();
   }
 
-  push(item: IEddieJoinEntry) {
+  public push(item: IEddieJoinEntry): void {
     // Push intermediate binding to buffer. We need to cast this to any
     // as the BufferedIterator does not know about the IEddieJoinEntry type.
     this._push(<any> item);
   }
 
-  override read() {
+  public override read(): null | Bindings {
     while (true) {
       if (this.ended) {
         return null;
@@ -98,7 +102,7 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
       while (this.matchIdx < this.matches.length) {
         const item = this.matches[this.matchIdx++];
         const itemMetadata = item.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
-        // const matchMetadata = this.match!.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
+        // Const matchMetadata = this.match!.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
 
         // If the timestamp of the interal index is newer (so larger)
         // than the intermediate result it is not a valid join candidate
@@ -112,7 +116,6 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
           // Produce result so increment out
           this.selectivities[this.matchMetadata!.done].out++;
 
-          
           // Here we can just use this.match context entries as we simply are going to
           // set a bit entry to 1, this prevents extra work copying the object. Furthmore
           // as we throw away the intermediate results, mutating the metadata is not a problem
@@ -148,6 +151,8 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
       item = <Bindings> item;
 
       if (!joinVars) {
+        this.nProduced++;
+
         const itemMetadata: IEddieBindingsMetadata = {
           done: 1 << this.bitLoc,
           timestamp: this.timestampGenerator.next(),
@@ -167,10 +172,10 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
           const result = this.tripleMap.get(hash)!;
           result.push(item);
         }
-
         return item;
       }
-      this.matchMetadata = item.getContextEntry(eddiesContextKeys.eddiesMetadata)! 
+
+      this.matchMetadata = item.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
       // We read from the buffer and got variables to join on.
       // So hash on the join variables.
       const hash = this.funHash(item, joinVars);
@@ -181,8 +186,8 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
       this.tickets += 1;
       // Update selectivity in counter
       const matchDone = this.matchMetadata.done;
-      if (!this.selectivities[matchDone]){
-        this.selectivities[matchDone] = {in: 0, out: 0}
+      if (!this.selectivities[matchDone]) {
+        this.selectivities[matchDone] = { in: 0, out: 0 };
       }
       this.selectivities[matchDone].in++;
     }
