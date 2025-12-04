@@ -104,6 +104,7 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
           this.nResults++;
           return item;
         }
+
         this.eddieIterators[nextEddie[0].next].push({ item, joinVars: nextEddie[0].joinVars });
 
         if (this.bindingsSinceUpdate >= this.routingUpdateFrequency) {

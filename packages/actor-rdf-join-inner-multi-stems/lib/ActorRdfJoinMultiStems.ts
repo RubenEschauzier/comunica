@@ -1,12 +1,24 @@
 import type { MediatorHashBindings } from '@comunica/bus-hash-bindings';
-import type { IActionRdfJoin, IActorRdfJoinArgs, IActorRdfJoinOutputInner, IActorRdfJoinTestSideData, MediatorRdfJoin } from '@comunica/bus-rdf-join';
+import type {
+  IActionRdfJoin,
+  IActorRdfJoinArgs,
+  IActorRdfJoinOutputInner,
+  IActorRdfJoinTestSideData,
+  MediatorRdfJoin,
+} from '@comunica/bus-rdf-join';
 import { ActorRdfJoin } from '@comunica/bus-rdf-join';
 import type { MediatorRdfJoinEntriesSort } from '@comunica/bus-rdf-join-entries-sort';
 import { KeysInitQuery } from '@comunica/context-entries';
 import type { TestResult } from '@comunica/core';
 import { passTestWithSideData } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
-import type { BindingsStream, ComunicaDataFactory, IActionContext, IJoinEntry, IJoinEntryWithMetadata } from '@comunica/types';
+import type {
+  BindingsStream,
+  ComunicaDataFactory,
+  IActionContext,
+  IJoinEntry,
+  IJoinEntryWithMetadata,
+} from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { DataFactory } from 'rdf-data-factory';
 import { Factory } from 'sparqlalgebrajs';
@@ -73,10 +85,6 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     // The inputs to each controller
     const eddieEntriesInput: IJoinEntryWithMetadata[][] = [];
     for (const connectedComponentEntries of connectedComponents.entries) {
-      let mainEd = false;
-      if (action.entries.length === 5) {
-        mainEd = true;
-      }
       const entryJoinVariables: RDF.Variable[][][] = await this.getJoinVariables(connectedComponentEntries);
       const stemOperators: EddieOperatorStream[] = [];
       const inputStreams = [];
