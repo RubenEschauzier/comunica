@@ -23,7 +23,11 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
   /**
    * Selectivity information per 'done' signature
    */
-  public selectivities: Record<number, ISelectivityData> = {};
+  public selectivitiesSignatures: Record<number, ISelectivityData> = {};
+  /**
+   * Selectivity information per 'order' signature
+   */
+  public selectivitiesOrders: Record<string, ISelectivityData> = {};
 
   /**
    * The variables present in the bindings produced by this operator.
@@ -114,7 +118,8 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
           // Produce result, so reduce ticket count
           this.tickets -= 1;
           // Produce result so increment out
-          this.selectivities[this.matchMetadata!.done].out++;
+          this.selectivitiesSignatures[this.matchMetadata!.done].out++;
+          this.selectivitiesOrders[this.matchMetadata!.order.join(',')].out++;
 
           // Here we can just use this.match context entries as we simply are going to
           // set a bit entry to 1, this prevents extra work copying the object. Furthmore
@@ -184,12 +189,18 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
       this.matchIdx = 0;
 
       this.tickets += 1;
-      // Update selectivity in counter
+      // Update selectivities in counter
       const matchDone = this.matchMetadata.done;
-      if (!this.selectivities[matchDone]) {
-        this.selectivities[matchDone] = { in: 0, out: 0 };
+      if (!this.selectivitiesSignatures[matchDone]) {
+        this.selectivitiesSignatures[matchDone] = { in: 0, out: 0 };
       }
-      this.selectivities[matchDone].in++;
+      this.selectivitiesSignatures[matchDone].in++;
+
+      const orderKey: string = this.matchMetadata.order!.join(','); 
+      if (!this.selectivitiesOrders[orderKey]) {
+        this.selectivitiesOrders[orderKey] = { in: 0, out: 0 };
+      }
+      this.selectivitiesOrders[orderKey].in++;
     }
   }
 }

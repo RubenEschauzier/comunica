@@ -367,4 +367,10 @@ export const KeysStatistics = {
   intermediateResults: new ActionContextKey<IStatisticBase<PartialResult>>(
     '@comunica/statistic:intermediateResults',
   ),
+  /**
+   * Whether the engine should skip some statistics tracking 
+   * (TODO: This implementation is a stub for adaptive tracking and skipping tracking for TypeIndex,
+   *  maybe interesting to extend it to all statistics)
+   */
+  skipStatisticTracking: new ActionContextKey<boolean>('@comunica/statistic:skipStatisticTracking'),
 };

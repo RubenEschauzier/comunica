@@ -8,7 +8,7 @@ import type {
 } from '@comunica/bus-rdf-join';
 import { ActorRdfJoin } from '@comunica/bus-rdf-join';
 import type { MediatorRdfJoinEntriesSort } from '@comunica/bus-rdf-join-entries-sort';
-import { KeysInitQuery } from '@comunica/context-entries';
+import { KeysInitQuery, KeysStatistics } from '@comunica/context-entries';
 import type { TestResult } from '@comunica/core';
 import { passTestWithSideData } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
@@ -67,6 +67,10 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     action: IActionRdfJoin,
     sideData: IActorRdfJoinMultiStemsTestSideData,
   ): Promise<IActorRdfJoinOutputInner> {
+    const skipLog = action.context.get(KeysStatistics.skipStatisticTracking);
+    const logger = ActorRdfJoinMultiStems.getContextLogger(action.context);
+    const queryString = action.context.get(KeysInitQuery.queryString);
+
     let { metadatas } = sideData;
     metadatas = [ ...metadatas ];
 
@@ -102,7 +106,19 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
         inputStreams.push(entry);
       }
       const router = this.routerFactory.createRouter();
-      const controllerStream = new EddieControllerStream(stemOperators, router, this.routerUpdateFrequency);
+      let logContext: Record<string, any> | undefined;
+      if (logger && !skipLog) {
+        logContext = {
+          query: queryString,
+        };
+      }
+      const controllerStream = new EddieControllerStream(
+        stemOperators,
+        router,
+        this.routerUpdateFrequency,
+        logger,
+        logContext
+      );
       eddieControllerStreams.push(controllerStream);
       eddieEntriesInput.push(inputStreams);
     }

@@ -4,6 +4,7 @@ import type { Bindings } from '@comunica/utils-bindings-factory';
 import { AsyncIterator } from 'asynciterator';
 import type { EddieOperatorStream } from './EddieOperatorStream';
 import type { IEddieRouter, IEddieRoutingEntry } from './routers/BaseRouter';
+import { Logger } from '@comunica/types';
 
 export class EddieControllerStream extends AsyncIterator<Bindings> {
   private readonly eddieIterators: EddieOperatorStream[];
@@ -12,6 +13,10 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
   private routingTable: Record<string, IEddieRoutingEntry[]>;
 
   private endTuples: boolean;
+  
+  private logger: Logger | undefined;
+  private logContext: Record<string, any> | undefined;
+  private loggedEndEvent: boolean = false;
   /**
    * Array indicating if operator stream at index i has finished
    * reading the data from its corresponding join entry
@@ -36,6 +41,8 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
     eddieIterators: EddieOperatorStream[],
     router: IEddieRouter,
     updateFrequency: number,
+    logger?: Logger,
+    logContext?: Record<string, any>,
   ) {
     super();
     this.eddieIterators = eddieIterators;
@@ -45,6 +52,9 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
     this.routingTable = this.router.createRouteTable(this.eddieIterators.map(x => x.variables));
 
     this.endTuples = false;
+
+    this.logger = logger;
+    this.logContext = logContext;
 
     if (this.eddieIterators.some(it => it.readable)) {
       this.readable = true;
@@ -69,6 +79,11 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
   }
 
   public override _end(): void {
+    if (!this.loggedEndEvent && this.logger && this.logContext){
+      this.buildPlanSummary();
+      // console.log(this.eddieIterators[0].selectivitiesOrders);
+      this.loggedEndEvent = true;
+    }
     for (const it of this.eddieIterators) {
       it.destroy();
     }
@@ -108,6 +123,9 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
         this.eddieIterators[nextEddie[0].next].push({ item, joinVars: nextEddie[0].joinVars });
 
         if (this.bindingsSinceUpdate >= this.routingUpdateFrequency) {
+          /**
+           * TODO: Get current plan quality. So we map from # of tuples to the plan summary at that period
+           */
           this.routingTable = this.router.updateRouteTable(this.eddieIterators, this.routingTable);
           this.bindingsSinceUpdate = 0;
         }
@@ -126,6 +144,88 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
       }
     }
   }
+
+  private buildPlanSummary(){
+    // TODO: This works for complete results, however it completely ignores incomplete results
+    // where a tuple dies before it can reach the end and no other tuples are routed that way again.
+    const orderSelectivities = this.eddieIterators.map(it => it.selectivitiesOrders);
+    const fullOrderSize = this.eddieIterators.length;
+    const fullOrders: IPlanStatistic[] = []
+    // Start iterating over base of each order
+    for (let i = 0; i < orderSelectivities.length; i++){
+      const fullSelectivities = this.extractFullOrderSignatures(orderSelectivities[i], fullOrderSize);
+      for (const fullSelectivity of fullSelectivities){
+        const orderAsArray = fullSelectivity.split(',').map(s => parseInt(s.trim(), 10));
+        const inFullOrder = orderSelectivities[i][fullSelectivity].in;
+        const outFullOrder = orderSelectivities[i][fullSelectivity].out;
+
+        const orderPlanStatistic: IPlanStatistic = {
+          order: orderAsArray,
+          orderElements: {
+            [fullSelectivity]: {
+              orderSignature: orderAsArray,
+              in: inFullOrder,
+              out: outFullOrder,
+              selectivity: outFullOrder/inFullOrder
+            }
+          },
+          totalIntermediate: inFullOrder,
+          totalOutput: outFullOrder,
+        }
+        fullOrders.push(orderPlanStatistic)
+      }
+    }
+    // Backtrack through the order to get the order's characteristics
+    for (const fullOrder of fullOrders){
+      console.log(fullOrder)
+      // We update the preceding order and add current order.
+      let orderArray = [...fullOrder.order];
+      while (orderArray.length > 1) {
+        // Get preceding operator
+        const currentOperator = orderArray[orderArray.length - 1];
+        const selectivitiesCurrentOperator = orderSelectivities[currentOperator];
+
+        //Create the preceding order array (the 'state' before the current step)
+        const precedingOrder = orderArray.slice(0, orderArray.length - 1);
+        const precedingOrderString = precedingOrder.join(',')
+        console.log(selectivitiesCurrentOperator)
+        console.log(precedingOrderString)
+        const selectivityOrder = selectivitiesCurrentOperator[precedingOrderString];
+        fullOrder.totalIntermediate += selectivityOrder.in;
+
+        fullOrder.orderElements[precedingOrderString] = {
+          orderSignature: precedingOrder,
+          in: selectivityOrder.in,
+          out: selectivityOrder.out,
+          selectivity: selectivityOrder.out / selectivityOrder.in
+        }
+        orderArray = precedingOrder; 
+        console.log(`Full order updated:`)
+        console.log(fullOrder)
+      }
+    }
+    console.log("Selectivity informations from eddies:")
+    console.log(orderSelectivities)
+    console.log("OrderPlanStats")
+    console.log(JSON.stringify(fullOrders, null, 2))
+  }
+
+  private extractFullOrderSignatures(
+    selectivities: Record<string, any>, 
+    totalSteMs: number
+  ): string[] {
+    return Object.keys(selectivities).filter(key => {
+      // 1. Split the key by comma to count the hops
+      const hops = key.split(',');
+
+      // A full order contains n - 1 indices, as the last is not included
+      if (hops.length !== totalSteMs - 1) {
+        return false;
+      }      
+      return true;
+    });
+  }
+
 }
 
 export const eddiesContextKeys = {
@@ -159,5 +259,22 @@ function _bitmaskToVector(doneMask: number, totalCount: number): number[] {
 export interface IEddieBindingsMetadata {
   done: number;
   timestamp: number;
-  order?: number[];
+  order: number[];
+}
+
+/**
+ * Interface denoting a given plan in the execution space and some statistics.
+ */
+export interface IPlanStatistic {
+  order: number[];
+  orderElements: Record<string, IOrderStatistic>;
+  totalIntermediate: number;
+  totalOutput: number
+}
+
+export interface IOrderStatistic {
+  orderSignature: number[]
+  in: number;
+  out: number;
+  selectivity: number;
 }

@@ -36,7 +36,7 @@ export class RouterLotterySchedulingSignature extends RouterLotteryScheduling {
   }
 
   protected collectMetadata(operators: EddieOperatorStream[]): { selectivity: Record<number, ISelectivityData> }[] {
-    return operators.map(op => ({ selectivity: op.selectivities }));
+    return operators.map(op => ({ selectivity: op.selectivitiesSignatures }));
   }
 
   protected shuffle<T>(array: T[]): T[] {
