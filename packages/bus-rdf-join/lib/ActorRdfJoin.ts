@@ -71,6 +71,11 @@ TS
    * If this join operator must only be used for join entries with (at least partially) common variables.
    */
   protected readonly requiresVariableOverlap?: boolean;
+  /**
+   * If this join operator can handle join entries with `operationModified` set to true.
+   * This will typically only be true for bind-join-like operators.
+   */
+  protected readonly canHandleOperationRequired?: boolean;
 
   /* eslint-disable max-len */
   /**
@@ -89,6 +94,7 @@ TS
     this.canHandleUndefs = options.canHandleUndefs ?? false;
     this.isLeaf = options.isLeaf ?? true;
     this.requiresVariableOverlap = options.requiresVariableOverlap ?? false;
+    this.canHandleOperationRequired = options.canHandleOperationRequired ?? false;
   }
 
   /**
@@ -185,7 +191,7 @@ TS
   }
 
   /**
-   * Obtain the join entries witt metadata from all given join entries.
+   * Obtain the join entries with metadata from all given join entries.
    * @param entries Join entries.
    */
   public static async getEntriesWithMetadatas(entries: IJoinEntry[]): Promise<IJoinEntryWithMetadata[]> {
@@ -415,6 +421,12 @@ TS
       return failTest(`${this.name} requires at least two join entries.`);
     }
 
+    // Check if operationRequired is supported.
+    const someOperationRequired = action.entries.some(entry => entry.operationRequired);
+    if (!this.canHandleOperationRequired && someOperationRequired) {
+      return failTest(`${this.name} does not work with operationRequired.`);
+    }
+
     // Check if this actor can handle the given number of streams
     if (this.limitEntriesMin ? action.entries.length < this.limitEntries : action.entries.length > this.limitEntries) {
       return failTest(`${this.name} requires ${this.limitEntries
@@ -443,10 +455,11 @@ TS
 
     // This actor only works with common variables
     if (this.requiresVariableOverlap &&
-      (overlappingVariables ?? ActorRdfJoin.overlappingVariables(metadatas)).length === 0) {
+      (overlappingVariables ?? ActorRdfJoin.overlappingVariables(metadatas)).length === 0 &&
+      !someOperationRequired) {
       return failTest(`Actor ${this.name} can only join entries with at least one common variable`);
     }
-
+    
     return await this.getJoinCoefficients(action, { metadatas });
   }
 
@@ -598,6 +611,11 @@ export interface IActorRdfJoinInternalOptions {
    * If this join operator must only be used for join entries with (at least partially) common variables.
    */
   requiresVariableOverlap?: boolean;
+  /**
+   * If this join operator can handle join entries with `operationModified` set to true.
+   * This will typically only be true for bind-join-like operators.
+   */
+  canHandleOperationRequired?: boolean;
 }
 
 export interface IActionRdfJoin extends IAction {
@@ -609,6 +627,10 @@ export interface IActionRdfJoin extends IAction {
    * The array of streams to join.
    */
   entries: IJoinEntry[];
+  /**
+   * If this join operation is within the scope of a GRAPH ?g.
+   */
+  graphVariableFromParentScope?: RDF.Variable;
 }
 
 export interface IActorRdfJoinOutputInner {

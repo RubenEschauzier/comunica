@@ -123,14 +123,11 @@ export class ActorRdfJoinMultiSmallest extends ActorRdfJoin<IActorRdfJoinMultiSm
     const requestItemTimes = ActorRdfJoin.getRequestItemTimes(metadatas);
 
     return passTestWithSideData({
-      iterations: metadatas[0].cardinality.value * metadatas[1].cardinality.value *
-        metadatas.slice(2).reduce((acc, metadata) => acc * metadata.cardinality.value, 1),
+      iterations: metadatas.reduce((acc, metadata) => acc * metadata.cardinality.value, 1),
       persistedItems: 0,
       blockingItems: 0,
-      requestTime: requestInitialTimes[0] + metadatas[0].cardinality.value * requestItemTimes[0] +
-        requestInitialTimes[1] + metadatas[1].cardinality.value * requestItemTimes[1] +
-        metadatas.slice(2).reduce((sum, metadata, i) => sum + requestInitialTimes.slice(2)[i] +
-          metadata.cardinality.value * requestItemTimes.slice(2)[i], 0),
+      requestTime: metadatas.reduce((sum, metadata, i) => sum + requestInitialTimes[i] +
+          metadata.cardinality.value * requestItemTimes[i], 0),
     }, { ...sideData, sortedEntries });
   }
 }

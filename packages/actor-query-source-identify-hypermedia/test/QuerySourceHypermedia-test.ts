@@ -18,6 +18,7 @@ import { DataFactory } from 'rdf-data-factory';
 import { Readable } from 'readable-stream';
 import type { Algebra } from 'sparqlalgebrajs';
 import { Factory } from 'sparqlalgebrajs';
+import { streamifyArray } from 'streamify-array';
 import type { ISourceState } from '../lib/LinkedRdfSourcesAsyncRdfIterator';
 import { MediatedLinkedRdfSourcesAsyncRdfIterator } from '../lib/MediatedLinkedRdfSourcesAsyncRdfIterator';
 import { QuerySourceHypermedia } from '../lib/QuerySourceHypermedia';
@@ -28,7 +29,6 @@ const DF = new DataFactory();
 const AF = new Factory();
 const BF = new BindingsFactory(DF);
 const quad = require('rdf-quad');
-const streamifyArray = require('streamify-array');
 
 describe('QuerySourceHypermedia', () => {
   let context: IActionContext;
@@ -69,7 +69,7 @@ describe('QuerySourceHypermedia', () => {
     let source: QuerySourceHypermedia;
 
     beforeEach(() => {
-      source = new QuerySourceHypermedia(10, 'firstUrl', 'forcedType', 64, false, mediators, logWarning, DF, BF);
+      source = new QuerySourceHypermedia(10, 'firstUrl', 'forcedType', 64, false, true, mediators, logWarning, DF, BF);
     });
 
     describe('getSelectorShape', () => {
@@ -333,7 +333,18 @@ describe('QuerySourceHypermedia', () => {
             });
           },
         };
-        source = new QuerySourceHypermedia(10, 'firstUrl', 'forcedType', 64, false, mediatorsThis, logWarning, DF, BF);
+        source = new QuerySourceHypermedia(
+          10,
+          'firstUrl',
+          'forcedType',
+          64,
+          false,
+          true,
+          mediatorsThis,
+          logWarning,
+          DF,
+          BF,
+        );
         await expect(source.queryBindings(operation, context)).toEqualBindingsStream([
           BF.fromRecord({
             s: DF.namedNode('s11'),
@@ -375,9 +386,21 @@ describe('QuerySourceHypermedia', () => {
             throw new Error(`mediatorQuerySourceIdentifyHypermedia error`);
           },
         };
-        source = new QuerySourceHypermedia(10, 'firstUrl', 'forcedType', 64, false, mediatorsThis, logWarning, DF, BF);
+        source = new QuerySourceHypermedia(
+          10,
+          'firstUrl',
+          'forcedType',
+          64,
+          false,
+          true,
+          mediatorsThis,
+          logWarning,
+          DF,
+          BF,
+        );
 
-        await expect(source.queryBindings(operation, context).toArray()).rejects.toThrow(`mediatorQuerySourceIdentifyHypermedia error`);
+        await expect(source.queryBindings(operation, context).toArray())
+          .rejects.toThrow(`mediatorQuerySourceIdentifyHypermedia error`);
       });
     });
 
@@ -421,7 +444,18 @@ describe('QuerySourceHypermedia', () => {
             source: { sourceContents: (await (<any> quads).toArray())[0].object.value },
           }),
         };
-        source = new QuerySourceHypermedia(10, 'firstUrl', 'forcedType', 64, false, mediatorsThis, logWarning, DF, BF);
+        source = new QuerySourceHypermedia(
+          10,
+          'firstUrl',
+          'forcedType',
+          64,
+          false,
+          true,
+          mediatorsThis,
+          logWarning,
+          DF,
+          BF,
+        );
         await expect(source.getSource({ url: 'startUrl' }, {}, context, undefined)).resolves.toEqual({
           link: { url: 'startUrl' },
           handledDatasets: {},
@@ -518,7 +552,18 @@ describe('QuerySourceHypermedia', () => {
             throw error;
           },
         };
-        source = new QuerySourceHypermedia(10, 'firstUrl', 'forcedType', 64, false, mediatorsThis, logWarning, DF, BF);
+        source = new QuerySourceHypermedia(
+          10,
+          'firstUrl',
+          'forcedType',
+          64,
+          false,
+          true,
+          mediatorsThis,
+          logWarning,
+          DF,
+          BF,
+        );
         const ret = await source.getSource({ url: 'startUrl' }, {}, context, undefined);
         expect(ret).toEqual({
           link: { url: 'startUrl' },
@@ -554,7 +599,18 @@ describe('QuerySourceHypermedia', () => {
               });
           }),
         };
-        source = new QuerySourceHypermedia(10, 'firstUrl', 'forcedType', 64, false, mediatorsThis, logWarning, DF, BF);
+        source = new QuerySourceHypermedia(
+          10,
+          'firstUrl',
+          'forcedType',
+          64,
+          false,
+          true,
+          mediatorsThis,
+          logWarning,
+          DF,
+          BF,
+        );
 
         await source.getSource({ url: 'startUrl' }, {}, context, undefined);
         await new Promise(setImmediate);
@@ -565,7 +621,18 @@ describe('QuerySourceHypermedia', () => {
         mediatorsThis.mediatorMetadata = {
           mediate: jest.fn(),
         };
-        source = new QuerySourceHypermedia(10, 'firstUrl', 'sparql', 64, false, mediatorsThis, logWarning, DF, BF);
+        source = new QuerySourceHypermedia(
+          10,
+          'firstUrl',
+          'sparql',
+          64,
+          false,
+          true,
+          mediatorsThis,
+          logWarning,
+          DF,
+          BF,
+        );
 
         await source.getSource(
           { url: 'startUrl' },
@@ -583,7 +650,18 @@ describe('QuerySourceHypermedia', () => {
     let source: QuerySourceHypermedia;
 
     beforeEach(() => {
-      source = new QuerySourceHypermedia(10, 'firstUrl', 'forcedType', 64, true, mediators, logWarning, DF, BF);
+      source = new QuerySourceHypermedia(
+        10,
+        'firstUrl',
+        'forcedType',
+        64,
+        true,
+        true,
+        mediators,
+        logWarning,
+        DF,
+        BF,
+      );
       const aggregateStores = new Map();
       context = context.set(KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores, aggregateStores);
     });
@@ -631,7 +709,7 @@ describe('QuerySourceHypermedia', () => {
               j++;
             }
             const data: IActorDereferenceRdfOutput = {
-              data: streamifyArray([
+              data: <any> streamifyArray([
                 quad(`s1${j}`, `p1${j}`, `o1${j}`),
                 quad(`s2${j}`, `p2${j}`, `o2${j}`),
               ]),
@@ -648,6 +726,7 @@ describe('QuerySourceHypermedia', () => {
           'firstUrl',
           'forcedType',
           64,
+          true,
           true,
           mediatorsThis,
           logWarning,
@@ -858,6 +937,7 @@ describe('QuerySourceHypermedia', () => {
           'forcedType',
           64,
           true,
+          true,
           mediatorsThis,
           logWarning,
           DF,
@@ -970,6 +1050,7 @@ describe('QuerySourceHypermedia', () => {
           'firstUrl',
           'forcedType',
           64,
+          true,
           true,
           mediatorsThis,
           logWarning,

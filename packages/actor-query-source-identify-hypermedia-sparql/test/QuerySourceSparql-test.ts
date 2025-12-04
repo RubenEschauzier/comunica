@@ -11,8 +11,7 @@ import { DataFactory } from 'rdf-data-factory';
 // Needed to load Headers
 import 'jest-rdf';
 import { Readable } from 'readable-stream';
-import type { Algebra } from 'sparqlalgebrajs';
-import { Factory } from 'sparqlalgebrajs';
+import { Algebra, Factory } from 'sparqlalgebrajs';
 import { QuerySourceSparql } from '../lib/QuerySourceSparql';
 import '@comunica/utils-jest';
 
@@ -27,7 +26,7 @@ describe('QuerySourceSparql', () => {
   let lastQuery: string;
   const mediatorHttp: any = {
     mediate: jest.fn((action: any) => {
-      const query = action.init.body.toString();
+      const query: string = action.init.method === 'GET' ? action.input : action.init.body.toString();
       lastQuery = query;
       return {
         headers: new Headers({ 'Content-Type': 'application/sparql-results+json' }),
@@ -73,18 +72,43 @@ describe('QuerySourceSparql', () => {
       [KeysCore.log.name]: logger,
       [KeysInitQuery.queryFormat.name]: { language: 'sparql', version: '1.1' },
     });
-    source = new QuerySourceSparql(url, ctx, mediatorHttp, 'values', DF, AF, BF, false, 64, 10, true, true);
+    source = new QuerySourceSparql(url, ctx, mediatorHttp, 'values', DF, AF, BF, false, 64, 10000, true, true, 0, {});
   });
 
   describe('getSelectorShape', () => {
     it('should return a selector shape', async() => {
       await expect(source.getSelectorShape()).resolves.toEqual({
-        type: 'disjunction',
+        type: 'conjunction',
         children: [
           {
-            type: 'operation',
-            operation: { operationType: 'wildcard' },
-            joinBindings: true,
+            type: 'disjunction',
+            children: [
+              {
+                type: 'operation',
+                operation: { operationType: 'wildcard' },
+                joinBindings: true,
+              },
+            ],
+          },
+          {
+            type: 'negation',
+            child: {
+              type: 'operation',
+              operation: { operationType: 'type', type: Algebra.types.DISTINCT },
+              children: [
+                {
+                  type: 'operation',
+                  operation: { operationType: 'type', type: Algebra.types.CONSTRUCT },
+                  children: [
+                    {
+                      type: 'operation',
+                      operation: { operationType: 'wildcard' },
+                      joinBindings: true,
+                    },
+                  ],
+                },
+              ],
+            },
           },
         ],
       });
@@ -185,7 +209,7 @@ describe('QuerySourceSparql', () => {
           };
         }),
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
       await expect(source.queryBindings(AF.createPattern(DF.variable('s'), DF.namedNode('p'), DF.namedNode('o')), ctx))
         .toEqualBindingsStream([
           BF.fromRecord({
@@ -239,7 +263,7 @@ describe('QuerySourceSparql', () => {
           };
         }),
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
       await expect(
         source.queryBindings(AF.createPattern(
           DF.quad(DF.variable('s'), DF.namedNode('p'), DF.namedNode('o')),
@@ -299,7 +323,7 @@ describe('QuerySourceSparql', () => {
           };
         },
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
       await expect(source.queryBindings(AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o')), ctx))
         .toEqualBindingsStream([
           BF.fromRecord({
@@ -343,7 +367,7 @@ describe('QuerySourceSparql', () => {
     });
 
     it('should emit metadata when cardinalityCountQueries is false', async() => {
-      source = new QuerySourceSparql(url, ctx, mediatorHttp, 'values', DF, AF, BF, false, 64, 10, false, true);
+      source = new QuerySourceSparql(url, ctx, mediatorHttp, 'values', DF, AF, BF, false, 64, 10, false, true, 0, {});
       const stream = source.queryBindings(AF.createPattern(
         DF.namedNode('s'),
         DF.variable('p'),
@@ -449,7 +473,7 @@ describe('QuerySourceSparql', () => {
     });
 
     it('should not cache if cache is disabled', async() => {
-      source = new QuerySourceSparql(url, ctx, mediatorHttp, 'values', DF, AF, BF, false, 0, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, mediatorHttp, 'values', DF, AF, BF, false, 0, 10, true, true, 0, {});
 
       const stream1 = source.queryBindings(AF.createPattern(
         DF.namedNode('s'),
@@ -501,7 +525,7 @@ describe('QuerySourceSparql', () => {
           };
         },
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
       await expect(source.queryBindings(
         AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o')),
         ctx,
@@ -548,7 +572,7 @@ describe('QuerySourceSparql', () => {
           };
         },
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
       await expect(source.queryBindings(
         AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o'), DF.defaultGraph()),
         ctx,
@@ -601,7 +625,7 @@ describe('QuerySourceSparql', () => {
           };
         },
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
       const stream = source.queryBindings(
         AF.createLeftJoin(
           AF.createPattern(DF.namedNode('s'), DF.variable('p1'), DF.namedNode('o'), DF.defaultGraph()),
@@ -640,7 +664,7 @@ describe('QuerySourceSparql', () => {
           };
         },
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
       await expect(source
         .queryBindings(
           AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o'), DF.defaultGraph()),
@@ -688,7 +712,7 @@ describe('QuerySourceSparql', () => {
           };
         },
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
       const stream = source.queryBindings(
         AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o')),
         ctx,
@@ -743,7 +767,7 @@ describe('QuerySourceSparql', () => {
           };
         },
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
       const stream = source.queryBindings(
         AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o')),
         ctx,
@@ -810,7 +834,7 @@ describe('QuerySourceSparql', () => {
           };
         },
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, true, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, true, 64, 10, true, true, 0, {});
       await expect(source.queryBindings(AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o')), ctx))
         .toEqualBindingsStream([
           BF.fromRecord({
@@ -823,6 +847,104 @@ describe('QuerySourceSparql', () => {
             p: DF.namedNode('p3'),
           }),
         ]);
+    });
+
+    it('should perform HTTP GET request when url length is below forceGetIfUrlLengthBelow', async() => {
+      source = new QuerySourceSparql(url, ctx, mediatorHttp, 'values', DF, AF, BF, false, 64, 10, true, true, 300, {});
+
+      await expect(source.queryBindings(AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o')), ctx))
+        .toEqualBindingsStream([
+          BF.fromRecord({
+            p: DF.namedNode('p1'),
+          }),
+          BF.fromRecord({
+            p: DF.namedNode('p2'),
+          }),
+          BF.fromRecord({
+            p: DF.namedNode('p3'),
+          }),
+        ]);
+
+      expect(mediatorHttp.mediate).toHaveBeenCalledTimes(2);
+      expect(mediatorHttp.mediate).toHaveBeenCalledWith({
+        context: ctx,
+        init: {
+          headers: expect.anything(),
+          method: 'GET',
+        },
+        input: `${url}?query=SELECT%20(COUNT(*)%20AS%20%3Fcount)%20WHERE%20%7B%20undefined%3As%20%3Fp%20undefined%3Ao.%20%7D`,
+      });
+    });
+
+    describe('when acceptPost is defined', () => {
+      let getSource: (arg0: string[]) => QuerySourceSparql;
+      let operationIn: Algebra.Operation;
+      let expectedResult: RDF.Bindings[];
+
+      beforeEach(() => {
+        getSource = (acceptPost: string[]) => new QuerySourceSparql(
+          url,
+          ctx,
+          mediatorHttp,
+          'values',
+          DF,
+          AF,
+          BF,
+          false,
+          64,
+          10,
+          true,
+          true,
+          0,
+          { postAccepted: acceptPost },
+        );
+        operationIn = AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o'));
+        expectedResult = [
+          BF.fromRecord({
+            p: DF.namedNode('p1'),
+          }),
+          BF.fromRecord({
+            p: DF.namedNode('p2'),
+          }),
+          BF.fromRecord({
+            p: DF.namedNode('p3'),
+          }),
+        ];
+      });
+
+      it('should perform an url encoded HTTP POST request when acceptPost includes the url-encoded type', async() => {
+        source = getSource([ 'application/x-www-form-urlencoded', 'application/sparql-query' ]);
+
+        await expect(source.queryBindings(operationIn, ctx)).toEqualBindingsStream(expectedResult);
+
+        expect(mediatorHttp.mediate).toHaveBeenCalledTimes(2);
+        expect(mediatorHttp.mediate).toHaveBeenCalledWith({
+          context: ctx,
+          init: {
+            body: new URLSearchParams({ query: 'SELECT (COUNT(*) AS ?count) WHERE { undefined:s ?p undefined:o. }' }),
+            headers: expect.anything(),
+            method: 'POST',
+          },
+          input: url,
+        });
+      });
+
+      it('should perform a direct HTTP POST request when acceptPost doesn\'t include the url-encoded type', async() => {
+        source = getSource([ 'application/sparql-query' ]);
+
+        await expect(source.queryBindings(operationIn, ctx)).toEqualBindingsStream(expectedResult);
+
+        expect(mediatorHttp.mediate).toHaveBeenCalledTimes(2);
+        expect(mediatorHttp.mediate).toHaveBeenCalledWith({
+          context: ctx,
+          init: {
+            body: 'SELECT (COUNT(*) AS ?count) WHERE { undefined:s ?p undefined:o. }',
+            headers: expect.anything(),
+            method: 'POST',
+          },
+          input: url,
+        });
+      });
     });
 
     it('should return data when joining bindings', async() => {
@@ -955,7 +1077,7 @@ describe('QuerySourceSparql', () => {
           });
         },
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
       const stream = source.queryBindings(
         AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o')),
         ctx,
@@ -1045,7 +1167,7 @@ describe('QuerySourceSparql', () => {
           ok: true,
         })),
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
 
       await expect(source.queryQuads(
         AF.createConstruct(AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o')), []),
@@ -1094,7 +1216,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
           };
         }),
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
 
       const stream = source.queryQuads(
         AF.createConstruct(AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o')), []),
@@ -1123,7 +1245,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
           ok: true,
         })),
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
 
       await expect(source.queryQuads(
         AF.createConstruct(AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o')), []),
@@ -1159,7 +1281,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
           ok: true,
         })),
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
 
       await expect(source.queryBoolean(
         AF.createAsk(AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o'))),
@@ -1189,7 +1311,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
           ok: true,
         })),
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
 
       await expect(source.queryBoolean(
         AF.createAsk(AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o'))),
@@ -1206,6 +1328,13 @@ WHERE { undefined:s ?p undefined:o. }` }),
         input: url,
       });
     });
+
+    it('should shortcut to true if operation uses property features', async() => {
+      jest.spyOn(source, 'operationUsesPropertyFeatures').mockReturnValue(true);
+      jest.spyOn((<any>source).endpointFetcher, 'fetchAsk');
+      await expect(source.queryBoolean(AF.createAsk(AF.createNop()), ctx)).resolves.toBeTruthy();
+      expect((<any>source).endpointFetcher.fetchAsk).not.toHaveBeenCalled();
+    });
   });
 
   describe('queryVoid', () => {
@@ -1217,7 +1346,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
           ok: true,
         })),
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
 
       await source.queryVoid(
         AF.createDrop(DF.namedNode('s')),
@@ -1246,7 +1375,7 @@ WHERE { undefined:s ?p undefined:o. }` }),
           ok: true,
         })),
       };
-      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true);
+      source = new QuerySourceSparql(url, ctx, thisMediator, 'values', DF, AF, BF, false, 64, 10, true, true, 0, {});
 
       await source.queryVoid(
         AF.createDrop(DF.namedNode('s')),
@@ -1408,26 +1537,9 @@ WHERE { undefined:s ?p undefined:o. }` }),
   });
 
   describe('estimateOperationCardinality', () => {
-    const operation: Algebra.Operation = AF.createPattern(DF.variable('s'), DF.variable('p'), DF.variable('o'));
+    const operation = AF.createPattern(DF.variable('s'), DF.variable('p'), DF.variable('o'));
 
     it('should return existing estimate from cache when available', async() => {
-      source = new QuerySourceSparql(
-        url,
-        ctx,
-        mediatorHttp,
-        'values',
-        DF,
-        AF,
-        BF,
-        false,
-        64,
-        10,
-        true,
-        true,
-        undefined,
-        undefined,
-        undefined,
-      );
       const key = source.operationToNormalizedCountQuery(operation);
       const cardinality: QueryResultCardinality = {
         type: 'estimate',
@@ -1439,23 +1551,6 @@ WHERE { undefined:s ?p undefined:o. }` }),
     });
 
     it('should return infinity without dataset metadata available', async() => {
-      source = new QuerySourceSparql(
-        url,
-        ctx,
-        mediatorHttp,
-        'values',
-        DF,
-        AF,
-        BF,
-        false,
-        64,
-        10,
-        true,
-        true,
-        undefined,
-        undefined,
-        undefined,
-      );
       await expect(source.estimateOperationCardinality(operation)).resolves.toEqual({
         type: 'estimate',
         value: Number.POSITIVE_INFINITY,
@@ -1488,9 +1583,8 @@ WHERE { undefined:s ?p undefined:o. }` }),
         10,
         true,
         true,
-        defaultGraphUri,
-        undefined,
-        [ defaultGraph ],
+        0,
+        { defaultGraph: defaultGraphUri, datasets: [ defaultGraph ]},
       );
       expect(defaultGraph.getCardinality).not.toHaveBeenCalled();
       await expect(source.estimateOperationCardinality(operation)).resolves.toEqual({
@@ -1516,9 +1610,8 @@ WHERE { undefined:s ?p undefined:o. }` }),
         10,
         true,
         true,
-        defaultGraphUri,
-        undefined,
-        [],
+        0,
+        { defaultGraph: defaultGraphUri, datasets: []},
       );
       await expect(source.estimateOperationCardinality(operation)).resolves.toEqual({
         type: 'exact',
@@ -1553,9 +1646,8 @@ WHERE { undefined:s ?p undefined:o. }` }),
         10,
         true,
         true,
-        undefined,
-        true,
-        <any>graphs,
+        0,
+        { unionDefaultGraph: true, datasets: graphs },
       );
       expect(graphs[0].getCardinality).not.toHaveBeenCalled();
       expect(graphs[1].getCardinality).not.toHaveBeenCalled();
@@ -1594,9 +1686,8 @@ WHERE { undefined:s ?p undefined:o. }` }),
         10,
         true,
         true,
-        undefined,
-        true,
-        <any>graphs,
+        0,
+        { unionDefaultGraph: true, datasets: graphs },
       );
       expect(graphs[0].getCardinality).not.toHaveBeenCalled();
       expect(graphs[1].getCardinality).not.toHaveBeenCalled();
@@ -1607,6 +1698,152 @@ WHERE { undefined:s ?p undefined:o. }` }),
       });
       expect(graphs[0].getCardinality).toHaveBeenCalledTimes(1);
       expect(graphs[1].getCardinality).toHaveBeenCalledTimes(1);
+    });
+
+    it('should shortcut to estimate 1 when operation uses property features', async() => {
+      jest.spyOn(source, 'operationUsesPropertyFeatures').mockReturnValue(true);
+      jest.spyOn(source, 'operationToNormalizedCountQuery');
+      await expect(source.estimateOperationCardinality(AF.createNop())).resolves.toEqual({
+        type: 'estimate',
+        value: 1,
+        dataset: url,
+      });
+      expect(source.operationToNormalizedCountQuery).not.toHaveBeenCalled();
+      expect(source.operationUsesPropertyFeatures).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('operationUsesPropertyFeatures', () => {
+    const propertyFeature = DF.namedNode('ex:propertyFeature');
+
+    it('should shortcut to false if source has no property features defined', () => {
+      expect(source.operationUsesPropertyFeatures(AF.createNop())).toBeFalsy();
+    });
+
+    it('should return false if source and query do not share property features', () => {
+      source = new QuerySourceSparql(
+        url,
+        ctx,
+        mediatorHttp,
+        'values',
+        DF,
+        AF,
+        BF,
+        false,
+        64,
+        10000,
+        true,
+        true,
+        0,
+        { propertyFeatures: [ propertyFeature.value ]},
+      );
+      const operation = AF.createPattern(DF.variable('s'), DF.namedNode('ex:p'), DF.variable('o'));
+      expect(source.operationUsesPropertyFeatures(operation)).toBeFalsy();
+    });
+
+    it('should return true if source and query share property features', () => {
+      source = new QuerySourceSparql(
+        url,
+        ctx,
+        mediatorHttp,
+        'values',
+        DF,
+        AF,
+        BF,
+        false,
+        64,
+        10000,
+        true,
+        true,
+        0,
+        { propertyFeatures: [ propertyFeature.value ]},
+      );
+      const operation = AF.createPattern(DF.variable('s'), propertyFeature, DF.variable('o'));
+      expect(source.operationUsesPropertyFeatures(operation)).toBeTruthy();
+    });
+
+    it('should return true if source and query share property features in property path links', () => {
+      source = new QuerySourceSparql(
+        url,
+        ctx,
+        mediatorHttp,
+        'values',
+        DF,
+        AF,
+        BF,
+        false,
+        64,
+        10000,
+        true,
+        true,
+        0,
+        { propertyFeatures: [ propertyFeature.value ]},
+      );
+      const operation = AF.createPath(DF.variable('s'), AF.createLink(propertyFeature), DF.variable('params'));
+      expect(source.operationUsesPropertyFeatures(operation)).toBeTruthy();
+    });
+
+    it('should return false if source and query do not share property features in property path links', () => {
+      source = new QuerySourceSparql(
+        url,
+        ctx,
+        mediatorHttp,
+        'values',
+        DF,
+        AF,
+        BF,
+        false,
+        64,
+        10000,
+        true,
+        true,
+        0,
+        { propertyFeatures: [ propertyFeature.value ]},
+      );
+      const operation = AF.createPath(DF.variable('s'), AF.createLink(DF.namedNode('.ex:p')), DF.variable('params'));
+      expect(source.operationUsesPropertyFeatures(operation)).toBeFalsy();
+    });
+
+    it('should return true if source and query share property features in property path nps', () => {
+      source = new QuerySourceSparql(
+        url,
+        ctx,
+        mediatorHttp,
+        'values',
+        DF,
+        AF,
+        BF,
+        false,
+        64,
+        10000,
+        true,
+        true,
+        0,
+        { propertyFeatures: [ propertyFeature.value ]},
+      );
+      const operation = AF.createPath(DF.variable('s'), AF.createNps([ propertyFeature ]), DF.variable('params'));
+      expect(source.operationUsesPropertyFeatures(operation)).toBeTruthy();
+    });
+
+    it('should return false if source and query do not share property features in property path nps', () => {
+      source = new QuerySourceSparql(
+        url,
+        ctx,
+        mediatorHttp,
+        'values',
+        DF,
+        AF,
+        BF,
+        false,
+        64,
+        10000,
+        true,
+        true,
+        0,
+        { propertyFeatures: [ propertyFeature.value ]},
+      );
+      const operation = AF.createPath(DF.variable('s'), AF.createNps([ DF.namedNode('ex:p') ]), DF.variable('params'));
+      expect(source.operationUsesPropertyFeatures(operation)).toBeFalsy();
     });
   });
 });

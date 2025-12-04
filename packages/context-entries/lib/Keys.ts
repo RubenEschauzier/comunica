@@ -143,6 +143,10 @@ export const KeysInitQuery = {
    */
   baseIRI: new ActionContextKey<string>('@comunica/actor-init-query:baseIRI'),
   /**
+   * The file's base IRI.
+   */
+  fileBaseIRI: new ActionContextKey<string>('@comunica/actor-init-query:fileBaseIRI'),
+  /**
    * Object to cache function argument overload resolutions.
    * Defaults to an object that is reused across query executions.
    */
@@ -181,6 +185,13 @@ export const KeysInitQuery = {
   extensionFunctions: new ActionContextKey<
   Record<string, (args: RDF.Term[]) => Promise<RDF.Term>>
     >('@comunica/actor-init-query:extensionFunctions'),
+  /**
+   * If extension functions must always be pushed down to sources that support expressions,
+   * even if those sources to not explicitly declare support for these extension functions.
+   */
+  extensionFunctionsAlwaysPushdown: new ActionContextKey<boolean>(
+    '@comunica/actor-init-query:extensionFunctionsAlwaysPushdown',
+  ),
   /**
    * Enables manipulation of the CLI arguments and their processing.
    */

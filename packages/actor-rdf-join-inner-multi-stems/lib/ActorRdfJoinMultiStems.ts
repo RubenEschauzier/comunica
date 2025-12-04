@@ -74,12 +74,10 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     // to the streams with smallest cardinality first.
     const sortedEntries: IJoinEntryWithMetadata[] = await this.sortJoinEntries(action.entries
       .map((entry, i) => ({ ...entry, metadata: metadatas[i] })), action.context);
-
     const connectedComponents = ActorRdfJoin.findConnectedComponentsInJoinGraph(sortedEntries);
 
     const { hashFunction } = await this.mediatorHashBindings.mediate({ context: action.context });
     const timestampGenerator = new TimestampGenerator();
-
     // Each eddie controller stream is responsible for one connected component of the join graph.
     const eddieControllerStreams = [];
     // The inputs to each controller
