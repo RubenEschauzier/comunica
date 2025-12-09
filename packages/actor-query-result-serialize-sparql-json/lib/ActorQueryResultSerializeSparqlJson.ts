@@ -14,6 +14,7 @@ import type {
 import type * as RDF from '@rdfjs/types';
 import { wrap } from 'asynciterator';
 import { Readable } from 'readable-stream';
+import type { ActionObserverAdaptiveJoin } from './ActionObserverAdaptiveJoin';
 import type { ActionObserverHttp } from './ActionObserverHttp';
 
 /**
@@ -22,6 +23,7 @@ import type { ActionObserverHttp } from './ActionObserverHttp';
 export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSerializeFixedMediaTypes {
   private readonly emitMetadata: boolean;
   public readonly httpObserver: ActionObserverHttp;
+  public readonly adaptiveJoinObserver: ActionObserverAdaptiveJoin;
 
   /* eslint-disable max-len */
   /**
@@ -34,6 +36,7 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
    *     }} mediaTypeFormats
    *   \ @defaultNested {true} emitMetadata
    *   \ @defaultNested {<default_observer> a <caqrssj:components/ActionObserverHttp.jsonld#ActionObserverHttp>} httpObserver
+   *   \ @defaultNested {<default_observer_2> a <caqrssj:components/ActionObserverAdaptiveJoin.jsonld#ActionObserverAdaptiveJoin>} adaptiveJoinObserver
    */
   public constructor(args: IActorQueryResultSerializeSparqlJsonArgs) {
     super(args);
@@ -114,7 +117,7 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
           .map(([ key, value ]) => [ key.value, ActorQueryResultSerializeSparqlJson.bindingToJsonBindings(value) ])))}`;
           first = false;
           return res;
-        }).append(wrap(end(() => `\n]}${this.emitMetadata ? `,\n"metadata": { "httpRequests": ${this.httpObserver.requests} }` : ''}}\n`))),
+        }).append(wrap(end(() => `\n]}${this.emitMetadata ? `,\n"metadata": { "httpRequests": ${this.httpObserver.requests}, "adaptiveStats": ${JSON.stringify(this.adaptiveJoinObserver.joinStatsContainers ?? {}, null, 2)}` : ''}}\n`))),
       );
     } else {
       data.wrap(<any> wrap((<IQueryOperationResultBoolean> action).execute().then(value => [ `"boolean":${value}\n}\n` ])));
@@ -127,4 +130,5 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
 export interface IActorQueryResultSerializeSparqlJsonArgs extends IActorQueryResultSerializeFixedMediaTypesArgs {
   emitMetadata: boolean;
   httpObserver: ActionObserverHttp;
+  adaptiveJoinObserver: ActionObserverAdaptiveJoin;
 }

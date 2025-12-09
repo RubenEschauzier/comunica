@@ -21,6 +21,7 @@ import type {
   IDiscoverEventData,
   PartialResult,
   ILink,
+  IAdaptivePlanStatistics,
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
@@ -368,9 +369,15 @@ export const KeysStatistics = {
     '@comunica/statistic:intermediateResults',
   ),
   /**
-   * Whether the engine should skip some statistics tracking 
+   * Whether the engine should skip some statistics tracking
    * (TODO: This implementation is a stub for adaptive tracking and skipping tracking for TypeIndex,
    *  maybe interesting to extend it to all statistics)
    */
   skipStatisticTracking: new ActionContextKey<boolean>('@comunica/statistic:skipStatisticTracking'),
+  /**
+   * Object tracking the performance evolution of adaptive join planning approach during query execution
+   */
+  adaptiveJoinStatistics: new ActionContextKey<Record<number, IAdaptivePlanStatistics>>(
+    '@Record<number, IAdaptivePlanStatistics>',
+  ),
 };

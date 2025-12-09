@@ -30,24 +30,24 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
   public selectivitiesOrders: Record<string, ISelectivityData> = {};
 
   /**
-   * Time spent with empty input queue 
+   * Time spent with empty input queue
    */
-  public timeEmpty: number = 0;
+  public timeEmpty = 0;
   /**
    * Time spent with intermediate result in input queue
    */
-  public timeNonEmpty: number = 0;
+  public timeNonEmpty = 0;
 
   private startTimeEmpty: number | undefined;
   private startTimeNonEmpty: number | undefined;
   /**
    * Number of reads with no result
    */
-  public nFailedReads: number = 0;
+  public nFailedReads = 0;
   /**
    * Number of reads with result
    */
-  public nSuccessReads: number = 0;
+  public nSuccessReads = 0;
 
   /**
    * The variables present in the bindings produced by this operator.
@@ -112,25 +112,25 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
   }
 
   public push(item: IEddieJoinEntry): void {
-    if ((<any>this)._buffer.length === 0) {
+    if ((<any> this)._buffer.length === 0) {
       const now = performance.now();
-      
+
       // We are finishing an 'Empty' period. Record it.
       if (this.startTimeEmpty !== undefined) {
         this.timeEmpty += now - this.startTimeEmpty;
-        this.startTimeEmpty = undefined; // Stop tracking empty time
+        this.startTimeEmpty = undefined;
       }
 
       // Start tracking NonEmpty time
       this.startTimeNonEmpty = now;
-    }  
+    }
     // Push intermediate binding to buffer. We need to cast this to any
     // as the BufferedIterator does not know about the IEddieJoinEntry type.
     this._push(<any> item);
   }
 
   public override read(): null | Bindings {
-    if (!this.startTimeEmpty && !this.startTimeNonEmpty){
+    if (!this.startTimeEmpty && !this.startTimeNonEmpty) {
       this.startTimeEmpty = performance.now();
     }
     while (true) {
@@ -162,7 +162,7 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
           // as we will never try to access it to get the previous metadata state.
           const copy = { ...this.matchMetadata! };
           copy.done |= 1 << this.bitLoc;
-          copy.order = [ ...copy.order!, this.bitLoc ];
+          copy.order = [ ...copy.order, this.bitLoc ];
 
           result = result.setContextEntry(eddiesContextKeys.eddiesMetadata, copy);
           return result;
@@ -179,22 +179,22 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
       } else {
         item = itemBuffer.item;
         joinVars = itemBuffer.joinVars;
-        if ((<any>this)._buffer.length === 0) {
-           const now = performance.now();
+        if ((<any> this)._buffer.length === 0) {
+          const now = performance.now();
 
-           // We are finishing a 'NonEmpty' period. Record it.
-           if (this.startTimeNonEmpty !== undefined) {
-             this.timeNonEmpty += now - this.startTimeNonEmpty;
-             this.startTimeNonEmpty = undefined; // Stop tracking non-empty time
-           }
+          // We are finishing a 'NonEmpty' period. Record it.
+          if (this.startTimeNonEmpty !== undefined) {
+            this.timeNonEmpty += now - this.startTimeNonEmpty;
+            this.startTimeNonEmpty = undefined;
+          }
 
-           // Start tracking Empty time
-           this.startTimeEmpty = now;
-        }      
+          // Start tracking Empty time
+          this.startTimeEmpty = now;
+        }
       }
 
       if (this.done || item === null) {
-        if (item === null){
+        if (item === null) {
           this.nFailedReads++;
         }
         this.readable = false;
@@ -236,7 +236,7 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
       // So hash on the join variables.
       const hash = this.funHash(item, joinVars);
       this.match = item;
-      this.matches = this.tripleMap.get(hash) || [];
+      this.matches = this.tripleMap.get(hash) ?? [];
       this.matchIdx = 0;
 
       this.tickets += 1;
@@ -247,7 +247,7 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
       }
       this.selectivitiesSignatures[matchDone].in++;
 
-      const orderKey: string = this.matchMetadata.order!.join(','); 
+      const orderKey: string = this.matchMetadata.order.join(',');
       if (!this.selectivitiesOrders[orderKey]) {
         this.selectivitiesOrders[orderKey] = { in: 0, out: 0 };
       }

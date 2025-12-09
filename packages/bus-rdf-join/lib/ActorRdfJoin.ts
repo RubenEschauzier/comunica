@@ -459,7 +459,7 @@ TS
       !someOperationRequired) {
       return failTest(`Actor ${this.name} can only join entries with at least one common variable`);
     }
-    
+
     return await this.getJoinCoefficients(action, { metadatas });
   }
 

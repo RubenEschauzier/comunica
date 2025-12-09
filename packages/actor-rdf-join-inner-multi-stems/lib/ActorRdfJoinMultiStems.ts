@@ -69,6 +69,8 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
   ): Promise<IActorRdfJoinOutputInner> {
     const skipLog = action.context.get(KeysStatistics.skipStatisticTracking);
     const logger = ActorRdfJoinMultiStems.getContextLogger(action.context);
+    // This goes wrong with multiple separate connected components
+    const snapShotLogger = action.context.get(KeysStatistics.adaptiveJoinStatistics);
     const queryString = action.context.get(KeysInitQuery.queryString);
 
     let { metadatas } = sideData;
@@ -106,6 +108,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
         inputStreams.push(entry);
       }
       const router = this.routerFactory.createRouter();
+
       let logContext: Record<string, any> | undefined;
       if (logger && !skipLog) {
         logContext = {
@@ -116,8 +119,9 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
         stemOperators,
         router,
         this.routerUpdateFrequency,
+        snapShotLogger,
         logger,
-        logContext
+        logContext,
       );
       eddieControllerStreams.push(controllerStream);
       eddieEntriesInput.push(inputStreams);

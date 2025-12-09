@@ -1,10 +1,10 @@
 import { ActionContextKey } from '@comunica/core';
+import type { IAdaptivePlanStatistics, IPlanStatistic, IPlanSummary, IProducedTupleSummary, IStatsOperators, Logger } from '@comunica/types';
 import type { Bindings } from '@comunica/utils-bindings-factory';
 
 import { AsyncIterator } from 'asynciterator';
 import type { EddieOperatorStream, ISelectivityData } from './EddieOperatorStream';
 import type { IEddieRouter, IEddieRoutingEntry } from './routers/BaseRouter';
-import { Logger } from '@comunica/types';
 
 export class EddieControllerStream extends AsyncIterator<Bindings> {
   /**
@@ -30,13 +30,13 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
   /**
    * Loggers for debugging
    */
-  private logger: Logger | undefined;
-  private logContext: Record<string, any> | undefined;
-  private loggedEndEvent: boolean = false;
+  private readonly logger: Logger | undefined;
+  private readonly logContext: Record<string, any> | undefined;
+  private loggedEndEvent = false;
   /**
    * Contains a list of snapshots at given number of tuples processed
    */
-  public snapshots: Record<number, IAdaptivePlanStatistics> = {};
+  public snapshots: Record<number, IAdaptivePlanStatistics> | undefined;
   /**
    * Array indicating if operator stream at index i has finished
    * reading the data from its corresponding join entry
@@ -59,6 +59,7 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
     eddieIterators: EddieOperatorStream[],
     router: IEddieRouter,
     updateFrequency: number,
+    snapshotsTracker?: Record<number, IAdaptivePlanStatistics>,
     logger?: Logger,
     logContext?: Record<string, any>,
   ) {
@@ -71,6 +72,7 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
 
     this.endTuples = false;
 
+    this.snapshots = snapshotsTracker;
     this.logger = logger;
     this.logContext = logContext;
 
@@ -97,7 +99,7 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
   }
 
   public override _end(): void {
-    if (!this.loggedEndEvent && this.logger && this.logContext){
+    if (!this.loggedEndEvent && this.snapshots && this.logger) {
       const finalStatistics = this.buildStatistics();
       const totalTimeUpdatingTable = Object.values(this.snapshots)
         .reduce((acc, snapshot) => acc + snapshot.timeToUpdateRouting!, 0);
@@ -106,7 +108,6 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
       this.snapshots[this.bindingsTotal] = finalStatistics;
       this.logger.debug(JSON.stringify(this.snapshots, null, 2), this.logContext);
       this.loggedEndEvent = true;
-      console.log(finalStatistics);
     }
     for (const it of this.eddieIterators) {
       it.destroy();
@@ -142,7 +143,7 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
           const start = performance.now();
           this.routingTable = this.router.updateRouteTable(this.eddieIterators, this.routingTable);
           const end = performance.now();
-          if (this.logger && this.logContext){
+          if (this.logger && this.logContext && this.snapshots) {
             const statisticsAtUpdate = this.buildStatistics();
             statisticsAtUpdate.timeToUpdateRouting = (end - start);
             this.snapshots[this.bindingsTotal] = statisticsAtUpdate;
@@ -166,101 +167,95 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
     }
   }
 
-  public buildStatistics(): IAdaptivePlanStatistics{
+  public buildStatistics(): IAdaptivePlanStatistics {
     const { fullOrders, partialOrders } = this.buildPlanSummary();
     const {
       producedTuples,
       producedJoinResults,
-      producedIntermediateResults
+      producedIntermediateResults,
     } = this.getProducedTuplesSummary();
     const operatorSummaries = this.getOperatorSummary(producedTuples);
     const executionStatistics: IAdaptivePlanStatistics = {
-        fullOrderStatistics: fullOrders,
-        partialOrderStatistics: partialOrders,
-        operatorSummaries: operatorSummaries,
-        totalIntermediate: producedIntermediateResults,
-        fanOut: producedIntermediateResults / producedJoinResults,
-        reduction: producedIntermediateResults / producedTuples.reduce((acc, curr) => acc + curr, 0),
-    }
+      fullOrderStatistics: fullOrders,
+      partialOrderStatistics: partialOrders,
+      operatorSummaries,
+      totalIntermediate: producedIntermediateResults,
+      fanOut: producedIntermediateResults / producedJoinResults,
+      reduction: producedIntermediateResults / producedTuples.reduce((acc, curr) => acc + curr, 0),
+    };
     return executionStatistics;
   }
 
-  private getOperatorSummary(producedTuples: number[]){
+  private getOperatorSummary(producedTuples: number[]): IStatsOperators[] {
     const operatorSummaries: IStatsOperators[] = [];
-    for (let i = 0; i < this.eddieIterators.length; i++){
+    for (let i = 0; i < this.eddieIterators.length; i++) {
       operatorSummaries.push({
         producedTuples: producedTuples[i],
         timeEmpty: this.eddieIterators[i].timeEmpty,
         timeNonEmpty: this.eddieIterators[i].timeNonEmpty,
         emptyReads: this.eddieIterators[i].nFailedReads,
-        nonEmptyReads: this.eddieIterators[i].nSuccessReads
-      })
+        nonEmptyReads: this.eddieIterators[i].nSuccessReads,
+      });
     }
-    return operatorSummaries
+    return operatorSummaries;
   }
 
-  private getProducedTuplesSummary(){
-    const producedTuples: number[] = Array(this.eddieIterators.length).fill(0);
+  private getProducedTuplesSummary(): IProducedTupleSummary {
+    const producedTuples: number[] = <number[]> Array.from({ length: this.eddieIterators.length }).fill(0);
     let producedJoinResults = 0;
     let producedIntermediateResults = 0;
     const orderSelectivities = this.eddieIterators.map(it => it.selectivitiesOrders);
-    for (const orderSelectivity of orderSelectivities){
-      for (const [key, value] of Object.entries(orderSelectivity)){
-        const orderAsArray = key.split(',').map(s => parseInt(s.trim(), 10));
+    for (const orderSelectivity of orderSelectivities) {
+      for (const [ key, value ] of Object.entries(orderSelectivity)) {
+        const orderAsArray = key.split(',').map(s => Number.parseInt(s.trim(), 10));
         // Singleton orders mean it only passed one operator: the one it was produced by
-        if (orderAsArray.length === 1){
+        if (orderAsArray.length === 1) {
           // The in value denotes the number of tuples with that signature, which is equal
-          // to the number of tuples the triple pattern associated with the operator 
+          // to the number of tuples the triple pattern associated with the operator
           // produced
           producedTuples[orderAsArray[0]] += value.in;
         }
-        // Last iterator isn't in the key signature as it is implied by the index of the 
+        // Last iterator isn't in the key signature as it is implied by the index of the
         // eddies iterator
-        if (orderAsArray.length === this.eddieIterators.length - 1){
+        if (orderAsArray.length === this.eddieIterators.length - 1) {
           producedJoinResults += value.out;
-        }
-        // If its not a full result, the out value is always an intermediate result
-        else {
-          producedIntermediateResults += value.out
+        } else {
+          producedIntermediateResults += value.out;
         }
       }
     }
     return { producedTuples, producedJoinResults, producedIntermediateResults };
   }
 
-  private buildPlanSummary(){
-    // TODO: This works for complete results, however it completely ignores incomplete results
-    // where a tuple dies before it can reach the end and no other tuples are routed that way again.
-    // TODO: Add also something that says how many each triple pattern have produced in 'build' mode.
+  private buildPlanSummary(): IPlanSummary {
     const orderSelectivities = this.eddieIterators.map(it => it.selectivitiesOrders);
     const fullOrderSize = this.eddieIterators.length;
     const fullOrders: IPlanStatistic[] = [];
     const coveredOrders: Set<string> = new Set();
 
     // First find all full orders in the execution information
-    for (let i = 0; i < orderSelectivities.length; i++){
-      const fullSelectivities = this.extractOrderSignaturesAtSize(orderSelectivities[i], fullOrderSize);
-      for (const fullSelectivity of fullSelectivities){
-        const orderPlanStatistic = this.createPlanStatistic(fullSelectivity, orderSelectivities[i], i);
-        fullOrders.push(orderPlanStatistic)
+    for (const [ i, orderSelectivity ] of orderSelectivities.entries()) {
+      const fullSelectivities = this.extractOrderSignaturesAtSize(orderSelectivity, fullOrderSize);
+      for (const fullSelectivity of fullSelectivities) {
+        const orderPlanStatistic = this.createPlanStatistic(fullSelectivity, orderSelectivity, i);
+        fullOrders.push(orderPlanStatistic);
         coveredOrders.add(fullSelectivity);
       }
     }
 
     // Backtrack through the order to get the order's characteristics
-    for (const fullOrder of fullOrders){
+    for (const fullOrder of fullOrders) {
       this.backtrackOrder(fullOrder, orderSelectivities, coveredOrders);
     }
 
     // After summarising all full orders, we turn to partial orders that
     // never produced results.
     const partialOrders = [];
-    for (let i = fullOrderSize - 1; i > 1; i--){
-      for (let j = 0; j < orderSelectivities.length; j++){
-        // TODO: This goes wrong here!!
+    for (let i = fullOrderSize - 1; i > 1; i--) {
+      for (let j = 0; j < orderSelectivities.length; j++) {
         const partialSignatures = this.extractOrderSignaturesAtSize(orderSelectivities[j], i);
-        for (const partialSignature of partialSignatures){
-          if (!coveredOrders.has(partialSignature)){
+        for (const partialSignature of partialSignatures) {
+          if (!coveredOrders.has(partialSignature)) {
             const orderPlanStatistic = this.createPlanStatistic(partialSignature, orderSelectivities[j], j);
             this.backtrackOrder(orderPlanStatistic, orderSelectivities, coveredOrders);
             partialOrders.push(orderPlanStatistic);
@@ -274,18 +269,18 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
   private backtrackOrder(
     fullOrder: IPlanStatistic,
     orderSelectivities: Record<string, ISelectivityData>[],
-    coveredOrders: Set<string>
-  ): void{
-    let orderArray = [...fullOrder.order];
+    coveredOrders: Set<string>,
+  ): void {
+    let orderArray = [ ...fullOrder.order ];
     while (orderArray.length > 1) {
-      // const precedingOrderString = this.backtrackOrder(fullOrder, orderSelectivities);
+      // Const precedingOrderString = this.backtrackOrder(fullOrder, orderSelectivities);
       // Get preceding operator
-      const currentOperator = orderArray[orderArray.length - 1];
+      const currentOperator = orderArray.at(-1)!;
       const selectivitiesCurrentOperator = orderSelectivities[currentOperator];
 
-      //Create the preceding order array (the 'state' before the current step)
-      const precedingOrder = orderArray.slice(0, orderArray.length - 1);
-      const precedingOrderString = precedingOrder.join(',')
+      // Create the preceding order array (the 'state' before the current step)
+      const precedingOrder = orderArray.slice(0, -1);
+      const precedingOrderString = precedingOrder.join(',');
       const selectivityOrder = selectivitiesCurrentOperator[precedingOrderString];
       fullOrder.totalIntermediate += selectivityOrder.in;
 
@@ -293,15 +288,19 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
         orderSignature: precedingOrder,
         in: selectivityOrder.in,
         out: selectivityOrder.out,
-        selectivity: selectivityOrder.out / selectivityOrder.in
-      }
+        selectivity: selectivityOrder.out / selectivityOrder.in,
+      };
       coveredOrders.add(precedingOrderString);
-      orderArray = precedingOrder; 
+      orderArray = precedingOrder;
     }
   }
 
-  private createPlanStatistic(key: string, orderSelectivitiesOperator: Record<string, ISelectivityData>, idxOperator: number){
-    const orderAsArray = key.split(',').map(s => parseInt(s.trim(), 10));
+  private createPlanStatistic(
+    key: string,
+    orderSelectivitiesOperator: Record<string, ISelectivityData>,
+    idxOperator: number,
+  ): IPlanStatistic {
+    const orderAsArray = key.split(',').map(s => Number.parseInt(s.trim(), 10));
     orderAsArray.push(idxOperator);
     const inFullOrder = orderSelectivitiesOperator[key].in;
     const outFullOrder = orderSelectivitiesOperator[key].out;
@@ -313,32 +312,30 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
           orderSignature: orderAsArray,
           in: inFullOrder,
           out: outFullOrder,
-          selectivity: outFullOrder/inFullOrder
-        }
+          selectivity: outFullOrder / inFullOrder,
+        },
       },
       totalIntermediate: inFullOrder,
       totalOutput: outFullOrder,
-    }
+    };
     return orderPlanStatistic;
   }
 
-
   private extractOrderSignaturesAtSize(
-    selectivities: Record<string, any>, 
-    size: number
+    selectivities: Record<string, any>,
+    size: number,
   ): string[] {
-    return Object.keys(selectivities).filter(key => {
+    return Object.keys(selectivities).filter((key) => {
       // 1. Split the key by comma to count the hops
       const hops = key.split(',');
 
       // A full order contains n - 1 indices, as the last is not included
       if (hops.length !== size - 1) {
         return false;
-      }      
+      }
       return true;
     });
   }
-
 }
 
 export const eddiesContextKeys = {
@@ -373,68 +370,4 @@ export interface IEddieBindingsMetadata {
   done: number;
   timestamp: number;
   order: number[];
-}
-
-/**
- * Interface for summary statistics of the current state of execution
- */
-export interface IAdaptivePlanStatistics {
-  /**
-   * Selectivity information on full tuple routing orders, full meaning
-   * all operators are included in it
-   */
-  fullOrderStatistics: IPlanStatistic[];
-  /**
-   * Selectivity information on partial tuple routing orders
-   */
-  partialOrderStatistics: IPlanStatistic[];
-  /**
-   * Operator specific statistics
-   */
-  operatorSummaries: IStatsOperators[];
-  /**
-   * Total number of intermediate results produced at a given time
-   */
-  totalIntermediate: number;
-  /**
-   * Ratio of the number of produced results compared to intermediate results
-   * showing the amount of 'extra' work is done
-   */
-  fanOut: number;
-  /**
-   * Ratio of matching triples compared to intermediate results. Showing how quickly
-   * selective joins are executed
-   */
-  reduction: number;
-  /**
-   * Time it took to update routing table. This can be seen as the cost of adaptive planning
-   */
-  timeToUpdateRouting?: number;
-}
-
-export interface IStatsOperators {
-  producedTuples: number;
-  timeEmpty: number;
-  timeNonEmpty: number;
-  emptyReads: number;
-  nonEmptyReads: number;
-}
-/**
- * Interface denoting a given plan (or routing order) in the execution space and some statistics.
- */
-export interface IPlanStatistic {
-  order: number[];
-  orderElements: Record<string, IOrderStatistic>;
-  totalIntermediate: number;
-  totalOutput: number
-}
-
-/**
- * Interface denoting statistics of a given order signature.
- */
-export interface IOrderStatistic {
-  orderSignature: number[]
-  in: number;
-  out: number;
-  selectivity: number;
 }
