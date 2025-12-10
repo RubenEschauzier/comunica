@@ -41,7 +41,7 @@ export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
         .setDefault(KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores, new Map())
         .setDefault(KeysInitQuery.dataFactory, new DataFactory())
         // TODO: This should be a separate actor to allow freedom to choose stats tracking or not
-        // .setDefault(KeysStatistics.adaptiveJoinStatistics, {});
+        .setDefault(KeysStatistics.adaptiveJoinStatistics, {});
 
       // Handle default query format
       let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };

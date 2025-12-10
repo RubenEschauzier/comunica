@@ -67,6 +67,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     action: IActionRdfJoin,
     sideData: IActorRdfJoinMultiStemsTestSideData,
   ): Promise<IActorRdfJoinOutputInner> {
+    console.log("Getting output")
     const skipLog = action.context.get(KeysStatistics.skipStatisticTracking);
     const logger = ActorRdfJoinMultiStems.getContextLogger(action.context);
     // This goes wrong with multiple separate connected components
@@ -88,6 +89,10 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     const eddieControllerStreams = [];
     // The inputs to each controller
     const eddieEntriesInput: IJoinEntryWithMetadata[][] = [];
+    console.log(`Connected components: ${connectedComponents}`);
+    //TODO: Treat connected components as sub queries for derived resources, so when a derived resource comes 
+    // in we test containment in each component, as we don't want to deal with connecting unconnected components etc
+    //TODO: We should treat triple pattersn with the same subject as connected
     for (const connectedComponentEntries of connectedComponents.entries) {
       const entryJoinVariables: RDF.Variable[][][] = await this.getJoinVariables(connectedComponentEntries);
       const stemOperators: EddieOperatorStream[] = [];
@@ -130,6 +135,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     // In most cases, we will have 1 connected component (no cart joins) and we just return the
     // controller as join result
     if (eddieControllerStreams.length === 1) {
+      console.log("Length = 1")
       return {
         result: {
           type: 'bindings',
@@ -144,9 +150,10 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     }
     const dataFactory: ComunicaDataFactory = action.context.getSafe(KeysInitQuery.dataFactory);
     const algebraFactory = new Factory(dataFactory);
-
+    console.log(`We have ${eddieControllerStreams.length} controller streams`)
     const connectedComponentEntries = [];
     for (const [ i, eddieControllerStream ] of eddieControllerStreams.entries()) {
+      console.log("More entries!!")
       // Construct metadata from the entries joined by the controller stream.
       const controllerAsEntry: IJoinEntry = {
         output: {

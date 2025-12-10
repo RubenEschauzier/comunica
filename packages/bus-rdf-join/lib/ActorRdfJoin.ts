@@ -238,6 +238,8 @@ TS
   static findConnectedComponentsInJoinGraph(
     entries: IJoinEntryWithMetadata[],
   ): IConnectedComponents {
+    let util = require('util')
+    console.log(util.inspect(entries.map(entry => entry.operation)));
     function find(idx: number, parent: number[]): number {
       if (parent[idx] === idx) {
         return idx;

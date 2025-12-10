@@ -3,14 +3,17 @@ import { KeysInitQuery } from '@comunica/context-entries';
 import type { Actor, IActorTest, Mediator, TestResult } from '@comunica/core';
 import { passTestWithSideData, ActionContext, Bus } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
-import type { IPhysicalQueryPlanLogger, IPlanNode, MetadataVariable } from '@comunica/types';
+import type { IJoinEntryWithMetadata, IPhysicalQueryPlanLogger, IPlanNode, MetadataVariable } from '@comunica/types';
 import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { MetadataValidationState } from '@comunica/utils-metadata';
-import { BufferedIterator, MultiTransformIterator, SingletonIterator } from 'asynciterator';
+import { ArrayIterator, BufferedIterator, MultiTransformIterator, SingletonIterator } from 'asynciterator';
 import { DataFactory } from 'rdf-data-factory';
 import type { IActionRdfJoin, IActorRdfJoinTestSideData } from '../lib/ActorRdfJoin';
 import '@comunica/utils-jest';
 import { ActorRdfJoin } from '../lib/ActorRdfJoin';
+import { translate } from 'sparqlalgebrajs';
+import type * as RDF from '@rdfjs/types';
+
 
 const DF = new DataFactory();
 const BF = new BindingsFactory(DF);
@@ -627,6 +630,129 @@ IActorRdfJoinSelectivityOutput
       expect(ActorRdfJoin.joinBindings(left, right)).toBeNull();
     });
   });
+  describe('findConnectedComponentsInJoinGraph', () => {
+    //TODO: No test cases using the variable metadata object yet
+    it('should correctly find two connected components using variables', () => {
+      const query = `
+        PREFIX : <http://example.org/>
+        SELECT * WHERE {
+          :alice :knows ?person .
+          ?person :hasMessage ?message
+          {
+            ?message :type :Post .
+          }
+          UNION
+          {
+            ?message :type :Comment .
+          }
+        }
+      `;
+      const vars: MetadataVariable[][] = [
+        [          
+          {
+            variable: DF.variable('person'),
+            canBeUndef: false,
+          }
+        ],
+        [
+          {
+            variable: DF.variable('person'),
+            canBeUndef: false,
+          },
+          {
+            variable: DF.variable('message'),
+            canBeUndef: false,
+          }
+        ],
+        [
+          {
+            variable: DF.variable('message'),
+            canBeUndef: false,
+          }
+        ]
+      ]
+      const entries = createEntries(query, vars);
+      const components = ActorRdfJoin.findConnectedComponentsInJoinGraph(entries);
+      expect(components.entries.length).toBe(1);
+    });
+    it('should correctly find singular connected component using subj-object IRI', () => {
+      const query = `
+        PREFIX : <http://example.org/>
+        SELECT * WHERE {
+          :alice :knows :bob .
+          :bob :hasMessage ?message
+          {
+            ?message :type :Post .
+          }
+          UNION
+          {
+            ?message :type :Comment .
+          }
+        }
+      `;
+      const vars: MetadataVariable[][] = [
+        [],
+        [
+          {
+            variable: DF.variable('message'),
+            canBeUndef: false,
+          }
+        ],
+        [
+          {
+            variable: DF.variable('message'),
+            canBeUndef: false,
+          }
+        ]
+      ]
+      const entries = createEntries(query, vars);
+      console.log(entries)
+      const components = ActorRdfJoin.findConnectedComponentsInJoinGraph(entries);
+      expect(components.entries.length).toBe(1);
+    });
+    it('should correctly find two connected component when using the same literal', () => {
+      const query = `
+        PREFIX : <http://example.org/>
+        SELECT * WHERE {
+          :alice :knows "bob" .
+          :john :knows ?message
+          {
+            ?message :type :Post .
+          }
+          UNION
+          {
+            ?message :type :Comment .
+          }
+        }
+      `;
+      const vars: MetadataVariable[][] = [
+        [],
+        [
+          {
+            variable: DF.variable('message'),
+            canBeUndef: false,
+          }
+        ],
+        [
+          {
+            variable: DF.variable('message'),
+            canBeUndef: false,
+          }
+        ]
+      ]
+      const entries = createEntries(query, vars);
+      console.log(entries)
+      const components = ActorRdfJoin.findConnectedComponentsInJoinGraph(entries);
+      expect(components.entries.length).toBe(2);
+      
+    });
+    it('should correctly find singular connected component using blank node', () => {
+      
+    });
+    it('should identify different blank nodes as unconnected', () => {
+
+    });
+  })
 
   describe('getCardinality', () => {
     it('should handle 0 metadata', () => {
@@ -1288,3 +1414,146 @@ IActorRdfJoinSelectivityOutput
     });
   });
 });
+
+function createEntries(query: string, variablesEntries: MetadataVariable[][]){
+  const algebra = translate(query);
+  let operations = [];
+  if (algebra.input.type == 'join'){
+    operations = algebra.input.input
+  }
+  else{
+    operations = algebra.input
+  }
+  const entries: IJoinEntryWithMetadata[] = [];
+  let i = 0;
+  for (const operation of operations){
+    entries.push(
+      {
+        output: {
+          bindingsStream: new ArrayIterator<RDF.Bindings>([
+            BF.bindings([
+              [DF.variable('a'), DF.literal('a1')],
+              [DF.variable('b'), DF.literal('b1')],
+            ]),
+            BF.bindings([
+              [DF.variable('a'), DF.literal('a2')],
+              [DF.variable('b'), DF.literal('b2')],
+            ]),
+          ]),
+          metadata: () => Promise.resolve(
+            {
+              state: new MetadataValidationState(),
+              cardinality: { type: 'estimate', value: 2 },
+              pageSize: 100,
+              requestTime: 30,
+
+              variables: variablesEntries[i],
+            }
+          ),
+          type: 'bindings',
+        },
+        operation: operation,
+        metadata: {
+          state: new MetadataValidationState(),
+          cardinality: { type: 'estimate', value: 2 },
+          pageSize: 100,
+          requestTime: 30,
+
+          variables: variablesEntries[i],
+        }
+      },
+    )
+    i++;
+  }
+  return entries
+}
+    // entries.push({
+
+    // })
+    //         output: {
+    //           bindingsStream: new ArrayIterator<RDF.Bindings>([
+    //             BF.bindings([
+    //               [ DF.variable('a'), DF.literal('a1') ],
+    //               [ DF.variable('b'), DF.literal('b1') ],
+    //             ]),
+    //             BF.bindings([
+    //               [ DF.variable('a'), DF.literal('a2') ],
+    //               [ DF.variable('b'), DF.literal('b2') ],
+    //             ]),
+    //           ]),
+    //           metadata: () => Promise.resolve(
+    //             {
+    //               state: new MetadataValidationState(),
+    //               cardinality: { type: 'estimate', value: 4 },
+    //               pageSize: 100,
+    //               requestTime: 10,
+
+    //               variables: [
+    //                 { variable: DF.variable('a'), canBeUndef: false },
+    //                 { variable: DF.variable('b'), canBeUndef: false },
+    //               ],
+    //             },
+    //           ),
+    //           type: 'bindings',
+    //         },
+    //         operation: <any> {},
+    //       },
+    //       {
+    //         output: {
+    //           bindingsStream: new ArrayIterator<RDF.Bindings>([
+    //             BF.bindings([
+    //               [ DF.variable('a'), DF.literal('a1') ],
+    //               [ DF.variable('c'), DF.literal('c1') ],
+    //             ]),
+    //             BF.bindings([
+    //               [ DF.variable('a'), DF.literal('a2') ],
+    //               [ DF.variable('c'), DF.literal('c2') ],
+    //             ]),
+    //           ]),
+    //           metadata: () => Promise.resolve(
+    //             {
+    //               state: new MetadataValidationState(),
+    //               cardinality: { type: 'estimate', value: 5 },
+    //               pageSize: 100,
+    //               requestTime: 20,
+
+    //               variables: [
+    //                 { variable: DF.variable('a'), canBeUndef: false },
+    //                 { variable: DF.variable('c'), canBeUndef: false },
+    //               ],
+    //             },
+    //           ),
+    //           type: 'bindings',
+    //         },
+    //         operation: <any> {},
+    //       },
+    //       {
+    //         output: {
+    //           bindingsStream: new ArrayIterator<RDF.Bindings>([
+    //             BF.bindings([
+    //               [ DF.variable('a'), DF.literal('a1') ],
+    //               [ DF.variable('b'), DF.literal('b1') ],
+    //             ]),
+    //             BF.bindings([
+    //               [ DF.variable('a'), DF.literal('a2') ],
+    //               [ DF.variable('b'), DF.literal('b2') ],
+    //             ]),
+    //           ]),
+    //           metadata: () => Promise.resolve(
+    //             {
+    //               state: new MetadataValidationState(),
+    //               cardinality: { type: 'estimate', value: 2 },
+    //               pageSize: 100,
+    //               requestTime: 30,
+
+    //               variables: [
+    //                 { variable: DF.variable('a'), canBeUndef: false },
+    //                 { variable: DF.variable('b'), canBeUndef: false },
+    //               ],
+    //             },
+    //           ),
+    //           type: 'bindings',
+    //         },
+    //         operation: <any> {},
+    //       },
+    //     ],
