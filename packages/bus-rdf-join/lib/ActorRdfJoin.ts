@@ -21,6 +21,7 @@ import type {
 import { instrumentIterator } from '@comunica/utils-iterator';
 import { cachifyMetadata, MetadataValidationState } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
+import { Algebra, Util } from 'sparqlalgebrajs';
 
 /**
  * A comunica actor for joining 2 binding streams.
@@ -238,8 +239,6 @@ TS
   static findConnectedComponentsInJoinGraph(
     entries: IJoinEntryWithMetadata[],
   ): IConnectedComponents {
-    let util = require('util')
-    console.log(util.inspect(entries.map(entry => entry.operation)));
     function find(idx: number, parent: number[]): number {
       if (parent[idx] === idx) {
         return idx;
@@ -268,24 +267,58 @@ TS
     const size: number[] = Array.from({ length: n }, () => 1);
 
     const variableToEntry: Map<string, number[]> = new Map();
+    const subjectToEntry: Map<string, number[]> = new Map();
+    const objectToEntry: Map<string, number[]> = new Map();
 
-    // Map variables to their entries to know which entries to merge
+    function addDefault<T>(key: string, value: T, map: Map<string, T[]>){
+        if (!map.has(key)) {
+          map.set(key, []);
+        }
+        map.get(key)!.push(value);
+    }
+
+    // Map variables, subjects, and blanknodes to their entries to know which entries to merge
     for (let i = 0; i < n; i++) {
       const entryVariables = entries[i].metadata.variables.map(variable => variable.variable.value);
+      const { subjects, objects } = this.getOperatorPatternSubjectIRIs(entries[i].operation);
       for (const entryVariable of entryVariables) {
-        if (!variableToEntry.has(entryVariable)) {
-          variableToEntry.set(entryVariable, []);
+        addDefault(entryVariable, i, variableToEntry);
+      }
+      for (const subject of subjects){
+        addDefault(subject, i, subjectToEntry);
+      }
+      for (const object of objects){
+        addDefault(object, i, objectToEntry);
+      }
+    }
+    function mergeOverlapping(termToEntry: Map<string, number[]>){
+      for (const entryIndexes of termToEntry.values()) {
+        for (let k = 1; k < entryIndexes.length; k++) {
+          union(entryIndexes[0], entryIndexes[k], parent, size);
         }
-        variableToEntry.get(entryVariable)!.push(i);
       }
     }
 
-    // Union all entries associated with a variable
-    for (const entryIndexes of variableToEntry.values()) {
-      for (let k = 1; k < entryIndexes.length; k++) {
-        union(entryIndexes[0], entryIndexes[k], parent, size);
+    function mergeOverlappingSubjObj(
+      subjToEntry: Map<string, number[]>,
+      objToEntry: Map<string, number[]>
+    ){
+      for (const subj of subjToEntry.keys()){
+        // When subject is in obj map, then there is a connection
+        if (objToEntry.has(subj)){
+          const combinedEntries = [...subjToEntry.get(subj)!, ...objToEntry.get(subj)!];
+          for (let k = 1; k < combinedEntries.length; k++) {
+            union(combinedEntries[0], combinedEntries[k], parent, size);
+          }
+        }
       }
     }
+    // Merge connected entries with: overlapping variables and
+    // overlapping subject or object IRIs
+    mergeOverlapping(variableToEntry);
+    mergeOverlapping(subjectToEntry);
+    mergeOverlapping(objectToEntry);
+    mergeOverlappingSubjObj(subjectToEntry, objectToEntry)
 
     // Reconstruct connected components from union-find datastructure
     const connectedComponents: Map<number, IJoinEntryWithMetadata[]> = new Map();
@@ -304,6 +337,26 @@ TS
       indexes: [ ...connectedComponentsIndexes.values() ],
     };
   }
+
+  public static getOperatorPatternSubjectIRIs(operator: Algebra.Operation): 
+  { subjects: Set<string>, objects: Set<string> } {
+    const subjects = new Set<string>();
+    const objects = new Set<string>();
+
+    Util.recurseOperation(operator, {
+      pattern: (op) => {
+        // Extract subject IRIs
+        if (op.subject.termType === 'NamedNode') {
+          subjects.add(op.subject.value);
+        }        
+        if (op.object.termType === 'NamedNode') {
+          objects.add(op.object.value);
+        }        
+        return true;
+      }
+    });
+  return { subjects, objects };
+}
 
   /**
    * Helper function to create a new metadata object for the join result.

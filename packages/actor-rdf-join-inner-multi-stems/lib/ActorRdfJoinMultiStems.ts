@@ -8,9 +8,9 @@ import type {
 } from '@comunica/bus-rdf-join';
 import { ActorRdfJoin } from '@comunica/bus-rdf-join';
 import type { MediatorRdfJoinEntriesSort } from '@comunica/bus-rdf-join-entries-sort';
-import { KeysInitQuery, KeysStatistics } from '@comunica/context-entries';
+import { KeysInitQuery, KeysRdfJoin, KeysStatistics } from '@comunica/context-entries';
 import type { TestResult } from '@comunica/core';
-import { passTestWithSideData } from '@comunica/core';
+import { failTest, passTestWithSideData } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
 import type {
   BindingsStream,
@@ -63,14 +63,23 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     return (await this.mediatorJoinEntriesSort.mediate({ entries, context })).entries;
   }
 
+  public override async test(
+    action: IActionRdfJoin,
+  ): Promise<TestResult<IMediatorTypeJoinCoefficients, IActorRdfJoinMultiStemsTestSideData>> {
+    if (action.context.get(KeysRdfJoin.joinEntriesAdaptiveJoinResult)){
+      return failTest(`${this.name} can not be invoked recursively.`);
+    }
+    return super.test(action)
+  }
+
+
   protected async getOutput(
     action: IActionRdfJoin,
     sideData: IActorRdfJoinMultiStemsTestSideData,
   ): Promise<IActorRdfJoinOutputInner> {
-    console.log("Getting output")
     const skipLog = action.context.get(KeysStatistics.skipStatisticTracking);
     const logger = ActorRdfJoinMultiStems.getContextLogger(action.context);
-    // This goes wrong with multiple separate connected components
+    // TODO: This goes wrong with multiple separate connected components
     const snapShotLogger = action.context.get(KeysStatistics.adaptiveJoinStatistics);
     const queryString = action.context.get(KeysInitQuery.queryString);
 
@@ -78,21 +87,19 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     metadatas = [ ...metadatas ];
 
     // By sorting the entries and selecting the minimal "not done" entry we route bindings
-    // to the streams with smallest cardinality first.
+    // to the streams with smallest cardinality first by default (before adaptivity)
     const sortedEntries: IJoinEntryWithMetadata[] = await this.sortJoinEntries(action.entries
       .map((entry, i) => ({ ...entry, metadata: metadatas[i] })), action.context);
-    const connectedComponents = ActorRdfJoin.findConnectedComponentsInJoinGraph(sortedEntries);
 
     const { hashFunction } = await this.mediatorHashBindings.mediate({ context: action.context });
     const timestampGenerator = new TimestampGenerator();
-    // Each eddie controller stream is responsible for one connected component of the join graph.
-    const eddieControllerStreams = [];
-    // The inputs to each controller
-    const eddieEntriesInput: IJoinEntryWithMetadata[][] = [];
-    console.log(`Connected components: ${connectedComponents}`);
-    //TODO: Treat connected components as sub queries for derived resources, so when a derived resource comes 
+
+    // TODO: Treat connected components as sub queries for derived resources, so when a derived resource comes 
     // in we test containment in each component, as we don't want to deal with connecting unconnected components etc
-    //TODO: We should treat triple pattersn with the same subject as connected
+    const connectedComponents = ActorRdfJoin.findConnectedComponentsInJoinGraph(sortedEntries);
+
+    const eddieControllerStreams = [];
+    const eddieEntriesInput: IJoinEntryWithMetadata[][] = [];
     for (const connectedComponentEntries of connectedComponents.entries) {
       const entryJoinVariables: RDF.Variable[][][] = await this.getJoinVariables(connectedComponentEntries);
       const stemOperators: EddieOperatorStream[] = [];
@@ -135,7 +142,6 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     // In most cases, we will have 1 connected component (no cart joins) and we just return the
     // controller as join result
     if (eddieControllerStreams.length === 1) {
-      console.log("Length = 1")
       return {
         result: {
           type: 'bindings',
@@ -150,10 +156,8 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     }
     const dataFactory: ComunicaDataFactory = action.context.getSafe(KeysInitQuery.dataFactory);
     const algebraFactory = new Factory(dataFactory);
-    console.log(`We have ${eddieControllerStreams.length} controller streams`)
     const connectedComponentEntries = [];
     for (const [ i, eddieControllerStream ] of eddieControllerStreams.entries()) {
-      console.log("More entries!!")
       // Construct metadata from the entries joined by the controller stream.
       const controllerAsEntry: IJoinEntry = {
         output: {
@@ -174,7 +178,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
       result: await this.mediatorJoin.mediate({
         type: action.type,
         entries: connectedComponentEntries,
-        context: action.context,
+        context: action.context.set(KeysRdfJoin.joinEntriesAdaptiveJoinResult, true),
       }),
     };
   }
@@ -247,4 +251,45 @@ export interface IActorRdfJoinMultiStemsArgs extends IActorRdfJoinArgs<IActorRdf
 
 export interface IActorRdfJoinMultiStemsTestSideData extends IActorRdfJoinTestSideData {
   sortedEntries: IJoinEntryWithMetadata[];
+}
+
+export function stringifyDepth(
+  obj: unknown,
+  maxDepth: number = 2,
+  indent: number = 2
+): string {
+  const seen = new WeakSet<object>();
+
+  function helper(value: unknown, depth: number): unknown {
+    // Stop at max depth
+    if (depth > maxDepth) return '...';
+
+    // Handle primitives
+    if (value === null || typeof value !== 'object') {
+      return value;
+    }
+
+    // Handle circular
+    if (seen.has(value as object)){
+      if ((<any>(value)).termType){
+        return value
+      }
+      return '[Circular]';
+    }
+    seen.add(value as object);
+
+    if (Array.isArray(value)) {
+      return value.map(v => helper(v, depth + 1));
+    }
+
+    // Handle objects
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[k] = helper(v, depth + 1);
+    }
+
+    return out;
+  }
+
+  return JSON.stringify(helper(obj, 1), null, indent);
 }

@@ -347,6 +347,12 @@ export const KeysRdfJoin = {
    * The last physical join actor that was executed.
    */
   lastPhysicalJoin: new ActionContextKey<string>('@comunica/bus-rdf-join:lastPhysicalJoin'),
+  /**
+   * Flag indicating if the join entries are a result of an adaptive join over separate connected
+   * components. Adaptive joins only work over connected components, so the final cartesian products
+   * should be made by 'traditional' join actors
+   */
+  joinEntriesAdaptiveJoinResult: new ActionContextKey<boolean>('@comunica/bus-rdf-join:joinEntriesAdaptiveJoinResult'),
 };
 
 export const KeysStatistics = {
