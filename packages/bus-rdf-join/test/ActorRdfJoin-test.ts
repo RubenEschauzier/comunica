@@ -6,14 +6,13 @@ import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-
 import type { IJoinEntryWithMetadata, IPhysicalQueryPlanLogger, IPlanNode, MetadataVariable } from '@comunica/types';
 import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { MetadataValidationState } from '@comunica/utils-metadata';
+import type * as RDF from '@rdfjs/types';
 import { ArrayIterator, BufferedIterator, MultiTransformIterator, SingletonIterator } from 'asynciterator';
 import { DataFactory } from 'rdf-data-factory';
 import type { IActionRdfJoin, IActorRdfJoinTestSideData } from '../lib/ActorRdfJoin';
 import '@comunica/utils-jest';
 import { ActorRdfJoin } from '../lib/ActorRdfJoin';
 import { translate } from 'sparqlalgebrajs';
-import type * as RDF from '@rdfjs/types';
-
 
 const DF = new DataFactory();
 const BF = new BindingsFactory(DF);
@@ -1291,29 +1290,28 @@ IActorRdfJoinSelectivityOutput
   });
 });
 
-function createEntries(query: string, variablesEntries: MetadataVariable[][]){
+function createEntries(query: string, variablesEntries: MetadataVariable[][]) {
   const algebra = translate(query);
   let operations = [];
-  if (algebra.input.type == 'join'){
-    operations = algebra.input.input
-  }
-  else{
-    operations = algebra.input
+  if (algebra.input.type == 'join') {
+    operations = algebra.input.input;
+  } else {
+    operations = algebra.input;
   }
   const entries: IJoinEntryWithMetadata[] = [];
   let i = 0;
-  for (const operation of operations){
+  for (const operation of operations) {
     entries.push(
       {
         output: {
           bindingsStream: new ArrayIterator<RDF.Bindings>([
             BF.bindings([
-              [DF.variable('a'), DF.literal('a1')],
-              [DF.variable('b'), DF.literal('b1')],
+              [ DF.variable('a'), DF.literal('a1') ],
+              [ DF.variable('b'), DF.literal('b1') ],
             ]),
             BF.bindings([
-              [DF.variable('a'), DF.literal('a2')],
-              [DF.variable('b'), DF.literal('b2')],
+              [ DF.variable('a'), DF.literal('a2') ],
+              [ DF.variable('b'), DF.literal('b2') ],
             ]),
           ]),
           metadata: () => Promise.resolve(
@@ -1324,11 +1322,11 @@ function createEntries(query: string, variablesEntries: MetadataVariable[][]){
               requestTime: 30,
 
               variables: variablesEntries[i],
-            }
+            },
           ),
           type: 'bindings',
         },
-        operation: operation,
+        operation,
         metadata: {
           state: new MetadataValidationState(),
           cardinality: { type: 'estimate', value: 2 },
@@ -1336,100 +1334,100 @@ function createEntries(query: string, variablesEntries: MetadataVariable[][]){
           requestTime: 30,
 
           variables: variablesEntries[i],
-        }
+        },
       },
-    )
+    );
     i++;
   }
-  return entries
+  return entries;
 }
-    // entries.push({
+// Entries.push({
 
-    // })
-    //         output: {
-    //           bindingsStream: new ArrayIterator<RDF.Bindings>([
-    //             BF.bindings([
-    //               [ DF.variable('a'), DF.literal('a1') ],
-    //               [ DF.variable('b'), DF.literal('b1') ],
-    //             ]),
-    //             BF.bindings([
-    //               [ DF.variable('a'), DF.literal('a2') ],
-    //               [ DF.variable('b'), DF.literal('b2') ],
-    //             ]),
-    //           ]),
-    //           metadata: () => Promise.resolve(
-    //             {
-    //               state: new MetadataValidationState(),
-    //               cardinality: { type: 'estimate', value: 4 },
-    //               pageSize: 100,
-    //               requestTime: 10,
+// })
+//         output: {
+//           bindingsStream: new ArrayIterator<RDF.Bindings>([
+//             BF.bindings([
+//               [ DF.variable('a'), DF.literal('a1') ],
+//               [ DF.variable('b'), DF.literal('b1') ],
+//             ]),
+//             BF.bindings([
+//               [ DF.variable('a'), DF.literal('a2') ],
+//               [ DF.variable('b'), DF.literal('b2') ],
+//             ]),
+//           ]),
+//           metadata: () => Promise.resolve(
+//             {
+//               state: new MetadataValidationState(),
+//               cardinality: { type: 'estimate', value: 4 },
+//               pageSize: 100,
+//               requestTime: 10,
 
-    //               variables: [
-    //                 { variable: DF.variable('a'), canBeUndef: false },
-    //                 { variable: DF.variable('b'), canBeUndef: false },
-    //               ],
-    //             },
-    //           ),
-    //           type: 'bindings',
-    //         },
-    //         operation: <any> {},
-    //       },
-    //       {
-    //         output: {
-    //           bindingsStream: new ArrayIterator<RDF.Bindings>([
-    //             BF.bindings([
-    //               [ DF.variable('a'), DF.literal('a1') ],
-    //               [ DF.variable('c'), DF.literal('c1') ],
-    //             ]),
-    //             BF.bindings([
-    //               [ DF.variable('a'), DF.literal('a2') ],
-    //               [ DF.variable('c'), DF.literal('c2') ],
-    //             ]),
-    //           ]),
-    //           metadata: () => Promise.resolve(
-    //             {
-    //               state: new MetadataValidationState(),
-    //               cardinality: { type: 'estimate', value: 5 },
-    //               pageSize: 100,
-    //               requestTime: 20,
+//               variables: [
+//                 { variable: DF.variable('a'), canBeUndef: false },
+//                 { variable: DF.variable('b'), canBeUndef: false },
+//               ],
+//             },
+//           ),
+//           type: 'bindings',
+//         },
+//         operation: <any> {},
+//       },
+//       {
+//         output: {
+//           bindingsStream: new ArrayIterator<RDF.Bindings>([
+//             BF.bindings([
+//               [ DF.variable('a'), DF.literal('a1') ],
+//               [ DF.variable('c'), DF.literal('c1') ],
+//             ]),
+//             BF.bindings([
+//               [ DF.variable('a'), DF.literal('a2') ],
+//               [ DF.variable('c'), DF.literal('c2') ],
+//             ]),
+//           ]),
+//           metadata: () => Promise.resolve(
+//             {
+//               state: new MetadataValidationState(),
+//               cardinality: { type: 'estimate', value: 5 },
+//               pageSize: 100,
+//               requestTime: 20,
 
-    //               variables: [
-    //                 { variable: DF.variable('a'), canBeUndef: false },
-    //                 { variable: DF.variable('c'), canBeUndef: false },
-    //               ],
-    //             },
-    //           ),
-    //           type: 'bindings',
-    //         },
-    //         operation: <any> {},
-    //       },
-    //       {
-    //         output: {
-    //           bindingsStream: new ArrayIterator<RDF.Bindings>([
-    //             BF.bindings([
-    //               [ DF.variable('a'), DF.literal('a1') ],
-    //               [ DF.variable('b'), DF.literal('b1') ],
-    //             ]),
-    //             BF.bindings([
-    //               [ DF.variable('a'), DF.literal('a2') ],
-    //               [ DF.variable('b'), DF.literal('b2') ],
-    //             ]),
-    //           ]),
-    //           metadata: () => Promise.resolve(
-    //             {
-    //               state: new MetadataValidationState(),
-    //               cardinality: { type: 'estimate', value: 2 },
-    //               pageSize: 100,
-    //               requestTime: 30,
+//               variables: [
+//                 { variable: DF.variable('a'), canBeUndef: false },
+//                 { variable: DF.variable('c'), canBeUndef: false },
+//               ],
+//             },
+//           ),
+//           type: 'bindings',
+//         },
+//         operation: <any> {},
+//       },
+//       {
+//         output: {
+//           bindingsStream: new ArrayIterator<RDF.Bindings>([
+//             BF.bindings([
+//               [ DF.variable('a'), DF.literal('a1') ],
+//               [ DF.variable('b'), DF.literal('b1') ],
+//             ]),
+//             BF.bindings([
+//               [ DF.variable('a'), DF.literal('a2') ],
+//               [ DF.variable('b'), DF.literal('b2') ],
+//             ]),
+//           ]),
+//           metadata: () => Promise.resolve(
+//             {
+//               state: new MetadataValidationState(),
+//               cardinality: { type: 'estimate', value: 2 },
+//               pageSize: 100,
+//               requestTime: 30,
 
-    //               variables: [
-    //                 { variable: DF.variable('a'), canBeUndef: false },
-    //                 { variable: DF.variable('b'), canBeUndef: false },
-    //               ],
-    //             },
-    //           ),
-    //           type: 'bindings',
-    //         },
-    //         operation: <any> {},
-    //       },
-    //     ],
+//               variables: [
+//                 { variable: DF.variable('a'), canBeUndef: false },
+//                 { variable: DF.variable('b'), canBeUndef: false },
+//               ],
+//             },
+//           ),
+//           type: 'bindings',
+//         },
+//         operation: <any> {},
+//       },
+//     ],

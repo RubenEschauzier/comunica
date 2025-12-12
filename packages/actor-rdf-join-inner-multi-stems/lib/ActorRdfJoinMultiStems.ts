@@ -66,12 +66,11 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
   public override async test(
     action: IActionRdfJoin,
   ): Promise<TestResult<IMediatorTypeJoinCoefficients, IActorRdfJoinMultiStemsTestSideData>> {
-    if (action.context.get(KeysRdfJoin.joinEntriesAdaptiveJoinResult)){
+    if (action.context.get(KeysRdfJoin.joinEntriesAdaptiveJoinResult)) {
       return failTest(`${this.name} can not be invoked recursively.`);
     }
-    return super.test(action)
+    return super.test(action);
   }
-
 
   protected async getOutput(
     action: IActionRdfJoin,
@@ -94,10 +93,10 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     const { hashFunction } = await this.mediatorHashBindings.mediate({ context: action.context });
     const timestampGenerator = new TimestampGenerator();
 
-    // TODO: Treat connected components as sub queries for derived resources, so when a derived resource comes 
+    // TODO: Treat connected components as sub queries for derived resources, so when a derived resource comes
     // in we test containment in each component, as we don't want to deal with connecting unconnected components etc
     const connectedComponents = ActorRdfJoin.findConnectedComponentsInJoinGraph(sortedEntries);
-    
+
     const eddieControllerStreams = [];
     const eddieEntriesInput: IJoinEntryWithMetadata[][] = [];
     for (const connectedComponentEntries of connectedComponents.entries) {
@@ -210,9 +209,9 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     }, { ...sideData, sortedEntries });
   }
 
-  protected getComponentSubjectObjectIRIs(entry: IJoinEntryWithMetadata): RDF.NamedNode[]{
+  protected getComponentSubjectObjectIRIs(entry: IJoinEntryWithMetadata): RDF.NamedNode[] {
     const { subjects, objects } = ActorRdfJoin.getOperatorPatternSubjectObjectIRIs(entry.operation);
-    const namedNodesAsString = [...subjects.values(), ...objects.values()];
+    const namedNodesAsString = [ ...subjects.values(), ...objects.values() ];
     return namedNodesAsString.map(x => this.DF.namedNode(x));
   }
 
@@ -269,14 +268,16 @@ export interface IActorRdfJoinMultiStemsTestSideData extends IActorRdfJoinTestSi
 
 export function stringifyDepth(
   obj: unknown,
-  maxDepth: number = 2,
-  indent: number = 2
+  maxDepth = 2,
+  indent = 2,
 ): string {
   const seen = new WeakSet<object>();
 
   function helper(value: unknown, depth: number): unknown {
     // Stop at max depth
-    if (depth > maxDepth) return '...';
+    if (depth > maxDepth) {
+      return '...';
+    }
 
     // Handle primitives
     if (value === null || typeof value !== 'object') {
@@ -284,13 +285,13 @@ export function stringifyDepth(
     }
 
     // Handle circular
-    if (seen.has(value as object)){
-      if ((<any>(value)).termType){
-        return value
+    if (seen.has(value)) {
+      if ((<any>(value)).termType) {
+        return value;
       }
       return '[Circular]';
     }
-    seen.add(value as object);
+    seen.add(value);
 
     if (Array.isArray(value)) {
       return value.map(v => helper(v, depth + 1));
@@ -298,7 +299,7 @@ export function stringifyDepth(
 
     // Handle objects
     const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value)) {
+    for (const [ k, v ] of Object.entries(value)) {
       out[k] = helper(v, depth + 1);
     }
 

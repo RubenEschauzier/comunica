@@ -21,7 +21,8 @@ import type {
 import { instrumentIterator } from '@comunica/utils-iterator';
 import { cachifyMetadata, MetadataValidationState } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
-import { Algebra, Util } from 'sparqlalgebrajs';
+import type { Algebra } from 'sparqlalgebrajs';
+import { Util } from 'sparqlalgebrajs';
 
 /**
  * A comunica actor for joining 2 binding streams.
@@ -270,11 +271,11 @@ TS
     const subjectToEntry: Map<string, number[]> = new Map();
     const objectToEntry: Map<string, number[]> = new Map();
 
-    function addDefault<T>(key: string, value: T, map: Map<string, T[]>){
-        if (!map.has(key)) {
-          map.set(key, []);
-        }
-        map.get(key)!.push(value);
+    function addDefault<T>(key: string, value: T, map: Map<string, T[]>) {
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key)!.push(value);
     }
 
     // Map variables, subjects, and blanknodes to their entries to know which entries to merge
@@ -284,14 +285,14 @@ TS
       for (const entryVariable of entryVariables) {
         addDefault(entryVariable, i, variableToEntry);
       }
-      for (const subject of subjects){
+      for (const subject of subjects) {
         addDefault(subject, i, subjectToEntry);
       }
-      for (const object of objects){
+      for (const object of objects) {
         addDefault(object, i, objectToEntry);
       }
     }
-    function mergeOverlapping(termToEntry: Map<string, number[]>){
+    function mergeOverlapping(termToEntry: Map<string, number[]>) {
       for (const entryIndexes of termToEntry.values()) {
         for (let k = 1; k < entryIndexes.length; k++) {
           union(entryIndexes[0], entryIndexes[k], parent, size);
@@ -301,12 +302,12 @@ TS
 
     function mergeOverlappingSubjObj(
       subjToEntry: Map<string, number[]>,
-      objToEntry: Map<string, number[]>
-    ){
-      for (const subj of subjToEntry.keys()){
+      objToEntry: Map<string, number[]>,
+    ) {
+      for (const subj of subjToEntry.keys()) {
         // When subject is in obj map, then there is a connection
-        if (objToEntry.has(subj)){
-          const combinedEntries = [...subjToEntry.get(subj)!, ...objToEntry.get(subj)!];
+        if (objToEntry.has(subj)) {
+          const combinedEntries = [ ...subjToEntry.get(subj)!, ...objToEntry.get(subj)! ];
           for (let k = 1; k < combinedEntries.length; k++) {
             union(combinedEntries[0], combinedEntries[k], parent, size);
           }
@@ -318,7 +319,7 @@ TS
     mergeOverlapping(variableToEntry);
     mergeOverlapping(subjectToEntry);
     mergeOverlapping(objectToEntry);
-    mergeOverlappingSubjObj(subjectToEntry, objectToEntry)
+    mergeOverlappingSubjObj(subjectToEntry, objectToEntry);
 
     // Reconstruct connected components from union-find datastructure
     const connectedComponents: Map<number, IJoinEntryWithMetadata[]> = new Map();
@@ -338,8 +339,8 @@ TS
     };
   }
 
-  public static getOperatorPatternSubjectObjectIRIs(operator: Algebra.Operation): 
-  { subjects: Set<string>, objects: Set<string> } {
+  public static getOperatorPatternSubjectObjectIRIs(operator: Algebra.Operation):
+  { subjects: Set<string>; objects: Set<string> } {
     const subjects = new Set<string>();
     const objects = new Set<string>();
 
@@ -348,15 +349,15 @@ TS
         // Extract subject IRIs
         if (op.subject.termType === 'NamedNode') {
           subjects.add(op.subject.value);
-        }        
+        }
         if (op.object.termType === 'NamedNode') {
           objects.add(op.object.value);
-        }        
+        }
         return true;
-      }
+      },
     });
-  return { subjects, objects };
-}
+    return { subjects, objects };
+  }
 
   /**
    * Helper function to create a new metadata object for the join result.

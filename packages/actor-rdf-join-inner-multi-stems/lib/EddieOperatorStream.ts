@@ -95,7 +95,7 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
     variables: RDF.Variable[],
     namedNodes: RDF.NamedNode[],
     joinVariables: RDF.Variable[][],
-    canBeCartesian: boolean
+    canBeCartesian: boolean,
   ) {
     super();
 
@@ -108,7 +108,7 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
     this.funJoin = funJoin;
 
     this.sourceIterator = sourceIterator;
-    
+
     // Check if already ended before setting up listeners
     if (this.sourceIterator.done) {
       // Source is already exhausted, emit endRead immediately
@@ -249,7 +249,7 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
           const result = this.tripleMap.get(hash)!;
           result.push(item);
         }
-        if (this.canBeCartesian){
+        if (this.canBeCartesian) {
           this.cartesianList.push(item);
         }
         return item;
@@ -258,14 +258,13 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
       this.matchMetadata = item.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
       this.match = item;
       this.matchIdx = 0;
-      if (joinVars.length > 0){
+      if (joinVars.length > 0) {
         // We read from the buffer and got variables to join on.
         // So hash on the join variables.
         const hash = this.funHash(item, joinVars);
         this.matches = this.tripleMap.get(hash) ?? [];
-      }
-      else{
-        this.matches = this.cartesianList
+      } else {
+        this.matches = this.cartesianList;
       }
 
       // Update selectivities in counter

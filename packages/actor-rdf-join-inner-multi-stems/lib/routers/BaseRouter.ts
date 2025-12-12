@@ -45,11 +45,11 @@ export abstract class RouterBase implements IEddieRouter {
           // it is a valid routing decision
           const namedNodesNext = namedNodes[nextIdx];
           const joinNamedNodes = namedNodesNext.filter(n => doneNamedNodes.has(n.value));
-          if (joinNamedNodes.length > 0){
-            // joinVars is used to determine matches using the hash function. We
+          if (joinNamedNodes.length > 0) {
+            // JoinVars is used to determine matches using the hash function. We
             // set join vars to empty for a join with no variables. This
             // means the hash for these joins always match
-            possibleNext.push( { next: nextIdx, joinVars})
+            possibleNext.push({ next: nextIdx, joinVars });
           }
         }
       }

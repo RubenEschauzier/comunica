@@ -5,7 +5,7 @@ import type {
   IPlanSummary,
   IProducedTupleSummary,
   IStatsOperators,
-  Logger
+  Logger,
 } from '@comunica/types';
 import type { Bindings } from '@comunica/utils-bindings-factory';
 import { AsyncIterator } from 'asynciterator';
@@ -75,7 +75,8 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
     this.router = router;
     this.routingUpdateFrequency = updateFrequency;
     this.routingTable = this.router.createRouteTable(
-      this.eddieIterators.map(x => x.variables), this.eddieIterators.map(x => x.namedNodes)
+      this.eddieIterators.map(x => x.variables),
+      this.eddieIterators.map(x => x.namedNodes),
     );
 
     this.endTuples = false;

@@ -1,10 +1,10 @@
-// import type { IAdaptivePlanStatistics } from '@comunica/actor-rdf-join-inner-multi-stems';
+// Import type { IAdaptivePlanStatistics } from '@comunica/actor-rdf-join-inner-multi-stems';
 import type { ActorHttpInvalidateListenable } from '@comunica/bus-http-invalidate';
 import type { IActionRdfJoin, IActorRdfJoinOutputInner } from '@comunica/bus-rdf-join';
 import { KeysStatistics } from '@comunica/context-entries';
 import type { Actor, IActionObserverArgs, IActorTest } from '@comunica/core';
 import { ActionObserver } from '@comunica/core';
-import { IAdaptivePlanStatistics } from '@comunica/types';
+import type { IAdaptivePlanStatistics } from '@comunica/types';
 
 /**
  * Observes HTTP actions, and maintains a counter of the number of requests.
