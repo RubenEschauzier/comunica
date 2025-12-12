@@ -97,11 +97,17 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     // TODO: Treat connected components as sub queries for derived resources, so when a derived resource comes 
     // in we test containment in each component, as we don't want to deal with connecting unconnected components etc
     const connectedComponents = ActorRdfJoin.findConnectedComponentsInJoinGraph(sortedEntries);
-
+    
     const eddieControllerStreams = [];
     const eddieEntriesInput: IJoinEntryWithMetadata[][] = [];
     for (const connectedComponentEntries of connectedComponents.entries) {
-      const entryJoinVariables: RDF.Variable[][][] = await this.getJoinVariables(connectedComponentEntries);
+      const entriesJoinVariables: RDF.Variable[][][] = await this.getJoinVariables(connectedComponentEntries);
+      let componentHasCartesian = false;
+      for (const joinVariableEntry of entriesJoinVariables) {
+        if (joinVariableEntry.length === 0) {
+          componentHasCartesian = true;
+        }
+      }
       const stemOperators: EddieOperatorStream[] = [];
       const inputStreams = [];
 
@@ -114,7 +120,9 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
             <JoinFunction> ActorRdfJoin.joinBindings,
             i,
             (await entry.output.metadata()).variables.map(x => x.variable),
-            entryJoinVariables[i],
+            this.getComponentSubjectObjectIRIs(entry),
+            entriesJoinVariables[i],
+            componentHasCartesian,
           ),
         );
         inputStreams.push(entry);
@@ -200,6 +208,12 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
       blockingItems: 0,
       requestTime: 0,
     }, { ...sideData, sortedEntries });
+  }
+
+  protected getComponentSubjectObjectIRIs(entry: IJoinEntryWithMetadata): RDF.NamedNode[]{
+    const { subjects, objects } = ActorRdfJoin.getOperatorPatternSubjectObjectIRIs(entry.operation);
+    const namedNodesAsString = [...subjects.values(), ...objects.values()];
+    return namedNodesAsString.map(x => this.DF.namedNode(x));
   }
 
   protected async getJoinVariables(entries: IJoinEntryWithMetadata[]): Promise<RDF.Variable[][][]> {

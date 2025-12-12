@@ -10,10 +10,11 @@ export abstract class RouterBase implements IEddieRouter {
    */
   protected connectedComponents: number[][];
 
-  public createRouteTable(variables: RDF.Variable[][]): Record<number, IEddieRoutingEntry[]> {
+  public createRouteTable(variables: RDF.Variable[][], namedNodes: RDF.NamedNode[][]): Record<number, IEddieRoutingEntry[]> {
     const n = variables.length;
     const routeTable: Record<number, IEddieRoutingEntry[]> = {};
     const variableValues = variables.map(vArr => vArr.map(x => x.value));
+    const namedNodeValues = namedNodes.map(nArr => nArr.map(x => x.value));
 
     const totalStates = 1 << n;
     for (let state = 1; state < totalStates; state++) {
@@ -26,15 +27,29 @@ export abstract class RouterBase implements IEddieRouter {
       }
 
       const doneVars = new Set(doneIndexes.flatMap(i => variableValues[i]));
+      const doneNamedNodes = new Set(doneIndexes.flatMap(i => namedNodeValues[i]));
 
       const possibleNext: IEddieRoutingEntry[] = [];
 
       for (let nextIdx = 0; nextIdx < n; nextIdx++) {
         if ((state & (1 << nextIdx)) === 0) {
+          // First check for overlapping variables between triple patterns
           const varsNext = variables[nextIdx];
           const joinVars = varsNext.filter(v => doneVars.has(v.value));
+          // When variables overlap we add it to possible next routing decision
           if (joinVars.length > 0) {
             possibleNext.push({ next: nextIdx, joinVars });
+            continue;
+          }
+          // Same approach but for IRIs, if a IRI matches between triple patterns
+          // it is a valid routing decision
+          const namedNodesNext = namedNodes[nextIdx];
+          const joinNamedNodes = namedNodesNext.filter(n => doneNamedNodes.has(n.value));
+          if (joinNamedNodes.length > 0){
+            // joinVars is used to determine matches using the hash function. We
+            // set join vars to empty for a join with no variables. This
+            // means the hash for these joins always match
+            possibleNext.push( { next: nextIdx, joinVars})
           }
         }
       }
@@ -85,7 +100,7 @@ export abstract class RouterBase implements IEddieRouter {
 
 export interface IEddieRouter {
   routeBinding: (binding: Bindings, n: number) => number | undefined;
-  createRouteTable: (variables: RDF.Variable[][]) => Record<number, IEddieRoutingEntry[]>;
+  createRouteTable: (variables: RDF.Variable[][], namedNodes: RDF.NamedNode[][]) => Record<number, IEddieRoutingEntry[]>;
   updateRouteTable: (
     operators: EddieOperatorStream[], routeTable: Record<string, IEddieRoutingEntry[]>
   ) => Record<number, IEddieRoutingEntry[]>;

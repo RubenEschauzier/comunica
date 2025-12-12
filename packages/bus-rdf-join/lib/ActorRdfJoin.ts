@@ -280,7 +280,7 @@ TS
     // Map variables, subjects, and blanknodes to their entries to know which entries to merge
     for (let i = 0; i < n; i++) {
       const entryVariables = entries[i].metadata.variables.map(variable => variable.variable.value);
-      const { subjects, objects } = this.getOperatorPatternSubjectIRIs(entries[i].operation);
+      const { subjects, objects } = this.getOperatorPatternSubjectObjectIRIs(entries[i].operation);
       for (const entryVariable of entryVariables) {
         addDefault(entryVariable, i, variableToEntry);
       }
@@ -338,7 +338,7 @@ TS
     };
   }
 
-  public static getOperatorPatternSubjectIRIs(operator: Algebra.Operation): 
+  public static getOperatorPatternSubjectObjectIRIs(operator: Algebra.Operation): 
   { subjects: Set<string>, objects: Set<string> } {
     const subjects = new Set<string>();
     const objects = new Set<string>();

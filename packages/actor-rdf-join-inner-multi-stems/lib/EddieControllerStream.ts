@@ -1,7 +1,13 @@
 import { ActionContextKey } from '@comunica/core';
-import type { IAdaptivePlanStatistics, IPlanStatistic, IPlanSummary, IProducedTupleSummary, IStatsOperators, Logger } from '@comunica/types';
+import type {
+  IAdaptivePlanStatistics,
+  IPlanStatistic,
+  IPlanSummary,
+  IProducedTupleSummary,
+  IStatsOperators,
+  Logger
+} from '@comunica/types';
 import type { Bindings } from '@comunica/utils-bindings-factory';
-
 import { AsyncIterator } from 'asynciterator';
 import type { EddieOperatorStream, ISelectivityData } from './EddieOperatorStream';
 import type { IEddieRouter, IEddieRoutingEntry } from './routers/BaseRouter';
@@ -68,7 +74,9 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
     this.finishedReading = Array.from<number>({ length: eddieIterators.length }).fill(0);
     this.router = router;
     this.routingUpdateFrequency = updateFrequency;
-    this.routingTable = this.router.createRouteTable(this.eddieIterators.map(x => x.variables));
+    this.routingTable = this.router.createRouteTable(
+      this.eddieIterators.map(x => x.variables), this.eddieIterators.map(x => x.namedNodes)
+    );
 
     this.endTuples = false;
 

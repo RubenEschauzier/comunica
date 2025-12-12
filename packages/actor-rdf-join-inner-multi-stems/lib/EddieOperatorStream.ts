@@ -15,7 +15,15 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
    * The variables that this operator can do a join on
    */
   public joinVariables: RDF.Variable[][];
-
+  /**
+   * Indicating if this operator might have to perform a cartesian join
+   */
+  public canBeCartesian: boolean;
+  /**
+   * Hash key for cartesian product bucket. This is an illegal variable name
+   * to prevent collisions
+   */
+  public cartesianList: Bindings[] = [];
   /**
    * Number of 'lottery' tickets. Used for lottery scheduling
    */
@@ -50,9 +58,13 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
   public nSuccessReads = 0;
 
   /**
-   * The variables present in the bindings produced by this operator.
+   * The variables present in the bindings produced by this operator
    */
   public variables: RDF.Variable[];
+  /**
+   * The named nodes present in the bindings produced by this operator
+   */
+  public namedNodes: RDF.NamedNode[];
 
   private readonly sourceIterator: BindingsStream;
 
@@ -81,17 +93,27 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
     funJoin: JoinFunction,
     bitLoc: number,
     variables: RDF.Variable[],
+    namedNodes: RDF.NamedNode[],
     joinVariables: RDF.Variable[][],
+    canBeCartesian: boolean
   ) {
     super();
 
     this.variables = variables;
+    this.namedNodes = namedNodes;
     this.joinVariables = joinVariables;
+    this.canBeCartesian = canBeCartesian;
 
     this.funHash = funHash;
     this.funJoin = funJoin;
 
     this.sourceIterator = sourceIterator;
+    
+    // Check if already ended before setting up listeners
+    if (this.sourceIterator.done) {
+      // Source is already exhausted, emit endRead immediately
+      setImmediate(() => this.emit('endRead'));
+    }
 
     if (this.sourceIterator.readable) {
       this.readable = true;
@@ -200,13 +222,12 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
         this.readable = false;
         return null;
       }
-
-      // We read from the sourceIterator. In this case we need to hash for each
-      // possible join variable.
       item = <Bindings> item;
       this.nSuccessReads++;
 
-      if (!joinVars) {
+      // We read from the sourceIterator. In this case we need to hash for each
+      // possible join variable. And possible cartesian products
+      if (joinVars === undefined) {
         this.nProduced++;
 
         const itemMetadata: IEddieBindingsMetadata = {
@@ -228,18 +249,25 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
           const result = this.tripleMap.get(hash)!;
           result.push(item);
         }
+        if (this.canBeCartesian){
+          this.cartesianList.push(item);
+        }
         return item;
       }
 
       this.matchMetadata = item.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
-      // We read from the buffer and got variables to join on.
-      // So hash on the join variables.
-      const hash = this.funHash(item, joinVars);
       this.match = item;
-      this.matches = this.tripleMap.get(hash) ?? [];
       this.matchIdx = 0;
+      if (joinVars.length > 0){
+        // We read from the buffer and got variables to join on.
+        // So hash on the join variables.
+        const hash = this.funHash(item, joinVars);
+        this.matches = this.tripleMap.get(hash) ?? [];
+      }
+      else{
+        this.matches = this.cartesianList
+      }
 
-      this.tickets += 1;
       // Update selectivities in counter
       const matchDone = this.matchMetadata.done;
       if (!this.selectivitiesSignatures[matchDone]) {
@@ -252,6 +280,7 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
         this.selectivitiesOrders[orderKey] = { in: 0, out: 0 };
       }
       this.selectivitiesOrders[orderKey].in++;
+      this.tickets += 1;
     }
   }
 }
