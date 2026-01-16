@@ -2,6 +2,7 @@ import type { IActionQuerySourceDereferenceLink } from '@comunica/bus-query-sour
 import { KeysStatistics } from '@comunica/context-entries';
 import type {
   ILink,
+  ISourceState,
   IQuerySource,
   IActionContext,
   MetadataBindings,
@@ -347,30 +348,7 @@ export abstract class LinkedRdfSourcesAsyncRdfIterator extends BufferedIterator<
 }
 
 /**
- * The current state of a source.
- * This is needed for following links within a source.
+ * @deprecated Use @comunica/types instead.
  */
-export interface ISourceState {
-  /**
-   * The link to this source.
-   */
-  link: ILink;
-  /**
-   * A source.
-   */
-  source: IQuerySource;
-  /**
-   * The source's initial metadata.
-   */
-  metadata: MetadataBindings;
-  /**
-   * All dataset identifiers that have been passed for this source.
-   */
-  handledDatasets: Record<string, boolean>;
-  /**
-   * The cache policy of the request's response.
-   */
-  cachePolicy?: ICachePolicy<IActionQuerySourceDereferenceLink>;
-}
-
+export type { ISourceState } from '@comunica/types';
 export type SourceStateGetter = (link: ILink, handledDatasets: Record<string, boolean>) => Promise<ISourceState>;

@@ -47,7 +47,9 @@ export class ActorQuerySourceDereferenceLinkHypermedia extends ActorQuerySourceD
     let url = action.link.url;
     let quads: RDF.Stream;
     let metadata: Record<string, any>;
+    let headers: Headers | undefined;
     let cachePolicy: ICachePolicy<IActionQuerySourceDereferenceLink> | undefined;
+
     try {
       const dereferenceRdfOutput: IActorDereferenceRdfOutput = await this.mediatorDereferenceRdf
         .mediate({ context, url });
@@ -67,6 +69,7 @@ export class ActorQuerySourceDereferenceLinkHypermedia extends ActorQuerySourceD
         // and will result in a promise rejection anyways.
         // If we don't do this, we end up with an unhandled error message
       });
+      headers = dereferenceRdfOutput.headers;
 
       metadata = (await this.mediatorMetadataExtract.mediate({
         context,
@@ -117,7 +120,7 @@ export class ActorQuerySourceDereferenceLinkHypermedia extends ActorQuerySourceD
     // Track dereference event
     context.get(KeysStatistics.dereferencedLinks)?.updateStatistic({ url: action.link.url, metadata }, source);
 
-    return { source, metadata: <MetadataBindings> metadata, dataset, cachePolicy };
+    return { source, metadata: <MetadataBindings> metadata, dataset, cachePolicy, headers };
   }
 }
 

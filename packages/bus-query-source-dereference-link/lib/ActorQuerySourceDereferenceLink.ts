@@ -55,6 +55,10 @@ export interface IActorQuerySourceDereferenceLinkOutput extends IActorOutput {
    * The cache policy of the request's response.
    */
   cachePolicy?: ICachePolicy<IActionQuerySourceDereferenceLink>;
+  /**
+   * Any headers of the dereferenced page
+   */
+  headers?: Headers | undefined;
 }
 
 export type IActorQuerySourceDereferenceLinkArgs<TS = undefined> = IActorArgs<
