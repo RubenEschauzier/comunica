@@ -1,9 +1,9 @@
 // TODO Fix this, it shouldn't depend on a bus
-import { IActionQuerySourceDereferenceLink } from "@comunica/bus-query-source-dereference-link";
-import { ICachePolicy } from "./ICachePolicy";
-import { MetadataBindings } from "./IMetadata";
-import { IQuerySource } from "./IQuerySource";
-import { ILink } from "./ILink";
+import type { IActionQuerySourceDereferenceLink } from '@comunica/bus-query-source-dereference-link';
+import type { ICachePolicy } from './ICachePolicy';
+import type { ILink } from './ILink';
+import type { MetadataBindings } from './IMetadata';
+import type { IQuerySource } from './IQuerySource';
 
 /**
  * The current state of a source.

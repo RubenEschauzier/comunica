@@ -1,15 +1,12 @@
-import type { IActionQuerySourceDereferenceLink } from '@comunica/bus-query-source-dereference-link';
 import { KeysStatistics } from '@comunica/context-entries';
 import type {
   ILink,
   ISourceState,
-  IQuerySource,
   IActionContext,
   MetadataBindings,
   IQueryBindingsOptions,
   IStatisticBase,
   ILinkQueue,
-  ICachePolicy,
 } from '@comunica/types';
 import type { Algebra } from '@comunica/utils-algebra';
 import { MetadataValidationState } from '@comunica/utils-metadata';

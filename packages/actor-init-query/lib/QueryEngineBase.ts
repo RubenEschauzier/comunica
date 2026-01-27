@@ -166,8 +166,13 @@ implements IQueryEngine<QueryStringContextInner, QueryAlgebraContextInner> {
    * @param {ActionContext} context An optional context.
    * @return {Promise<IActorQueryResultSerializeOutput>} A text stream.
    */
-  public async resultToString(queryResult: RDF.Query<any>, mediaType?: string, context?: any):
-  Promise<IActorQueryResultSerializeOutput> {
+  public async resultToString(
+    queryResult: RDF.Query<any>,
+    mediaType?: string,
+    context?: any,
+    handle?: IActionSparqlSerialize,
+  ):
+    Promise<IActorQueryResultSerializeOutput> {
     context = ActionContext.ensureActionContext(context);
     if (!mediaType) {
       switch (queryResult.resultType) {
@@ -182,7 +187,9 @@ implements IQueryEngine<QueryStringContextInner, QueryAlgebraContextInner> {
           break;
       }
     }
-    const handle: IActionSparqlSerialize = { ...await QueryEngineBase.finalToInternalResult(queryResult), context };
+    if (!handle) {
+      handle = { ...await QueryEngineBase.finalToInternalResult(queryResult), context };
+    }
     return (await this.actorInitQuery.mediatorQueryResultSerialize
       .mediate({ context, handle, handleMediaType: mediaType })).handle;
   }

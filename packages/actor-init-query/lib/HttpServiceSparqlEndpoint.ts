@@ -6,9 +6,16 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import * as querystring from 'node:querystring';
 import type { Writable } from 'node:stream';
 import * as url from 'node:url';
+import type { IActionSparqlSerialize } from '@comunica/bus-query-result-serialize';
 import { KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
-import type { ICliArgsHandler, QueryQuads, QueryType } from '@comunica/types';
+import type {
+  BindingsStream,
+  ICliArgsHandler,
+  IQueryOperationResultBindings,
+  QueryQuads,
+  QueryType,
+} from '@comunica/types';
 import { Algebra } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
 import { ArrayIterator } from 'asynciterator';
@@ -51,6 +58,8 @@ export class HttpServiceSparqlEndpoint {
 
   public readonly voidMetadataEmitter: VoidMetadataEmitter;
 
+  public workerCurrentQueryType: 'boolean' | 'void' | 'bindings' | 'quads' | undefined;
+  public workerCurrentStream: BindingsStream | undefined;
   public lastQueryId = 0;
 
   public constructor(args: IHttpServiceSparqlEndpointArgs) {
@@ -207,7 +216,7 @@ export class HttpServiceSparqlEndpoint {
     }
 
     // Attach listeners to each new worker
-    cluster.on('listening', (worker) => {
+    cluster.on('online', (worker) => {
       // Respawn crashed workers
       worker.once('exit', (code, signal) => {
         if (!worker.exitedAfterDisconnect) {
@@ -241,6 +250,8 @@ export class HttpServiceSparqlEndpoint {
           stderr.write(`Worker ${worker.process.pid} has completed query ${queryId}.\n`);
           clearTimeout(workerTimeouts[queryId]);
           delete workerTimeouts[queryId];
+        } else if (type === 'ready') {
+          stderr.write(`Worker ${worker.process.pid} resumed service.\n`);
         }
       });
     });
@@ -285,18 +296,71 @@ export class HttpServiceSparqlEndpoint {
     // eslint-disable-next-line ts/no-misused-promises
     process.on('message', async(message: string): Promise<void> => {
       if (message === 'shutdown') {
-        stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
+        if (this.workerCurrentQueryType === 'bindings' && this.workerCurrentStream) {
+          function sleep(ms: number): Promise<void> {
+            return new Promise((resolve) => {
+              setTimeout(resolve, ms);
+            });
+          }
+          stderr.write(`Timing out worker ${process.pid} gracefully with ${openConnections.size} open connections`);
 
-        // Stop new connections from being accepted
-        server.close();
+          const closingServer = new Promise<void>((resolve, reject) => {
+            server.close((err) => {
+              if (err) {
+                reject(err);
+              } else {
+                resolve();
+              }
+            });
+          });
 
-        // Close all open connections
-        for (const connection of openConnections) {
-          await new Promise<void>(resolve => connection.end('!TIMEDOUT!', resolve));
+          const killPromises: Promise<void>[] = [];
+          for (const response of openConnections) {
+            killPromises.push(new Promise<void>((resolve) => {
+              // Attempt to write the timeout message
+              if (!response.writableEnded) {
+                try {
+                  response.end('!TIMEDOUT!');
+                } catch {}
+              }
+              // Destroy socket to immediately close the server and prevent any connections
+              // from being kept alive
+              if (response.socket && !response.socket.destroyed) {
+                response.socket.destroy();
+              }
+              resolve();
+            }));
+          }
+          // Wait for all sockets to be destroyed
+          await Promise.all(killPromises);
+          openConnections.clear();
+
+          this.workerCurrentStream.destroy();
+
+          await closingServer;
+
+          // Wait for .destroy() to propegate up the bindingsStream
+          await sleep(2000);
+
+          if (process.send) {
+            process.send({ type: 'ready' });
+          }
+
+          server.listen(this.port);
+        } else {
+          stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
+
+          // Stop new connections from being accepted
+          server.close();
+
+          // Close all open connections
+          for (const connection of openConnections) {
+            await new Promise<void>(resolve => connection.end('!TIMEDOUT!', resolve));
+          }
+
+          // Kill the worker once the connections have been closed
+          process.exit(15);
         }
-
-        // Kill the worker once the connections have been closed
-        process.exit(15);
       }
     });
 
@@ -459,7 +523,7 @@ export class HttpServiceSparqlEndpoint {
     let result: QueryType;
     try {
       result = await engine.query(queryBody.value, context);
-
+      this.workerCurrentQueryType = result.resultType;
       // For update queries, also await the result
       if (result.resultType === 'void') {
         await result.execute();
@@ -512,7 +576,20 @@ export class HttpServiceSparqlEndpoint {
 
     let eventEmitter: EventEmitter | undefined;
     try {
-      const { data } = await engine.resultToString(result, mediaType);
+      const handle: IActionSparqlSerialize = {
+        ...await QueryEngineBase.finalToInternalResult(result),
+        context: new ActionContext(),
+      };
+      if (handle.type === 'bindings') {
+        this.workerCurrentStream = (<IQueryOperationResultBindings> handle).bindingsStream;
+      }
+      const { data } = await engine.resultToString(
+        result,
+        mediaType,
+        undefined,
+        handle,
+      );
+
       data.on('error', (error: Error) => {
         stdout.write(`[500] Server error in results: ${error.message} \n`);
         if (!response.writableEnded) {
@@ -592,7 +669,6 @@ export class HttpServiceSparqlEndpoint {
           quads.push(quad);
         }
       }
-
       // Flush results
       const { data } = await engine.resultToString(<QueryQuads>{
         resultType: 'quads',

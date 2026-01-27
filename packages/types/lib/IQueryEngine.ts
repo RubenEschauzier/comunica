@@ -1,3 +1,4 @@
+import type { IActionSparqlSerialize } from '@comunica/bus-query-result-serialize';
 import type { Algebra } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
@@ -116,7 +117,7 @@ export interface IQueryEngine<
    * @param {IActionContext} context An optional context.
    * @return {Promise<IActorQueryResultSerializeOutput>} A text stream.
    */
-  resultToString: (queryResult: QueryType, mediaType?: string, context?: any) => any;
+  resultToString: (queryResult: QueryType, mediaType?: string, context?: any, handle?: IActionSparqlSerialize) => any;
   /**
    * Invalidate all internal caches related to the given page URL.
    * If no page URL is given, then all pages will be invalidated.
