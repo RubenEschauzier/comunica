@@ -30,6 +30,8 @@ import { CliArgsHandlerBase } from './cli/CliArgsHandlerBase';
 import { CliArgsHandlerHttp } from './cli/CliArgsHandlerHttp';
 import { VoidMetadataEmitter } from './VoidMetadataEmitter';
 
+import { AsyncIterator } from 'asynciterator';
+
 // Use require instead of import for default exports, to be compatible with variants of esModuleInterop in tsconfig.
 const clusterUntyped = require('node:cluster');
 const process: NodeJS.Process = require('process/');
@@ -49,6 +51,7 @@ export class HttpServiceSparqlEndpoint {
 
   public readonly context: any;
   public readonly timeout: number;
+  public readonly timeoutSleep: number;
   public readonly port: number;
   public readonly workers: number;
 
@@ -59,12 +62,15 @@ export class HttpServiceSparqlEndpoint {
   public readonly voidMetadataEmitter: VoidMetadataEmitter;
 
   public workerCurrentQueryType: 'boolean' | 'void' | 'bindings' | 'quads' | undefined;
-  public workerCurrentStream: BindingsStream | undefined;
+  public workerCurrentStream: BindingsStream | AsyncIterator<RDF.Quad> | undefined;
+  public abortControllers: Map<number, AbortController> = new Map();
+
   public lastQueryId = 0;
 
   public constructor(args: IHttpServiceSparqlEndpointArgs) {
     this.context = args.context || {};
     this.timeout = args.timeout ?? 60_000;
+    this.timeoutSleep = args.timeoutSleep ?? 20_000;
     this.port = args.port ?? 3_000;
     this.workers = args.workers ?? 1;
     this.freshWorkerPerQuery = Boolean(args.freshWorkerPerQuery);
@@ -276,7 +282,6 @@ export class HttpServiceSparqlEndpoint {
     for (const type of Object.keys(mediaTypes)) {
       variants.push({ type, quality: mediaTypes[type] });
     }
-
     // Start the server
     // eslint-disable-next-line ts/no-misused-promises
     const server = http.createServer(this.handleRequest.bind(this, engine, variants, stdout, stderr));
@@ -296,13 +301,11 @@ export class HttpServiceSparqlEndpoint {
     // eslint-disable-next-line ts/no-misused-promises
     process.on('message', async(message: string): Promise<void> => {
       if (message === 'shutdown') {
-        if (this.workerCurrentQueryType === 'bindings' && this.workerCurrentStream) {
-          function sleep(ms: number): Promise<void> {
-            return new Promise((resolve) => {
-              setTimeout(resolve, ms);
-            });
-          }
-          stderr.write(`Timing out worker ${process.pid} gracefully with ${openConnections.size} open connections`);
+        if (this.workerCurrentStream && 
+          ( this.workerCurrentQueryType === 'bindings' || this.workerCurrentQueryType === 'quads' ) 
+        ) {
+
+          stderr.write(`Timing out worker ${process.pid} gracefully with ${openConnections.size} open connections\n`);
 
           const closingServer = new Promise<void>((resolve, reject) => {
             server.close((err) => {
@@ -313,16 +316,18 @@ export class HttpServiceSparqlEndpoint {
               }
             });
           });
+          // Call the abort controller to stop processes still running
+          const abortController = this.abortControllers.get(this.lastQueryId - 1)
+          if (!abortController){
+            throw new Error("Tried to abort query that does not exist");
+          }
+          abortController.abort();
+          this.abortControllers.delete(this.lastQueryId - 1);
 
           const killPromises: Promise<void>[] = [];
           for (const response of openConnections) {
             killPromises.push(new Promise<void>((resolve) => {
-              // Attempt to write the timeout message
-              if (!response.writableEnded) {
-                try {
-                  response.end('!TIMEDOUT!');
-                } catch {}
-              }
+              response.end('!TIMEDOUT!');
               // Destroy socket to immediately close the server and prevent any connections
               // from being kept alive
               if (response.socket && !response.socket.destroyed) {
@@ -331,16 +336,15 @@ export class HttpServiceSparqlEndpoint {
               resolve();
             }));
           }
-          // Wait for all sockets to be destroyed
           await Promise.all(killPromises);
           openConnections.clear();
 
+          // Destroy the stream to stop its execution
           this.workerCurrentStream.destroy();
-
           await closingServer;
 
-          // Wait for .destroy() to propegate up the bindingsStream
-          await sleep(2000);
+          // Wait for .destroy() to propegate up the stream
+          await this.sleep(this.timeoutSleep);
 
           if (process.send) {
             process.send({ type: 'ready' });
@@ -522,7 +526,14 @@ export class HttpServiceSparqlEndpoint {
 
     let result: QueryType;
     try {
+      const abortController = new AbortController();
+      console.log("SET!")
+      console.log(queryId)
+      this.abortControllers.set(queryId, abortController);
+      context = {...context, [KeysInitQuery.abortSignalQuery.name]: abortController.signal };
+
       result = await engine.query(queryBody.value, context);
+
       this.workerCurrentQueryType = result.resultType;
       // For update queries, also await the result
       if (result.resultType === 'void') {
@@ -609,6 +620,7 @@ export class HttpServiceSparqlEndpoint {
 
     // Send message to master process to indicate the end of an execution
     response.on('close', () => {
+      this.abortControllers.clear();
       process.send!({ type: 'end', queryId });
     });
 
@@ -777,6 +789,12 @@ export class HttpServiceSparqlEndpoint {
       });
     });
   }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
 }
 
 export interface IQueryBody {
@@ -788,6 +806,7 @@ export interface IQueryBody {
 export interface IHttpServiceSparqlEndpointArgs extends IDynamicQueryEngineOptions {
   context?: any;
   timeout?: number;
+  timeoutSleep?: number;
   port?: number;
   workers?: number;
   freshWorkerPerQuery?: boolean;

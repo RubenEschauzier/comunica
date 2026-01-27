@@ -55,6 +55,11 @@ export class ActorQueryOperationConstruct extends ActorQueryOperationTypedMediat
       await this.mediatorQueryOperation.mediate({ operation, context }),
     );
 
+    const abortSignal = context.get(KeysInitQuery.abortSignalQuery);
+    if (abortSignal) {
+      abortSignal.addEventListener('abort', () => output.bindingsStream.destroy());
+    }
+
     // Construct triples using the result based on the pattern.
     // If it's a DESCRIBE query don't apply the blank node localisation.
     const quadStream: AsyncIterator<RDF.Quad> = new BindingsToQuadsIterator(

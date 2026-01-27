@@ -243,6 +243,10 @@ export const KeysInitQuery = {
    * A boolean value denoting whether results should be deduplicated or not.
    */
   distinctConstruct: new ActionContextKey<boolean>('@comunica/actor-init-query:distinctConstruct'),
+  /**
+   * Abort controller indicating a query has been aborted.
+   */
+  abortSignalQuery: new ActionContextKey<AbortSignal>('@comunica/actor-init-query:abortSignalQuery')
 };
 
 export const KeysExpressionEvaluator = {
