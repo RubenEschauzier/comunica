@@ -13,6 +13,7 @@ import type {
   BindingsStream,
   ICliArgsHandler,
   IQueryOperationResultBindings,
+  IQueryOperationResultQuads,
   QueryQuads,
   QueryType,
 } from '@comunica/types';
@@ -70,7 +71,7 @@ export class HttpServiceSparqlEndpoint {
   public constructor(args: IHttpServiceSparqlEndpointArgs) {
     this.context = args.context || {};
     this.timeout = args.timeout ?? 60_000;
-    this.timeoutSleep = args.timeoutSleep ?? 20_000;
+    this.timeoutSleep = args.timeoutSleep ?? 3_000;
     this.port = args.port ?? 3_000;
     this.workers = args.workers ?? 1;
     this.freshWorkerPerQuery = Boolean(args.freshWorkerPerQuery);
@@ -301,70 +302,63 @@ export class HttpServiceSparqlEndpoint {
     // eslint-disable-next-line ts/no-misused-promises
     process.on('message', async(message: string): Promise<void> => {
       if (message === 'shutdown') {
-        if (this.workerCurrentStream && 
-          ( this.workerCurrentQueryType === 'bindings' || this.workerCurrentQueryType === 'quads' ) 
-        ) {
+        // Close server
+        const closingServer = new Promise<void>((resolve, reject) => {
+          server.close(() => resolve())
+        });
 
-          stderr.write(`Timing out worker ${process.pid} gracefully with ${openConnections.size} open connections\n`);
+        // Clear all connections regardless of the type of query
+        const killPromises: Promise<void>[] = [];
+        for (const response of openConnections) {
+          killPromises.push(new Promise<void>((resolve) => {
+            response.end('!TIMEDOUT!');
+            // Destroy socket to immediately close the server and prevent any connections
+            // from being kept alive
+            if (response.socket && !response.socket.destroyed) {
+              response.socket.destroy();
+            }
+            resolve();
+          }));
+        }
+        await Promise.all(killPromises);
+        openConnections.clear();
 
-          const closingServer = new Promise<void>((resolve, reject) => {
-            server.close((err) => {
-              if (err) {
-                reject(err);
-              } else {
-                resolve();
-              }
-            });
-          });
-          // Call the abort controller to stop processes still running
+        if (this.workerCurrentQueryType === 'void'){
+          stderr.write(`Shutting down worker ${process.pid} executing update query with ${openConnections.size} open connections.\n`);
+          // Kill the worker once the connections have been closed as cancelling an update
+          // query is not straightforward
+          process.exit(15);
+        }
+        else if (this.workerCurrentQueryType === 'bindings' || this.workerCurrentQueryType === 'quads'){
+          stderr.write(`Stopping worker ${process.pid} executing query ${this.lastQueryId - 1}\n`);
+          this.workerCurrentStream!.destroy();
+        }
+        else if (this.workerCurrentQueryType === 'boolean'){
+          stderr.write(`Stopping worker ${process.pid} executing query ask query ${this.lastQueryId - 1}\n`);
+          // // Call the abort controller to stop the underlying bindingStream of a boolean query
           const abortController = this.abortControllers.get(this.lastQueryId - 1)
           if (!abortController){
             throw new Error("Tried to abort query that does not exist");
           }
           abortController.abort();
           this.abortControllers.delete(this.lastQueryId - 1);
-
-          const killPromises: Promise<void>[] = [];
-          for (const response of openConnections) {
-            killPromises.push(new Promise<void>((resolve) => {
-              response.end('!TIMEDOUT!');
-              // Destroy socket to immediately close the server and prevent any connections
-              // from being kept alive
-              if (response.socket && !response.socket.destroyed) {
-                response.socket.destroy();
-              }
-              resolve();
-            }));
-          }
-          await Promise.all(killPromises);
-          openConnections.clear();
-
-          // Destroy the stream to stop its execution
-          this.workerCurrentStream.destroy();
-          await closingServer;
-
-          // Wait for .destroy() to propegate up the stream
-          await this.sleep(this.timeoutSleep);
-
-          if (process.send) {
-            process.send({ type: 'ready' });
-          }
-
-          server.listen(this.port);
-        } else {
-          stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
-
-          // Stop new connections from being accepted
-          server.close();
-
-          // Close all open connections
-          for (const connection of openConnections) {
-            await new Promise<void>(resolve => connection.end('!TIMEDOUT!', resolve));
-          }
-
-          // Kill the worker once the connections have been closed
+        }
+        else {
+          stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections due to undefined workerCurrentQueryType.\n`);
           process.exit(15);
         }
+
+        await closingServer;
+        // Wait for .destroy() to propegate up the stream
+        await this.sleep(this.timeoutSleep);
+
+        // Send ready signal (only used for logging)
+        if (process.send) {
+          process.send({ type: 'ready' });
+        }
+
+        // Open worker for new queries
+        server.listen(this.port);
       }
     });
 
@@ -527,8 +521,6 @@ export class HttpServiceSparqlEndpoint {
     let result: QueryType;
     try {
       const abortController = new AbortController();
-      console.log("SET!")
-      console.log(queryId)
       this.abortControllers.set(queryId, abortController);
       context = {...context, [KeysInitQuery.abortSignalQuery.name]: abortController.signal };
 
@@ -593,6 +585,9 @@ export class HttpServiceSparqlEndpoint {
       };
       if (handle.type === 'bindings') {
         this.workerCurrentStream = (<IQueryOperationResultBindings> handle).bindingsStream;
+      }
+      if (handle.type === 'quads') {
+        this.workerCurrentStream = (<IQueryOperationResultQuads> handle).quadStream
       }
       const { data } = await engine.resultToString(
         result,

@@ -1,5 +1,6 @@
 import type { IActorQueryOperationTypedMediatedArgs } from '@comunica/bus-query-operation';
 import { ActorQueryOperationTypedMediated } from '@comunica/bus-query-operation';
+import { KeysInitQuery } from '@comunica/context-entries';
 import type { IActorTest, TestResult } from '@comunica/core';
 import { passTestVoid } from '@comunica/core';
 import type {
@@ -28,6 +29,13 @@ export class ActorQueryOperationAsk extends ActorQueryOperationTypedMediated<Alg
       { operation: operation.input, context },
     );
     const { bindingsStream }: IQueryOperationResultBindings = getSafeBindings(output);
+
+    // Listen to abort signal as ask queriers do not return a bindingStream to destroy
+    const abortSignal = context.get(KeysInitQuery.abortSignalQuery);
+    if (abortSignal) {
+      abortSignal.addEventListener('abort', () => bindingsStream.destroy());
+    }
+
     return { type: 'boolean', execute: async() => (await bindingsStream.take(1).toArray()).length === 1 };
   }
 }
