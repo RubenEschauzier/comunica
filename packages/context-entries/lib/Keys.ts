@@ -246,7 +246,7 @@ export const KeysInitQuery = {
   /**
    * Abort controller indicating a query has been aborted.
    */
-  abortSignalQuery: new ActionContextKey<AbortSignal>('@comunica/actor-init-query:abortSignalQuery')
+  abortSignalQuery: new ActionContextKey<AbortSignal>('@comunica/actor-init-query:abortSignalQuery'),
 };
 
 export const KeysExpressionEvaluator = {

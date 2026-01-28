@@ -19,6 +19,7 @@ import type {
 } from '@comunica/types';
 import { Algebra } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
+import type { AsyncIterator } from 'asynciterator';
 import { ArrayIterator } from 'asynciterator';
 
 import yargs from 'yargs';
@@ -30,8 +31,6 @@ import { QueryEngineBase, QueryEngineFactoryBase } from '..';
 import { CliArgsHandlerBase } from './cli/CliArgsHandlerBase';
 import { CliArgsHandlerHttp } from './cli/CliArgsHandlerHttp';
 import { VoidMetadataEmitter } from './VoidMetadataEmitter';
-
-import { AsyncIterator } from 'asynciterator';
 
 // Use require instead of import for default exports, to be compatible with variants of esModuleInterop in tsconfig.
 const clusterUntyped = require('node:cluster');
@@ -303,8 +302,8 @@ export class HttpServiceSparqlEndpoint {
     process.on('message', async(message: string): Promise<void> => {
       if (message === 'shutdown') {
         // Close server
-        const closingServer = new Promise<void>((resolve, reject) => {
-          server.close(() => resolve())
+        const closingServer = new Promise<void>((resolve) => {
+          server.close(() => resolve());
         });
 
         // Clear all connections regardless of the type of query
@@ -323,27 +322,24 @@ export class HttpServiceSparqlEndpoint {
         await Promise.all(killPromises);
         openConnections.clear();
 
-        if (this.workerCurrentQueryType === 'void'){
+        if (this.workerCurrentQueryType === 'void') {
           stderr.write(`Shutting down worker ${process.pid} executing update query with ${openConnections.size} open connections.\n`);
           // Kill the worker once the connections have been closed as cancelling an update
           // query is not straightforward
           process.exit(15);
-        }
-        else if (this.workerCurrentQueryType === 'bindings' || this.workerCurrentQueryType === 'quads'){
+        } else if (this.workerCurrentQueryType === 'bindings' || this.workerCurrentQueryType === 'quads') {
           stderr.write(`Stopping worker ${process.pid} executing query ${this.lastQueryId - 1}\n`);
           this.workerCurrentStream!.destroy();
-        }
-        else if (this.workerCurrentQueryType === 'boolean'){
+        } else if (this.workerCurrentQueryType === 'boolean') {
           stderr.write(`Stopping worker ${process.pid} executing query ask query ${this.lastQueryId - 1}\n`);
           // // Call the abort controller to stop the underlying bindingStream of a boolean query
-          const abortController = this.abortControllers.get(this.lastQueryId - 1)
-          if (!abortController){
-            throw new Error("Tried to abort query that does not exist");
+          const abortController = this.abortControllers.get(this.lastQueryId - 1);
+          if (!abortController) {
+            throw new Error('Tried to abort query that does not exist');
           }
           abortController.abort();
           this.abortControllers.delete(this.lastQueryId - 1);
-        }
-        else {
+        } else {
           stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections due to undefined workerCurrentQueryType.\n`);
           process.exit(15);
         }
@@ -522,7 +518,7 @@ export class HttpServiceSparqlEndpoint {
     try {
       const abortController = new AbortController();
       this.abortControllers.set(queryId, abortController);
-      context = {...context, [KeysInitQuery.abortSignalQuery.name]: abortController.signal };
+      context = { ...context, [KeysInitQuery.abortSignalQuery.name]: abortController.signal };
 
       result = await engine.query(queryBody.value, context);
 
@@ -587,7 +583,7 @@ export class HttpServiceSparqlEndpoint {
         this.workerCurrentStream = (<IQueryOperationResultBindings> handle).bindingsStream;
       }
       if (handle.type === 'quads') {
-        this.workerCurrentStream = (<IQueryOperationResultQuads> handle).quadStream
+        this.workerCurrentStream = (<IQueryOperationResultQuads> handle).quadStream;
       }
       const { data } = await engine.resultToString(
         result,
