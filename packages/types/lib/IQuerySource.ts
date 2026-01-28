@@ -5,6 +5,8 @@ import type { BindingsStream } from './Bindings';
 import type { IActionContext } from './IActionContext';
 import type { ILink } from './ILink';
 import type { MetadataBindings } from './IMetadata';
+import { ICacheKey, IViewKey } from '@comunica/cache-manager-entries';
+import { ISourceState } from './ISourceState';
 
 export interface IQuerySourceSerialized extends IQuerySourceUnidentifiedExpanded {
   type?: 'serialized';
@@ -32,9 +34,20 @@ export interface IQuerySourceTraverse {
   context?: IActionContext | Record<string, any>;
 }
 
+export interface IQuerySourceCache {
+  type: 'cache';
+  value: string; 
+  cacheKey: ICacheKey<ISourceState, ISourceState, { } >;
+  // View that executes a query over a given cache
+  getSource: IViewKey<ISourceState, { url: string, mode: 'get' | 'query', operation: Algebra.Operation }, BindingsStream | ISourceState>;
+  // An optional view that gives a count of elements in the cache based on documents and operation
+  count?: IViewKey<ISourceState, { operation: Algebra.Operation, documents: string[] }, number>;
+  context?: IActionContext | Record<string, any>;
+}
+
 export type QuerySourceUnidentifiedExpanded = IQuerySourceUnidentifiedExpanded | IQuerySourceSerialized;
 export type QuerySourceUnidentified = string | RDF.Source | RDF.Store | RDF.DatasetCore |
-QuerySourceUnidentifiedExpanded | IQuerySourceUnidentifiedExpandedRawContext | IQuerySourceTraverse;
+QuerySourceUnidentifiedExpanded | IQuerySourceUnidentifiedExpandedRawContext | IQuerySourceTraverse | IQuerySourceCache;
 
 /**
  * Attaches a context to a query target.

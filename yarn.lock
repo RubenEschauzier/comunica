@@ -1053,6 +1053,15 @@
   dependencies:
     "@comunica/core" "^4.5.0"
 
+"@comunica/types-link-traversal@^0.8.0":
+  version "0.8.0"
+  resolved "https://registry.yarnpkg.com/@comunica/types-link-traversal/-/types-link-traversal-0.8.0.tgz#aeead0578307fd9a92688b90f7c084536c38da88"
+  integrity sha512-RWvPXw69ks5PxjSdT/oeiLaRtc+M+6+MAhyS4McHL+qK30C06YQ5BkleU6gFQQlgPnZ4b8Pwu/rllVDLPZVYog==
+  dependencies:
+    "@comunica/types" "^5.0.0"
+    "@rdfjs/types" "*"
+    asynciterator "^3.10.0"
+
 "@comunica/types@^2.10.0":
   version "2.10.0"
   resolved "https://registry.npmjs.org/@comunica/types/-/types-2.10.0.tgz"
