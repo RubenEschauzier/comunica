@@ -86,8 +86,7 @@ export class ActorQueryOperationSource extends ActorQueryOperation {
           execute: () => sourceWrapper.source.queryVoid(action.operation, mergedContext),
         };
     }
-
-    const bindingsStream = sourceWrapper.source.queryBindings(action.operation, mergedContext);
+    let bindingsStream = sourceWrapper.source.queryBindings(action.operation, mergedContext);
     const metadata = getMetadataBindings(bindingsStream);
     return {
       type: 'bindings',

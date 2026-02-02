@@ -7,6 +7,7 @@ import type { ILink } from './ILink';
 import type { MetadataBindings } from './IMetadata';
 import { ICacheKey, IViewKey } from '@comunica/cache-manager-entries';
 import { ISourceState } from './ISourceState';
+import { IActionQuerySourceDereferenceLink } from '@comunica/bus-query-source-dereference-link';
 
 export interface IQuerySourceSerialized extends IQuerySourceUnidentifiedExpanded {
   type?: 'serialized';
@@ -37,9 +38,14 @@ export interface IQuerySourceTraverse {
 export interface IQuerySourceCache {
   type: 'cache';
   value: string; 
-  cacheKey: ICacheKey<ISourceState, ISourceState, { } >;
+  cacheKey: ICacheKey<ISourceState, ISourceState, { headers: Headers} >;
   // View that executes a query over a given cache
-  getSource: IViewKey<ISourceState, { url: string, mode: 'get' | 'query', operation: Algebra.Operation }, BindingsStream | ISourceState>;
+  getSource: IViewKey<
+    ISourceState,
+    { url: string, mode: 'get', action: IActionQuerySourceDereferenceLink } |
+    { mode: 'queryBindings' | 'queryQuads', operation: Algebra.Operation},
+    AsyncIterator<BindingsStream> | AsyncIterator<AsyncIterator<RDF.Quad>> | ISourceState
+  >;
   // An optional view that gives a count of elements in the cache based on documents and operation
   count?: IViewKey<ISourceState, { operation: Algebra.Operation, documents: string[] }, number>;
   context?: IActionContext | Record<string, any>;

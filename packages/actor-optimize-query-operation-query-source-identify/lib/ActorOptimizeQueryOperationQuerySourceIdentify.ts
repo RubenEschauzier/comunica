@@ -66,7 +66,6 @@ export class ActorOptimizeQueryOperationQuerySourceIdentify extends ActorOptimiz
         .map(querySource => this.expandSource(querySource)));
       querySources = await Promise.all(querySourcesUnidentifiedExpanded
         .map(async querySourceUnidentified => this.identifySource(querySourceUnidentified, action.context)));
-
       // When identifying sources in preprocess actor, we record this as a dereference seed document event
       const statisticDereferenceLinks: IStatisticBase<ILink> | undefined = action.context
         .get(KeysStatistics.dereferencedLinks);
@@ -80,7 +79,6 @@ export class ActorOptimizeQueryOperationQuerySourceIdentify extends ActorOptimiz
           }, querySource.source);
         }
       }
-
       context = context
         .delete(KeysInitQuery.querySourcesUnidentified)
         .set(KeysQueryOperation.querySources, querySources);
@@ -129,7 +127,6 @@ export class ActorOptimizeQueryOperationQuerySourceIdentify extends ActorOptimiz
     context: IActionContext,
   ): Promise<IQuerySourceWrapper> {
     let sourcePromise: Promise<IQuerySourceWrapper> | undefined;
-
     // Try to read from cache
     // Only sources based on string values (e.g. URLs) are supported!
     if (typeof querySourceUnidentified.value === 'string' && this.cache) {
