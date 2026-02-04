@@ -24,6 +24,7 @@ import type {
 import type { Algebra } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
+import { PersistentCacheManager } from '@comunica/actor-context-preprocess-set-persistent-cache-manager';
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
@@ -395,5 +396,15 @@ export const KeysStatistics = {
    */
   intermediateResults: new ActionContextKey<IStatisticBase<PartialResult>>(
     '@comunica/statistic:intermediateResults',
+  ),
+};
+
+export const KeysCaching = {
+  /**
+   * Caching manager that handles the logic between viewing and writing to cache
+   * TODO We need to use an interface in types here so we don't get dependencies
+   */
+  cacheManager: new ActionContextKey<PersistentCacheManager>(
+    '@comunica/actor-context-preprocess:cacheManager',
   ),
 };

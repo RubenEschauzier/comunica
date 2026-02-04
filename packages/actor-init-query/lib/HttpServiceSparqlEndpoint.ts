@@ -321,7 +321,8 @@ export class HttpServiceSparqlEndpoint {
         }
         await Promise.all(killPromises);
         openConnections.clear();
-
+        // TODO Send abort on any query being timed out that can be timed out gracefully, then use that
+        // to send metadata like # of http requests and cache hitrate information.
         if (this.workerCurrentQueryType === 'void') {
           stderr.write(`Shutting down worker ${process.pid} executing update query with ${openConnections.size} open connections.\n`);
           // Kill the worker once the connections have been closed as cancelling an update

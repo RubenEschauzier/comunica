@@ -943,6 +943,14 @@
   resolved "https://registry.yarnpkg.com/@comunica/config-query-sparql/-/config-query-sparql-4.4.0.tgz#f00917eb3601c34afef4e4dc4bb17f145ffd03f5"
   integrity sha512-ZVK6eqpYLNa3MRLOWjRaudgfSdraJH/oZIkc5S2doJI2ZmnHROqQUtjPs13kwkI3hGZ6MVBtLm55oz+tKj2lKA==
 
+"@comunica/context-entries-link-traversal@^0.8.0":
+  version "0.8.0"
+  resolved "https://registry.yarnpkg.com/@comunica/context-entries-link-traversal/-/context-entries-link-traversal-0.8.0.tgz#f59326f4aa95d87bb82e69afc0a48e0a0218b87b"
+  integrity sha512-BysHikpE35r2zfyQHhXRkVqdHPYhwQEWgJ/T3VD9GdKpToFyK2cSWNQMGeNR1O/tDT6VWQko/81A47bMQk6bqQ==
+  dependencies:
+    "@comunica/core" "^5.0.0"
+    "@comunica/types-link-traversal" "^0.8.0"
+
 "@comunica/context-entries@^2.10.0":
   version "2.10.0"
   resolved "https://registry.npmjs.org/@comunica/context-entries/-/context-entries-2.10.0.tgz"

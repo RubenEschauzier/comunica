@@ -15,6 +15,7 @@ import type * as RDF from '@rdfjs/types';
 import { wrap } from 'asynciterator';
 import { Readable } from 'readable-stream';
 import type { ActionObserverHttp } from './ActionObserverHttp';
+import { ActionObserverContextPreprocess } from './ActionObserverContextPreprocess';
 
 /**
  * A comunica sparql-results+xml Serialize Actor.
@@ -22,6 +23,7 @@ import type { ActionObserverHttp } from './ActionObserverHttp';
 export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSerializeFixedMediaTypes {
   private readonly emitMetadata: boolean;
   public readonly httpObserver: ActionObserverHttp;
+  public readonly contextPreprocessObserver: ActionObserverContextPreprocess;
 
   /* eslint-disable max-len */
   /**
@@ -34,11 +36,14 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
    *     }} mediaTypeFormats
    *   \ @defaultNested {true} emitMetadata
    *   \ @defaultNested {<default_observer> a <caqrssj:components/ActionObserverHttp.jsonld#ActionObserverHttp>} httpObserver
+   *   \ @defaultNested {<default_observer_context> a <caqrssj:components/ActionObserverContextPreprocess.jsonld#ActionObserverContextPreprocess>} contextPreprocessObserver
+
    */
   public constructor(args: IActorQueryResultSerializeSparqlJsonArgs) {
     super(args);
     this.emitMetadata = args.emitMetadata;
     this.httpObserver = args.httpObserver;
+    this.contextPreprocessObserver = args.contextPreprocessObserver;
   }
   /* eslint-enable max-len */
 
@@ -111,6 +116,9 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
         yield cb();
       }
 
+      const cacheMetrics = this.contextPreprocessObserver.getCacheMetrics();
+      console.log(cacheMetrics);
+
       // Write bindings
       data.wrap(
         // JSON SPARQL results spec does not allow unbound variables and blank node bindings
@@ -132,4 +140,5 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
 export interface IActorQueryResultSerializeSparqlJsonArgs extends IActorQueryResultSerializeFixedMediaTypesArgs {
   emitMetadata: boolean;
   httpObserver: ActionObserverHttp;
+  contextPreprocessObserver: ActionObserverContextPreprocess;
 }

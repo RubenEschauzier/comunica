@@ -4,7 +4,7 @@ import type { ICachePolicy } from './ICachePolicy';
 import type { ILink } from './ILink';
 import type { MetadataBindings } from './IMetadata';
 import type { IQuerySource } from './IQuerySource';
-import { ScalableBloomFilter } from 'bloom-filters';
+import { BloomFilter } from 'bloom-filters';
 
 /**
  * The current state of a source.
@@ -42,5 +42,5 @@ export interface ISourceStateBloomFilter extends ISourceState {
    * A bloom filter used to check if an operation will have answers
    * for a given source
    */
-  bloomFilter?: ScalableBloomFilter;
+  bloomFilter?: BloomFilter;
 }
