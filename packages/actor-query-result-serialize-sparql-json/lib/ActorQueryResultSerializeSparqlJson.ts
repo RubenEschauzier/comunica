@@ -16,6 +16,7 @@ import { wrap } from 'asynciterator';
 import { Readable } from 'readable-stream';
 import type { ActionObserverHttp } from './ActionObserverHttp';
 import { ActionObserverContextPreprocess } from './ActionObserverContextPreprocess';
+import { KeysInitQuery } from '@comunica/context-entries';
 
 /**
  * A comunica sparql-results+xml Serialize Actor.
@@ -93,7 +94,7 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
     return passTestVoid();
   }
 
-  public async runHandle(action: IActionSparqlSerialize, _mediaType: string | undefined, _context: IActionContext):
+  public async runHandle(action: IActionSparqlSerialize, _mediaType: string | undefined, context: IActionContext):
   Promise<IActorQueryResultSerializeOutput> {
     const data = new Readable();
     // Write head
@@ -111,14 +112,52 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
       data.push('"results": { "bindings": [\n');
 
       let first = true;
+      let metadataEmitted = false;
 
       function* end(cb: () => string): Generator<string> {
         yield cb();
       }
 
-      const cacheMetrics = this.contextPreprocessObserver.getCacheMetrics();
-      console.log(cacheMetrics);
+      const cacheManager = await this.contextPreprocessObserver.awaitManager();
 
+      const abortSignal: AbortSignal | undefined = context.get(KeysInitQuery.abortSignalQuery);
+      if (abortSignal) {
+        abortSignal.addEventListener('abort', () => {
+          if (!metadataEmitted) {
+            data.push(finalize());
+            resultStream.destroy();
+          }
+        }, { once: true });
+      }
+      const finalize = () => {
+        console.log("IN FINALIZE")
+        if (metadataEmitted) return '';
+        metadataEmitted = true;
+
+        if (!this.emitMetadata) return '\n]}';
+        
+        let metadata: Record<string,any>;
+        
+        if (cacheManager){
+          const cacheMetrics = this.contextPreprocessObserver.getCacheMetrics(cacheManager)
+          const cacheMetadata = Object.fromEntries(
+            Object.entries(cacheMetrics).map(([key, value]) => [
+              key, JSON.stringify(value)
+            ]
+          ));
+          console.log(cacheMetadata)
+          metadata = {
+            httpRequests: this.httpObserver.requests,
+            ...cacheMetadata,
+          };
+        }
+        else {
+          metadata = {
+            httpRequests: this.httpObserver.requests,
+          };
+        }
+        return `\n]},\n"metadata": ${JSON.stringify(metadata, null, 2)}\n`;   
+      }
       // Write bindings
       data.wrap(
         // JSON SPARQL results spec does not allow unbound variables and blank node bindings
@@ -127,7 +166,7 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
           .map(([ key, value ]) => [ key.value, ActorQueryResultSerializeSparqlJson.bindingToJsonBindings(value) ])))}`;
           first = false;
           return res;
-        }).append(wrap(end(() => `\n]}${this.emitMetadata ? `,\n"metadata": { "httpRequests": ${this.httpObserver.requests} }` : ''}}\n`))),
+        }).append(wrap(end(() => finalize()))),
       );
     } else {
       data.wrap(<any> wrap((<IQueryOperationResultBoolean> action).execute().then(value => [ `"boolean":${value}\n}\n` ])));

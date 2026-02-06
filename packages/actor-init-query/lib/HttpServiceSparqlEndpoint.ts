@@ -306,6 +306,28 @@ export class HttpServiceSparqlEndpoint {
           server.close(() => resolve());
         });
 
+        // For non-update queries we first call the abort controller. This signal
+        // 1. Ends any ASK query streams
+        // 2. Flushes metadata such as HTTP requests from serialization actor
+        // (for example ActorQueryResultSerializeSparqlJson)
+        if (this.workerCurrentQueryType !== 'void'){
+          const abortController = this.abortControllers.get(this.lastQueryId - 1);
+          if (abortController) {
+            abortController.abort();
+            this.abortControllers.delete(this.lastQueryId - 1);
+          }
+          else if(this.workerCurrentQueryType === 'boolean') {
+            throw new Error('Could not abort ASK query due to missing abortController');
+          }
+          else {
+            stderr.write(`Could not find abort controller, only using .destroy() fallback`);
+          }
+          // We also destroy the underlying stream, ensuring the query terminates
+          this.workerCurrentStream!.destroy();
+        }
+        // Sleep while query ends (somewhat unreliable workaround)
+        await this.sleep(this.timeoutSleep);
+
         // Clear all connections regardless of the type of query
         const killPromises: Promise<void>[] = [];
         for (const response of openConnections) {
@@ -321,6 +343,9 @@ export class HttpServiceSparqlEndpoint {
         }
         await Promise.all(killPromises);
         openConnections.clear();
+
+        await closingServer;
+
         // TODO Send abort on any query being timed out that can be timed out gracefully, then use that
         // to send metadata like # of http requests and cache hitrate information.
         if (this.workerCurrentQueryType === 'void') {
@@ -328,26 +353,26 @@ export class HttpServiceSparqlEndpoint {
           // Kill the worker once the connections have been closed as cancelling an update
           // query is not straightforward
           process.exit(15);
-        } else if (this.workerCurrentQueryType === 'bindings' || this.workerCurrentQueryType === 'quads') {
-          stderr.write(`Stopping worker ${process.pid} executing query ${this.lastQueryId - 1}\n`);
-          this.workerCurrentStream!.destroy();
-        } else if (this.workerCurrentQueryType === 'boolean') {
-          stderr.write(`Stopping worker ${process.pid} executing query ask query ${this.lastQueryId - 1}\n`);
-          // // Call the abort controller to stop the underlying bindingStream of a boolean query
-          const abortController = this.abortControllers.get(this.lastQueryId - 1);
-          if (!abortController) {
-            throw new Error('Tried to abort query that does not exist');
-          }
-          abortController.abort();
-          this.abortControllers.delete(this.lastQueryId - 1);
-        } else {
-          stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections due to undefined workerCurrentQueryType.\n`);
-          process.exit(15);
-        }
+        } 
+        // else if (this.workerCurrentQueryType === 'bindings' || this.workerCurrentQueryType === 'quads') {
+        //   stderr.write(`Stopping worker ${process.pid} executing query ${this.lastQueryId - 1}\n`);
+        //   this.workerCurrentStream!.destroy();
+        // } else if (this.workerCurrentQueryType === 'boolean') {
+        //   stderr.write(`Stopping worker ${process.pid} executing query ask query ${this.lastQueryId - 1}\n`);
+        //   // // Call the abort controller to stop the underlying bindingStream of a boolean query
+        //   const abortController = this.abortControllers.get(this.lastQueryId - 1);
+        //   if (!abortController) {
+        //     throw new Error('Tried to abort query that does not exist');
+        //   }
+        //   abortController.abort();
+        //   this.abortControllers.delete(this.lastQueryId - 1);
+        // } else {
+        //   stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections due to undefined workerCurrentQueryType.\n`);
+        //   process.exit(15);
+        // }
 
-        await closingServer;
+        // await closingServer;
         // Wait for .destroy() to propegate up the stream
-        await this.sleep(this.timeoutSleep);
 
         // Send ready signal (only used for logging)
         if (process.send) {
@@ -589,7 +614,11 @@ export class HttpServiceSparqlEndpoint {
       const { data } = await engine.resultToString(
         result,
         mediaType,
-        undefined,
+        new ActionContext(
+          {
+            [KeysInitQuery.abortSignalQuery.name]: this.abortControllers.get(queryId)!.signal,
+          }
+        ),
         handle,
       );
 

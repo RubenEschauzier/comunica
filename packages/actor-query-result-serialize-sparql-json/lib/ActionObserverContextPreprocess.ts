@@ -50,14 +50,12 @@ export class ActionObserverContextPreprocess extends ActionObserver<IActionConte
     }
   }
 
-  public async getCacheMetrics(){
-    const cacheManager = await this.cacheManager;
-    if (!cacheManager){
-      console.log("Cachemanager doesn't exist!!");
-      return;
-    }
-    const cacheMetrics = cacheManager.endAllSessions();
-    return cacheMetrics;
+  public async awaitManager(){
+    return await this.cacheManager;
+  }
+
+  public getCacheMetrics(cacheManager: PersistentCacheManager){
+    return cacheManager.endAllSessions();;
   }
 }
 
@@ -70,7 +68,7 @@ export interface IActionObserverContextPreprocessArgs extends IActionObserverArg
   httpInvalidator: ActorHttpInvalidateListenable;
   /**
    * The URIs of the observed actors.
-   * @default {urn:comunica:default:http/actors#fetch}
+   * @default {urn:comunica:default:context-preprocess/actors#set-persistent-cache-manager}
    */
   observedActors: string[];
 }
