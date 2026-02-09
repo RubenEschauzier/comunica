@@ -20,8 +20,8 @@ export class ViewKey<S, C, K> implements IViewKey<S, C, K> {
   // These don't exist at runtime,
   // but they tell TypeScript what T and C are.
   public inputType!: S;
-  public outputType!: K;
   public contextType!: C;
+  public outputType!: K;
 
   constructor(id: string) {
     this.id = id;

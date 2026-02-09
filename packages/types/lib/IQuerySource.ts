@@ -161,6 +161,17 @@ export interface IQuerySource {
   ) => Promise<void>;
 
   /**
+   * Returns a promise resolving with the number of quads in a source matching the operation
+   * @param operation 
+   * @param context 
+   * @returns 
+   */
+  countQuads?: (
+    operation: Algebra.Operation,
+    context: IActionContext,
+  ) => Promise<number>;
+
+  /**
    * Returns a string representation of this source.
    */
   toString: () => string;

@@ -243,6 +243,25 @@ export class QuerySourceRdfJs implements IQuerySource {
     throw new Error('queryQuads is not implemented in QuerySourceRdfJs');
   }
 
+  public async countQuads(operation: Algebra.Operation, context: IActionContext): Promise<number> {
+    if (!isKnownOperation(operation, Algebra.Types.PATTERN)) {
+      throw new Error(`Attempted to pass non-pattern operation '${operation.type}' to QuerySourceRdfJs`);
+    }
+    if ('countQuads' in this.source && this.source.countQuads) {
+      // Check if the source supports quoted triple filtering
+      const quotedTripleFiltering = Boolean('features' in this.source && this.source.features?.quotedTripleFiltering);
+
+      const count = await this.source.countQuads(
+        QuerySourceRdfJs.nullifyVariables(operation.subject, quotedTripleFiltering),
+        QuerySourceRdfJs.nullifyVariables(operation.predicate, quotedTripleFiltering),
+        QuerySourceRdfJs.nullifyVariables(operation.object, quotedTripleFiltering),
+        QuerySourceRdfJs.nullifyVariables(operation.graph, quotedTripleFiltering),
+      );
+      return count;
+    }
+    throw new Error(`Function countQuads does not exist on source: ${this.source}`);
+  }
+
   public queryBoolean(
     _operation: Algebra.Ask,
     _context: IActionContext,

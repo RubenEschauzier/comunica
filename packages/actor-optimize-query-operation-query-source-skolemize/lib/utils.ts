@@ -121,6 +121,8 @@ export function skolemizeBindingsStream(
   const ret = iterator.map(bindings => skolemizeBindings(dataFactory, bindings, sourceId));
   function inheritMetadata(): void {
     iterator.getProperty('metadata', (metadata: MetadataBindings) => {
+      console.log("TEST")
+      console.log(metadata)
       ret.setProperty('metadata', metadata);
       metadata.state.addInvalidateListener(inheritMetadata);
     });

@@ -13,8 +13,6 @@ import type {
 // TODO: Then using this view we can also reimplement our sort-cache-cardinality by just getting the
 // view token, issueing a query to the cache view and getting results. Do this inside the querySourceLinkTraversal
 // this needs a way of obtaining the cacheSize
-// TODO: Reimplement caching performance tracking in nice way. Use the fact that we can now control what happens
-// on timeout.
 // TODO: Run experiments
 
 export class PersistentCacheManager {
