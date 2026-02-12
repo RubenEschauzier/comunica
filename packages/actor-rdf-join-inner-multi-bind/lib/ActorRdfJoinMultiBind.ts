@@ -245,6 +245,14 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin<IActorRdfJoinMultiBindTe
       return failTest(`Actor ${this.name} can only run if the smallest stream is much smaller than largest stream`);
     }
 
+    // // If all estimates are zero we can conclude either that the estimates are unreliable (e.g start of link traversal)
+    // // or the query is sufficiently cheap that any join actor can solve this query. To be risk-averse
+    // // we do not execute a bind-join in this case.
+    // // TODO: Investigate performance difference
+    // if (Math.max(...metadatas.map(metadata => metadata.cardinality.value)) === 0){
+    //   return failTest(`Actor ${this.name} can only run if one of the cardinality estimates is non-zero`);
+    // }
+
     // Determine selectivities of smallest entry with all other entries
     const selectivities = await Promise.all(remainingEntries
       .map(async entry => (await this.mediatorJoinSelectivity.mediate({

@@ -130,7 +130,6 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
         }, { once: true });
       }
       const finalize = () => {
-        console.log("IN FINALIZE")
         if (metadataEmitted) return '';
         metadataEmitted = true;
 
@@ -145,7 +144,6 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
               key, JSON.stringify(value)
             ]
           ));
-          console.log(cacheMetadata)
           metadata = {
             httpRequests: this.httpObserver.requests,
             ...cacheMetadata,

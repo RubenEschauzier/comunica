@@ -33,6 +33,13 @@ export const CacheSourceStateViews = {
       { operation: Algebra.Operation, documents: string[] },
       number
     >('@comunica/persistent-cache-manager:cacheCount'),
+  cacheCountBloomFilterView:
+    new ViewKey<
+      ISourceStateBloomFilter,
+      { operation: Algebra.Operation, documents: string[] },
+      number
+    >('@comunica/persistent-cache-manager:cacheCountBloomFilter'),
+
 };
 
 
