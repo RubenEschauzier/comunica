@@ -1,6 +1,6 @@
 {
   "name": "@comunica/cache-manager-entries",
-  "version": "5.1.0",
+  "version": "5.1.3",
   "description": "A collection of reusable Comunica cache-manager-entries key definitions.",
   "license": "MIT",
   "funding": {
