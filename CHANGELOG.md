@@ -1,6 +1,25 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+<a name="v5.1.3"></a>
+## [v5.1.3](https://github.com/comunica/comunica/compare/v5.1.2...v5.1.3) - 2026-01-30
+
+### Fixed
+* [Update to Traqula 1.0.1, Closes #1655](https://github.com/comunica/comunica/commit/bd4d9986cc98840bceb613b2417b1bba98e956ee)
+* [Fix missing autoStart: false in QuerySourceHypermedia, #1655](https://github.com/comunica/comunica/commit/1acdfc1f89e5ccd07db88a765f78d1db6336187e)
+
+<a name="v5.1.2"></a>
+## [v5.1.2](https://github.com/comunica/comunica/compare/v5.1.1...v5.1.2) - 2026-01-21
+
+### Fixed
+* [Fix undefined context when querying slow SPARQL endpoints](https://github.com/comunica/comunica/commit/91057abd44a62cc627f0ae587f65ef31b95add5e)
+
+<a name="v5.1.1"></a>
+## [v5.1.1](https://github.com/comunica/comunica/compare/v5.1.0...v5.1.1) - 2026-01-20
+
+### Changed
+* [Remove unnecessary quoted triple filtering in QPF](https://github.com/comunica/comunica/commit/53ca9a46c9e91eb69ef7fb2c290c4a0448987b59)
+
 <a name="v5.1.0"></a>
 ## [v5.1.0](https://github.com/comunica/comunica/compare/v5.0.5...v5.1.0) - 2026-01-16
 

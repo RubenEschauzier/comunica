@@ -1,6 +1,7 @@
 /** @jest-environment setup-polly-jest/jest-environment-node */
 
 import { KeysHttpWayback, KeysInitQuery, KeysQuerySourceIdentify } from '@comunica/context-entries';
+import { Logger } from '@comunica/types';
 import type { QueryBindings, QueryStringContext } from '@comunica/types';
 import { AlgebraFactory } from '@comunica/utils-algebra';
 import type { Bindings } from '@comunica/utils-bindings-factory';
@@ -861,6 +862,53 @@ SELECT * WHERE {
         await expect(result.execute()).resolves.toEqualBindingsStream(expectedResult);
       });
 
+      it('should correctly handle leftJoin expression on targeting left', async() => {
+        const store = new Store();
+
+        store.addQuad(
+          DF.namedNode('http://ex.org/s'),
+          DF.namedNode('http://ex.org/p1'),
+          DF.literal('4', DF.namedNode('http://www.w3.org/2001/XMLSchema#decimal')),
+        );
+        store.addQuad(
+          DF.namedNode('http://ex.org/s'),
+          DF.namedNode('http://ex.org/p2'),
+          DF.literal('10', DF.namedNode('http://www.w3.org/2001/XMLSchema#decimal')),
+        );
+
+        const result = <QueryBindings> await engine.query(`
+          SELECT * WHERE { 
+          ?s <http://ex.org/p1> ?v1 .
+          OPTIONAL {
+            ?s <http://ex.org/p2> ?v2 .
+            FILTER(?v1 < 3)
+          }
+        }`, { sources: [ store ]});
+
+        const expectedResult: Bindings[] = [
+          BF.bindings([
+            [ DF.variable('s'), DF.namedNode('http://ex.org/s') ],
+            [ DF.variable('v1'), DF.literal('4', DF.namedNode('http://www.w3.org/2001/XMLSchema#decimal')) ],
+          ]),
+        ];
+
+        await expect(result.execute()).resolves.toEqualBindingsStream(expectedResult);
+
+        // First filters are collected and a single filter wraps the group.
+        // Then that outer filter in the right is placed as and expression for the leftJoin:
+        // https://www.w3.org/TR/sparql12-query/#sparqlTranslateGraphPatterns
+        const resultWithExtraFilter = <QueryBindings> await engine.query(`
+          SELECT * WHERE { 
+          ?s <http://ex.org/p1> ?v1 .
+          OPTIONAL {
+            ?s <http://ex.org/p2> ?v2 .
+            FILTER(?v1 < 3) .
+            FILTER( true ) .
+          }
+        }`, { sources: [ store ]});
+        await expect(resultWithExtraFilter.execute()).resolves.toEqualBindingsStream(expectedResult);
+      });
+
       it('should handle join with empty estimate cardinality', async() => {
         const context: QueryStringContext = {
           sources: [
@@ -1032,6 +1080,23 @@ WHERE {
           },
         });
         await expect((bindingsStream.toArray())).resolves.toHaveLength(1);
+      });
+
+      it('on a SPARQL endpoint detected via Server header (no browser)', async() => {
+        const result = await engine.queryBindings(`
+        SELECT * WHERE {
+          ?s ?p ?o.
+        } LIMIT 1`, { sources: [ 'http://data.cervantesvirtual.com/openrdf-sesame/repositories/data' ]});
+
+        const expectedResult: Bindings[] = [
+          BF.bindings([
+            [ DF.variable('s'), DF.namedNode('http://www.openlinksw.com/virtrdf-data-formats#default-iid') ],
+            [ DF.variable('p'), DF.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type') ],
+            [ DF.variable('o'), DF.namedNode('http://www.openlinksw.com/schemas/virtrdf#QuadMapFormat') ],
+          ]),
+        ];
+
+        await expect(result).toEqualBindingsStream(expectedResult);
       });
     });
 
@@ -1918,6 +1983,39 @@ WHERE {
             [ DF.variable('label'), DF.literal('Horse', 'en-ca') ],
           ]),
         ]);
+      });
+    });
+
+    describe('logger warning grouping (no browser)', () => {
+      class TestLogger extends Logger {
+        public readonly warnings: string[] = [];
+
+        public warn(message: string, _data?: any): void {
+          this.logGrouped(message, (count) => {
+            const suffix = count > 1 ? ` (${count} times)` : '';
+            this.warnings.push(`${message}${suffix}`);
+          });
+        }
+
+        public trace(_message: string, _data?: any) {}
+        public debug(_message: string, _data?: any) {}
+        public info(_message: string, _data?: any) {}
+        public error(_message: string, _data?: any) {}
+        public fatal(_message: string, _data?: any) {}
+      }
+
+      it('should group repeated warnings', async() => {
+        const logger = new TestLogger();
+        const query = 'CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o FILTER(contains(?o, "Purpose")) }';
+        const context: QueryStringContext = {
+          sources: [ 'http://www.w3.org/ns/odrl/2/' ],
+          log: logger,
+        };
+
+        await arrayifyStream(await engine.queryQuads(query, context));
+
+        expect(logger.warnings[0]).toBe('Error occurred while filtering.');
+        expect(logger.warnings[1]).toMatch(/Error occurred while filtering\. \(\d+ times\)/u);
       });
     });
   });
