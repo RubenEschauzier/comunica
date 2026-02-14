@@ -73,7 +73,7 @@ export class HttpServiceSparqlEndpoint {
   public constructor(args: IHttpServiceSparqlEndpointArgs) {
     this.context = args.context || {};
     this.timeout = args.timeout ?? 60_000;
-    this.timeoutSleep = args.timeoutSleep ?? 3_000;
+    this.timeoutSleep = args.timeoutSleep ?? 5_000;
     this.port = args.port ?? 3_000;
     this.workers = args.workers ?? 1;
     this.freshWorkerPerQuery = Boolean(args.freshWorkerPerQuery);

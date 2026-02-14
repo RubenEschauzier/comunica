@@ -118,8 +118,6 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
         yield cb();
       }
 
-      const cacheManager = await this.contextPreprocessObserver.awaitManager();
-
       const abortSignal: AbortSignal | undefined = context.get(KeysInitQuery.abortSignalQuery);
       if (abortSignal) {
         abortSignal.addEventListener('abort', () => {
@@ -134,9 +132,8 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
         metadataEmitted = true;
 
         if (!this.emitMetadata) return '\n]}';
-        
         let metadata: Record<string,any>;
-        
+        const cacheManager = this.contextPreprocessObserver.getManager();
         if (cacheManager){
           const cacheMetrics = this.contextPreprocessObserver.getCacheMetrics(cacheManager)
           const cacheMetadata = Object.fromEntries(
