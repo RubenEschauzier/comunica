@@ -328,7 +328,8 @@ export class HttpServiceSparqlEndpoint {
           // We also destroy the underlying stream, ensuring the query terminates
           this.workerCurrentStream!.destroy();
         }
-        // Sleep while query ends (somewhat unreliable workaround)
+
+        // // Sleep while query ends (somewhat unreliable workaround)
         await this.sleep(this.timeoutSleep);
 
         // Clear all connections regardless of the type of query
@@ -349,33 +350,12 @@ export class HttpServiceSparqlEndpoint {
 
         await closingServer;
 
-        // TODO Send abort on any query being timed out that can be timed out gracefully, then use that
-        // to send metadata like # of http requests and cache hitrate information.
         if (this.workerCurrentQueryType === 'void') {
           stderr.write(`Shutting down worker ${process.pid} executing update query with ${openConnections.size} open connections.\n`);
           // Kill the worker once the connections have been closed as cancelling an update
           // query is not straightforward
           process.exit(15);
         } 
-        // else if (this.workerCurrentQueryType === 'bindings' || this.workerCurrentQueryType === 'quads') {
-        //   stderr.write(`Stopping worker ${process.pid} executing query ${this.lastQueryId - 1}\n`);
-        //   this.workerCurrentStream!.destroy();
-        // } else if (this.workerCurrentQueryType === 'boolean') {
-        //   stderr.write(`Stopping worker ${process.pid} executing query ask query ${this.lastQueryId - 1}\n`);
-        //   // // Call the abort controller to stop the underlying bindingStream of a boolean query
-        //   const abortController = this.abortControllers.get(this.lastQueryId - 1);
-        //   if (!abortController) {
-        //     throw new Error('Tried to abort query that does not exist');
-        //   }
-        //   abortController.abort();
-        //   this.abortControllers.delete(this.lastQueryId - 1);
-        // } else {
-        //   stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections due to undefined workerCurrentQueryType.\n`);
-        //   process.exit(15);
-        // }
-
-        // await closingServer;
-        // Wait for .destroy() to propegate up the stream
 
         // Send ready signal (only used for logging)
         if (process.send) {

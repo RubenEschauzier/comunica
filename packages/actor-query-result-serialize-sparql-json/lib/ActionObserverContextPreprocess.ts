@@ -10,7 +10,11 @@ export class ActionObserverContextPreprocess extends ActionObserver<IActionConte
   public readonly observedActors: string[];
   
   private cacheManagerInstance: PersistentCacheManager | undefined;
-
+  
+  /* eslint-disable max-len */
+  /**
+   * @param args - @defaultNested {<npmd:@comunica/bus-context-preprocess/^5.0.0/components/ActorContextPreprocess.jsonld#ActorContextPreprocess_default_bus>} bus
+   */
   public constructor(args: IActionObserverContextPreprocessArgs) {
     super(args);
     this.httpInvalidator = args.httpInvalidator;
@@ -49,6 +53,15 @@ export class ActionObserverContextPreprocess extends ActionObserver<IActionConte
 }
 
 export interface IActionObserverContextPreprocessArgs extends IActionObserverArgs<IActionContextPreprocess, IActorContextPreprocessOutput> {
+  /* eslint-enable max-len */
+  /**
+   * An actor that listens to HTTP invalidation events
+   * @default {<default_invalidator> a <npmd:@comunica/bus-http-invalidate/^5.0.0/components/ActorHttpInvalidateListenable.jsonld#ActorHttpInvalidateListenable>}
+   */
   httpInvalidator: ActorHttpInvalidateListenable;
+  /**
+   * The URIs of the observed actors.
+   * @default {urn:comunica:default:context-preprocess/actors#set-persistent-cache-manager}
+   */
   observedActors: string[];
 }
