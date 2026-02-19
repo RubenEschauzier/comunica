@@ -407,4 +407,9 @@ export const KeysCaching = {
   cacheManager: new ActionContextKey<PersistentCacheManager>(
     '@comunica/actor-context-preprocess:cacheManager',
   ),
+  /**
+   * If the cache the cache should be cleared. (This can also probably be done by an invalidate
+   * call or something, just different from the -i flag)
+   */
+  clearCache: new ActionContextKey<boolean>('@comunica/actor-context-preprocess-set-defaults-traversal-cache:clearCache'),
 };
