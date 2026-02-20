@@ -18,11 +18,13 @@ import type {
   MetadataVariable,
   LogicalJoinType,
 } from '@comunica/types';
+import { Algebra } from '@comunica/utils-algebra';
+import { visitOperation } from '@comunica/utils-algebra/lib/utils';
 import { instrumentIterator } from '@comunica/utils-iterator';
 import { cachifyMetadata, MetadataValidationState } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
-import type { Algebra } from 'sparqlalgebrajs';
-import { Util } from 'sparqlalgebrajs';
+// import type { Algebra } from 'sparqlalgebrajs';
+// import { Util } from 'sparqlalgebrajs';
 
 /**
  * A comunica actor for joining 2 binding streams.
@@ -344,18 +346,18 @@ TS
   { subjects: Set<string>; objects: Set<string> } {
     const subjects = new Set<string>();
     const objects = new Set<string>();
-
-    Util.recurseOperation(operator, {
-      pattern: (op) => {
-        // Extract subject IRIs
-        if (op.subject.termType === 'NamedNode') {
-          subjects.add(op.subject.value);
-        }
-        if (op.object.termType === 'NamedNode') {
-          objects.add(op.object.value);
-        }
-        return true;
-      },
+    visitOperation(operator, {
+      [Algebra.Types.PATTERN]: {
+        visitor: (op) => {
+          // Extract subject IRIs
+          if (op.subject.termType === 'NamedNode') {
+            subjects.add(op.subject.value);
+          }
+          if (op.object.termType === 'NamedNode') {
+            objects.add(op.object.value);
+          }
+        },
+      }
     });
     return { subjects, objects };
   }

@@ -5,10 +5,10 @@ import { eddiesContextKeys } from '../EddieControllerStream';
 import type { EddieOperatorStream } from '../EddieOperatorStream';
 
 export abstract class RouterBase implements IEddieRouter {
-  /**
-   * Connected components of join graph. Represented by their bitmask index
-   */
-  protected connectedComponents: number[][];
+  // /**
+  //  * Connected components of join graph. Represented by their bitmask index
+  //  */
+  // protected connectedComponents: number[][];
 
   public createRouteTable(variables: RDF.Variable[][], namedNodes: RDF.NamedNode[][]): Record<number, IEddieRoutingEntry[]> {
     const n = variables.length;

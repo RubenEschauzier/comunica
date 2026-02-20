@@ -41,7 +41,7 @@
     "build:components": "componentsjs-generator"
   },
   "dependencies": {
-    "@comunica/actor-rdf-join-inner-multi-stems": "^4.5.0",
+    "@comunica/actor-rdf-join-inner-multi-stems": "^5.1.3",
     "@comunica/bus-rdf-join": "^5.1.3",
     "@comunica/context-entries": "^5.1.3",
     "@comunica/bus-http": "^5.1.3",

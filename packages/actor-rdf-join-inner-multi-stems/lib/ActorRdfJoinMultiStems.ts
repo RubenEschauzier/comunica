@@ -21,7 +21,9 @@ import type {
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { DataFactory } from 'rdf-data-factory';
-import { Factory } from 'sparqlalgebrajs';
+import { Algebra, AlgebraFactory } from '@comunica/utils-algebra';
+
+// import { Factory } from 'sparqlalgebrajs';
 import { EddieControllerStream, TimestampGenerator } from './EddieControllerStream';
 import type { JoinFunction } from './EddieOperatorStream';
 import { EddieOperatorStream } from './EddieOperatorStream';
@@ -48,6 +50,11 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
       canHandleUndefs: true,
       isLeaf: false,
     });
+    this.mediatorJoinEntriesSort = args.mediatorJoinEntriesSort;
+    this.mediatorJoin = args.mediatorJoin;
+    this.mediatorHashBindings = args.mediatorHashBindings;
+    this.routerFactory = args.routerFactory;
+    this.routerUpdateFrequency = args.routerUpdateFrequency;
   }
 
   /**
@@ -162,7 +169,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
       };
     }
     const dataFactory: ComunicaDataFactory = action.context.getSafe(KeysInitQuery.dataFactory);
-    const algebraFactory = new Factory(dataFactory);
+    const algebraFactory = new AlgebraFactory(dataFactory);
     const connectedComponentEntries = [];
     for (const [ i, eddieControllerStream ] of eddieControllerStreams.entries()) {
       // Construct metadata from the entries joined by the controller stream.

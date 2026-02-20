@@ -16,10 +16,12 @@ export class ActionObserverAdaptiveJoin extends ActionObserver<IActionRdfJoin, I
 
   /* eslint-disable max-len */
   /**
-   * @param args - @defaultNested {<npmd:@comunica/bus-rdf-join/^4.0.0/components/ActorRdfJoin.jsonld#ActorRdfJoin_default_bus>} bus
+   * @param args - @defaultNested {<npmd:@comunica/bus-rdf-join/^5.0.0/components/ActorRdfJoin.jsonld#ActorRdfJoin_default_bus>} bus
    */
   public constructor(args: IActionObserverAdaptiveJoinArgs) {
     super(args);
+    this.httpInvalidator = args.httpInvalidator;
+    this.observedActors = args.observedActors;
     this.bus.subscribeObserver(this);
     this.httpInvalidator.addInvalidateListener(() => {
       this.joinStatsContainers = undefined;
@@ -42,7 +44,7 @@ export interface IActionObserverAdaptiveJoinArgs extends IActionObserverArgs<IAc
   /* eslint-disable max-len */
   /**
    * An actor that listens to HTTP invalidation events
-   * @default {<default_invalidator> a <npmd:@comunica/bus-http-invalidate/^4.0.0/components/ActorHttpInvalidateListenable.jsonld#ActorHttpInvalidateListenable>}
+   * @default {<default_invalidator> a <npmd:@comunica/bus-http-invalidate/^5.0.0/components/ActorHttpInvalidateListenable.jsonld#ActorHttpInvalidateListenable>}
    */
   httpInvalidator: ActorHttpInvalidateListenable;
   /* eslint-enable max-len */

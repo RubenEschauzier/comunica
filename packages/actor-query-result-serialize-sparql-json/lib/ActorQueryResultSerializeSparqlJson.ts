@@ -42,6 +42,7 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
     super(args);
     this.emitMetadata = args.emitMetadata;
     this.httpObserver = args.httpObserver;
+    this.adaptiveJoinObserver = args.adaptiveJoinObserver;
   }
   /* eslint-enable max-len */
 
