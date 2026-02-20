@@ -4,18 +4,23 @@ import { KeysInitQuery } from '@comunica/context-entries';
 import type { IActorTest, TestResult } from '@comunica/core';
 import { failTest, passTestVoid } from '@comunica/core';
 import type { ComunicaDataFactory } from '@comunica/types';
-import { translate } from 'sparqlalgebrajs';
-import { Parser as SparqlParser } from 'sparqljs';
+import { toAlgebra } from '@traqula/algebra-sparql-1-2';
+import { Parser as SparqlParser } from '@traqula/parser-sparql-1-2';
+import { AstFactory } from '@traqula/rules-sparql-1-2';
 
 /**
  * A comunica Algebra SPARQL Parse Actor.
  */
 export class ActorQueryParseSparql extends ActorQueryParse {
-  public readonly prefixes: Record<string, string>;
+  public readonly prefixes: Record<string, string> | undefined;
+  private readonly parser: SparqlParser;
 
   public constructor(args: IActorQueryParseSparqlArgs) {
     super(args);
-    this.prefixes = Object.freeze(this.prefixes);
+    this.prefixes = Object.freeze(args.prefixes);
+    this.parser = new SparqlParser({ lexerConfig: {
+      positionTracking: 'onlyOffset',
+    }});
   }
 
   public async test(action: IActionQueryParse): Promise<TestResult<IActorTest>> {
@@ -27,17 +32,23 @@ export class ActorQueryParseSparql extends ActorQueryParse {
 
   public async run(action: IActionQueryParse): Promise<IActorQueryParseOutput> {
     const dataFactory: ComunicaDataFactory = action.context.getSafe(KeysInitQuery.dataFactory);
-    const parser = new SparqlParser({
+    const astFactory = new AstFactory();
+    const parsedSyntax = this.parser.parse(action.query, {
       prefixes: this.prefixes,
       baseIRI: action.baseIRI,
-      sparqlStar: true,
-      factory: dataFactory,
+      astFactory,
     });
-    const parsedSyntax = parser.parse(action.query);
-    const baseIRI = parsedSyntax.type === 'query' ? parsedSyntax.base : undefined;
+    let baseIRI: string | undefined;
+    if (astFactory.isQuery(parsedSyntax)) {
+      for (const context of parsedSyntax.context) {
+        if (astFactory.isContextDefinitionBase(context)) {
+          baseIRI = context.value.value;
+        }
+      }
+    }
     return {
       baseIRI,
-      operation: translate(parsedSyntax, {
+      operation: toAlgebra(parsedSyntax, {
         quads: true,
         prefixes: this.prefixes,
         blankToVariable: true,

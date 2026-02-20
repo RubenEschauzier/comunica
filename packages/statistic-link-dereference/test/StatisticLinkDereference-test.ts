@@ -2,14 +2,11 @@ import type {
   ILink,
   BindingsStream,
   FragmentSelectorShape,
-  IActionContext,
-  IQueryBindingsOptions,
   IQuerySource,
   QuerySourceReference,
 } from '@comunica/types';
 import type { Quad } from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
-import type { Operation, Ask, Update } from 'sparqlalgebrajs/lib/algebra';
 import { StatisticLinkDereference } from '../lib/StatisticLinkDereference';
 
 class MockQuerySource implements IQuerySource {
@@ -19,14 +16,33 @@ class MockQuerySource implements IQuerySource {
     this.referenceValue = referenceValue;
   }
 
-  public getSelectorShape: (context: IActionContext) => Promise<FragmentSelectorShape>;
-  public queryBindings: (operation: Operation, context: IActionContext, options?: IQueryBindingsOptions | undefined)
-  => BindingsStream;
+  public async getFilterFactor(): Promise<number> {
+    return 0;
+  }
 
-  public queryQuads: (operation: Operation, context: IActionContext) => AsyncIterator<Quad>;
-  public queryBoolean: (operation: Ask, context: IActionContext) => Promise<boolean>;
-  public queryVoid: (operation: Update, context: IActionContext) => Promise<void>;
-  public toString: () => string;
+  public async getSelectorShape(): Promise<FragmentSelectorShape> {
+    return <any> undefined;
+  }
+
+  public queryBindings(): BindingsStream {
+    return <any> undefined;
+  }
+
+  public queryQuads(): AsyncIterator<Quad> {
+    return <any> undefined;
+  }
+
+  public queryBoolean(): Promise<boolean> {
+    return <any> undefined;
+  }
+
+  public queryVoid(): Promise<void> {
+    return <any> undefined;
+  }
+
+  public toString(): string {
+    return <any> undefined;
+  }
 }
 
 describe('StatisticLinkDereference', () => {

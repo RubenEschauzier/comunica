@@ -1,10 +1,10 @@
+import { AlgebraFactory } from '@comunica/utils-algebra';
 import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import { ArrayIterator } from 'asynciterator';
 import { DataFactory } from 'rdf-data-factory';
-import { Factory } from 'sparqlalgebrajs';
 import {
   filterMatchingQuotedQuads,
   getDuplicateElementLinks,
@@ -13,6 +13,7 @@ import {
   quadsMetadataToBindingsMetadata,
   quadsOrderToBindingsOrder,
   quadsToBindings,
+  setMetadata,
 } from '../lib';
 import '@comunica/utils-jest';
 import 'jest-rdf';
@@ -21,7 +22,7 @@ const quad = require('rdf-quad');
 
 const DF = new DataFactory();
 const BF = new BindingsFactory(DF);
-const AF = new Factory();
+const AF = new AlgebraFactory();
 
 describe('Utils', () => {
   describe('quadsToBindings', () => {
@@ -558,6 +559,77 @@ describe('Utils', () => {
     it('should return correctly on quoted patterns with equal SP and OP, and P and G variables', () => {
       expect(getDuplicateElementLinks(quad('<<ex:s ?v1 ex:o>>', '?v2', '<<ex:s ?v1 ex:o>>', '?v2')))
         .toEqual({ subject_predicate: [[ 'object', 'predicate' ]], predicate: [[ 'graph' ]]});
+    });
+  });
+
+  describe('setMetadata', () => {
+    it('should set bindings metadata', () => {
+      const bindings = new ArrayIterator<RDF.Bindings>([], { autoStart: false });
+      const quads = new ArrayIterator<RDF.Quad>([], { autoStart: false });
+      quads.setProperty('metadata', {
+        cardinality: { type: 'estimate', value: 1 },
+      });
+      setMetadata(
+        DF,
+        bindings,
+        quads,
+        { subject: 'v1', object: 'v2' },
+        [ DF.variable('v1'), DF.variable('v2') ],
+        false,
+      );
+      expect(bindings.getProperty('metadata')).toEqual({
+        cardinality: { type: 'estimate', value: 1 },
+        variables: [
+          { canBeUndef: false, variable: DF.variable('v1') },
+          { canBeUndef: false, variable: DF.variable('v2') },
+        ],
+      });
+    });
+
+    it('should propagate metadata states', () => {
+      const bindings = new ArrayIterator<RDF.Bindings>([], { autoStart: false });
+      const quads = new ArrayIterator<RDF.Quad>([], { autoStart: false });
+      const stateIn = new MetadataValidationState();
+      quads.setProperty('metadata', {
+        state: stateIn,
+        cardinality: { type: 'estimate', value: 1 },
+      });
+      setMetadata(
+        DF,
+        bindings,
+        quads,
+        { subject: 'v1', object: 'v2' },
+        [ DF.variable('v1'), DF.variable('v2') ],
+        false,
+      );
+
+      expect(bindings.getProperty('metadata')).toEqual({
+        state: expect.any(MetadataValidationState),
+        cardinality: { type: 'estimate', value: 1 },
+        variables: [
+          { canBeUndef: false, variable: DF.variable('v1') },
+          { canBeUndef: false, variable: DF.variable('v2') },
+        ],
+      });
+      // eslint-disable-next-line ts/no-unnecessary-type-assertion
+      expect((<any> bindings.getProperty('metadata')).state.valid).toBe(true);
+
+      // Set a new state
+      quads.setProperty('metadata', {
+        state: new MetadataValidationState(),
+        cardinality: { type: 'estimate', value: 2 },
+      });
+      stateIn.invalidate();
+      expect(bindings.getProperty('metadata')).toEqual({
+        state: expect.any(MetadataValidationState),
+        cardinality: { type: 'estimate', value: 2 },
+        variables: [
+          { canBeUndef: false, variable: DF.variable('v1') },
+          { canBeUndef: false, variable: DF.variable('v2') },
+        ],
+      });
+      // eslint-disable-next-line ts/no-unnecessary-type-assertion
+      expect((<any> bindings.getProperty('metadata')).state.valid).toBe(true);
     });
   });
 

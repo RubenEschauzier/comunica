@@ -12,11 +12,11 @@ import type {
   IQueryOperationResultBindings,
   IQueryOperationResultQuads,
 } from '@comunica/types';
+import type { Algebra } from '@comunica/utils-algebra';
 import { getSafeBindings, getSafeQuads } from '@comunica/utils-query-operation';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
 import * as RdfString from 'rdf-string';
-import type { Algebra } from 'sparqlalgebrajs';
 
 /**
  * A comunica Distinct Identity Query Operation Actor.

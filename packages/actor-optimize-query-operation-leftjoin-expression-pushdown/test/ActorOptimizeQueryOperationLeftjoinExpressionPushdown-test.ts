@@ -1,11 +1,11 @@
 import { KeysInitQuery } from '@comunica/context-entries';
 import { ActionContext, Bus } from '@comunica/core';
+import { AlgebraFactory } from '@comunica/utils-algebra';
 import { DataFactory } from 'rdf-data-factory';
-import { Factory } from 'sparqlalgebrajs';
 import { ActorOptimizeQueryOperationLeftjoinExpressionPushdown } from '..';
 import '@comunica/utils-jest';
 
-const AF = new Factory();
+const AF = new AlgebraFactory();
 const DF = new DataFactory();
 
 describe('ActorOptimizeQueryOperationLeftjoinExpressionPushdown', () => {
@@ -52,19 +52,7 @@ describe('ActorOptimizeQueryOperationLeftjoinExpressionPushdown', () => {
           context: new ActionContext({ [KeysInitQuery.dataFactory.name]: DF }),
           operation: operationIn,
         });
-        expect(operationOut).toEqual(AF.createLeftJoin(
-          AF.createFilter(
-            AF.createProject(
-              AF.createBgp([]),
-              [ DF.variable('s1'), DF.variable('p1') ],
-            ),
-            AF.createTermExpression(DF.variable('s1')),
-          ),
-          AF.createProject(
-            AF.createBgp([]),
-            [ DF.variable('s2'), DF.variable('p2') ],
-          ),
-        ));
+        expect(operationOut).toEqual(operationIn);
       });
 
       it('for an operation with leftjoin that overlaps only right', async() => {

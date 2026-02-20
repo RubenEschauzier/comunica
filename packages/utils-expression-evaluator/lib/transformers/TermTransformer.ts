@@ -1,8 +1,7 @@
 import type { Expression, GeneralSuperTypeDict, ISuperTypeProvider } from '@comunica/types';
+import { Algebra } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
 import * as RDFString from 'rdf-string';
-import type { Algebra as Alg } from 'sparqlalgebrajs';
-import { Algebra } from 'sparqlalgebrajs';
 import * as E from '../expressions';
 import { TypeURL } from '../util/Consts';
 import * as Err from '../util/Errors';
@@ -35,12 +34,12 @@ export class TermTransformer implements ITermTransformer {
   public transformRDFTermUnsafe(term: RDF.Term): E.Term {
     return <E.Term> this.transformTerm({
       term,
-      type: Algebra.types.EXPRESSION,
-      expressionType: Algebra.expressionTypes.TERM,
+      type: Algebra.Types.EXPRESSION,
+      subType: Algebra.ExpressionTypes.TERM,
     });
   }
 
-  protected transformTerm(term: Alg.TermExpression): Expression {
+  protected transformTerm(term: Algebra.TermExpression): Expression {
     if (!term.term) {
       throw new Err.InvalidExpression(term);
     }
@@ -89,6 +88,9 @@ export class TermTransformer implements ITermTransformer {
       }
       if (TypeURL.RDF_LANG_STRING in superTypeDict) {
         return new E.LangStringLiteral(lit.value, lit.language);
+      }
+      if (TypeURL.RDF_DIR_LANG_STRING in superTypeDict) {
+        return new E.DirLangStringLiteral(lit.value, lit.language, <'ltr' | 'rtl'> lit.direction);
       }
       if (TypeURL.XSD_YEAR_MONTH_DURATION in superTypeDict) {
         return new E.YearMonthDurationLiteral(parseYearMonthDuration(lit.value), lit.value, dataType);

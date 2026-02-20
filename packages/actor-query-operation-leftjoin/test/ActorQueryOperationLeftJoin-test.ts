@@ -1,6 +1,7 @@
 import { ActorQueryOperation } from '@comunica/bus-query-operation';
 import { Bus } from '@comunica/core';
 import type { IActionContext, IJoinEntry } from '@comunica/types';
+import { AlgebraFactory } from '@comunica/utils-algebra';
 import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import {
   getMockEEActionContext,
@@ -8,13 +9,12 @@ import {
 import { getSafeBindings } from '@comunica/utils-query-operation';
 import { ArrayIterator, UnionIterator } from 'asynciterator';
 import { DataFactory } from 'rdf-data-factory';
-import { Factory } from 'sparqlalgebrajs';
 import { ActorQueryOperationLeftJoin } from '../lib';
 import '@comunica/utils-jest';
 
 const DF = new DataFactory();
 const BF = new BindingsFactory(DF);
-const AF = new Factory(DF);
+const AF = new AlgebraFactory(DF);
 
 describe('ActorQueryOperationLeftJoin', () => {
   let bus: any;
@@ -39,7 +39,10 @@ describe('ActorQueryOperationLeftJoin', () => {
     };
     mediatorJoin = {
       mediate: jest.fn((arg: any) => Promise.resolve({
-        bindingsStream: new UnionIterator(arg.entries.map((entry: IJoinEntry) => entry.output.bindingsStream)),
+        bindingsStream: new UnionIterator(
+          arg.entries.map((entry: IJoinEntry) => entry.output.bindingsStream),
+          { autoStart: false },
+        ),
         metadata: () => Promise.resolve({
           cardinality: 100,
           variables: [
@@ -119,11 +122,7 @@ describe('ActorQueryOperationLeftJoin', () => {
     });
 
     it('should correctly handle truthy expressions', async() => {
-      const expression = {
-        expressionType: 'term',
-        term: DF.literal('nonemptystring'),
-        type: 'expression',
-      };
+      const expression = AF.createTermExpression(DF.literal('nonemptystring'));
       const op: any = { operation: { type: 'leftjoin', input: [{}, {}], expression }, context };
       const output = getSafeBindings(await actor.run(op, undefined));
       await expect(output.bindingsStream).toEqualBindingsStream([
@@ -179,11 +178,7 @@ describe('ActorQueryOperationLeftJoin', () => {
     });
 
     it('should correctly handle falsy expressions', async() => {
-      const expression = {
-        expressionType: 'term',
-        term: DF.literal(''),
-        type: 'expression',
-      };
+      const expression = AF.createTermExpression(DF.literal(''));
       const op: any = { operation: { type: 'leftjoin', input: [{}, {}], expression }, context };
       const output = getSafeBindings(await actor.run(op, undefined));
       expect(mediatorJoin.mediate).toHaveBeenCalledWith({

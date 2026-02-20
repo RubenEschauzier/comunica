@@ -1,6 +1,19 @@
 const config = require('@rubensworks/eslint-config');
+const requireAsyncIteratorAutostartFalse = require('./packages/utils-monorepo/lib/eslint/require-async-iterator-autostart-false');
 
 module.exports = config([
+  {
+    plugins: {
+      'comunica-rules': {
+        rules: {
+          'require-async-iterator-autostart-false': requireAsyncIteratorAutostartFalse,
+        },
+      },
+    },
+    rules: {
+      'comunica-rules/require-async-iterator-autostart-false': 'error',
+    },
+  },
   {
     files: [ '**/*.ts' ],
     languageOptions: {
@@ -169,6 +182,7 @@ module.exports = config([
       // Dev-only files that are not checked in
       '**/bintest/**',
       '**/componentsjs-error-state.json',
+      'lerna.json',
     ],
   },
 ]);

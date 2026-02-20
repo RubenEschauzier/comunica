@@ -1,5 +1,7 @@
-import type { FragmentSelectorShape } from '@comunica/types';
-import { Algebra, Util } from 'sparqlalgebrajs';
+import { KeysRdfUpdateQuads } from '@comunica/context-entries';
+import type { FragmentSelectorShape, IActionContext, IDataDestination, IQuerySourceWrapper } from '@comunica/types';
+import { Algebra, algebraUtils, isKnownSubType } from '@comunica/utils-algebra';
+import { getDataDestinationValue } from './Utils';
 
 /**
  * Check if the given shape accepts the given query operation.
@@ -49,7 +51,7 @@ function doesShapeAcceptOperationRecurseShape(
   const shapeOperation = shapeActive.operation;
   switch (shapeOperation.operationType) {
     case 'type': {
-      if (shapeOperation.type === Algebra.types.EXPRESSION && isExtensionFunction(operation) &&
+      if (shapeOperation.type === Algebra.Types.EXPRESSION && isExtensionFunction(operation) &&
         !('extensionFunctions' in shapeOperation &&
         shapeOperation.extensionFunctions?.includes(operation.name.value))) {
         return false;
@@ -79,13 +81,15 @@ function doesShapeAcceptOperationRecurseShape(
       // Also check for nested extension functions,
       // and only accept the wildcard if all nested extension functions are supported by the query shape.
       let hasUnsupportedExtensionFunction = false;
-      Util.recurseOperation(operation, {
-        [Algebra.types.EXPRESSION](subOp) {
-          if (isExtensionFunction(subOp) && !doesShapeAcceptOperation(shapeTop, subOp, options)) {
-            hasUnsupportedExtensionFunction = true;
-            return false;
-          }
-          return true;
+      algebraUtils.visitOperation(operation, {
+        [Algebra.Types.EXPRESSION]: {
+          visitor: (subOp) => {
+            if (isExtensionFunction(subOp) && !doesShapeAcceptOperation(shapeTop, subOp, options)) {
+              hasUnsupportedExtensionFunction = true;
+              return false;
+            }
+            return true;
+          },
         },
       });
       return !hasUnsupportedExtensionFunction;
@@ -99,13 +103,14 @@ function doesShapeAcceptOperationRecurseOperationAndShape(
   operation: Algebra.Operation,
   options?: FragmentSelectorShapeTestFlags,
 ): boolean {
-  if (isExtensionFunction(operation) || isExtensionFunction(operation.expression)) {
+  if (isExtensionFunction(operation) || isExtensionFunction((<any> operation).expression)) {
     return false;
   }
   if (shapeActiveChildren) {
-    const operationInputs: Algebra.Operation[] = operation.input ?
-        (Array.isArray(operation.input) ? operation.input : [ operation.input ]) :
-      operation.patterns ?? [];
+    const operationCast = <Algebra.Operation & { input?: unknown; patterns?: any[] }> operation;
+    const operationInputs: Algebra.Operation[] = operationCast.input ?
+        (Array.isArray(operationCast.input) ? operationCast.input : [ operationCast.input ]) :
+      operationCast.patterns ?? [];
     for (const [ i, shapeActiveChild ] of shapeActiveChildren.entries()) {
       if (!operationInputs[i] ||
         !doesShapeAcceptOperationRecurseShape(shapeTop, shapeActiveChild, operationInputs[i], options)) {
@@ -123,17 +128,21 @@ function doesShapeAcceptOperationRecurseOperation(
   options?: FragmentSelectorShapeTestFlags,
 ): boolean {
   // Recurse into the operation, and restart from the top-level shape
-  if (operation.input) {
-    const inputs: Algebra.Operation[] = Array.isArray(operation.input) ? operation.input : [ operation.input ];
+  const operationCast = <Algebra.Operation & { input?: unknown; patterns?: any[]; expression?: any }> operation;
+  if (operationCast.input) {
+    const inputs: Algebra.Operation[] = Array
+      .isArray(operationCast.input) ?
+      operationCast.input :
+        [ operationCast.input ];
     if (!inputs.every(input => doesShapeAcceptOperationRecurseShape(shapeTop, shapeTop, input, options))) {
       return false;
     }
   }
-  if (operation.expression && isExtensionFunction(operation.expression) &&
-    !doesShapeAcceptOperationRecurseShape(shapeTop, shapeTop, operation.expression, options)) {
+  if (operationCast.expression && isExtensionFunction(operationCast.expression) &&
+      !doesShapeAcceptOperationRecurseShape(shapeTop, shapeTop, operationCast.expression, options)) {
     return false;
   }
-  return !(operation.patterns && !operation.patterns
+  return !(operationCast.patterns && !operationCast.patterns
     .every((input: Algebra.Pattern) => doesShapeAcceptOperationRecurseShape(shapeTop, shapeTop, input, options)));
 }
 
@@ -141,9 +150,9 @@ function isStandardSparqlFunction(iri: string): boolean {
   return /^https?:\/\/www\.w3\.org\//u.test(iri);
 }
 
-function isExtensionFunction(operation: Algebra.Operation): boolean {
-  return operation && operation.type === Algebra.types.EXPRESSION &&
-    operation.expressionType === Algebra.expressionTypes.NAMED && !isStandardSparqlFunction(operation.name.value);
+function isExtensionFunction(operation: Algebra.Operation): operation is Algebra.NamedExpression {
+  return operation && operation.type === Algebra.Types.EXPRESSION &&
+    isKnownSubType(operation, Algebra.ExpressionTypes.NAMED) && !isStandardSparqlFunction(operation.name.value);
 }
 
 export type FragmentSelectorShapeTestFlags = {
@@ -151,3 +160,26 @@ export type FragmentSelectorShapeTestFlags = {
   filterBindings?: boolean;
   wildcardAcceptAllExtensionFunctions?: boolean;
 };
+
+export async function passFullOperationToSource(
+  operation: Algebra.Operation,
+  sources: IQuerySourceWrapper[],
+  context: IActionContext,
+): Promise<boolean> {
+  if (sources.length === 1) {
+    const sourceWrapper = sources[0];
+    const destination: IDataDestination | undefined = context.get(KeysRdfUpdateQuads.destination);
+    if (!destination || sourceWrapper.source.referenceValue === getDataDestinationValue(destination)) {
+      try {
+        const shape = await sourceWrapper.source.getSelectorShape(context);
+        if (doesShapeAcceptOperation(shape, operation)) {
+          return true;
+        }
+      } catch {
+        // Fallback to the default case when the selector shape does not exist,
+        // which can occur for a non-existent destination.
+      }
+    }
+  }
+  return false;
+}

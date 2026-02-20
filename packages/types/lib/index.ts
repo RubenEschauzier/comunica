@@ -1,7 +1,7 @@
 export * from './Bindings';
 export * from './ComunicaDataFactory';
 export * from './IActionContext';
-export * from './IAggregatedStore';
+export * from './ICachePolicy';
 export * from './ICliArgsHandler';
 export * from './IDataDestination';
 export * from './IDataset';
@@ -18,5 +18,6 @@ export * from './statistics/IDiscoverEventData';
 export * from './statistics/IPartialResult';
 export * from './statistics/IAdaptiveStemsStatistics';
 export * from './ILink';
+export * from './ILinkQueue';
 export * from './Logger';
 export * from './ExpressionEvaluator';

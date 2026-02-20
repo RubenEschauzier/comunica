@@ -26,6 +26,7 @@ export enum TypeURL {
   XSD_ANY_URI = 'http://www.w3.org/2001/XMLSchema#anyURI',
   XSD_STRING = 'http://www.w3.org/2001/XMLSchema#string',
   RDF_LANG_STRING = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#langString',
+  RDF_DIR_LANG_STRING = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#dirLangString',
 
   XSD_BOOLEAN = 'http://www.w3.org/2001/XMLSchema#boolean',
 
@@ -90,7 +91,6 @@ export type GeneralOperator = KnownOperator | string;
 
 export type KnownOperator = SparqlOperator | NamedOperator;
 
-// TODO: Remove unneeded double typing
 export enum SparqlOperator {
   // Operator mapping
   // https://www.w3.org/TR/sparql11-query/#OperatorMapping
@@ -126,14 +126,18 @@ export enum SparqlOperator {
   IS_BLANK = 'isblank',
   IS_LITERAL = 'isliteral',
   IS_NUMERIC = 'isnumeric',
+  HAS_LANG = 'haslang',
+  HAS_LANGDIR = 'haslangdir',
   STR = 'str',
   LANG = 'lang',
+  LANGDIR = 'langdir',
   DATATYPE = 'datatype',
   IRI = 'iri',
   URI = 'uri',
   BNODE = 'bnode',
   STRDT = 'strdt',
   STRLANG = 'strlang',
+  STRLANGDIR = 'strlangdir',
   UUID = 'uuid',
   STRUUID = 'struuid',
 

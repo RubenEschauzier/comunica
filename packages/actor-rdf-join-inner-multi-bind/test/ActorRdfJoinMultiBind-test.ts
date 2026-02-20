@@ -7,19 +7,19 @@ import { KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
 import type { Actor, IActorTest, Mediator } from '@comunica/core';
 import { ActionContext, Bus } from '@comunica/core';
 import type { IActionContext, IQueryOperationResultBindings } from '@comunica/types';
+import { AlgebraFactory, Algebra } from '@comunica/utils-algebra';
 import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
 import { ArrayIterator } from 'asynciterator';
 import { DataFactory } from 'rdf-data-factory';
-import { Factory, Algebra } from 'sparqlalgebrajs';
 import type { IActorRdfJoinMultiBindTestSideData } from '../lib/ActorRdfJoinMultiBind';
 import { ActorRdfJoinMultiBind } from '../lib/ActorRdfJoinMultiBind';
 import '@comunica/utils-jest';
 
 const DF = new DataFactory();
 const BF = new BindingsFactory(DF);
-const FACTORY = new Factory();
+const FACTORY = new AlgebraFactory();
 const mediatorMergeBindingsContext: any = {
   mediate: () => ({}),
 };
@@ -246,7 +246,7 @@ IQueryOperationResultBindings
                   }),
 
                 },
-                operation: <any>{ type: Algebra.types.EXTEND },
+                operation: <any>{ type: Algebra.Types.EXTEND },
               },
               {
                 output: <any>{
@@ -294,7 +294,7 @@ IQueryOperationResultBindings
             entries: [
               {
                 output: <any> {},
-                operation: <any> { type: Algebra.types.GROUP },
+                operation: <any> { type: Algebra.Types.GROUP },
               },
               {
                 output: <any> {},
@@ -337,7 +337,7 @@ IQueryOperationResultBindings
             entries: [
               {
                 output: <any> {},
-                operation: FACTORY.createProject(<any>{ type: Algebra.types.GROUP }, []),
+                operation: FACTORY.createProject(<any>{ type: Algebra.Types.GROUP }, []),
               },
               {
                 output: <any> {},
@@ -384,7 +384,7 @@ IQueryOperationResultBindings
               },
               {
                 output: <any> {},
-                operation: <any> { type: Algebra.types.GROUP },
+                operation: <any> { type: Algebra.Types.GROUP },
               },
             ],
             context: new ActionContext(),
@@ -1155,6 +1155,107 @@ IQueryOperationResultBindings
             ]),
           }),
         });
+      });
+
+      it('should destroy the non-smallest stream', async() => {
+        const action: IActionRdfJoin = {
+          context,
+          type: 'inner',
+          entries: [
+            {
+              output: <any> {
+                bindingsStream: new ArrayIterator([
+                  BF.bindings([
+                    [ DF.variable('b'), DF.namedNode('ex:b1') ],
+                  ]),
+                  BF.bindings([
+                    [ DF.variable('b'), DF.namedNode('ex:b2') ],
+                  ]),
+                  BF.bindings([
+                    [ DF.variable('b'), DF.namedNode('ex:b3') ],
+                  ]),
+                ], { autoStart: false }),
+                metadata: () => Promise.resolve({
+                  state: new MetadataValidationState(),
+                  cardinality: { type: 'estimate', value: 300 },
+
+                  variables: [
+                    { variable: DF.variable('a'), canBeUndef: false },
+                    { variable: DF.variable('b'), canBeUndef: false },
+                  ],
+                }),
+                type: 'bindings',
+              },
+              operation: FACTORY.createPattern(DF.variable('a'), DF.namedNode('ex:p1'), DF.variable('b')),
+            },
+            {
+              output: <any> {
+                bindingsStream: new ArrayIterator([
+                  BF.bindings([
+                    [ DF.variable('a'), DF.namedNode('ex:a1') ],
+                  ]),
+                  BF.bindings([
+                    [ DF.variable('a'), DF.namedNode('ex:a2') ],
+                  ]),
+                ], { autoStart: false }),
+                metadata: () => Promise.resolve({
+                  state: new MetadataValidationState(),
+                  cardinality: { type: 'estimate', value: 1 },
+
+                  variables: [
+                    { variable: DF.variable('a'), canBeUndef: false },
+                  ],
+                }),
+                type: 'bindings',
+              },
+              operation: FACTORY.createPattern(DF.variable('a'), DF.namedNode('ex:p2'), DF.namedNode('ex:o')),
+            },
+          ],
+        };
+        const destroy0 = jest.spyOn(action.entries[0].output.bindingsStream, 'destroy');
+        const destroy1 = jest.spyOn(action.entries[1].output.bindingsStream, 'destroy');
+        const { result } = await actor.getOutput(action, await getSideData(action));
+
+        // Validate output
+        expect(result.type).toBe('bindings');
+        await expect(result.bindingsStream).toEqualBindingsStream([
+          BF.bindings([
+            [ DF.variable('bound'), DF.namedNode('ex:bound1') ],
+            [ DF.variable('a'), DF.namedNode('ex:a1') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('bound'), DF.namedNode('ex:bound2') ],
+            [ DF.variable('a'), DF.namedNode('ex:a1') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('bound'), DF.namedNode('ex:bound3') ],
+            [ DF.variable('a'), DF.namedNode('ex:a1') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('bound'), DF.namedNode('ex:bound1') ],
+            [ DF.variable('a'), DF.namedNode('ex:a2') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('bound'), DF.namedNode('ex:bound2') ],
+            [ DF.variable('a'), DF.namedNode('ex:a2') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('bound'), DF.namedNode('ex:bound3') ],
+            [ DF.variable('a'), DF.namedNode('ex:a2') ],
+          ]),
+        ]);
+        await expect(result.metadata()).resolves.toEqual({
+          state: expect.any(MetadataValidationState),
+          cardinality: { type: 'estimate', value: 240 },
+
+          variables: [
+            { variable: DF.variable('a'), canBeUndef: false },
+            { variable: DF.variable('b'), canBeUndef: false },
+          ],
+        });
+
+        expect(destroy0).toHaveBeenCalledWith();
+        expect(destroy1).toHaveBeenCalledWith();
       });
 
       it('should handle two entries (breadth-first)', async() => {

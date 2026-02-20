@@ -1,7 +1,7 @@
 import { Bus } from '@comunica/core';
 import type { IDataset } from '@comunica/types';
+import { AlgebraFactory } from '@comunica/utils-algebra';
 import { DataFactory } from 'rdf-data-factory';
-import { Factory } from 'sparqlalgebrajs';
 import { streamifyArray } from 'streamify-array';
 import { ActorRdfMetadataExtractVoid } from '../lib/ActorRdfMetadataExtractVoid';
 import '@comunica/utils-jest';
@@ -31,7 +31,7 @@ jest.mock('@comunica/actor-init-query');
 jest.mock('@comunica/bus-rdf-metadata-extract');
 
 const DF = new DataFactory();
-const AF = new Factory(DF);
+const AF = new AlgebraFactory(DF);
 
 describe('ActorRdfMetadataExtractVoid', () => {
   let bus: any;
@@ -167,12 +167,12 @@ describe('ActorRdfMetadataExtractVoid', () => {
         }))?.metadata?.datasets.at(0);
         expect(dataset).toBeDefined();
         const pattern = AF.createPattern(DF.variable('s'), DF.variable('p'), DF.variable('o'));
-        expect(dataset!.getCardinality(pattern)).toEqual({
+        await expect(dataset!.getCardinality(pattern)).resolves.toEqual({
           type: 'estimate',
           value: tripleCount,
           dataset: sparqlEndpoint.value,
         });
-        expect(dataset!.getCardinality(AF.createNop())).toBeUndefined();
+        await expect(dataset!.getCardinality(AF.createNop())).resolves.toBeUndefined();
       });
 
       it('should parse datasets with void:propertyPartition', async() => {

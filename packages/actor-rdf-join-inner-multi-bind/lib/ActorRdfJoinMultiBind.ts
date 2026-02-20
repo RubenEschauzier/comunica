@@ -19,10 +19,10 @@ import type {
   IJoinEntryWithMetadata,
   IQueryOperationResultBindings,
 } from '@comunica/types';
+import { AlgebraFactory, Algebra, algebraUtils } from '@comunica/utils-algebra';
 import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { getSafeBindings, materializeOperation } from '@comunica/utils-query-operation';
 import { MultiTransformIterator, TransformIterator, UnionIterator } from 'asynciterator';
-import { Factory, Algebra, Util } from 'sparqlalgebrajs';
 
 /**
  * A comunica Multi-way Bind RDF Join Actor.
@@ -42,6 +42,12 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin<IActorRdfJoinMultiBindTe
       canHandleUndefs: true,
       isLeaf: false,
     });
+    this.bindOrder = args.bindOrder;
+    this.selectivityModifier = args.selectivityModifier;
+    this.minMaxCardinalityRatio = args.minMaxCardinalityRatio;
+    this.mediatorJoinEntriesSort = args.mediatorJoinEntriesSort;
+    this.mediatorQueryOperation = args.mediatorQueryOperation;
+    this.mediatorMergeBindingsContext = args.mediatorMergeBindingsContext;
   }
 
   /**
@@ -62,7 +68,7 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin<IActorRdfJoinMultiBindTe
     operationBinder: (boundOperations: Algebra.Operation[], operationBindings: Bindings)
     => Promise<BindingsStream>,
     optional: boolean,
-    algebraFactory: Factory,
+    algebraFactory: AlgebraFactory,
     bindingsFactory: BindingsFactory,
   ): BindingsStream {
     // Enable auto-start on sub-bindings during depth-first binding for best performance.
@@ -92,6 +98,7 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin<IActorRdfJoinMultiBindTe
         return new UnionIterator(baseStream.transform({
           map: binder,
           optional,
+          autoStart: false,
         }), { autoStart: false });
       default:
         // eslint-disable-next-line ts/restrict-template-expressions
@@ -104,7 +111,7 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin<IActorRdfJoinMultiBindTe
     sideData: IActorRdfJoinMultiBindTestSideData,
   ): Promise<IActorRdfJoinOutputInner> {
     const dataFactory: ComunicaDataFactory = action.context.getSafe(KeysInitQuery.dataFactory);
-    const algebraFactory = new Factory(dataFactory);
+    const algebraFactory = new AlgebraFactory(dataFactory);
     const bindingsFactory = await BindingsFactory.create(
       this.mediatorMergeBindingsContext,
       action.context,
@@ -116,17 +123,17 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin<IActorRdfJoinMultiBindTe
       action.context,
       'First entry for Bind Join: ',
       () => ({
-        entry: entries[0].operation,
+        entry: { ...entries[0].operation, metadata: undefined },
         cardinality: entries[0].metadata.cardinality,
         order: entries[0].metadata.order,
         availableOrders: entries[0].metadata.availableOrders,
       }),
     );
 
-    // Close the non-smallest streams
+    // Destroy the non-smallest streams
     for (const [ i, element ] of entries.entries()) {
       if (i !== 0) {
-        element.output.bindingsStream.close();
+        element.output.bindingsStream.destroy();
       }
     }
 
@@ -176,15 +183,15 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin<IActorRdfJoinMultiBindTe
 
   public canBindWithOperation(operation: Algebra.Operation): boolean {
     let valid = true;
-    Util.recurseOperation(operation, {
-      [Algebra.types.EXTEND](): boolean {
+    algebraUtils.visitOperation(operation, {
+      [Algebra.Types.EXTEND]: { preVisitor: () => {
         valid = false;
-        return false;
-      },
-      [Algebra.types.GROUP](): boolean {
+        return { shortcut: true };
+      } },
+      [Algebra.Types.GROUP]: { preVisitor: () => {
         valid = false;
-        return false;
-      },
+        return { shortcut: true };
+      } },
     });
 
     return valid;

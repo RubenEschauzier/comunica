@@ -8,10 +8,10 @@ import type {
   MetadataBindings,
   QuerySourceReference,
 } from '@comunica/types';
+import type { Algebra } from '@comunica/utils-algebra';
 import { Bindings } from '@comunica/utils-bindings-factory';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
-import type { Algebra } from 'sparqlalgebrajs';
 
 /**
  * A IQuerySource wrapper that skolemizes outgoing quads and bindings.
@@ -24,6 +24,10 @@ export class QuerySourceAddSourceAttribution implements IQuerySource {
 
   public constructor(innerSource: IQuerySource) {
     this.innerSource = innerSource;
+  }
+
+  public getFilterFactor(context: IActionContext): Promise<number> {
+    return this.innerSource.getFilterFactor(context);
   }
 
   public async getSelectorShape(context: IActionContext): Promise<FragmentSelectorShape> {
@@ -68,7 +72,7 @@ export class QuerySourceAddSourceAttribution implements IQuerySource {
     return this.innerSource.queryQuads(operation, context);
   }
 
-  public queryVoid(operation: Algebra.Update, context: IActionContext): Promise<void> {
+  public queryVoid(operation: Algebra.Operation, context: IActionContext): Promise<void> {
     return this.innerSource.queryVoid(operation, context);
   }
 

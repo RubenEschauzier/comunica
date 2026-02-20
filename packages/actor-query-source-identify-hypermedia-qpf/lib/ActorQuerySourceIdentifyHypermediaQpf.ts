@@ -15,9 +15,9 @@ import { KeysInitQuery } from '@comunica/context-entries';
 import type { TestResult } from '@comunica/core';
 import { failTest, passTest } from '@comunica/core';
 import type { ComunicaDataFactory, IActionContext } from '@comunica/types';
+import { AlgebraFactory } from '@comunica/utils-algebra';
 import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import type * as RDF from '@rdfjs/types';
-import { Factory } from 'sparqlalgebrajs';
 import { QuerySourceQpf } from './QuerySourceQpf';
 
 /**
@@ -33,8 +33,17 @@ export class ActorQuerySourceIdentifyHypermediaQpf extends ActorQuerySourceIdent
   public readonly predicateUri: string;
   public readonly objectUri: string;
   public readonly graphUri?: string;
+
   public constructor(args: IActorQuerySourceIdentifyHypermediaQpfArgs) {
     super(args, 'qpf');
+    this.mediatorMetadata = args.mediatorMetadata;
+    this.mediatorMetadataExtract = args.mediatorMetadataExtract;
+    this.mediatorDereferenceRdf = args.mediatorDereferenceRdf;
+    this.mediatorMergeBindingsContext = args.mediatorMergeBindingsContext;
+    this.subjectUri = args.subjectUri;
+    this.predicateUri = args.predicateUri;
+    this.objectUri = args.objectUri;
+    this.graphUri = args.graphUri;
   }
 
   public override async test(
@@ -89,7 +98,7 @@ export class ActorQuerySourceIdentifyHypermediaQpf extends ActorQuerySourceIdent
     quads?: RDF.Stream,
   ): Promise<QuerySourceQpf> {
     const dataFactory: ComunicaDataFactory = context.getSafe(KeysInitQuery.dataFactory);
-    const algebraFactory = new Factory(dataFactory);
+    const algebraFactory = new AlgebraFactory(dataFactory);
     return new QuerySourceQpf(
       this.mediatorMetadata,
       this.mediatorMetadataExtract,

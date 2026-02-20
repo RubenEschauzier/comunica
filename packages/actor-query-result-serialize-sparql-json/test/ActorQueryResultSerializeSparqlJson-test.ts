@@ -67,6 +67,12 @@ describe('ActorQueryResultSerializeSparqlJson', () => {
         .toEqual({ value: 'abc', type: 'literal', 'xml:lang': 'en-us' });
     });
 
+    it('should convert literals with a language and directon', () => {
+      expect(ActorQueryResultSerializeSparqlJson.bindingToJsonBindings(DF
+        .literal('abc', { language: 'en-us', direction: 'rtl' })))
+        .toEqual({ value: 'abc', type: 'literal', 'xml:lang': 'en-us', 'its:dir': 'rtl' });
+    });
+
     it('should convert literals with a datatype', () => {
       expect(ActorQueryResultSerializeSparqlJson
         .bindingToJsonBindings(DF.literal('abc', DF.namedNode('http://ex'))))
@@ -140,7 +146,7 @@ describe('ActorQueryResultSerializeSparqlJson', () => {
         BF.bindings([
           [ DF.variable('k2'), DF.namedNode('v2') ],
         ]),
-      ]);
+      ], { autoStart: false });
       bindingsStreamPartial = () => new ArrayIterator<RDF.Bindings>([
         BF.bindings([
           [ DF.variable('k1'), DF.namedNode('v1') ],
@@ -149,7 +155,7 @@ describe('ActorQueryResultSerializeSparqlJson', () => {
           [ DF.variable('k2'), DF.namedNode('v2') ],
         ]),
         BF.bindings(),
-      ]);
+      ], { autoStart: false });
       bindingsStreamEmpty = <any> new PassThrough();
       (<any> bindingsStreamEmpty)._read = <any> (() => {
         bindingsStreamEmpty.emit('end');
@@ -169,7 +175,7 @@ describe('ActorQueryResultSerializeSparqlJson', () => {
       quadStream = () => new ArrayIterator([
         quad('http://example.org/a', 'http://example.org/b', 'http://example.org/c'),
         quad('http://example.org/a', 'http://example.org/d', 'http://example.org/e'),
-      ]);
+      ], { autoStart: false });
       metadata = <any> { variables: [
         { variable: DF.variable('k1'), canBeUndef: false },
         { variable: DF.variable('k2'), canBeUndef: false },

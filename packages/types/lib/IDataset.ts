@@ -1,4 +1,4 @@
-import type { Algebra } from 'sparqlalgebrajs';
+import type { Algebra } from '@comunica/utils-algebra';
 import type { QueryResultCardinality } from './IMetadata';
 
 /**
@@ -19,5 +19,5 @@ export interface IDataset {
    * @param {Algebra.Operation} operation SPARQL algebra operation.
    * @returns {QueryResultCardinality} Upper bound for the cardinality.
    */
-  getCardinality: (operation: Algebra.Operation) => QueryResultCardinality | undefined;
+  getCardinality: (operation: Algebra.Operation) => Promise<QueryResultCardinality | undefined>;
 }

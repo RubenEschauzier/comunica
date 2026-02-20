@@ -40,6 +40,8 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
    */
   public constructor(args: IActorQueryResultSerializeSparqlJsonArgs) {
     super(args);
+    this.emitMetadata = args.emitMetadata;
+    this.httpObserver = args.httpObserver;
   }
   /* eslint-enable max-len */
 
@@ -52,9 +54,12 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
     if (value.termType === 'Literal') {
       const literal: RDF.Literal = value;
       const jsonValue: any = { value: literal.value, type: 'literal' };
-      const { language, datatype } = literal;
+      const { language, direction, datatype } = literal;
       if (language) {
         jsonValue['xml:lang'] = language;
+        if (direction) {
+          jsonValue['its:dir'] = direction;
+        }
       } else if (datatype && datatype.value !== 'http://www.w3.org/2001/XMLSchema#string') {
         jsonValue.datatype = datatype.value;
       }

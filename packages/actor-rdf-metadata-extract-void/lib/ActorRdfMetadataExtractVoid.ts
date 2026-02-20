@@ -7,8 +7,8 @@ import { ActorRdfMetadataExtract } from '@comunica/bus-rdf-metadata-extract';
 import type { IActorTest, TestResult } from '@comunica/core';
 import { passTestVoid } from '@comunica/core';
 import type { IDataset, QueryResultCardinality } from '@comunica/types';
+import { Algebra, isKnownOperation } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
-import { Algebra } from 'sparqlalgebrajs';
 import {
   RDF_TYPE,
   SD_DEFAULT_DATASET,
@@ -226,8 +226,8 @@ export class ActorRdfMetadataExtractVoid extends ActorRdfMetadataExtract {
               datasets.push({
                 uri,
                 source: action.url,
-                getCardinality: (operation: Algebra.Operation): QueryResultCardinality | undefined => {
-                  if (operation.type === Algebra.types.PATTERN) {
+                getCardinality: async(operation: Algebra.Operation): Promise<QueryResultCardinality | undefined> => {
+                  if (isKnownOperation(operation, Algebra.Types.PATTERN)) {
                     return { ...estimatePatternCardinality(dataset, operation), dataset: uri };
                   }
                 },

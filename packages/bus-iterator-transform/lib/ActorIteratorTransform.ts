@@ -1,9 +1,9 @@
 import type { IAction, IActorArgs, IActorOutput, IActorTest, Mediate, TestResult } from '@comunica/core';
 import { Actor, failTest } from '@comunica/core';
 import type { LogicalJoinType, IActionContext, MetadataBindings, MetadataQuads } from '@comunica/types';
+import type { KnownOperation } from '@comunica/utils-algebra/lib/Algebra';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
-import type { types } from 'sparqlalgebrajs/lib/algebra';
 
 /**
  * A comunica actor for transform-iterator events.
@@ -19,12 +19,13 @@ import type { types } from 'sparqlalgebrajs/lib/algebra';
  */
 export abstract class ActorIteratorTransform<TS = undefined>
   extends Actor<ActionIteratorTransform, IActorTest, ActorIteratorTransformOutput, TS> {
-  public wraps: possibleOperationTypes[];
+  public wraps: possibleOperationTypes[] | undefined;
   /**
    * @param args - @defaultNested {<default_bus> a <cc:components/Bus.jsonld#Bus>} bus
    */
   public constructor(args: IActorIteratorTransformArgs<TS>) {
     super(args);
+    this.wraps = args.wraps;
   }
 
   public async run(action: ActionIteratorTransform):
@@ -165,7 +166,7 @@ TS
   wraps?: possibleOperationTypes[];
 }
 
-export type possibleOperationTypes = types | LogicalJoinType;
+export type possibleOperationTypes = KnownOperation | LogicalJoinType | string;
 
 export type MediatorIteratorTransform =
   Mediate<

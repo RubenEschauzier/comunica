@@ -1,4 +1,4 @@
-import type { Algebra } from 'sparqlalgebrajs';
+import type { Algebra } from '@comunica/utils-algebra';
 import type { IActorQueryOperationArgs, MediatorQueryOperation } from './ActorQueryOperation';
 import { ActorQueryOperationTyped } from './ActorQueryOperationTyped';
 
@@ -14,6 +14,7 @@ TS = undefined,
 
   public constructor(args: IActorQueryOperationTypedMediatedArgs<TS>, operationName: string) {
     super(args, operationName);
+    this.mediatorQueryOperation = args.mediatorQueryOperation;
   }
 }
 

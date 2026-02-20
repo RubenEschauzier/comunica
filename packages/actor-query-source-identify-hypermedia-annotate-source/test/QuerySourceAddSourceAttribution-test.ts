@@ -1,19 +1,19 @@
 import { KeysMergeBindingsContext } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
 import type { IQuerySource } from '@comunica/types';
+import { AlgebraFactory } from '@comunica/utils-algebra';
 import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import type { Bindings } from '@comunica/utils-bindings-factory';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import { ArrayIterator } from 'asynciterator';
 import { DataFactory } from 'rdf-data-factory';
-import { Factory } from 'sparqlalgebrajs';
 import { QuerySourceAddSourceAttribution } from '../lib/QuerySourceAddSourceAttribution';
 import '@comunica/utils-jest';
 import 'jest-rdf';
 
 const DF = new DataFactory();
 const BF = new BindingsFactory(DF);
-const AF = new Factory();
+const AF = new AlgebraFactory();
 
 describe('QuerySourcAddSourceAttribution', () => {
   let sourceInner: IQuerySource;
@@ -21,7 +21,8 @@ describe('QuerySourcAddSourceAttribution', () => {
 
   beforeEach(() => {
     sourceInner = {
-      getSelectorShape: <any> jest.fn(() => 'SHAPE'),
+      getFilterFactor: <any> jest.fn(async() => 1),
+      getSelectorShape: <any> jest.fn(async() => 'SHAPE'),
       queryBindings: <any> jest.fn(() => {
         const it = new ArrayIterator([
           BF.fromRecord({ a: DF.namedNode('a0') }),
@@ -45,6 +46,12 @@ describe('QuerySourcAddSourceAttribution', () => {
       referenceValue: 'REF',
     };
     source = new QuerySourceAddSourceAttribution(sourceInner);
+  });
+
+  it('should delegate getFilterFactor', async() => {
+    const context = new ActionContext();
+    await expect(source.getFilterFactor(context)).resolves.toBe(1);
+    expect(sourceInner.getFilterFactor).toHaveBeenCalledWith(context);
   });
 
   it('should delegate getSelectorShape', async() => {

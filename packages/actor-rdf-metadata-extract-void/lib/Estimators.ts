@@ -1,5 +1,5 @@
+import type { Algebra } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
-import type { Algebra } from 'sparqlalgebrajs';
 import { RDF_TYPE } from './Definitions';
 import type { IVoidDataset } from './Types';
 

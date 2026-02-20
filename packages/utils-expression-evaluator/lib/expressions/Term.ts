@@ -9,15 +9,12 @@ import type {
   TermExpression,
   TermType,
 } from '@comunica/types';
-import { ExpressionType,
-} from '@comunica/types';
+import { ExpressionType } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import * as C from '../util/Consts';
-import { TypeAlias, TypeURL } from '../util/Consts';
-
+import { TypeURL } from '../util/Consts';
 import * as Err from '../util/Errors';
 import { serializeDate, serializeDateTime, serializeDuration, serializeTime } from '../util/Serialization';
-import { isSubTypeOf } from '../util/TypeHandling';
 
 export abstract class Term implements TermExpression {
   public expressionType: ExpressionType.Term = ExpressionType.Term;
@@ -128,12 +125,14 @@ export class Literal<T extends ISerializable> extends Term {
    * @param dataType a string representing the datatype. Can be of type @see LiteralTypes or any URI
    * @param strValue the string value of this literal. In other words, the string representing the RDF.literal value.
    * @param language the language, mainly for language enabled strings like RDF_LANG_STRING
+   * @param direction the base direction, mainly for directional language enabled strings like RDF_DIR_LANG_STRING
    */
   public constructor(
     public typedValue: T,
     public dataType: string,
     public strValue?: string,
     public language?: string,
+    public direction?: 'ltr' | 'rtl',
   ) {
     super();
   }
@@ -141,7 +140,9 @@ export class Literal<T extends ISerializable> extends Term {
   public toRDF(dataFactory: ComunicaDataFactory): RDF.Literal {
     return dataFactory.literal(
       this.strValue ?? this.str(),
-      this.language ?? dataFactory.namedNode(this.dataType),
+      this.direction && this.language ?
+          { language: this.language, direction: this.direction } :
+        this.language ?? dataFactory.namedNode(this.dataType),
     );
   }
 
@@ -278,7 +279,19 @@ export class LangStringLiteral extends Literal<string> {
   }
 
   public override coerceEBV(): boolean {
-    return this.str().length > 0;
+    // Throws in [SPARQL 1.2](https://www.w3.org/TR/sparql12-query/#ebv), and [1.1](https://www.w3.org/TR/sparql11-query/#ebv)
+    return super.coerceEBV();
+  }
+}
+
+export class DirLangStringLiteral extends Literal<string> {
+  public constructor(
+    public override typedValue: string,
+    public override language: string,
+    public override direction: 'ltr' | 'rtl',
+    dataType?: string,
+  ) {
+    super(typedValue, dataType ?? TypeURL.RDF_DIR_LANG_STRING, typedValue, language, direction);
   }
 }
 
@@ -409,13 +422,9 @@ export class NonLexicalLiteral extends Literal<{ toString: () => 'undefined' }> 
   }
 
   public override coerceEBV(): boolean {
-    const isNumericOrBool =
-      isSubTypeOf(this.dataType, TypeURL.XSD_BOOLEAN, this.openWorldType) ||
-      isSubTypeOf(this.dataType, TypeAlias.SPARQL_NUMERIC, this.openWorldType);
-    if (isNumericOrBool) {
-      return false;
-    }
-    throw new Err.EBVCoercionError(this);
+    // Always throws in [SPARQL 1.2](https://www.w3.org/TR/sparql12-query/#ebv),
+    // and sometimes throws in [1.1](https://www.w3.org/TR/sparql11-query/#ebv)
+    return super.coerceEBV();
   }
 
   public override toRDF(dataFactory: ComunicaDataFactory): RDF.Literal {

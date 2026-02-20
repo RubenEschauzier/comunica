@@ -1,5 +1,5 @@
+import { AlgebraFactory } from '@comunica/utils-algebra';
 import { DataFactory } from 'rdf-data-factory';
-import { Factory } from 'sparqlalgebrajs';
 import { RDF_TYPE } from '../lib/Definitions';
 import {
   estimatePatternCardinality,
@@ -16,7 +16,7 @@ import {
 import type { IVoidDataset } from '../lib/Types';
 
 const DF = new DataFactory();
-const AF = new Factory(DF);
+const AF = new AlgebraFactory(DF);
 
 const rdfType = DF.namedNode(RDF_TYPE);
 

@@ -10,6 +10,7 @@ import type {
   ComunicaDataFactory,
   MetadataBindings,
 } from '@comunica/types';
+import { Algebra, AlgebraFactory } from '@comunica/utils-algebra';
 import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import { getSafeBindings } from '@comunica/utils-query-operation';
@@ -18,7 +19,6 @@ import {
   SingletonIterator,
   UnionIterator,
 } from 'asynciterator';
-import { Algebra, Factory } from 'sparqlalgebrajs';
 
 /**
  * A comunica Path ZeroOrOne Query Operation Actor.
@@ -27,7 +27,8 @@ export class ActorQueryOperationPathZeroOrOne extends ActorAbstractPath {
   public readonly mediatorMergeBindingsContext: MediatorMergeBindingsContext;
 
   public constructor(args: IActorQueryOperationPathZeroOrOneArgs) {
-    super(args, Algebra.types.ZERO_OR_ONE_PATH);
+    super(args, Algebra.Types.ZERO_OR_ONE_PATH);
+    this.mediatorMergeBindingsContext = args.mediatorMergeBindingsContext;
   }
 
   public async runOperation(
@@ -35,7 +36,7 @@ export class ActorQueryOperationPathZeroOrOne extends ActorAbstractPath {
     context: IActionContext,
   ): Promise<IQueryOperationResult> {
     const dataFactory: ComunicaDataFactory = context.getSafe(KeysInitQuery.dataFactory);
-    const algebraFactory = new Factory(dataFactory);
+    const algebraFactory = new AlgebraFactory(dataFactory);
     const bindingsFactory = await BindingsFactory.create(this.mediatorMergeBindingsContext, context, dataFactory);
     const predicate = <Algebra.ZeroOrOnePath> operation.predicate;
     const sources = this.getPathSources(predicate);
@@ -75,21 +76,23 @@ export class ActorQueryOperationPathZeroOrOne extends ActorAbstractPath {
     if (operation.subject.termType === 'Variable' && operation.object.termType === 'Variable') {
       // Both subject and object are variables
       // To determine the "Zero" part, we
-      // query ?s ?p ?o. FILTER ?s = ?0, to get all possible namedNodes in de the db
-      const varP = this.generateVariable(dataFactory, operation);
+      // query { ?s ?p ?x } UNION { ?x ?p ?s } , to get all possible namedNodes in de the db
+      const varP = this.generateVariable(dataFactory, operation, 'p');
+      const varX = this.generateVariable(dataFactory, operation, 'x');
       const bindingsZero = getSafeBindings(
         await this.mediatorQueryOperation.mediate({
           context,
-          operation: algebraFactory.createFilter(
+          operation: algebraFactory.createUnion([
             this.assignPatternSources(algebraFactory, algebraFactory
-              .createPattern(operation.subject, varP, operation.object, operation.graph), sources),
-            algebraFactory.createOperatorExpression('=', [
-              algebraFactory.createTermExpression(operation.subject),
-              algebraFactory.createTermExpression(operation.object),
-            ]),
-          ),
+              .createPattern(operation.subject, varP, varX, operation.graph), sources),
+            this.assignPatternSources(algebraFactory, algebraFactory
+              .createPattern(varX, varP, operation.subject, operation.graph), sources),
+          ]),
         }),
-      ).bindingsStream.map(bindings => bindings.delete(varP));
+      ).bindingsStream.map(bindings => bindings
+        .delete(varP)
+        .delete(varX)
+        .set(<RDF.Variable> operation.object, bindings.get(<RDF.Variable> operation.subject)!));
       bindingsStream = new UnionIterator([
         bindingsZero,
         bindingsOne.bindingsStream,

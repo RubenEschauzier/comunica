@@ -1,4 +1,5 @@
 import type { MediatorHttp } from '@comunica/bus-http';
+import type { MediatorQuerySerialize } from '@comunica/bus-query-serialize';
 import { KeysInitQuery } from '@comunica/context-entries';
 import { Actor } from '@comunica/core';
 import type {
@@ -14,6 +15,8 @@ import type {
   MetadataVariable,
   QueryResultCardinality,
 } from '@comunica/types';
+import type { AlgebraFactory } from '@comunica/utils-algebra';
+import { Algebra, algebraUtils, isKnownOperation } from '@comunica/utils-algebra';
 import type { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import { estimateCardinality } from '@comunica/utils-query-operation';
@@ -23,15 +26,15 @@ import { TransformIterator, wrap } from 'asynciterator';
 import { SparqlEndpointFetcher } from 'fetch-sparql-endpoint';
 import { LRUCache } from 'lru-cache';
 import { uniqTerms } from 'rdf-terms';
-import type { Factory } from 'sparqlalgebrajs';
-import { toSparql, Algebra, Util } from 'sparqlalgebrajs';
 import type { BindMethod } from './ActorQuerySourceIdentifyHypermediaSparql';
 
 export class QuerySourceSparql implements IQuerySource {
   public readonly referenceValue: string;
-  private readonly url: string;
+  private url: string;
+  private readonly urlBackup: string;
   private readonly context: IActionContext;
   private readonly mediatorHttp: MediatorHttp;
+  private readonly mediatorQuerySerialize: MediatorQuerySerialize;
   private readonly bindMethod: BindMethod;
   private readonly countTimeout: number;
   private readonly cardinalityCountQueries: boolean;
@@ -42,7 +45,7 @@ export class QuerySourceSparql implements IQuerySource {
   private readonly datasets?: IDataset[];
   public readonly extensionFunctions?: string[];
   private readonly dataFactory: ComunicaDataFactory;
-  private readonly algebraFactory: Factory;
+  private readonly algebraFactory: AlgebraFactory;
   private readonly bindingsFactory: BindingsFactory;
 
   private readonly endpointFetcher: SparqlEndpointFetcher;
@@ -52,11 +55,13 @@ export class QuerySourceSparql implements IQuerySource {
 
   public constructor(
     url: string,
+    urlBackup: string,
     context: IActionContext,
     mediatorHttp: MediatorHttp,
+    mediatorQuerySerialize: MediatorQuerySerialize,
     bindMethod: BindMethod,
     dataFactory: ComunicaDataFactory,
-    algebraFactory: Factory,
+    algebraFactory: AlgebraFactory,
     bindingsFactory: BindingsFactory,
     forceHttpGet: boolean,
     cacheSize: number,
@@ -64,25 +69,42 @@ export class QuerySourceSparql implements IQuerySource {
     cardinalityCountQueries: boolean,
     cardinalityEstimateConstruction: boolean,
     forceGetIfUrlLengthBelow: number,
+    parseUnsupportedVersions: boolean,
     metadata: Record<string, any>,
   ) {
-    this.referenceValue = url;
+    this.referenceValue = urlBackup;
     this.url = url;
+    this.urlBackup = urlBackup;
     this.context = context;
     this.mediatorHttp = mediatorHttp;
+    this.mediatorQuerySerialize = mediatorQuerySerialize;
     this.bindMethod = bindMethod;
     this.dataFactory = dataFactory;
     this.algebraFactory = algebraFactory;
     this.bindingsFactory = bindingsFactory;
     this.endpointFetcher = new SparqlEndpointFetcher({
       method: forceHttpGet ? 'GET' : 'POST',
-      fetch: (input: Request | string, init?: RequestInit) => this.mediatorHttp.mediate(
-        { input, init, context: this.lastSourceContext! },
-      ),
+      fetch: async(input: Request | string, init?: RequestInit) => {
+        const response = await this.mediatorHttp.mediate(
+          { input, init, context: this.lastSourceContext! },
+        );
+        // If we encounter a 404, try our backup URL.
+        // After retrying the request with the new URL, we replace the URL for future requests.
+        if (response.status === 404 && this.url !== this.urlBackup) {
+          Actor.getContextLogger(this.context)?.warn(`Encountered a 404 when requesting ${this.url} according to the service description of ${this.urlBackup}. This is a server configuration issue. Retrying the current and modifying future requests to ${this.urlBackup} instead.`);
+          input = (<string> input).replace(this.url, this.urlBackup);
+          this.url = this.urlBackup;
+          return await this.mediatorHttp.mediate(
+            { input, init, context: this.lastSourceContext! },
+          );
+        }
+        return response;
+      },
       prefixVariableQuestionMark: true,
       dataFactory,
       forceGetIfUrlLengthBelow,
       directPost: metadata.postAccepted && !metadata.postAccepted.includes('application/x-www-form-urlencoded'),
+      parseUnsupportedVersions,
     });
     this.cache = cacheSize > 0 ?
       new LRUCache<string, QueryResultCardinality>({ max: cacheSize }) :
@@ -95,6 +117,10 @@ export class QuerySourceSparql implements IQuerySource {
     this.datasets = metadata.datasets;
     this.extensionFunctions = metadata.extensionFunctions;
     this.propertyFeatures = metadata.propertyFeatures ? new Set(metadata.propertyFeatures) : undefined;
+  }
+
+  public async getFilterFactor(): Promise<number> {
+    return 1;
   }
 
   public async getSelectorShape(): Promise<FragmentSelectorShape> {
@@ -113,7 +139,7 @@ export class QuerySourceSparql implements IQuerySource {
         type: 'operation',
         operation: {
           operationType: 'type',
-          type: Algebra.types.EXPRESSION,
+          type: Algebra.Types.EXPRESSION,
           extensionFunctions: this.extensionFunctions,
         },
         joinBindings: true,
@@ -128,11 +154,11 @@ export class QuerySourceSparql implements IQuerySource {
           type: 'negation',
           child: {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.DISTINCT },
+            operation: { operationType: 'type', type: Algebra.Types.DISTINCT },
             children: [
               {
                 type: 'operation',
-                operation: { operationType: 'type', type: Algebra.types.CONSTRUCT },
+                operation: { operationType: 'type', type: Algebra.Types.CONSTRUCT },
                 children: [
                   {
                     type: 'operation',
@@ -169,12 +195,12 @@ export class QuerySourceSparql implements IQuerySource {
     const bindings: BindingsStream = new TransformIterator(async() => {
       // Prepare queries
       const operation = await operationPromise;
-      const variables: RDF.Variable[] = Util.inScopeVariables(operation);
+      const variables: RDF.Variable[] = algebraUtils.inScopeVariables(operation);
       const queryString = context.get<string>(KeysInitQuery.queryString);
       const queryFormat: RDF.QueryFormat = context.getSafe(KeysInitQuery.queryFormat);
       const selectQuery: string = !options?.joinBindings && queryString && queryFormat.language === 'sparql' ?
         queryString :
-        QuerySourceSparql.operationToSelectQuery(this.algebraFactory, operation, variables);
+        await this.operationToSelectQuery(this.algebraFactory, operation, variables);
       const undefVariables = QuerySourceSparql.getOperationUndefs(operation);
 
       return this.queryBindingsRemote(this.url, selectQuery, variables, context, undefVariables);
@@ -185,33 +211,32 @@ export class QuerySourceSparql implements IQuerySource {
   }
 
   public queryQuads(operation: Algebra.Operation, context: IActionContext): AsyncIterator<RDF.Quad> {
-    this.lastSourceContext = this.context.merge(context);
-    const query: string = context.get(KeysInitQuery.queryString) ?? QuerySourceSparql.operationToQuery(operation);
-    const rawStream = this.endpointFetcher.fetchTriples(this.url, query);
-    this.lastSourceContext = undefined;
-    const quads = wrap<any>(rawStream, { autoStart: false, maxBufferSize: Number.POSITIVE_INFINITY });
-    this.attachMetadata(quads, context, Promise.resolve(operation.input));
+    const quads = wrap<any>((async() => {
+      this.lastSourceContext = this.context.merge(context);
+      const query: string = context.get(KeysInitQuery.queryString) ?? await this.operationToQuery(operation);
+      const rawStream = await this.endpointFetcher.fetchTriples(this.url, query);
+      return rawStream;
+    })(), { autoStart: false, maxBufferSize: Number.POSITIVE_INFINITY });
+    this.attachMetadata(quads, context, Promise.resolve((<Algebra.Operation & { input: any }>operation).input));
     return quads;
   }
 
-  public queryBoolean(operation: Algebra.Ask, context: IActionContext): Promise<boolean> {
+  public async queryBoolean(operation: Algebra.Ask, context: IActionContext): Promise<boolean> {
     // Shortcut the ASK query to return true when supported propertyFeature predicates are used in it.
     if (this.operationUsesPropertyFeatures(operation)) {
-      return Promise.resolve(true);
+      return true;
     }
     // Without propertyFeature overlap, perform the actual ASK query.
     this.lastSourceContext = this.context.merge(context);
-    const query: string = context.get(KeysInitQuery.queryString) ?? QuerySourceSparql.operationToQuery(operation);
+    const query: string = context.get(KeysInitQuery.queryString) ?? await this.operationToQuery(operation);
     const promise = this.endpointFetcher.fetchAsk(this.url, query);
-    this.lastSourceContext = undefined;
     return promise;
   }
 
-  public queryVoid(operation: Algebra.Update, context: IActionContext): Promise<void> {
+  public async queryVoid(operation: Algebra.Operation, context: IActionContext): Promise<void> {
     this.lastSourceContext = this.context.merge(context);
-    const query: string = context.get(KeysInitQuery.queryString) ?? QuerySourceSparql.operationToQuery(operation);
+    const query: string = context.get(KeysInitQuery.queryString) ?? await this.operationToQuery(operation);
     const promise = this.endpointFetcher.fetchUpdate(this.url, query);
-    this.lastSourceContext = undefined;
     return promise;
   }
 
@@ -226,8 +251,8 @@ export class QuerySourceSparql implements IQuerySource {
     new Promise<QueryResultCardinality>(async(resolve, reject) => {
       try {
         const operation = await operationPromise;
-        const variablesScoped = Util.inScopeVariables(operation);
-        const countQuery = this.operationToNormalizedCountQuery(operation);
+        const variablesScoped = algebraUtils.inScopeVariables(operation);
+        const countQuery = await this.operationToNormalizedCountQuery(operation);
 
         const undefVariables = QuerySourceSparql.getOperationUndefs(operation);
         variablesCount = variablesScoped.map(variable => ({
@@ -312,20 +337,19 @@ export class QuerySourceSparql implements IQuerySource {
    * @param {Algebra.Operation} operation The operation to convert into a query string.
    * @returns {string} Query string for a COUNT query over the operation.
    */
-  public operationToNormalizedCountQuery(operation: Algebra.Operation): string {
-    const normalizedOperation = operation.type === Algebra.types.PATTERN ?
+  public async operationToNormalizedCountQuery(operation: Algebra.Operation): Promise<string> {
+    const normalizedOperation = isKnownOperation(operation, Algebra.Types.PATTERN) ?
       this.algebraFactory.createPattern(
         operation.subject.termType === 'Variable' ? this.dataFactory.variable('s') : operation.subject,
         operation.predicate.termType === 'Variable' ? this.dataFactory.variable('p') : operation.predicate,
         operation.object.termType === 'Variable' ? this.dataFactory.variable('o') : operation.object,
       ) :
       operation;
-    const operationString = QuerySourceSparql.operationToCountQuery(
+    return await this.operationToCountQuery(
       this.dataFactory,
       this.algebraFactory,
       normalizedOperation,
     );
-    return operationString;
   }
 
   /**
@@ -339,8 +363,8 @@ export class QuerySourceSparql implements IQuerySource {
     }
 
     const dataset: IDataset = {
-      getCardinality: (operation: Algebra.Operation): QueryResultCardinality | undefined => {
-        const queryString = this.operationToNormalizedCountQuery(operation);
+      getCardinality: async(operation: Algebra.Operation): Promise<QueryResultCardinality | undefined> => {
+        const queryString = await this.operationToNormalizedCountQuery(operation);
 
         const cachedCardinality = this.cache?.get(queryString);
         if (cachedCardinality) {
@@ -348,9 +372,9 @@ export class QuerySourceSparql implements IQuerySource {
         }
 
         if (this.datasets) {
-          const cardinalities = this.datasets
+          const cardinalities = await Promise.all(this.datasets
             .filter(ds => this.unionDefaultGraph || (this.defaultGraph && ds.uri.endsWith(this.defaultGraph)))
-            .map(ds => estimateCardinality(operation, ds));
+            .map(ds => estimateCardinality(operation, ds)));
 
           const cardinality: QueryResultCardinality = {
             type: cardinalities.some(card => card.type === 'estimate') ? 'estimate' : 'exact',
@@ -377,24 +401,30 @@ export class QuerySourceSparql implements IQuerySource {
   public operationUsesPropertyFeatures(operation: Algebra.Operation): boolean {
     let propertyFeaturesUsed = false;
     if (this.propertyFeatures) {
-      Util.recurseOperation(operation, {
-        [Algebra.types.PATTERN]: (op) => {
-          if (op.predicate.termType === 'NamedNode' && this.propertyFeatures!.has(op.predicate.value)) {
-            propertyFeaturesUsed = true;
-          }
-          return false;
+      algebraUtils.visitOperation(operation, {
+        [Algebra.Types.PATTERN]: {
+          visitor: (subOp) => {
+            if (subOp.predicate.termType === 'NamedNode' && this.propertyFeatures!.has(subOp.predicate.value)) {
+              propertyFeaturesUsed = true;
+            }
+            return false;
+          },
         },
-        [Algebra.types.LINK]: (op) => {
-          if (this.propertyFeatures!.has(op.iri.value)) {
-            propertyFeaturesUsed = true;
-          }
-          return false;
+        [Algebra.Types.LINK]: {
+          visitor: (subOp) => {
+            if (this.propertyFeatures!.has(subOp.iri.value)) {
+              propertyFeaturesUsed = true;
+            }
+            return false;
+          },
         },
-        [Algebra.types.NPS]: (op) => {
-          if (op.iris.some(iri => this.propertyFeatures!.has(iri.value))) {
-            propertyFeaturesUsed = true;
-          }
-          return false;
+        [Algebra.Types.NPS]: {
+          visitor: (subOp) => {
+            if (subOp.iris.some(iri => this.propertyFeatures!.has(iri.value))) {
+              propertyFeaturesUsed = true;
+            }
+            return false;
+          },
         },
       });
     }
@@ -411,7 +441,7 @@ export class QuerySourceSparql implements IQuerySource {
    * @param addBindings.metadata The bindings metadata.
    */
   public static async addBindingsToOperation(
-    algebraFactory: Factory,
+    algebraFactory: AlgebraFactory,
     bindMethod: BindMethod,
     operation: Algebra.Operation,
     addBindings: { bindings: BindingsStream; metadata: MetadataBindings },
@@ -424,7 +454,7 @@ export class QuerySourceSparql implements IQuerySource {
           algebraFactory.createValues(
             addBindings.metadata.variables.map(v => v.variable),
             bindings.map(binding => Object.fromEntries([ ...binding ]
-              .map(([ key, value ]) => [ `?${key.value}`, <RDF.Literal | RDF.NamedNode> value ]))),
+              .map(([ key, value ]) => [ key.value, <RDF.Literal | RDF.NamedNode> value ]))),
           ),
           operation,
         ], false);
@@ -440,12 +470,12 @@ export class QuerySourceSparql implements IQuerySource {
    * @param {RDF.Variable[]} variables The variables in scope for the operation.
    * @return {string} A select query string.
    */
-  public static operationToSelectQuery(
-    algebraFactory: Factory,
+  public operationToSelectQuery(
+    algebraFactory: AlgebraFactory,
     operation: Algebra.Operation,
     variables: RDF.Variable[],
-  ): string {
-    return QuerySourceSparql.operationToQuery(algebraFactory.createProject(operation, variables));
+  ): Promise<string> {
+    return this.operationToQuery(algebraFactory.createProject(operation, variables));
   }
 
   /**
@@ -455,12 +485,12 @@ export class QuerySourceSparql implements IQuerySource {
    * @param {Algebra.Operation} operation A query operation.
    * @return {string} A count query string.
    */
-  public static operationToCountQuery(
+  public operationToCountQuery(
     dataFactory: ComunicaDataFactory,
-    algebraFactory: Factory,
+    algebraFactory: AlgebraFactory,
     operation: Algebra.Operation,
-  ): string {
-    return QuerySourceSparql.operationToQuery(algebraFactory.createProject(
+  ): Promise<string> {
+    return this.operationToQuery(algebraFactory.createProject(
       algebraFactory.createExtend(
         algebraFactory.createGroup(
           operation,
@@ -484,8 +514,14 @@ export class QuerySourceSparql implements IQuerySource {
    * @param {Algebra.Operation} operation A query operation.
    * @return {string} A query string.
    */
-  public static operationToQuery(operation: Algebra.Operation): string {
-    return toSparql(operation, { sparqlStar: true });
+  public async operationToQuery(operation: Algebra.Operation): Promise<string> {
+    return (await this.mediatorQuerySerialize.mediate({
+      queryFormat: { language: 'sparql', version: '1.2' },
+      operation,
+      newlines: false,
+      indentWidth: 0,
+      context: this.context,
+    })).query;
   }
 
   /**
@@ -494,36 +530,35 @@ export class QuerySourceSparql implements IQuerySource {
    */
   public static getOperationUndefs(operation: Algebra.Operation): RDF.Variable[] {
     const variables: RDF.Variable[] = [];
-    Util.recurseOperation(operation, {
-      leftjoin(subOperation): boolean {
-        const left = Util.inScopeVariables(subOperation.input[0]);
-        const right = Util.inScopeVariables(subOperation.input[1]);
+    algebraUtils.visitOperation(operation, {
+      [Algebra.Types.LEFT_JOIN]: { preVisitor: (subOperation) => {
+        const left = algebraUtils.inScopeVariables(subOperation.input[0]);
+        const right = algebraUtils.inScopeVariables(subOperation.input[1]);
         for (const varRight of right) {
           if (!left.some(varLeft => varLeft.equals(varRight))) {
             variables.push(varRight);
           }
         }
-        return false;
-      },
-      values(values: Algebra.Values): boolean {
+        return { continue: false };
+      } },
+      [Algebra.Types.VALUES]: { preVisitor: (values) => {
         for (const variable of values.variables) {
-          if (values.bindings.some(bindings => !(`?${variable.value}` in bindings))) {
+          if (values.bindings.some(bindings => !(variable.value in bindings))) {
             variables.push(variable);
           }
         }
-        return false;
-      },
-      union(union: Algebra.Union): boolean {
+        return { continue: false };
+      } },
+      [Algebra.Types.UNION]: { preVisitor: (union) => {
         // Determine variables in scope of the union branches that are not occurring in every branch
-        const scopedVariables = union.input.map(Util.inScopeVariables);
+        const scopedVariables = union.input.map(op => algebraUtils.inScopeVariables(op));
         for (const variable of uniqTerms(scopedVariables.flat())) {
           if (!scopedVariables.every(input => input.some(inputVar => inputVar.equals(variable)))) {
             variables.push(variable);
           }
         }
-
-        return true;
-      },
+        return {};
+      } },
     });
     return uniqTerms(variables);
   }
@@ -549,18 +584,18 @@ export class QuerySourceSparql implements IQuerySource {
 
     this.lastSourceContext = this.context.merge(context);
     const rawStream = await this.endpointFetcher.fetchBindings(endpoint, query);
-    this.lastSourceContext = undefined;
 
-    return wrap<any>(rawStream, { autoStart: false, maxBufferSize: Number.POSITIVE_INFINITY })
-      .map<RDF.Bindings>((rawData: Record<string, RDF.Term>) => this.bindingsFactory.bindings(variables
-        .map((variable) => {
-          const value = rawData[`?${variable.value}`];
-          if (!undefVariablesSet.has(variable.value) && !value) {
-            Actor.getContextLogger(this.context)?.warn(`The endpoint ${endpoint} failed to provide a binding for ${variable.value}.`);
-          }
-          return <[RDF.Variable, RDF.Term]>[ variable, value ];
-        })
-        .filter(([ _, v ]) => Boolean(v))));
+    const wrapped = wrap<any>(rawStream, { autoStart: false, maxBufferSize: Number.POSITIVE_INFINITY });
+    return wrapped.map<RDF.Bindings>((rawData: Record<string, RDF.Term>) => {
+      const bindings = variables.map((variable) => {
+        const value = rawData[`?${variable.value}`];
+        if (!undefVariablesSet.has(variable.value) && !value) {
+          Actor.getContextLogger(this.context)?.warn(`The endpoint ${endpoint} failed to provide a binding for ${variable.value}.`);
+        }
+        return <[RDF.Variable, RDF.Term]>[ variable, value ];
+      }).filter(([ _, v ]) => Boolean(v));
+      return this.bindingsFactory.bindings(bindings);
+    });
   }
 
   public toString(): string {

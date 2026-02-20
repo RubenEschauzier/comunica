@@ -1,9 +1,9 @@
 import type { FragmentSelectorShape } from '@comunica/types';
+import { Algebra, AlgebraFactory } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
-import { Algebra, Factory } from 'sparqlalgebrajs';
 import { doesShapeAcceptOperation } from '../lib/FragmentSelectorShapes';
 
-const AF = new Factory();
+const AF = new AlgebraFactory();
 
 // Shape for QuerySourceSparql
 const SHAPE_SPARQL_1_1: FragmentSelectorShape = {
@@ -23,11 +23,11 @@ const SHAPE_SPARQL_1_1: FragmentSelectorShape = {
       type: 'negation',
       child: {
         type: 'operation',
-        operation: { operationType: 'type', type: Algebra.types.DISTINCT },
+        operation: { operationType: 'type', type: Algebra.Types.DISTINCT },
         children: [
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.CONSTRUCT },
+            operation: { operationType: 'type', type: Algebra.Types.CONSTRUCT },
             children: [
               {
                 type: 'operation',
@@ -69,7 +69,7 @@ describe('FragmentSelectorShapes', () => {
         type: 'operation',
         operation: {
           operationType: 'type',
-          type: Algebra.types.NOP,
+          type: Algebra.Types.NOP,
         },
       }, AF.createNop())).toBeTruthy();
     });
@@ -77,11 +77,11 @@ describe('FragmentSelectorShapes', () => {
     it('should not accept equal operations with type type and unequal children', () => {
       expect(doesShapeAcceptOperation({
         type: 'operation',
-        operation: { operationType: 'type', type: Algebra.types.DISTINCT },
+        operation: { operationType: 'type', type: Algebra.Types.DISTINCT },
         children: [
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.CONSTRUCT },
+            operation: { operationType: 'type', type: Algebra.Types.CONSTRUCT },
           },
         ],
       }, AF.createDistinct(AF.createProject(AF.createNop(), [])))).toBeFalsy();
@@ -90,11 +90,11 @@ describe('FragmentSelectorShapes', () => {
     it('should accept equal operations with type type and children', () => {
       expect(doesShapeAcceptOperation({
         type: 'operation',
-        operation: { operationType: 'type', type: Algebra.types.DISTINCT },
+        operation: { operationType: 'type', type: Algebra.Types.DISTINCT },
         children: [
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.CONSTRUCT },
+            operation: { operationType: 'type', type: Algebra.Types.CONSTRUCT },
             children: [
               {
                 type: 'operation',
@@ -127,7 +127,7 @@ describe('FragmentSelectorShapes', () => {
         type: 'operation',
         operation: {
           operationType: 'type',
-          type: Algebra.types.NOP,
+          type: Algebra.Types.NOP,
         },
       }, AF.createUnion([]))).toBeFalsy();
     });
@@ -140,14 +140,14 @@ describe('FragmentSelectorShapes', () => {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.NOP,
+              type: Algebra.Types.NOP,
             },
           },
           {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.NOP,
+              type: Algebra.Types.NOP,
             },
           },
         ],
@@ -162,14 +162,14 @@ describe('FragmentSelectorShapes', () => {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.NOP,
+              type: Algebra.Types.NOP,
             },
           },
           {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.UNION,
+              type: Algebra.Types.UNION,
             },
           },
         ],
@@ -184,14 +184,14 @@ describe('FragmentSelectorShapes', () => {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.NOP,
+              type: Algebra.Types.NOP,
             },
           },
           {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.NOP,
+              type: Algebra.Types.NOP,
             },
           },
         ],
@@ -203,14 +203,14 @@ describe('FragmentSelectorShapes', () => {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.NOP,
+              type: Algebra.Types.NOP,
             },
           },
           {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.UNION,
+              type: Algebra.Types.UNION,
             },
           },
         ],
@@ -225,14 +225,14 @@ describe('FragmentSelectorShapes', () => {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.NOP,
+              type: Algebra.Types.NOP,
             },
           },
           {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.BGP,
+              type: Algebra.Types.BGP,
             },
           },
         ],
@@ -245,43 +245,43 @@ describe('FragmentSelectorShapes', () => {
         children: [
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.PROJECT },
+            operation: { operationType: 'type', type: Algebra.Types.PROJECT },
           },
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.PATTERN },
+            operation: { operationType: 'type', type: Algebra.Types.PATTERN },
           },
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.SLICE },
+            operation: { operationType: 'type', type: Algebra.Types.SLICE },
           },
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.BGP },
+            operation: { operationType: 'type', type: Algebra.Types.BGP },
           },
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.JOIN },
+            operation: { operationType: 'type', type: Algebra.Types.JOIN },
           },
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.EXTEND },
+            operation: { operationType: 'type', type: Algebra.Types.EXTEND },
           },
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.UNION },
+            operation: { operationType: 'type', type: Algebra.Types.UNION },
           },
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.VALUES },
+            operation: { operationType: 'type', type: Algebra.Types.VALUES },
           },
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.FILTER },
+            operation: { operationType: 'type', type: Algebra.Types.FILTER },
           },
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.LEFT_JOIN },
+            operation: { operationType: 'type', type: Algebra.Types.LEFT_JOIN },
           },
         ],
       };
@@ -358,7 +358,7 @@ describe('FragmentSelectorShapes', () => {
           type: 'operation',
           operation: {
             operationType: 'type',
-            type: Algebra.types.NOP,
+            type: Algebra.Types.NOP,
           },
         },
       }, AF.createUnion([]))).toBeTruthy();
@@ -367,11 +367,11 @@ describe('FragmentSelectorShapes', () => {
         type: 'negation',
         child: {
           type: 'operation',
-          operation: { operationType: 'type', type: Algebra.types.DISTINCT },
+          operation: { operationType: 'type', type: Algebra.Types.DISTINCT },
           children: [
             {
               type: 'operation',
-              operation: { operationType: 'type', type: Algebra.types.CONSTRUCT },
+              operation: { operationType: 'type', type: Algebra.Types.CONSTRUCT },
             },
           ],
         },
@@ -385,7 +385,7 @@ describe('FragmentSelectorShapes', () => {
           type: 'operation',
           operation: {
             operationType: 'type',
-            type: Algebra.types.NOP,
+            type: Algebra.Types.NOP,
           },
         },
       }, AF.createNop())).toBeFalsy();
@@ -394,11 +394,11 @@ describe('FragmentSelectorShapes', () => {
         type: 'negation',
         child: {
           type: 'operation',
-          operation: { operationType: 'type', type: Algebra.types.DISTINCT },
+          operation: { operationType: 'type', type: Algebra.Types.DISTINCT },
           children: [
             {
               type: 'operation',
-              operation: { operationType: 'type', type: Algebra.types.CONSTRUCT },
+              operation: { operationType: 'type', type: Algebra.Types.CONSTRUCT },
               children: [
                 {
                   type: 'operation',
@@ -419,7 +419,7 @@ describe('FragmentSelectorShapes', () => {
           type: 'operation',
           operation: {
             operationType: 'type',
-            type: Algebra.types.NOP,
+            type: Algebra.Types.NOP,
           },
         },
       }, AF.createNop())).toBeTruthy();
@@ -432,7 +432,7 @@ describe('FragmentSelectorShapes', () => {
           type: 'operation',
           operation: {
             operationType: 'type',
-            type: Algebra.types.NOP,
+            type: Algebra.Types.NOP,
           },
         },
       }, AF.createUnion([]))).toBeFalsy();
@@ -444,7 +444,7 @@ describe('FragmentSelectorShapes', () => {
         joinBindings: true,
         operation: {
           operationType: 'type',
-          type: Algebra.types.NOP,
+          type: Algebra.Types.NOP,
         },
       }, AF.createNop(), { joinBindings: true })).toBeTruthy();
     });
@@ -454,7 +454,7 @@ describe('FragmentSelectorShapes', () => {
         type: 'operation',
         operation: {
           operationType: 'type',
-          type: Algebra.types.NOP,
+          type: Algebra.Types.NOP,
         },
       }, AF.createNop(), { joinBindings: true })).toBeFalsy();
     });
@@ -465,7 +465,7 @@ describe('FragmentSelectorShapes', () => {
         filterBindings: true,
         operation: {
           operationType: 'type',
-          type: Algebra.types.NOP,
+          type: Algebra.Types.NOP,
         },
       }, AF.createNop(), { filterBindings: true })).toBeTruthy();
     });
@@ -475,7 +475,7 @@ describe('FragmentSelectorShapes', () => {
         type: 'operation',
         operation: {
           operationType: 'type',
-          type: Algebra.types.NOP,
+          type: Algebra.Types.NOP,
         },
       }, AF.createNop(), { filterBindings: true })).toBeFalsy();
     });
@@ -485,12 +485,12 @@ describe('FragmentSelectorShapes', () => {
         type: 'operation',
         operation: {
           operationType: 'type',
-          type: Algebra.types.BGP,
+          type: Algebra.Types.BGP,
         },
         children: [
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.NOP },
+            operation: { operationType: 'type', type: Algebra.Types.NOP },
           },
         ],
       }, AF.createBgp([
@@ -501,12 +501,12 @@ describe('FragmentSelectorShapes', () => {
         type: 'operation',
         operation: {
           operationType: 'type',
-          type: Algebra.types.JOIN,
+          type: Algebra.Types.JOIN,
         },
         children: [
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.NOP },
+            operation: { operationType: 'type', type: Algebra.Types.NOP },
           },
         ],
       }, AF.createJoin([
@@ -517,12 +517,12 @@ describe('FragmentSelectorShapes', () => {
         type: 'operation',
         operation: {
           operationType: 'type',
-          type: Algebra.types.FILTER,
+          type: Algebra.Types.FILTER,
         },
         children: [
           {
             type: 'operation',
-            operation: { operationType: 'type', type: Algebra.types.NOP },
+            operation: { operationType: 'type', type: Algebra.Types.NOP },
           },
         ],
       }, AF.createFilter(
@@ -544,14 +544,14 @@ describe('FragmentSelectorShapes', () => {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.BGP,
+              type: Algebra.Types.BGP,
             },
           },
           {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.PATTERN,
+              type: Algebra.Types.PATTERN,
             },
           },
         ],
@@ -567,14 +567,14 @@ describe('FragmentSelectorShapes', () => {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.JOIN,
+              type: Algebra.Types.JOIN,
             },
           },
           {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.PATTERN,
+              type: Algebra.Types.PATTERN,
             },
           },
         ],
@@ -589,14 +589,14 @@ describe('FragmentSelectorShapes', () => {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.FILTER,
+              type: Algebra.Types.FILTER,
             },
           },
           {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.PATTERN,
+              type: Algebra.Types.PATTERN,
             },
           },
         ],
@@ -621,12 +621,7 @@ describe('FragmentSelectorShapes', () => {
       let operationWithextensionFunctionExpression: Algebra.Join;
 
       beforeAll(() => {
-        extensionFunctionExpression = {
-          expressionType: Algebra.expressionTypes.NAMED,
-          name: <RDF.NamedNode> { value: 'mock1' },
-          args: [],
-          type: Algebra.types.EXPRESSION,
-        };
+        extensionFunctionExpression = AF.createNamedExpression(<RDF.NamedNode> { value: 'mock1' }, []);
         operationWithextensionFunctionExpression = AF.createJoin([
           AF.createNop(),
           extensionFunctionExpression,
@@ -638,7 +633,7 @@ describe('FragmentSelectorShapes', () => {
           type: 'operation',
           operation: {
             operationType: 'type',
-            type: Algebra.types.EXPRESSION,
+            type: Algebra.Types.EXPRESSION,
             extensionFunctions: [ 'mock1' ],
           },
           joinBindings: true,
@@ -650,7 +645,7 @@ describe('FragmentSelectorShapes', () => {
           type: 'operation',
           operation: {
             operationType: 'type',
-            type: Algebra.types.EXPRESSION,
+            type: Algebra.Types.EXPRESSION,
             extensionFunctions: [ 'mock2' ],
           },
           joinBindings: true,
@@ -662,7 +657,7 @@ describe('FragmentSelectorShapes', () => {
           type: 'operation',
           operation: {
             operationType: 'type',
-            type: Algebra.types.EXPRESSION,
+            type: Algebra.Types.EXPRESSION,
             extensionFunctions: [ 'mock2' ],
           },
           joinBindings: true,
@@ -677,7 +672,7 @@ describe('FragmentSelectorShapes', () => {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.EXPRESSION,
+                type: Algebra.Types.EXPRESSION,
                 extensionFunctions: [ 'mock2' ],
               },
               joinBindings: true,
@@ -698,7 +693,7 @@ describe('FragmentSelectorShapes', () => {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.EXPRESSION,
+                type: Algebra.Types.EXPRESSION,
                 extensionFunctions: [ 'mock2' ],
               },
               joinBindings: true,
@@ -719,7 +714,7 @@ describe('FragmentSelectorShapes', () => {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.EXPRESSION,
+                type: Algebra.Types.EXPRESSION,
                 extensionFunctions: [ 'mock2' ],
               },
               joinBindings: true,
@@ -740,7 +735,7 @@ describe('FragmentSelectorShapes', () => {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.EXPRESSION,
+                type: Algebra.Types.EXPRESSION,
                 extensionFunctions: [ 'mock2' ],
               },
               joinBindings: true,
@@ -758,7 +753,7 @@ describe('FragmentSelectorShapes', () => {
           type: 'operation',
           operation: {
             operationType: 'type',
-            type: Algebra.types.EXPRESSION,
+            type: Algebra.Types.EXPRESSION,
             extensionFunctions: [ 'mock1' ],
           },
           joinBindings: true,
@@ -781,7 +776,7 @@ describe('FragmentSelectorShapes', () => {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.EXPRESSION,
+                type: Algebra.Types.EXPRESSION,
                 extensionFunctions: [ 'mock1' ],
               },
               joinBindings: true,
@@ -790,13 +785,13 @@ describe('FragmentSelectorShapes', () => {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.FILTER,
+                type: Algebra.Types.FILTER,
               },
             },
           ],
-        }, <Algebra.Filter> {
+        }, <Algebra.Filter> <any> {
           expression: extensionFunctionExpression,
-          type: Algebra.types.FILTER,
+          type: Algebra.Types.FILTER,
         })).toBeTruthy();
       });
 
@@ -809,7 +804,7 @@ describe('FragmentSelectorShapes', () => {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.EXPRESSION,
+                type: Algebra.Types.EXPRESSION,
                 extensionFunctions: [ 'mock2' ],
               },
               joinBindings: true,
@@ -818,13 +813,13 @@ describe('FragmentSelectorShapes', () => {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.FILTER,
+                type: Algebra.Types.FILTER,
               },
             },
           ],
-        }, <Algebra.Filter> {
+        }, <Algebra.Filter> <any> {
           expression: extensionFunctionExpression,
-          type: Algebra.types.FILTER,
+          type: Algebra.Types.FILTER,
         })).toBeFalsy();
       });
 
@@ -837,7 +832,7 @@ describe('FragmentSelectorShapes', () => {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.EXPRESSION,
+                type: Algebra.Types.EXPRESSION,
                 extensionFunctions: [ 'mock1' ],
               },
               joinBindings: true,
@@ -846,7 +841,7 @@ describe('FragmentSelectorShapes', () => {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.EXPRESSION,
+                type: Algebra.Types.EXPRESSION,
                 extensionFunctions: [ 'mock2' ],
               },
               joinBindings: true,
@@ -864,7 +859,7 @@ describe('FragmentSelectorShapes', () => {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.EXPRESSION,
+                type: Algebra.Types.EXPRESSION,
                 extensionFunctions: [ 'mock1' ],
               },
               joinBindings: true,
@@ -873,7 +868,7 @@ describe('FragmentSelectorShapes', () => {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.EXPRESSION,
+                type: Algebra.Types.EXPRESSION,
                 extensionFunctions: [ 'mock2' ],
               },
               joinBindings: true,
@@ -889,7 +884,7 @@ describe('FragmentSelectorShapes', () => {
             type: 'operation',
             operation: {
               operationType: 'type',
-              type: Algebra.types.EXPRESSION,
+              type: Algebra.Types.EXPRESSION,
               extensionFunctions: [ 'mock1' ],
             },
             joinBindings: true,

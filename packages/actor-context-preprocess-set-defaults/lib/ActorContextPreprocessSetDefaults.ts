@@ -21,6 +21,7 @@ export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
   public constructor(args: IActorContextPreprocessSetDefaultsArgs) {
     super(args);
     this.defaultFunctionArgumentsCache = {};
+    this.logger = args.logger;
   }
 
   public async test(_action: IAction): Promise<TestResult<IActorTest>> {
@@ -38,9 +39,8 @@ export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
         .setDefault(KeysQuerySourceIdentify.sourceIds, new Map())
         .setDefault(KeysCore.log, this.logger)
         .setDefault(KeysInitQuery.functionArgumentsCache, this.defaultFunctionArgumentsCache)
-        .setDefault(KeysQuerySourceIdentify.hypermediaSourcesAggregatedStores, new Map())
         .setDefault(KeysInitQuery.dataFactory, new DataFactory())
-        // TODO: This should be a separate actor to allow freedom to choose stats tracking or not
+        // TODO: This should be a seperate actor or with some logger to make tracking optional
         .setDefault(KeysStatistics.adaptiveJoinStatistics, {});
 
       // Handle default query format
@@ -68,7 +68,7 @@ export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
 export interface IActorContextPreprocessSetDefaultsArgs extends IActorContextPreprocessArgs {
   /**
    * The logger of this actor
-   * @default {a <npmd:@comunica/logger-void/^4.0.0/components/LoggerVoid.jsonld#LoggerVoid>}
+   * @default {a <npmd:@comunica/logger-void/^5.0.0/components/LoggerVoid.jsonld#LoggerVoid>}
    */
   logger: Logger;
 }

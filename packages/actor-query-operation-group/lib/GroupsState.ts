@@ -1,10 +1,10 @@
 import type { IBindingsAggregator, MediatorBindingsAggregatorFactory } from '@comunica/bus-bindings-aggregator-factory';
 import { KeysInitQuery } from '@comunica/context-entries';
 import type { Bindings, ComunicaDataFactory, IActionContext } from '@comunica/types';
+import type { Algebra } from '@comunica/utils-algebra';
 import type { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { bindingsToCompactString } from '@comunica/utils-bindings-factory';
 import type * as RDF from '@rdfjs/types';
-import type { Algebra } from 'sparqlalgebrajs';
 
 /**
  * A simple type alias for strings that should be hashes of Bindings
@@ -30,10 +30,9 @@ export class GroupsState {
   //  Without this we could have duplicate work/ override precious work.
   private readonly groupsInitializer: Map<BindingsHash, Promise<IGroup>>;
   private readonly groupVariables: Set<string>;
-  private readonly distinctHashes: null | Map<BindingsHash, Set<BindingsHash>>;
   private waitCounter: number;
   // Function that resolves the promise given by collectResults
-  private waitResolver: (bindings: Bindings[]) => void;
+  private waitResolver: ((bindings: Bindings[]) => void) | undefined;
   private resultHasBeenCalled: boolean;
 
   public constructor(
@@ -152,7 +151,7 @@ export class GroupsState {
       rows = [ this.bindingsFactory.bindings(single) ];
     }
 
-    this.waitResolver(rows);
+    this.waitResolver!(rows);
   }
 
   private resultCheck<T>(): Promise<T> | undefined {

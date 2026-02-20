@@ -2,13 +2,13 @@ import { QuerySourceSparql } from '@comunica/actor-query-source-identify-hyperme
 import { KeysInitQuery } from '@comunica/context-entries';
 import { ActionContext, Bus } from '@comunica/core';
 import type { IQuerySourceWrapper } from '@comunica/types';
+import { Algebra, AlgebraFactory } from '@comunica/utils-algebra';
 import { assignOperationSource, getExpressionVariables } from '@comunica/utils-query-operation';
 import { DataFactory } from 'rdf-data-factory';
-import { Algebra, Factory } from 'sparqlalgebrajs';
 import { ActorOptimizeQueryOperationFilterPushdown } from '../lib/ActorOptimizeQueryOperationFilterPushdown';
 import '@comunica/utils-jest';
 
-const AF = new Factory();
+const AF = new AlgebraFactory();
 const DF = new DataFactory();
 
 describe('ActorOptimizeQueryOperationFilterPushdown', () => {
@@ -95,6 +95,71 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
         expect(operationOut).toEqual(operationIn);
       });
 
+      it('for an operation with filter with source annotation without context', async() => {
+        const src1 = <any> {
+          source: {
+            getSelectorShape() {
+              return {};
+            },
+          },
+        };
+        const operationIn = AF.createFilter(
+          AF.createProject(
+            AF.createBgp([
+              assignOperationSource(AF.createPattern(DF.variable('s1'), DF.namedNode('p'), DF.namedNode('o')), src1),
+            ]),
+            [ DF.variable('s'), DF.variable('p') ],
+          ),
+          AF.createTermExpression(DF.variable('s')),
+        );
+        const { operation: operationOut } = await actor.run({
+          context: new ActionContext({ [KeysInitQuery.dataFactory.name]: DF }),
+          operation: operationIn,
+        });
+        expect(operationOut).toEqual(AF.createProject(
+          AF.createFilter(
+            AF.createBgp([
+              assignOperationSource(AF.createPattern(DF.variable('s1'), DF.namedNode('p'), DF.namedNode('o')), src1),
+            ]),
+            AF.createTermExpression(DF.variable('s')),
+          ),
+          [ DF.variable('s'), DF.variable('p') ],
+        ));
+      });
+
+      it('for an operation with filter with source annotation with context', async() => {
+        const src1 = <any> {
+          source: {
+            getSelectorShape() {
+              return {};
+            },
+          },
+          context: new ActionContext({ a: 'b' }),
+        };
+        const operationIn = AF.createFilter(
+          AF.createProject(
+            AF.createBgp([
+              assignOperationSource(AF.createPattern(DF.variable('s1'), DF.namedNode('p'), DF.namedNode('o')), src1),
+            ]),
+            [ DF.variable('s'), DF.variable('p') ],
+          ),
+          AF.createTermExpression(DF.variable('s')),
+        );
+        const { operation: operationOut } = await actor.run({
+          context: new ActionContext({ [KeysInitQuery.dataFactory.name]: DF }),
+          operation: operationIn,
+        });
+        expect(operationOut).toEqual(AF.createProject(
+          AF.createFilter(
+            AF.createBgp([
+              assignOperationSource(AF.createPattern(DF.variable('s1'), DF.namedNode('p'), DF.namedNode('o')), src1),
+            ]),
+            AF.createTermExpression(DF.variable('s')),
+          ),
+          [ DF.variable('s'), DF.variable('p') ],
+        ));
+      });
+
       it('for an operation with conjunctive filter', async() => {
         const operationIn = AF.createFilter(
           AF.createJoin([
@@ -115,12 +180,12 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
         });
         expect(operationOut).toEqual(AF.createJoin([
           AF.createFilter(
-            AF.createPattern(DF.variable('s1'), DF.namedNode('p'), DF.namedNode('o')),
-            AF.createTermExpression(DF.variable('s1')),
-          ),
-          AF.createFilter(
             AF.createPattern(DF.variable('s2'), DF.namedNode('p'), DF.namedNode('o')),
             AF.createTermExpression(DF.variable('s2')),
+          ),
+          AF.createFilter(
+            AF.createPattern(DF.variable('s1'), DF.namedNode('p'), DF.namedNode('o')),
+            AF.createTermExpression(DF.variable('s1')),
           ),
         ]));
       });
@@ -175,11 +240,11 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
         expect(operationOut).toEqual(AF.createFilter(
           AF.createPattern(DF.variable('s1'), DF.variable('s2'), DF.variable('s3')),
           AF.createOperatorExpression('&&', [
+            AF.createTermExpression(DF.variable('s3')),
             AF.createOperatorExpression('&&', [
               AF.createTermExpression(DF.variable('s2')),
               AF.createTermExpression(DF.variable('s1')),
             ]),
-            AF.createTermExpression(DF.variable('s3')),
           ]),
         ));
       });
@@ -214,11 +279,11 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
           AF.createFilter(
             AF.createFilter(
               AF.createPattern(DF.variable('s1'), DF.variable('s2'), DF.variable('s3')),
-              AF.createTermExpression(DF.variable('s3')),
+              AF.createTermExpression(DF.variable('s1')),
             ),
-            AF.createTermExpression(DF.variable('s1')),
+            AF.createTermExpression(DF.variable('s2')),
           ),
-          AF.createTermExpression(DF.variable('s2')),
+          AF.createTermExpression(DF.variable('s3')),
         ));
       });
     });
@@ -306,7 +371,9 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
         const src: IQuerySourceWrapper = {
           source: new QuerySourceSparql(
             'https://example.com/src',
+            'https://example.com/src',
             new ActionContext(),
+            <any> {},
             <any> {},
             'values',
             <any> {},
@@ -318,6 +385,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
             true,
             true,
             0,
+            false,
             { extensionFunctions: [ 'https://example.com/functions#mock' ]},
           ),
         };
@@ -341,7 +409,9 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
         const src1: IQuerySourceWrapper = {
           source: new QuerySourceSparql(
             'https://example.com/src',
+            'https://example.com/src',
             new ActionContext(),
+            <any> {},
             <any> {},
             'values',
             <any> {},
@@ -353,6 +423,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
             true,
             true,
             0,
+            false,
             { extensionFunctions: [ 'https://example.com/functions#mock' ]},
           ),
         };
@@ -392,7 +463,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
           type: 'operation',
           operation: {
             operationType: 'type',
-            type: Algebra.types.NOP,
+            type: Algebra.Types.NOP,
           },
         });
         shapes.set(src2, {
@@ -402,21 +473,21 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.FILTER,
+                type: Algebra.Types.FILTER,
               },
             },
             {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.JOIN,
+                type: Algebra.Types.JOIN,
               },
             },
             {
               type: 'operation',
               operation: {
                 operationType: 'type',
-                type: Algebra.types.PATTERN,
+                type: Algebra.Types.PATTERN,
               },
             },
           ],
@@ -445,14 +516,14 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
           type: 'operation',
           operation: {
             operationType: 'type',
-            type: Algebra.types.NOP,
+            type: Algebra.Types.NOP,
           },
         });
         shapes.set(src2, {
           type: 'operation',
           operation: {
             operationType: 'type',
-            type: Algebra.types.NOP,
+            type: Algebra.Types.NOP,
           },
         });
         expect(actor.shouldAttemptPushDown(op, [ src1, src2 ], shapes)).toBeFalsy();
@@ -478,7 +549,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
           type: 'operation',
           operation: {
             operationType: 'type',
-            type: Algebra.types.PATTERN,
+            type: Algebra.Types.PATTERN,
           },
         });
         expect(actor.shouldAttemptPushDown(op, [], shapes)).toBeFalsy();
@@ -1081,7 +1152,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
               AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o1')),
               AF.createValues(
                 [ DF.variable('s') ],
-                [{ '?s': DF.namedNode('s') }],
+                [{ s: DF.namedNode('s') }],
               ),
             ]) ]);
           });
@@ -1099,7 +1170,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
                 .createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o1')), src1),
               AF.createValues(
                 [ DF.variable('s') ],
-                [{ '?s': DF.namedNode('s') }],
+                [{ s: DF.namedNode('s') }],
               ),
             ]) ]);
           });
@@ -1123,7 +1194,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
               ),
               AF.createValues(
                 [ DF.variable('s') ],
-                [{ '?s': DF.namedNode('s') }],
+                [{ s: DF.namedNode('s') }],
               ),
             ]) ]);
           });
@@ -1139,7 +1210,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
               AF.createPattern(DF.namedNode('s'), DF.variable('p'), DF.namedNode('o1')),
               AF.createValues(
                 [ DF.variable('s') ],
-                [{ '?s': DF.namedNode('s') }],
+                [{ s: DF.namedNode('s') }],
               ),
             ]) ]);
           });
@@ -1155,7 +1226,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
               AF.createPattern(DF.blankNode('s'), DF.variable('p'), DF.namedNode('o1')),
               AF.createValues(
                 [ DF.variable('s') ],
-                [{ '?s': <any> DF.blankNode('s') }],
+                [{ s: <any> DF.blankNode('s') }],
               ),
             ]) ]);
           });
@@ -1171,7 +1242,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
               AF.createPattern(DF.variable('s'), DF.variable('p'), DF.literal('o')),
               AF.createValues(
                 [ DF.variable('o') ],
-                [{ '?o': DF.literal('o') }],
+                [{ o: DF.literal('o') }],
               ),
             ]) ]);
           });
@@ -1187,7 +1258,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
               AF.createPattern(DF.variable('s'), DF.variable('p'), DF.literal('o')),
               AF.createValues(
                 [ DF.variable('o') ],
-                [{ '?o': DF.literal('o') }],
+                [{ o: DF.literal('o') }],
               ),
             ]) ]);
           });
@@ -1330,7 +1401,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
               AF.createPath(DF.namedNode('s'), AF.createNps([]), DF.namedNode('o1')),
               AF.createValues(
                 [ DF.variable('s') ],
-                [{ '?s': DF.namedNode('s') }],
+                [{ s: DF.namedNode('s') }],
               ),
             ]) ]);
           });
@@ -1346,7 +1417,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
               AF.createPath(DF.namedNode('s'), AF.createNps([]), DF.namedNode('o1')),
               AF.createValues(
                 [ DF.variable('s') ],
-                [{ '?s': DF.namedNode('s') }],
+                [{ s: DF.namedNode('s') }],
               ),
             ]) ]);
           });
@@ -1362,7 +1433,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
               AF.createPath(DF.variable('s'), AF.createNps([]), DF.literal('o')),
               AF.createValues(
                 [ DF.variable('o') ],
-                [{ '?o': DF.literal('o') }],
+                [{ o: DF.literal('o') }],
               ),
             ]) ]);
           });
@@ -1378,7 +1449,7 @@ describe('ActorOptimizeQueryOperationFilterPushdown', () => {
               AF.createPath(DF.variable('s'), AF.createNps([]), DF.literal('o')),
               AF.createValues(
                 [ DF.variable('o') ],
-                [{ '?o': DF.literal('o') }],
+                [{ o: DF.literal('o') }],
               ),
             ]) ]);
           });

@@ -1,3 +1,4 @@
+import { ActorFunctionFactoryTermTriple } from '@comunica/actor-function-factory-term-triple';
 import type { FuncTestTableConfig } from '@comunica/bus-function-factory/test/util';
 import { runFuncTestTable } from '@comunica/bus-function-factory/test/util';
 import { KeysExpressionEvaluator } from '@comunica/context-entries';
@@ -19,6 +20,7 @@ import { ActorFunctionFactoryTermEquality } from '../lib';
 const config: FuncTestTableConfig<object> = {
   registeredActors: [
     args => new ActorFunctionFactoryTermEquality(args),
+    args => new ActorFunctionFactoryTermTriple(args),
   ],
   arity: 2,
   operation: '=',
@@ -179,14 +181,13 @@ describe('evaluation of \'=\'', () => {
     runFuncTestTable({
       ...config,
       testArray: [
-        [ '<< <ex:a> <ex:b> 123 >>', '<< <ex:a> <ex:b> 123.0 >>', 'true' ],
-        [ '<< <ex:a> <ex:b> 123 >>', '<< <ex:a> <ex:b> 123 >>', 'true' ],
-        [ '<< << <ex:a> <ex:b> 123 >> <ex:q> 999 >>', '<< << <ex:a> <ex:b> 123.0 >> <ex:q> 999 >>', 'true' ],
-        [ '<< <ex:a> <ex:b> 123 >>', '<< <ex:a> <ex:b> 123 >>', 'true' ],
-        [ '<< <ex:a> <ex:b> 123e0 >>', '<< <ex:a> <ex:b> 123 >>', 'true' ],
-        [ '<< <ex:a> <ex:b> 123 >>', '<< <ex:a> <ex:b> 9 >>', 'false' ],
-        [ '<< <ex:a> <ex:b> 9 >>', '<< <ex:a> <ex:b> 123 >>', 'false' ],
-        [ '<< <ex:a> <ex:b> 123 >>', '<< <ex:c> <ex:d> 123 >>', 'false' ],
+        [ '<<( <ex:a> <ex:b> 123 )>>', '<<( <ex:a> <ex:b> 123.0 )>>', 'true' ],
+        [ '<<( <ex:a> <ex:b> 123 )>>', '<<( <ex:a> <ex:b> 123 )>>', 'true' ],
+        [ '<<( <ex:a> <ex:b> 123 )>>', '<<( <ex:a> <ex:b> 123 )>>', 'true' ],
+        [ '<<( <ex:a> <ex:b> 123e0 )>>', '<<( <ex:a> <ex:b> 123 )>>', 'true' ],
+        [ '<<( <ex:a> <ex:b> 123 )>>', '<<( <ex:a> <ex:b> 9 )>>', 'false' ],
+        [ '<<( <ex:a> <ex:b> 9 )>>', '<<( <ex:a> <ex:b> 123 )>>', 'false' ],
+        [ '<<( <ex:a> <ex:b> 123 )>>', '<<( <ex:c> <ex:d> 123 )>>', 'false' ],
       ],
     });
   });

@@ -8,9 +8,9 @@ import { ActorQueryOperation } from '@comunica/bus-query-operation';
 import { ActionContextKey, failTest, passTest } from '@comunica/core';
 import type { TestResult, IActorTest } from '@comunica/core';
 import type { IActionContext, IQueryOperationResult, MetadataBindings, MetadataQuads } from '@comunica/types';
+import type { Algebra } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
-import type { Algebra } from 'sparqlalgebrajs';
 
 /**
  * A comunica Wrap Stream Query Operation Actor.
@@ -21,6 +21,8 @@ export class ActorQueryOperationWrapStream extends ActorQueryOperation {
 
   public constructor(args: IActorQueryOperationWrapStreamArgs) {
     super(args);
+    this.mediatorIteratorTransform = args.mediatorIteratorTransform;
+    this.mediatorQueryOperation = args.mediatorQueryOperation;
   }
 
   public async test(action: IActionQueryOperation): Promise<TestResult<IActorTest>> {

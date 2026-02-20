@@ -1,8 +1,9 @@
 /** @jest-environment setup-polly-jest/jest-environment-node */
 
-import { QuerySourceSkolemized } from '@comunica/actor-context-preprocess-query-source-skolemize';
 import { KeysHttpWayback, KeysInitQuery, KeysQuerySourceIdentify } from '@comunica/context-entries';
+import { Logger } from '@comunica/types';
 import type { QueryBindings, QueryStringContext } from '@comunica/types';
+import { AlgebraFactory } from '@comunica/utils-algebra';
 import type { Bindings } from '@comunica/utils-bindings-factory';
 import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { BlankNodeScoped } from '@comunica/utils-data-factory';
@@ -15,7 +16,6 @@ import { Store } from 'n3';
 import { DataFactory } from 'rdf-data-factory';
 import rdfParse from 'rdf-parse';
 import { RdfStore } from 'rdf-stores';
-import { Factory } from 'sparqlalgebrajs';
 import { QueryEngine } from '../lib/QueryEngine';
 import { fetch as cachedFetch } from './util';
 
@@ -23,7 +23,7 @@ const stringToStream = require('streamify-string');
 
 const DF = new DataFactory();
 const BF = new BindingsFactory(DF);
-const factory = new Factory();
+const factory = new AlgebraFactory();
 
 globalThis.fetch = cachedFetch;
 
@@ -862,6 +862,53 @@ SELECT * WHERE {
         await expect(result.execute()).resolves.toEqualBindingsStream(expectedResult);
       });
 
+      it('should correctly handle leftJoin expression on targeting left', async() => {
+        const store = new Store();
+
+        store.addQuad(
+          DF.namedNode('http://ex.org/s'),
+          DF.namedNode('http://ex.org/p1'),
+          DF.literal('4', DF.namedNode('http://www.w3.org/2001/XMLSchema#decimal')),
+        );
+        store.addQuad(
+          DF.namedNode('http://ex.org/s'),
+          DF.namedNode('http://ex.org/p2'),
+          DF.literal('10', DF.namedNode('http://www.w3.org/2001/XMLSchema#decimal')),
+        );
+
+        const result = <QueryBindings> await engine.query(`
+          SELECT * WHERE { 
+          ?s <http://ex.org/p1> ?v1 .
+          OPTIONAL {
+            ?s <http://ex.org/p2> ?v2 .
+            FILTER(?v1 < 3)
+          }
+        }`, { sources: [ store ]});
+
+        const expectedResult: Bindings[] = [
+          BF.bindings([
+            [ DF.variable('s'), DF.namedNode('http://ex.org/s') ],
+            [ DF.variable('v1'), DF.literal('4', DF.namedNode('http://www.w3.org/2001/XMLSchema#decimal')) ],
+          ]),
+        ];
+
+        await expect(result.execute()).resolves.toEqualBindingsStream(expectedResult);
+
+        // First filters are collected and a single filter wraps the group.
+        // Then that outer filter in the right is placed as and expression for the leftJoin:
+        // https://www.w3.org/TR/sparql12-query/#sparqlTranslateGraphPatterns
+        const resultWithExtraFilter = <QueryBindings> await engine.query(`
+          SELECT * WHERE { 
+          ?s <http://ex.org/p1> ?v1 .
+          OPTIONAL {
+            ?s <http://ex.org/p2> ?v2 .
+            FILTER(?v1 < 3) .
+            FILTER( true ) .
+          }
+        }`, { sources: [ store ]});
+        await expect(resultWithExtraFilter.execute()).resolves.toEqualBindingsStream(expectedResult);
+      });
+
       it('should handle join with empty estimate cardinality', async() => {
         const context: QueryStringContext = {
           sources: [
@@ -1033,6 +1080,63 @@ WHERE {
           },
         });
         await expect((bindingsStream.toArray())).resolves.toHaveLength(1);
+      });
+
+      it('on a SPARQL endpoint detected via Server header (no browser)', async() => {
+        const result = await engine.queryBindings(`
+        SELECT * WHERE {
+          ?s ?p ?o.
+        } LIMIT 1`, { sources: [ 'http://data.cervantesvirtual.com/openrdf-sesame/repositories/data' ]});
+
+        const expectedResult: Bindings[] = [
+          BF.bindings([
+            [ DF.variable('s'), DF.namedNode('http://www.openlinksw.com/virtrdf-data-formats#default-iid') ],
+            [ DF.variable('p'), DF.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type') ],
+            [ DF.variable('o'), DF.namedNode('http://www.openlinksw.com/schemas/virtrdf#QuadMapFormat') ],
+          ]),
+        ];
+
+        await expect(result).toEqualBindingsStream(expectedResult);
+      });
+    });
+
+    describe('on multiple sources', () => {
+      it('with an explicit SERVICE clause without sources in context', async() => {
+        const bindingsStream = await engine.queryBindings(`
+SELECT ?movie ?title ?name
+WHERE {
+  SERVICE <https://fragments.dbpedia.org/2016-04/en> {
+    ?movie dbpedia-owl:starring [ rdfs:label "Brad Pitt"@en ];
+         rdfs:label ?title;
+         dbpedia-owl:director [ rdfs:label ?name ].
+    FILTER LANGMATCHES(LANG(?title), "EN")
+    FILTER LANGMATCHES(LANG(?name),  "EN")
+  }
+}`, {
+          sources: [],
+        });
+        await expect(bindingsStream.toArray()).resolves.toHaveLength(43);
+      });
+
+      it('with explicit SERVICE clauses without sources in context', async() => {
+        const bindingsStream = await engine.queryBindings(`
+SELECT ?person ?name ?book ?title {
+  SERVICE <https://fragments.dbpedia.org/2016-04/en> {
+    ?person dbpedia-owl:birthPlace [ rdfs:label "San Francisco"@en ].
+  }
+  SERVICE <https://data.linkeddatafragments.org/viaf> {
+    ?viafID schema:sameAs ?person;
+               schema:name ?name.
+  }
+  SERVICE <https://data.linkeddatafragments.org/harvard> {
+    ?book dc:contributor [ foaf:name ?name ];
+              dc:title ?title.
+  }
+} LIMIT 10
+`, {
+          sources: [],
+        });
+        await expect(bindingsStream.toArray()).resolves.toHaveLength(10);
       });
     });
 
@@ -1390,6 +1494,68 @@ SELECT ?option WHERE {
 }
 `, { sources: [ store ]})))).resolves.toHaveLength(10);
         });
+      });
+
+      it('should handle zero-or-one path with variable subject and object', async() => {
+        const store = new Store([
+          DF.quad(DF.namedNode('ex:s1'), DF.namedNode('ex:name'), DF.literal('s1')),
+          DF.quad(DF.namedNode('ex:s1'), DF.namedNode('ex:knows'), DF.namedNode('ex:s2')),
+          DF.quad(DF.namedNode('ex:s2'), DF.namedNode('ex:name'), DF.literal('s2')),
+        ]);
+        const bindingsStream = await engine.queryBindings(`
+        PREFIX ex: <ex:>
+        SELECT ?s ?o WHERE {
+          ?s ex:knows? ?o .
+        }`, { sources: [ store ]});
+        await expect(bindingsStream).toEqualBindingsStream([
+          BF.bindings([
+            [ DF.variable('s'), DF.namedNode('ex:s1') ],
+            [ DF.variable('o'), DF.namedNode('ex:s2') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('s'), DF.namedNode('ex:s1') ],
+            [ DF.variable('o'), DF.namedNode('ex:s1') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('s'), DF.literal('s1') ],
+            [ DF.variable('o'), DF.literal('s1') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('s'), DF.namedNode('ex:s2') ],
+            [ DF.variable('o'), DF.namedNode('ex:s2') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('s'), DF.literal('s2') ],
+            [ DF.variable('o'), DF.literal('s2') ],
+          ]),
+        ]);
+      });
+
+      it('should handle zero-or-one and link path with variable subject and object', async() => {
+        const store = new Store([
+          DF.quad(DF.namedNode('ex:s1'), DF.namedNode('ex:name'), DF.literal('s1')),
+          DF.quad(DF.namedNode('ex:s1'), DF.namedNode('ex:knows'), DF.namedNode('ex:s2')),
+          DF.quad(DF.namedNode('ex:s2'), DF.namedNode('ex:name'), DF.literal('s2')),
+        ]);
+        const bindingsStream = await engine.queryBindings(`
+        PREFIX ex: <ex:>
+        SELECT ?s ?o WHERE {
+          ?s ex:knows?/ex:name ?o .
+        }`, { sources: [ store ]});
+        await expect(bindingsStream).toEqualBindingsStream([
+          BF.bindings([
+            [ DF.variable('s'), DF.namedNode('ex:s1') ],
+            [ DF.variable('o'), DF.literal('s1') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('s'), DF.namedNode('ex:s1') ],
+            [ DF.variable('o'), DF.literal('s2') ],
+          ]),
+          BF.bindings([
+            [ DF.variable('s'), DF.namedNode('ex:s2') ],
+            [ DF.variable('o'), DF.literal('s2') ],
+          ]),
+        ]);
       });
     });
 
@@ -1819,6 +1985,97 @@ WHERE {
         ]);
       });
     });
+
+    describe('logger warning grouping (no browser)', () => {
+      class TestLogger extends Logger {
+        public readonly warnings: string[] = [];
+
+        public warn(message: string, _data?: any): void {
+          this.logGrouped(message, (count) => {
+            const suffix = count > 1 ? ` (${count} times)` : '';
+            this.warnings.push(`${message}${suffix}`);
+          });
+        }
+
+        public trace(_message: string, _data?: any) {}
+        public debug(_message: string, _data?: any) {}
+        public info(_message: string, _data?: any) {}
+        public error(_message: string, _data?: any) {}
+        public fatal(_message: string, _data?: any) {}
+      }
+
+      it('should group repeated warnings', async() => {
+        const logger = new TestLogger();
+        const query = 'CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o FILTER(contains(?o, "Purpose")) }';
+        const context: QueryStringContext = {
+          sources: [ 'http://www.w3.org/ns/odrl/2/' ],
+          log: logger,
+        };
+
+        await arrayifyStream(await engine.queryQuads(query, context));
+
+        expect(logger.warnings[0]).toBe('Error occurred while filtering.');
+        expect(logger.warnings[1]).toMatch(/Error occurred while filtering\. \(\d+ times\)/u);
+      });
+    });
+  });
+
+  it('recursive triple term creation', async() => {
+    const turtleValue = `
+PREFIX : <http://example/>
+:s :p :o1 .
+GRAPH :g {
+     <<:s :p :o1 >> :q1 :z1 .
+}
+GRAPH :g1 { << _:b :r :o3 >> :pb :z3 . }
+`;
+    const expectedResult: RDF.Quad[] = [
+      DF.quad(
+        DF.namedNode('http://example/g'),
+        DF.namedNode('http://example/graphContains'),
+        DF.quad(
+          DF.blankNode(),
+          DF.namedNode('http://example/q1'),
+          DF.quad(
+            DF.namedNode('http://example/z1'),
+            DF.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#reifies'),
+            DF.quad(DF.namedNode('http://example/s'), DF.namedNode('http://example/p'), DF.namedNode('http://example/o1')),
+          ),
+        ),
+      ),
+      DF.quad(
+        DF.namedNode('http://example/g1'),
+        DF.namedNode('http://example/graphContains'),
+        DF.quad(
+          DF.blankNode(),
+          DF.namedNode('http://example/pb'),
+          DF.quad(
+            DF.namedNode('http://example/z3'),
+            DF.namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#reifies'),
+            DF.quad(DF.blankNode(), DF.namedNode('http://example/r'), DF.namedNode('http://example/o3')),
+          ),
+        ),
+      ),
+    ];
+
+    const context: QueryStringContext = { sources: [
+      { type: 'serialized', value: turtleValue, mediaType: 'application/trig', baseIRI: 'http://example.org/' },
+    ]};
+    const query = `
+PREFIX : <http://example/>
+CONSTRUCT {
+  ?g :graphContains ?t .
+} WHERE {
+  GRAPH ?g {
+    ?s ?p1 ?o1 ;
+       ?p2 ?o2 .
+    FILTER (!isTriple(?o1) && !(?p1 = ?p2 && ?o1 = ?o2)) .
+    BIND(<<( ?s ?p1  <<( ?o1 ?p2 ?o2 )>> )>> AS ?t) .
+  }
+}`;
+
+    await expect(arrayifyStream(await engine.queryQuads(query, context))).resolves
+      .toBeRdfIsomorphic(expectedResult);
   });
 
   // We skip these tests in browsers due to CORS issues
@@ -2236,7 +2493,7 @@ WHERE {
               {
                 metadata: {
                   scopedSource: {
-                    source: expect.any(QuerySourceSkolemized),
+                    source: expect.anything(),
                   },
                 },
               },

@@ -2,6 +2,7 @@ import { ActorQueryOperation } from '@comunica/bus-query-operation';
 import { KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
 import { Bus, ActionContext } from '@comunica/core';
 import type { IQuerySourceWrapper } from '@comunica/types';
+import { Algebra, AlgebraFactory } from '@comunica/utils-algebra';
 import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import type { Bindings } from '@comunica/utils-bindings-factory';
 import { MetadataValidationState } from '@comunica/utils-metadata';
@@ -10,13 +11,12 @@ import type * as RDF from '@rdfjs/types';
 import { ArrayIterator } from 'asynciterator';
 import { DataFactory } from 'rdf-data-factory';
 import { QUAD_TERM_NAMES } from 'rdf-terms';
-import { Algebra, Factory } from 'sparqlalgebrajs';
 import { ActorQueryOperationPathZeroOrOne } from '../lib/ActorQueryOperationPathZeroOrOne';
 import '@comunica/utils-jest';
 
 const DF = new DataFactory();
 const BF = new BindingsFactory(DF);
-const AF = new Factory();
+const AF = new AlgebraFactory();
 
 describe('ActorQueryOperationPathZeroOrOne', () => {
   let bus: any;
@@ -24,16 +24,16 @@ describe('ActorQueryOperationPathZeroOrOne', () => {
   let mediatorMergeBindingsContext: any;
   let source1: IQuerySourceWrapper;
   let source2: IQuerySourceWrapper;
-  const factory: Factory = new Factory();
+  const factory: AlgebraFactory = new AlgebraFactory();
 
   beforeEach(() => {
     bus = new Bus({ name: 'bus' });
     mediatorQueryOperation = {
       mediate: jest.fn((arg: any) => {
-        if (arg.operation.type === 'filter') {
+        if (arg.operation.type === 'union') {
           return Promise.resolve({
             bindingsStream: new ArrayIterator([
-              BF.fromRecord({ z: DF.namedNode('1') }),
+              BF.fromRecord({ x: DF.namedNode('1') }),
             ], { autoStart: false }),
             metadata: () => Promise.resolve({
               state: new MetadataValidationState(),
@@ -72,7 +72,7 @@ describe('ActorQueryOperationPathZeroOrOne', () => {
         }
 
         return Promise.resolve({
-          bindingsStream: new ArrayIterator(distinct ? [ bindings[0] ] : bindings),
+          bindingsStream: new ArrayIterator(distinct ? [ bindings[0] ] : bindings, { autoStart: false }),
           metadata: () => Promise.resolve({
             state: new MetadataValidationState(),
             cardinality: { type: 'estimate', value: distinct ? 1 : 3 },
@@ -125,7 +125,7 @@ describe('ActorQueryOperationPathZeroOrOne', () => {
     it('should test on ZeroOrOne paths', async() => {
       const op: any = {
         context: new ActionContext({ [KeysInitQuery.dataFactory.name]: DF }),
-        operation: { type: Algebra.types.PATH, predicate: { type: Algebra.types.ZERO_OR_ONE_PATH }},
+        operation: { type: Algebra.Types.PATH, predicate: { type: Algebra.Types.ZERO_OR_ONE_PATH }},
       };
       await expect(actor.test(op)).resolves.toPassTestVoid();
     });
@@ -133,7 +133,7 @@ describe('ActorQueryOperationPathZeroOrOne', () => {
     it('should test on different paths', async() => {
       const op: any = {
         context: new ActionContext({ [KeysInitQuery.dataFactory.name]: DF }),
-        operation: { type: Algebra.types.PATH, predicate: { type: 'dummy' }},
+        operation: { type: Algebra.Types.PATH, predicate: { type: 'dummy' }},
       };
       await expect(actor.test(op)).resolves.toFailTest(`This Actor only supports ZeroOrOnePath Path operations.`);
     });
@@ -303,7 +303,8 @@ describe('ActorQueryOperationPathZeroOrOne', () => {
       });
       await expect(output.bindingsStream).toEqualBindingsStream([
         BF.bindings([
-          [ DF.variable('z'), DF.namedNode('1') ],
+          [ DF.variable('x'), DF.namedNode('1') ],
+          [ DF.variable('y'), DF.namedNode('1') ],
         ]),
         BF.bindings([
           [ DF.variable('x'), DF.namedNode('1') ],
@@ -346,7 +347,8 @@ describe('ActorQueryOperationPathZeroOrOne', () => {
       });
       await expect(output.bindingsStream).toEqualBindingsStream([
         BF.bindings([
-          [ DF.variable('z'), DF.namedNode('1') ],
+          [ DF.variable('x'), DF.namedNode('1') ],
+          [ DF.variable('y'), DF.namedNode('1') ],
         ]),
         BF.bindings([
           [ DF.variable('x'), DF.namedNode('1') ],
@@ -364,22 +366,28 @@ describe('ActorQueryOperationPathZeroOrOne', () => {
 
       expect(mediatorQueryOperation.mediate).toHaveBeenCalledWith({
         context: expect.any(ActionContext),
-        operation: AF.createFilter(
+        operation: AF.createUnion([
           AF.createUnion([
             assignOperationSource(
-              AF.createPattern(DF.variable('x'), DF.variable('b'), DF.variable('y')),
+              AF.createPattern(DF.variable('x'), DF.variable('p'), DF.variable('xb')),
               source1,
             ),
             assignOperationSource(
-              AF.createPattern(DF.variable('x'), DF.variable('b'), DF.variable('y')),
+              AF.createPattern(DF.variable('x'), DF.variable('p'), DF.variable('xb')),
               source2,
             ),
           ]),
-          AF.createOperatorExpression('=', [
-            AF.createTermExpression(DF.variable('x')),
-            AF.createTermExpression(DF.variable('y')),
+          AF.createUnion([
+            assignOperationSource(
+              AF.createPattern(DF.variable('xb'), DF.variable('p'), DF.variable('x')),
+              source1,
+            ),
+            assignOperationSource(
+              AF.createPattern(DF.variable('xb'), DF.variable('p'), DF.variable('x')),
+              source2,
+            ),
           ]),
-        ),
+        ]),
       });
     });
   });

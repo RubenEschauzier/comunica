@@ -1,6 +1,6 @@
 import type { ISearchForm } from '@comunica/actor-rdf-metadata-extract-hydra-controls';
 import type { MediatorDereferenceRdf } from '@comunica/bus-dereference-rdf';
-import { filterMatchingQuotedQuads, quadsToBindings } from '@comunica/bus-query-source-identify';
+import { quadsToBindings } from '@comunica/bus-query-source-identify';
 import type { MediatorRdfMetadata, IActorRdfMetadataOutput } from '@comunica/bus-rdf-metadata';
 import type { MediatorRdfMetadataExtract } from '@comunica/bus-rdf-metadata-extract';
 import { KeysQueryOperation } from '@comunica/context-entries';
@@ -13,6 +13,8 @@ import type {
   MetadataBindings,
   ComunicaDataFactory,
 } from '@comunica/types';
+import type { AlgebraFactory } from '@comunica/utils-algebra';
+import { isKnownOperation, Algebra } from '@comunica/utils-algebra';
 import type { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
@@ -25,7 +27,6 @@ import {
   mapTerms,
   matchPattern,
 } from 'rdf-terms';
-import type { Algebra, Factory } from 'sparqlalgebrajs';
 
 export class QuerySourceQpf implements IQuerySource {
   protected readonly selectorShape: FragmentSelectorShape;
@@ -36,7 +37,7 @@ export class QuerySourceQpf implements IQuerySource {
   private readonly mediatorMetadataExtract: MediatorRdfMetadataExtract;
   private readonly mediatorDereferenceRdf: MediatorDereferenceRdf;
   private readonly dataFactory: ComunicaDataFactory;
-  private readonly algebraFactory: Factory;
+  private readonly algebraFactory: AlgebraFactory;
   private readonly bindingsFactory: BindingsFactory;
 
   public readonly referenceValue: string;
@@ -54,7 +55,7 @@ export class QuerySourceQpf implements IQuerySource {
     mediatorMetadataExtract: MediatorRdfMetadataExtract,
     mediatorDereferenceRdf: MediatorDereferenceRdf,
     dataFactory: ComunicaDataFactory,
-    algebraFactory: Factory,
+    algebraFactory: AlgebraFactory,
     bindingsFactory: BindingsFactory,
     subjectUri: string,
     predicateUri: string,
@@ -137,6 +138,10 @@ export class QuerySourceQpf implements IQuerySource {
         };
   }
 
+  public async getFilterFactor(): Promise<number> {
+    return 1;
+  }
+
   public async getSelectorShape(): Promise<FragmentSelectorShape> {
     return this.selectorShape;
   }
@@ -146,14 +151,14 @@ export class QuerySourceQpf implements IQuerySource {
     context: IActionContext,
     options?: IQueryBindingsOptions,
   ): BindingsStream {
-    if (operation.type !== 'pattern') {
+    if (!isKnownOperation(operation, Algebra.Types.PATTERN)) {
       throw new Error(`Attempted to pass non-pattern operation '${operation.type}' to QuerySourceQpf`);
     }
 
     const unionDefaultGraph = Boolean(context.get(KeysQueryOperation.unionDefaultGraph));
 
     // Create an async iterator from the matched quad stream
-    let it = this.match(
+    const it = this.match(
       operation.subject,
       operation.predicate,
       operation.object,
@@ -163,7 +168,6 @@ export class QuerySourceQpf implements IQuerySource {
       options,
     );
 
-    it = filterMatchingQuotedQuads(operation, it);
     return quadsToBindings(it, operation, this.dataFactory, this.bindingsFactory, unionDefaultGraph);
   }
 
@@ -459,7 +463,7 @@ export class QuerySourceQpf implements IQuerySource {
   }
 
   public queryVoid(
-    _operation: Algebra.Update,
+    _operation: Algebra.Operation,
     _context: IActionContext,
   ): Promise<void> {
     throw new Error('queryVoid is not implemented in QuerySourceQpf');
