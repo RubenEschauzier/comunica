@@ -40,7 +40,7 @@ export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
         .setDefault(KeysCore.log, this.logger)
         .setDefault(KeysInitQuery.functionArgumentsCache, this.defaultFunctionArgumentsCache)
         .setDefault(KeysInitQuery.dataFactory, new DataFactory())
-        // TODO: This should be a seperate actor or with some logger to make tracking optional
+        // TODO: This should be a seperate actor or with some logger to make tracking optional 
         .setDefault(KeysStatistics.adaptiveJoinStatistics, {});
 
       // Handle default query format
