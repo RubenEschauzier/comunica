@@ -20,6 +20,7 @@ import type {
   IDiscoverEventData,
   PartialResult,
   ILink,
+  IAdaptivePlanStatistics,
 } from '@comunica/types';
 import type { Algebra } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
@@ -376,6 +377,12 @@ export const KeysRdfJoin = {
    * The last physical join actor that was executed.
    */
   lastPhysicalJoin: new ActionContextKey<string>('@comunica/bus-rdf-join:lastPhysicalJoin'),
+  /**
+   * Flag indicating if the join entries are a result of an adaptive join over separate connected
+   * components. Adaptive joins only work over connected components, so the final cartesian products
+   * should be made by 'traditional' join actors
+   */
+  joinEntriesAdaptiveJoinResult: new ActionContextKey<boolean>('@comunica/bus-rdf-join:joinEntriesAdaptiveJoinResult'),
 };
 
 export const KeysStatistics = {
@@ -396,6 +403,18 @@ export const KeysStatistics = {
    */
   intermediateResults: new ActionContextKey<IStatisticBase<PartialResult>>(
     '@comunica/statistic:intermediateResults',
+  ),
+  /**
+   * Whether the engine should skip some statistics tracking
+   * (TODO: This implementation is a stub for adaptive tracking and skipping tracking for TypeIndex,
+   *  maybe interesting to extend it to all statistics)
+   */
+  skipStatisticTracking: new ActionContextKey<boolean>('@comunica/statistic:skipStatisticTracking'),
+  /**
+   * Object tracking the performance evolution of adaptive join planning approach during query execution
+   */
+  adaptiveJoinStatistics: new ActionContextKey<Record<number, IAdaptivePlanStatistics>>(
+    '@Record<number, IAdaptivePlanStatistics>',
   ),
 };
 

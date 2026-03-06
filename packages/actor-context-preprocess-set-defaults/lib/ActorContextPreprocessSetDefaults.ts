@@ -4,7 +4,7 @@ import type {
   IActionContextPreprocess,
 } from '@comunica/bus-context-preprocess';
 import { ActorContextPreprocess } from '@comunica/bus-context-preprocess';
-import { KeysCore, KeysInitQuery, KeysQuerySourceIdentify } from '@comunica/context-entries';
+import { KeysCore, KeysInitQuery, KeysQuerySourceIdentify, KeysStatistics } from '@comunica/context-entries';
 import type { IAction, IActorTest, TestResult } from '@comunica/core';
 import { passTestVoid } from '@comunica/core';
 import type { FunctionArgumentsCache, Logger } from '@comunica/types';
@@ -39,7 +39,9 @@ export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
         .setDefault(KeysQuerySourceIdentify.sourceIds, new Map())
         .setDefault(KeysCore.log, this.logger)
         .setDefault(KeysInitQuery.functionArgumentsCache, this.defaultFunctionArgumentsCache)
-        .setDefault(KeysInitQuery.dataFactory, new DataFactory());
+        .setDefault(KeysInitQuery.dataFactory, new DataFactory())
+        // TODO: This should be a seperate actor or with some logger to make tracking optional
+        .setDefault(KeysStatistics.adaptiveJoinStatistics, {});
 
       // Handle default query format
       let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };

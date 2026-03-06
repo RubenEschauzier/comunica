@@ -1,18 +1,14 @@
 {
-  "name": "@comunica/actor-query-result-serialize-sparql-json",
+  "name": "@comunica/actor-rdf-join-inner-multi-stems",
   "version": "5.1.3",
-  "description": "A sparql-json query-result-serialize actor",
+  "description": "A inner-multi-stems rdf-join actor",
   "lsd:module": true,
   "license": "MIT",
-  "funding": {
-    "type": "opencollective",
-    "url": "https://opencollective.com/comunica-association"
-  },
   "homepage": "https://comunica.dev/",
   "repository": {
     "type": "git",
     "url": "https://github.com/comunica/comunica.git",
-    "directory": "packages/actor-query-result-serialize-sparql-json"
+    "directory": "packages/actor-rdf-join-inner-multi-stems"
   },
   "bugs": {
     "url": "https://github.com/comunica/comunica/issues"
@@ -20,8 +16,8 @@
   "keywords": [
     "comunica",
     "actor",
-    "query-result-serialize",
-    "sparql-json"
+    "rdf-join",
+    "inner-multi-stems"
   ],
   "sideEffects": false,
   "main": "lib/index.js",
@@ -36,21 +32,13 @@
     "lib/**/*.js.map"
   ],
   "scripts": {
-    "build": "yarn run build:ts && yarn run build:components",
+    "build": "npm run build:ts && npm run build:components",
     "build:ts": "node \"../../node_modules/typescript/bin/tsc\"",
     "build:components": "componentsjs-generator"
   },
   "dependencies": {
-    "@comunica/actor-rdf-join-inner-multi-stems": "^5.1.3",
     "@comunica/bus-rdf-join": "^5.1.3",
     "@comunica/context-entries": "^5.1.3",
-    "@comunica/bus-http": "^5.1.3",
-    "@comunica/bus-http-invalidate": "^5.1.3",
-    "@comunica/bus-query-result-serialize": "^5.1.3",
-    "@comunica/core": "^5.1.3",
-    "@comunica/types": "^5.1.3",
-    "@rdfjs/types": "*",
-    "asynciterator": "^3.10.0",
-    "readable-stream": "^4.7.0"
+    "@comunica/core": "^5.1.3"
   }
 }

@@ -14,6 +14,7 @@ import type {
 import type * as RDF from '@rdfjs/types';
 import { wrap } from 'asynciterator';
 import { Readable } from 'readable-stream';
+import type { ActionObserverAdaptiveJoin } from './ActionObserverAdaptiveJoin';
 import type { ActionObserverHttp } from './ActionObserverHttp';
 import { ActionObserverContextPreprocess } from './ActionObserverContextPreprocess';
 import { KeysInitQuery } from '@comunica/context-entries';
@@ -25,6 +26,7 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
   private readonly emitMetadata: boolean;
   public readonly httpObserver: ActionObserverHttp;
   public readonly contextPreprocessObserver: ActionObserverContextPreprocess;
+  public readonly adaptiveJoinObserver: ActionObserverAdaptiveJoin;
 
   /* eslint-disable max-len */
   /**
@@ -38,13 +40,14 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
    *   \ @defaultNested {true} emitMetadata
    *   \ @defaultNested {<default_observer> a <caqrssj:components/ActionObserverHttp.jsonld#ActionObserverHttp>} httpObserver
    *   \ @defaultNested {<default_observer_context> a <caqrssj:components/ActionObserverContextPreprocess.jsonld#ActionObserverContextPreprocess>} contextPreprocessObserver
-
+   *   \ @defaultNested {<default_observer_2> a <caqrssj:components/ActionObserverAdaptiveJoin.jsonld#ActionObserverAdaptiveJoin>} adaptiveJoinObserver
    */
   public constructor(args: IActorQueryResultSerializeSparqlJsonArgs) {
     super(args);
     this.emitMetadata = args.emitMetadata;
     this.httpObserver = args.httpObserver;
     this.contextPreprocessObserver = args.contextPreprocessObserver;
+    this.adaptiveJoinObserver = args.adaptiveJoinObserver;
   }
   /* eslint-enable max-len */
 
@@ -151,6 +154,12 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
             httpRequests: this.httpObserver.requests,
           };
         }
+        if (this.adaptiveJoinObserver.joinStatsContainers){
+          metadata = {
+            ...metadata,
+            adaptiveStats: this.adaptiveJoinObserver.joinStatsContainers ?? {}
+          }
+        }
         return `\n]},\n"metadata": ${JSON.stringify(metadata, null, 2)}\n`;   
       }
       // Write bindings
@@ -175,4 +184,5 @@ export interface IActorQueryResultSerializeSparqlJsonArgs extends IActorQueryRes
   emitMetadata: boolean;
   httpObserver: ActionObserverHttp;
   contextPreprocessObserver: ActionObserverContextPreprocess;
+  adaptiveJoinObserver: ActionObserverAdaptiveJoin;
 }

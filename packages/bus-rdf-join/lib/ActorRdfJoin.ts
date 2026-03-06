@@ -18,9 +18,13 @@ import type {
   MetadataVariable,
   LogicalJoinType,
 } from '@comunica/types';
+import { Algebra } from '@comunica/utils-algebra';
+import { visitOperation } from '@comunica/utils-algebra/lib/utils';
 import { instrumentIterator } from '@comunica/utils-iterator';
 import { cachifyMetadata, MetadataValidationState } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
+// import type { Algebra } from 'sparqlalgebrajs';
+// import { Util } from 'sparqlalgebrajs';
 
 /**
  * A comunica actor for joining 2 binding streams.
@@ -229,6 +233,133 @@ TS
       metadata.state.addInvalidateListener(invalidateListener);
     }
     return state;
+  }
+
+  /**
+   * Find all connected components of the join graph using the find-union datastructure
+   * @param entries
+   * @returns
+   */
+  static findConnectedComponentsInJoinGraph(
+    entries: IJoinEntryWithMetadata[],
+  ): IConnectedComponents {
+    function find(idx: number, parent: number[]): number {
+      if (parent[idx] === idx) {
+        return idx;
+      }
+      parent[idx] = find(parent[idx], parent);
+      return parent[idx];
+    }
+
+    function union(a: number, b: number, parent: number[], size: number[]) {
+      const rootA = find(a, parent);
+      const rootB = find(b, parent);
+      if (rootA === rootB) {
+        return;
+      }
+      if (size[rootA] > size[rootB]) {
+        parent[rootB] = rootA;
+        size[rootA] += size[rootB];
+      } else {
+        parent[rootA] = rootB;
+        size[rootB] += size[rootA];
+      }
+    }
+
+    const n = entries.length;
+    const parent: number[] = Array.from({ length: n }, (_, i) => i);
+    const size: number[] = Array.from({ length: n }, () => 1);
+
+    const variableToEntry: Map<string, number[]> = new Map();
+    const subjectToEntry: Map<string, number[]> = new Map();
+    const objectToEntry: Map<string, number[]> = new Map();
+
+    function addDefault<T>(key: string, value: T, map: Map<string, T[]>) {
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key)!.push(value);
+    }
+
+    // Map variables, subjects, and blanknodes to their entries to know which entries to merge
+    for (let i = 0; i < n; i++) {
+      const entryVariables = entries[i].metadata.variables.map(variable => variable.variable.value);
+      const { subjects, objects } = this.getOperatorPatternSubjectObjectIRIs(entries[i].operation);
+      for (const entryVariable of entryVariables) {
+        addDefault(entryVariable, i, variableToEntry);
+      }
+      for (const subject of subjects) {
+        addDefault(subject, i, subjectToEntry);
+      }
+      for (const object of objects) {
+        addDefault(object, i, objectToEntry);
+      }
+    }
+    function mergeOverlapping(termToEntry: Map<string, number[]>) {
+      for (const entryIndexes of termToEntry.values()) {
+        for (let k = 1; k < entryIndexes.length; k++) {
+          union(entryIndexes[0], entryIndexes[k], parent, size);
+        }
+      }
+    }
+
+    function mergeOverlappingSubjObj(
+      subjToEntry: Map<string, number[]>,
+      objToEntry: Map<string, number[]>,
+    ) {
+      for (const subj of subjToEntry.keys()) {
+        // When subject is in obj map, then there is a connection
+        if (objToEntry.has(subj)) {
+          const combinedEntries = [ ...subjToEntry.get(subj)!, ...objToEntry.get(subj)! ];
+          for (let k = 1; k < combinedEntries.length; k++) {
+            union(combinedEntries[0], combinedEntries[k], parent, size);
+          }
+        }
+      }
+    }
+    // Merge connected entries with: overlapping variables and
+    // overlapping subject or object IRIs
+    mergeOverlapping(variableToEntry);
+    mergeOverlapping(subjectToEntry);
+    mergeOverlapping(objectToEntry);
+    mergeOverlappingSubjObj(subjectToEntry, objectToEntry);
+
+    // Reconstruct connected components from union-find datastructure
+    const connectedComponents: Map<number, IJoinEntryWithMetadata[]> = new Map();
+    const connectedComponentsIndexes: Map<number, number[]> = new Map();
+    for (let l = 0; l < n; l++) {
+      const parentOfEntry = find(l, parent);
+      if (!connectedComponents.has(parentOfEntry)) {
+        connectedComponents.set(parentOfEntry, []);
+        connectedComponentsIndexes.set(parentOfEntry, []);
+      }
+      connectedComponents.get(parentOfEntry)!.push(entries[l]);
+      connectedComponentsIndexes.get(parentOfEntry)!.push(l);
+    }
+    return {
+      entries: [ ...connectedComponents.values() ],
+      indexes: [ ...connectedComponentsIndexes.values() ],
+    };
+  }
+
+  public static getOperatorPatternSubjectObjectIRIs(operator: Algebra.Operation):
+  { subjects: Set<string>; objects: Set<string> } {
+    const subjects = new Set<string>();
+    const objects = new Set<string>();
+    visitOperation(operator, {
+      [Algebra.Types.PATTERN]: {
+        visitor: (op) => {
+          // Extract subject IRIs
+          if (op.subject.termType === 'NamedNode') {
+            subjects.add(op.subject.value);
+          }
+          if (op.object.termType === 'NamedNode') {
+            objects.add(op.object.value);
+          }
+        },
+      }
+    });
+    return { subjects, objects };
   }
 
   /**
@@ -574,6 +705,11 @@ export interface IActorRdfJoinOutputInner {
 
 export interface IActorRdfJoinTestSideData {
   metadatas: MetadataBindings[];
+}
+
+export interface IConnectedComponents {
+  entries: IJoinEntryWithMetadata[][];
+  indexes: number[][];
 }
 
 export type MediatorRdfJoin = Mediate<IActionRdfJoin, IQueryOperationResultBindings, IMediatorTypeJoinCoefficients>;

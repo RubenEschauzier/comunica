@@ -61,6 +61,7 @@
     "ILink",
     "StatisticLinkDiscovery",
     "StatisticLinkDereference",
+    "IOrderStatistic",
 
     "IQueryableResultStream",
     "IQueryableResultBindings",
