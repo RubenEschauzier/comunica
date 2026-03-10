@@ -144,5 +144,24 @@ describe('ActorOptimizeQueryOperationQueryHintJoinOrderFixed', () => {
       const result = await actor.run({ operation, context });
       expect(result.context.get(KeysQueryOperation.isJoinOrderFixed)).toBeUndefined();
     });
+
+    it('should set context when hinted-group operation is present', async() => {
+      const operation = factory.createHintedGroup([
+        factory.createPattern(DF.namedNode('s1'), DF.namedNode('p1'), DF.namedNode('o1')),
+        factory.createPattern(DF.namedNode('s2'), DF.namedNode('p2'), DF.namedNode('o2')),
+      ]);
+      const result = await actor.run({ operation, context });
+      expect(result.context.get(KeysQueryOperation.isJoinOrderFixed)).toBe(true);
+    });
+
+    it('should set context when hinted-group operation is nested', async() => {
+      const hintedGroup = factory.createHintedGroup([
+        factory.createPattern(DF.namedNode('s1'), DF.namedNode('p1'), DF.namedNode('o1')),
+        factory.createPattern(DF.namedNode('s2'), DF.namedNode('p2'), DF.namedNode('o2')),
+      ]);
+      const operation = factory.createProject(hintedGroup, []);
+      const result = await actor.run({ operation, context });
+      expect(result.context.get(KeysQueryOperation.isJoinOrderFixed)).toBe(true);
+    });
   });
 });

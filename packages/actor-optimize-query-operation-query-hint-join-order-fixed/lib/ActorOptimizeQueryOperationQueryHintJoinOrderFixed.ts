@@ -6,7 +6,7 @@ import { ActorOptimizeQueryOperation } from '@comunica/bus-optimize-query-operat
 import { KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
 import type { IActorTest, TestResult } from '@comunica/core';
 import { passTestVoid } from '@comunica/core';
-import { Algebra, AlgebraFactory, algebraUtils } from '@comunica/utils-algebra';
+import { Algebra, AlgebraFactory, algebraUtils, TypesComunica } from '@comunica/utils-algebra';
 
 export const HINT_SUBJECT = 'http://comunica-internal/hint';
 export const HINT_PREDICATE = 'http://comunica-internal/optimizer';
@@ -15,7 +15,7 @@ export const HINT_OBJECT = 'None';
 /**
  * A comunica Query Hint Join Order Fixed Optimize Query Operation Actor.
  * This actor looks for the query hint triple `comunica:hint comunica:optimizer "None" .`
- * in the query algebra, where the prefix `comunica:` resolves to `http://comunica-internal/`.
+ * in the query algebra, or detects hinted-group operations (produced by the parser extension).
  * If found, it removes the hint triple from the algebra
  * and sets a context entry to indicate that join order should not be optimized.
  */
@@ -42,6 +42,11 @@ export class ActorOptimizeQueryOperationQueryHintJoinOrderFixed extends ActorOpt
       },
     });
 
+    // Also detect hinted-group operations (produced by the parser extension)
+    if (!hintFound) {
+      hintFound = this.hasHintedGroupOperation(operation);
+    }
+
     const context = hintFound ?
       action.context.set(KeysQueryOperation.isJoinOrderFixed, true) :
       action.context;
@@ -61,5 +66,24 @@ export class ActorOptimizeQueryOperationQueryHintJoinOrderFixed extends ActorOpt
       pattern.predicate.value === HINT_PREDICATE &&
       pattern.object.termType === 'Literal' &&
       pattern.object.value === HINT_OBJECT;
+  }
+
+  /**
+   * Recursively checks if an operation tree contains any hinted-group operations.
+   */
+  private hasHintedGroupOperation(operation: Algebra.Operation): boolean {
+    if (operation.type === TypesComunica.HINTED_GROUP) {
+      return true;
+    }
+    if ('input' in operation) {
+      const input = (<any> operation).input;
+      if (Array.isArray(input)) {
+        return input.some((op: Algebra.Operation) => this.hasHintedGroupOperation(op));
+      }
+      if (input && typeof input === 'object' && 'type' in input) {
+        return this.hasHintedGroupOperation(input);
+      }
+    }
+    return false;
   }
 }

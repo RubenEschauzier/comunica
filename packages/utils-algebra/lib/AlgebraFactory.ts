@@ -1,7 +1,7 @@
 import type * as RDF from '@rdfjs/types';
 import { AlgebraFactory as AlgebraFactoryBase } from '@traqula/algebra-transformations-1-2';
 import type { QuadTermName } from 'rdf-terms';
-import type { DistinctTerms, Nodes } from './Algebra';
+import type { DistinctTerms, HintedGroup, Nodes, Operation } from './Algebra';
 import { TypesComunica } from './TypesComunica';
 
 export class AlgebraFactory extends AlgebraFactoryBase {
@@ -21,6 +21,13 @@ export class AlgebraFactory extends AlgebraFactoryBase {
       type: TypesComunica.DISTINCT_TERMS,
       variables,
       terms,
+    };
+  }
+
+  public createHintedGroup(input: Operation[]): HintedGroup {
+    return {
+      type: TypesComunica.HINTED_GROUP,
+      input,
     };
   }
 }
