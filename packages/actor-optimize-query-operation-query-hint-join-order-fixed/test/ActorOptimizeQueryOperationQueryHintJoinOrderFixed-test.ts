@@ -5,6 +5,9 @@ import { AlgebraFactory } from '@comunica/utils-algebra';
 import { DataFactory } from 'rdf-data-factory';
 import {
   ActorOptimizeQueryOperationQueryHintJoinOrderFixed,
+  HINT_OBJECT,
+  HINT_PREDICATE,
+  HINT_SUBJECT,
 } from '../lib/ActorOptimizeQueryOperationQueryHintJoinOrderFixed';
 import '@comunica/utils-jest';
 
@@ -44,9 +47,9 @@ describe('ActorOptimizeQueryOperationQueryHintJoinOrderFixed', () => {
 
     it('should remove the hint triple and set context when hint is present', async() => {
       const hintPattern = factory.createPattern(
-        DF.namedNode('https://comunica.dev/hint'),
-        DF.namedNode('https://comunica.dev/optimizer'),
-        DF.literal('None'),
+        DF.namedNode(HINT_SUBJECT),
+        DF.namedNode(HINT_PREDICATE),
+        DF.literal(HINT_OBJECT),
       );
       const regularPattern = factory.createPattern(
         DF.namedNode('s1'),
@@ -67,9 +70,9 @@ describe('ActorOptimizeQueryOperationQueryHintJoinOrderFixed', () => {
 
     it('should handle hint triple in a nested operation', async() => {
       const hintPattern = factory.createPattern(
-        DF.namedNode('https://comunica.dev/hint'),
-        DF.namedNode('https://comunica.dev/optimizer'),
-        DF.literal('None'),
+        DF.namedNode(HINT_SUBJECT),
+        DF.namedNode(HINT_PREDICATE),
+        DF.literal(HINT_OBJECT),
       );
       const regularPattern = factory.createPattern(
         DF.namedNode('s1'),
@@ -94,9 +97,9 @@ describe('ActorOptimizeQueryOperationQueryHintJoinOrderFixed', () => {
 
     it('should not set context when pattern has wrong subject', async() => {
       const operation = factory.createPattern(
-        DF.namedNode('https://wrong.dev/hint'),
-        DF.namedNode('https://comunica.dev/optimizer'),
-        DF.literal('None'),
+        DF.namedNode('ex:wrong'),
+        DF.namedNode(HINT_PREDICATE),
+        DF.literal(HINT_OBJECT),
       );
       const result = await actor.run({ operation, context });
       expect(result.context.get(KeysQueryOperation.isJoinOrderFixed)).toBeUndefined();
@@ -104,9 +107,9 @@ describe('ActorOptimizeQueryOperationQueryHintJoinOrderFixed', () => {
 
     it('should not set context when pattern has wrong predicate', async() => {
       const operation = factory.createPattern(
-        DF.namedNode('https://comunica.dev/hint'),
-        DF.namedNode('https://wrong.dev/optimizer'),
-        DF.literal('None'),
+        DF.namedNode(HINT_SUBJECT),
+        DF.namedNode('ex:wrong'),
+        DF.literal(HINT_OBJECT),
       );
       const result = await actor.run({ operation, context });
       expect(result.context.get(KeysQueryOperation.isJoinOrderFixed)).toBeUndefined();
@@ -114,8 +117,8 @@ describe('ActorOptimizeQueryOperationQueryHintJoinOrderFixed', () => {
 
     it('should not set context when pattern has wrong object', async() => {
       const operation = factory.createPattern(
-        DF.namedNode('https://comunica.dev/hint'),
-        DF.namedNode('https://comunica.dev/optimizer'),
+        DF.namedNode(HINT_SUBJECT),
+        DF.namedNode(HINT_PREDICATE),
         DF.literal('Something'),
       );
       const result = await actor.run({ operation, context });
@@ -124,9 +127,9 @@ describe('ActorOptimizeQueryOperationQueryHintJoinOrderFixed', () => {
 
     it('should not set context when object is a named node instead of a literal', async() => {
       const operation = factory.createPattern(
-        DF.namedNode('https://comunica.dev/hint'),
-        DF.namedNode('https://comunica.dev/optimizer'),
-        DF.namedNode('None'),
+        DF.namedNode(HINT_SUBJECT),
+        DF.namedNode(HINT_PREDICATE),
+        DF.namedNode(HINT_OBJECT),
       );
       const result = await actor.run({ operation, context });
       expect(result.context.get(KeysQueryOperation.isJoinOrderFixed)).toBeUndefined();
@@ -135,8 +138,8 @@ describe('ActorOptimizeQueryOperationQueryHintJoinOrderFixed', () => {
     it('should not set context when subject is a variable', async() => {
       const operation = factory.createPattern(
         DF.variable('hint'),
-        DF.namedNode('https://comunica.dev/optimizer'),
-        DF.literal('None'),
+        DF.namedNode(HINT_PREDICATE),
+        DF.literal(HINT_OBJECT),
       );
       const result = await actor.run({ operation, context });
       expect(result.context.get(KeysQueryOperation.isJoinOrderFixed)).toBeUndefined();
