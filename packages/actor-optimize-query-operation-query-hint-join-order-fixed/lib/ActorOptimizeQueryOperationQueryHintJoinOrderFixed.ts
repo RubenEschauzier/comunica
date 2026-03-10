@@ -8,14 +8,14 @@ import type { IActorTest, TestResult } from '@comunica/core';
 import { passTestVoid } from '@comunica/core';
 import { Algebra, AlgebraFactory, algebraUtils } from '@comunica/utils-algebra';
 
-export const HINT_SUBJECT = 'https://comunica.dev/hint';
-export const HINT_PREDICATE = 'https://comunica.dev/optimizer';
+export const HINT_SUBJECT = 'http://comunica-internal/hint';
+export const HINT_PREDICATE = 'http://comunica-internal/optimizer';
 export const HINT_OBJECT = 'None';
 
 /**
  * A comunica Query Hint Join Order Fixed Optimize Query Operation Actor.
  * This actor looks for the query hint triple `comunica:hint comunica:optimizer "None" .`
- * in the query algebra, where the prefix `comunica:` resolves to `https://comunica.dev/`.
+ * in the query algebra, where the prefix `comunica:` resolves to `http://comunica-internal/`.
  * If found, it removes the hint triple from the algebra
  * and sets a context entry to indicate that join order should not be optimized.
  */
@@ -52,7 +52,7 @@ export class ActorOptimizeQueryOperationQueryHintJoinOrderFixed extends ActorOpt
   /**
    * Checks if a pattern is the query hint triple for fixing join order.
    * The hint triple has the form: `comunica:hint comunica:optimizer "None" .`
-   * where the prefix `comunica:` resolves to `https://comunica.dev/`.
+   * where the prefix `comunica:` resolves to `http://comunica-internal/`.
    */
   private isQueryHintJoinOrderFixed(pattern: Algebra.Pattern): boolean {
     return pattern.subject.termType === 'NamedNode' &&

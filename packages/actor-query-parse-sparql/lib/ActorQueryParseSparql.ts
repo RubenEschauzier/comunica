@@ -77,7 +77,8 @@ export interface IActorQueryParseSparqlArgs extends IActorQueryParseArgs {
    *   "dbpedia-owl": "http://dbpedia.org/ontology/",
    *   "dbpprop": "http://dbpedia.org/property/",
    *   "schema": "http://schema.org/",
-   *   "skos": "http://www.w3.org/2008/05/skos#"
+   *   "skos": "http://www.w3.org/2008/05/skos#",
+   *   "comunica": "http://comunica-internal/"
    * }}
    */
   prefixes?: Record<string, string>;
