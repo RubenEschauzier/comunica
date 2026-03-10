@@ -17,7 +17,7 @@ export const CacheSourceStateViews = {
     new ViewKey<
       ISourceState,
       { url: string, mode: 'get', action: IActionQuerySourceDereferenceLink } | { mode: 'queryBindings' | 'queryQuads', operation: Algebra.Operation},
-      AsyncIterator<BindingsStream> | AsyncIterator<AsyncIterator<RDF.Quad>> | ISourceState
+      BindingsStream | AsyncIterator<RDF.Quad> | ISourceState
     >('@comunica/persistent-cache-manager:cacheQuery'),
 
   cacheQueryViewBloomFilter:

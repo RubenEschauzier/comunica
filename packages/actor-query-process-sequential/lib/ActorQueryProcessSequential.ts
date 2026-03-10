@@ -114,8 +114,7 @@ export class ActorQueryProcessSequential extends ActorQueryProcess implements IQ
     ({ operation, context } = await this.mediatorOptimizeQueryOperation.mediate({ context, operation }));
 
     // Save original query in context
-    context = context.set(KeysInitQuery.query, operation)
-      .set(KeysInitQuery.queryString, originalQueryString);
+    context = context.set(KeysInitQuery.query, operation);
     return { operation, context };
   }
 
