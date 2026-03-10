@@ -1,5 +1,8 @@
-import { HINT_OBJECT, HINT_PREDICATE, HINT_SUBJECT } from
-  '@comunica/actor-optimize-query-operation-query-hint-join-order-fixed';
+import {
+  HINT_OBJECT,
+  HINT_PREDICATE,
+  HINT_SUBJECT,
+} from '@comunica/actor-optimize-query-operation-query-hint-join-order-fixed';
 import { TypesComunica } from '@comunica/utils-algebra';
 import { toAlgebra12Builder } from '@traqula/algebra-sparql-1-2';
 import { createAlgebraContext } from '@traqula/algebra-transformations-1-2';

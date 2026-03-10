@@ -43,7 +43,7 @@ export class ActorQueryOperationHintedGroup extends ActorQueryOperationTypedMedi
   ): Promise<IQueryOperationResult> {
     const dataFactory: ComunicaDataFactory = context.getSafe(KeysInitQuery.dataFactory);
     const algebraFactory = new AlgebraFactory(dataFactory);
-    const hintedGroup = <any> operationOriginal;
+    const hintedGroup = <Algebra.HintedGroup> operationOriginal;
     const subOperations: Algebra.Operation[] = hintedGroup.input;
 
     // Execute all sub-operations (including nested hinted-groups, which will recurse)
