@@ -301,7 +301,7 @@ export const mapOperationSub: (typeof mapOperationSubStrict<'unsafe', Operation>
  *   input: {
  *     type: Algebra.Types.PROJECT,
  *     input: { type: Algebra.Types.DISTINCT },
- *   },
+ *   }, 
  * }, {
  *   [Algebra.Types.DISTINCT]: { visitor: () => console.log('1') },
  *   [Algebra.Types.PROJECT]: {
