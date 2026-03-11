@@ -1,4 +1,4 @@
-import type { BindingsStream, ISourceState, ISourceStateBloomFilter } from '@comunica/types';
+import type { BindingsStream, IActionContext, ISourceState, ISourceStateBloomFilter } from '@comunica/types';
 import { ViewKey } from './ViewKey';
 import { Algebra } from '@comunica/utils-algebra';
 import { AsyncIterator } from 'asynciterator';
@@ -16,7 +16,7 @@ export const CacheSourceStateViews = {
   cacheQueryView:
     new ViewKey<
       ISourceState,
-      { url: string, mode: 'get', action: IActionQuerySourceDereferenceLink } | { mode: 'queryBindings' | 'queryQuads', operation: Algebra.Operation},
+      { url: string, mode: 'get', action: IActionQuerySourceDereferenceLink } | { mode: 'queryBindings' | 'queryQuads', operation: Algebra.Operation, context: IActionContext},
       BindingsStream | AsyncIterator<RDF.Quad> | ISourceState
     >('@comunica/persistent-cache-manager:cacheQuery'),
 
