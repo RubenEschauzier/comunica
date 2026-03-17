@@ -11,12 +11,20 @@ export const CacheSourceStateViews = {
    * Cache for storing source states in a persistent manner over multiple queries
    */
   cacheSourceStateView:
-    new ViewKey<ISourceState, { url: string }, ISourceState>('@comunica/persistent-cache-manager:sourceStateView'),
+    new ViewKey<
+      ISourceState, 
+      {       
+        url: string,
+        extractLinksQuadPattern?: boolean,
+        action: IActionQuerySourceDereferenceLink;
+      }, 
+      ISourceState
+    >('@comunica/persistent-cache-manager:sourceStateView'),
 
   cacheQueryView:
     new ViewKey<
       ISourceState,
-      { url: string, mode: 'get', action: IActionQuerySourceDereferenceLink } | { mode: 'queryBindings' | 'queryQuads', operation: Algebra.Operation, context: IActionContext},
+      { url: string, mode: 'get', action: IActionQuerySourceDereferenceLink },
       BindingsStream | AsyncIterator<RDF.Quad> | ISourceState
     >('@comunica/persistent-cache-manager:cacheQuery'),
 

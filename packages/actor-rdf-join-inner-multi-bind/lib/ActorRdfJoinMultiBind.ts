@@ -240,18 +240,11 @@ export class ActorRdfJoinMultiBind extends ActorRdfJoin<IActorRdfJoinMultiBindTe
     // We must use Math.max, because the last metadata is not necessarily the biggest, but it's the least preferred.
     // If join entries are produced locally, we increase the possibility of doing this bind join, as it's cheap.
     const isRemoteAccess = requestItemTimes.some(time => time > 0);
+    // console.log(isRemoteAccess);
     if (metadatas[0].cardinality.value * this.minMaxCardinalityRatio / (isRemoteAccess ? 1 : 3) >
       Math.max(...metadatas.map(metadata => metadata.cardinality.value))) {
       return failTest(`Actor ${this.name} can only run if the smallest stream is much smaller than largest stream`);
     }
-
-    // // If all estimates are zero we can conclude either that the estimates are unreliable (e.g start of link traversal)
-    // // or the query is sufficiently cheap that any join actor can solve this query. To be risk-averse
-    // // we do not execute a bind-join in this case.
-    // // TODO: Investigate performance difference
-    // if (Math.max(...metadatas.map(metadata => metadata.cardinality.value)) === 0){
-    //   return failTest(`Actor ${this.name} can only run if one of the cardinality estimates is non-zero`);
-    // }
 
     // Determine selectivities of smallest entry with all other entries
     const selectivities = await Promise.all(remainingEntries
