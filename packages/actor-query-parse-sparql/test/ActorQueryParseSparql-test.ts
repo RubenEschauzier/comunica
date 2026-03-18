@@ -129,9 +129,9 @@ describe('ActorQueryParseSparql', () => {
       const inner = (<any> result.operation).input;
       expect(inner.type).toBe(TypesComunica.HINTED_GROUP);
       expect(inner.input).toHaveLength(2);
-      // Both sub-operations should be BGPs (one per group)
-      expect(inner.input[0].type).toBe('bgp');
-      expect(inner.input[1].type).toBe('bgp');
+      // All BGPs should be converted into hinted-group operations
+      expect(inner.input[0].type).toBe(TypesComunica.HINTED_GROUP);
+      expect(inner.input[1].type).toBe(TypesComunica.HINTED_GROUP);
     });
 
     it('should produce nested hinted-group for nested braces', async() => {
@@ -156,8 +156,9 @@ describe('ActorQueryParseSparql', () => {
       // First entry is a nested hinted-group
       expect(outer.input[0].type).toBe(TypesComunica.HINTED_GROUP);
       expect(outer.input[0].input).toHaveLength(2);
-      // Second entry is a BGP for ?e a ?f
-      expect(outer.input[1].type).toBe('bgp');
+      // Second entry is also converted from BGP to hinted-group for ?e a ?f
+      expect(outer.input[1].type).toBe(TypesComunica.HINTED_GROUP);
+      expect(outer.input[1].input).toHaveLength(1);
     });
 
     it('should not produce hinted-group when hint is absent', async() => {
@@ -171,6 +172,7 @@ describe('ActorQueryParseSparql', () => {
       const inner = (<any> result.operation).input;
       expect(inner.type).toBe('bgp');
     });
+
     it('should produce nested hinted-group for multi-level nested braces', async() => {
       const actorWithPrefix = new ActorQueryParseSparql({
         name: 'actor',
@@ -195,6 +197,45 @@ describe('ActorQueryParseSparql', () => {
       }`;
       const result = await actorWithPrefix.run({ query, context });
       expect(result.operation.type).toBe('project');
-    })
+      const outer = (<any> result.operation).input;
+      expect(outer.type).toBe(TypesComunica.HINTED_GROUP);
+      expect(outer.input).toHaveLength(2);
+
+      const level1 = outer.input[0];
+      expect(level1.type).toBe(TypesComunica.HINTED_GROUP);
+      expect(level1.input).toHaveLength(2);
+
+      const level2 = level1.input[0];
+      expect(level2.type).toBe(TypesComunica.HINTED_GROUP);
+      expect(level2.input).toHaveLength(2);
+
+      // Inner BGP { ?a a ?b . ?c a ?d . } must be translated in order:
+      // hinted-group([tp1, tp2])
+      expect(level2.input[0].type).toBe('bgp');
+      expect(level2.input[1].type).toBe('bgp');
+
+      // Ensure non-bracket BGP (?a a ?e) in the same group is also converted
+      expect(outer.input[1].type).toBe(TypesComunica.HINTED_GROUP);
+      expect(outer.input[1].input).toHaveLength(1);
+    });
+
+    it('should not enable hinted mode when magic triple is only nested', async() => {
+      const actorWithPrefix = new ActorQueryParseSparql({
+        name: 'actor',
+        bus,
+        prefixes: { comunica: 'http://comunica-internal/' },
+      });
+      const query = `SELECT * WHERE {
+        {
+          comunica:hint comunica:optimizer "None" .
+          ?a a ?b .
+        }
+        ?c a ?d .
+      }`;
+      const result = await actorWithPrefix.run({ query, context });
+      expect(result.operation.type).toBe('project');
+      // Hint inside nested group should not activate global hinted mode
+      expect((<any> result.operation).input.type).not.toBe(TypesComunica.HINTED_GROUP);
+    });
   });
 });

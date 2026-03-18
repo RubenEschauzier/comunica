@@ -22,7 +22,7 @@ import { DataFactory } from 'rdf-data-factory';
  * defined by the input array. This preserves the query structure as authored,
  * bypassing heuristic join reordering.
  */
-export class ActorQueryOperationHintedGroup extends ActorQueryOperationTypedMediated<Algebra.Operation> {
+export class ActorQueryOperationHintedGroup extends ActorQueryOperationTypedMediated<Algebra.HintedGroup> {
   public readonly mediatorJoin: MediatorRdfJoin;
 
   public constructor(args: IActorQueryOperationHintedGroupArgs) {
@@ -31,20 +31,19 @@ export class ActorQueryOperationHintedGroup extends ActorQueryOperationTypedMedi
   }
 
   public async testOperation(
-    _operation: Algebra.Operation,
+    _operation: Algebra.HintedGroup,
     _context: IActionContext,
   ): Promise<TestResult<IActorTest>> {
     return passTestVoid();
   }
 
   public async runOperation(
-    operationOriginal: Algebra.Operation,
+    operationOriginal: Algebra.HintedGroup,
     context: IActionContext,
   ): Promise<IQueryOperationResult> {
     const dataFactory: ComunicaDataFactory = context.getSafe(KeysInitQuery.dataFactory);
     const algebraFactory = new AlgebraFactory(dataFactory);
-    const hintedGroup = <Algebra.HintedGroup> operationOriginal;
-    const subOperations: Algebra.Operation[] = hintedGroup.input;
+    const subOperations: Algebra.Operation[] = operationOriginal.input;
 
     // Execute all sub-operations (including nested hinted-groups, which will recurse)
     const entries: IJoinEntry[] = (await Promise.all(subOperations

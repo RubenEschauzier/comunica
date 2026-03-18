@@ -6,15 +6,35 @@ import {
 import { TypesComunica } from '@comunica/utils-algebra';
 import { toAlgebra12Builder } from '@traqula/algebra-sparql-1-2';
 import { createAlgebraContext } from '@traqula/algebra-transformations-1-2';
-import type { Algebra } from '@traqula/algebra-transformations-1-2';
+import type { Algebra, ContextConfigs } from '@traqula/algebra-transformations-1-2';
 import type { IndirDef } from '@traqula/core';
 import { IndirBuilder } from '@traqula/core';
-import type { GraphNode, Path, TermIri, TermIriFull, TermIriPrefixed, TermVariable, TripleNesting } from '@traqula/rules-sparql-1-2';
+import type {
+  GraphNode,
+  Path,
+  Pattern,
+  PatternBgp,
+  PatternFilter,
+  PatternGroup,
+  SparqlQuery,
+  TermIri,
+  TermIriFull,
+  TermIriPrefixed,
+  TermVariable,
+  TripleNesting,
+} from '@traqula/rules-sparql-1-2';
 
 // Get original rules from the 1.2 builder
 const origTranslateGraphPattern = toAlgebra12Builder.getRule('translateGraphPattern');
 const origTranslateExpression = toAlgebra12Builder.getRule('translateExpression');
 const origTranslateBgp = toAlgebra12Builder.getRule('translateBgp');
+
+type HintedAlgebraContext = ReturnType<typeof createAlgebraContext> & {
+  hintedMode?: boolean;
+  topLevelGroupProcessed?: boolean;
+};
+
+type BasicPatternEntry = PatternBgp['triples'][number];
 
 /**
  * Checks if a TripleNesting in the AST represents the query hint triple.
@@ -36,6 +56,10 @@ function isHintTriple(triple: TripleNesting, prefixes: Record<string, string>): 
     isIriTerm(p) && matchesHintIri(p, HINT_PREDICATE, prefixes);
 }
 
+function isTripleNesting(entry: BasicPatternEntry): entry is TripleNesting {
+  return entry.type === 'triple';
+}
+
 export function isIriTerm(node: TermIri | TermVariable | Path): node is TermIriFull | TermIriPrefixed {
   return node.type === 'term' && node.subType === 'namedNode';
 }
@@ -52,9 +76,9 @@ function matchesHintIri(term: GraphNode, expectedFullIri: string, prefixes: Reco
   if (term.value === expectedFullIri) {
     return true;
   }
-  // If prefix doesn't exist on a term and it doesn't match above 
+  // If prefix doesn't exist on a term and it doesn't match above
   // it won't match
-  if (!('prefix' in term)){
+  if (!('prefix' in term)) {
     return false;
   }
   // Prefixed name: resolve prefix + local name
@@ -68,74 +92,93 @@ function matchesHintIri(term: GraphNode, expectedFullIri: string, prefixes: Reco
 /**
  * Checks if any BGP pattern in the given pattern list contains the hint triple.
  */
-function containsHintTriple(patterns: any[], astFactory: any, prefixes: Record<string, string>): boolean {
+function containsHintTriple(patterns: Pattern[], prefixes: Record<string, string>): boolean {
   return patterns.some(
-    p => astFactory.isPatternBgp(p) &&
-      (p).triples?.some((t: TripleNesting) => isHintTriple(t, prefixes)),
+    (pattern): boolean => pattern.subType === 'bgp' &&
+      pattern.triples.some((entry: BasicPatternEntry) => isTripleNesting(entry) && isHintTriple(entry, prefixes)),
   );
 }
 
 /**
- * Custom translateGraphPattern that detects the query hint triple in group graph patterns
+ * Custom translateGraphPattern that detects the query hint triple in the top-level group graph pattern
  * and produces hinted-group algebra operations instead of flattened BGP/Join operations.
  *
- * When the hint triple is found in a group, hintedMode is enabled on the context,
- * so all nested groups also preserve their syntactic structure.
+ * When the hint triple is found in a top-level group BGP, hintedMode is enabled on the context,
+ * so all BGPs in nested groups also preserve their syntactic structure.
  */
-const customTranslateGraphPattern: IndirDef<any, 'translateGraphPattern', any, [any]> = {
+const customTranslateGraphPattern: IndirDef<
+  HintedAlgebraContext,
+  'translateGraphPattern',
+  Algebra.Operation,
+  [Pattern]
+> = {
   name: 'translateGraphPattern',
-  fun: ({ SUBRULE }) => (C: any, pattern: any) => {
-    const { astFactory: F, algebraFactory: AF, currentPrefixes } = C;
+  fun: ({ SUBRULE }) => (context: HintedAlgebraContext, pattern: Pattern): Algebra.Operation => {
+    const { astFactory: F, algebraFactory: AF, currentPrefixes } = context;
+
+    const translateBgpAsHintedGroup = (bgpPattern: PatternBgp, stripHint: boolean): Algebra.Operation => {
+      const entries = stripHint ?
+        bgpPattern.triples.filter((entry: BasicPatternEntry): boolean => !isTripleNesting(entry) ||
+          !isHintTriple(entry, currentPrefixes)) :
+        bgpPattern.triples;
+
+      if (entries.length === 0) {
+        return AF.createBgp([]);
+      }
+
+      const input: Algebra.Operation[] = entries
+        .map((entry: BasicPatternEntry): Algebra.Operation => SUBRULE(origTranslateBgp, {
+          ...bgpPattern,
+          triples: [ entry ],
+        }));
+
+      return <Algebra.Operation> <unknown> { type: TypesComunica.HINTED_GROUP, input };
+    };
 
     if (F.isPatternGroup(pattern)) {
-      const hasHint = containsHintTriple((pattern).patterns, F, currentPrefixes || {});
+      const groupPattern: PatternGroup = pattern;
+      const isTopLevelGroup = !context.topLevelGroupProcessed;
+      if (isTopLevelGroup) {
+        context.topLevelGroupProcessed = true;
+        context.hintedMode = containsHintTriple(groupPattern.patterns, currentPrefixes);
+      }
 
-      if (hasHint || C.hintedMode) {
-        C.hintedMode = true;
-
-        // Separate filters and non-filters
-        const filters: any[] = [];
-        const nonfilters: any[] = [];
-        for (const subPattern of (pattern).patterns) {
-          if (F.isPatternFilter(subPattern)) {
+      if (context.hintedMode) {
+        const filters: PatternFilter[] = [];
+        const nonfilters: Pattern[] = [];
+        for (const subPattern of groupPattern.patterns) {
+          if (subPattern.subType === 'filter') {
             filters.push(subPattern);
           } else {
             nonfilters.push(subPattern);
           }
         }
 
-        // Translate each non-filter pattern, stripping hint triples from BGPs
-        const translatedPatterns: any[] = [];
-        for (const subPattern of nonfilters) {
-          if (F.isPatternBgp(subPattern)) {
-            const cleanedTriples = (subPattern).triples.filter(
-              (t: TripleNesting) => !isHintTriple(t, currentPrefixes || {}),
-            );
-            if (cleanedTriples.length > 0) {
-              translatedPatterns.push(SUBRULE(origTranslateBgp, { ...subPattern, triples: cleanedTriples }));
+        const translatedPatterns: Algebra.Operation[] = nonfilters
+          .map((subPattern: Pattern): Algebra.Operation => {
+            if (subPattern.subType === 'bgp') {
+              // Hint triple removal only applies at top-level BGPs.
+              // Nested BGPs preserve all triples.
+              const stripHint = isTopLevelGroup;
+              return translateBgpAsHintedGroup(subPattern, stripHint);
             }
-          } else {
-            // For nested groups and other patterns, translate recursively
-            // This will use our override since SUBRULE resolves by name
-            translatedPatterns.push(SUBRULE(customTranslateGraphPattern, subPattern));
-          }
-        }
+            return SUBRULE(customTranslateGraphPattern, subPattern);
+          })
+          .filter((operation: Algebra.Operation): boolean => !(operation.type === 'bgp' &&
+            operation.patterns.length === 0));
 
-        // Create the result
-        let result: any;
+        let result: Algebra.Operation;
         if (translatedPatterns.length === 0) {
           result = AF.createBgp([]);
         } else if (translatedPatterns.length === 1) {
           result = translatedPatterns[0];
         } else {
-          result = { type: TypesComunica.HINTED_GROUP, input: translatedPatterns };
+          result = <Algebra.Operation> <unknown> { type: TypesComunica.HINTED_GROUP, input: translatedPatterns };
         }
 
-        // Apply filters (same as standard SPARQL 1.1 Section 18.2.2.7)
         if (filters.length > 0) {
-          const expressions = filters.map(
-            (f: any) => SUBRULE(origTranslateExpression, f.expression),
-          );
+          const expressions = filters
+            .map((filter: PatternFilter) => SUBRULE(origTranslateExpression, filter.expression));
           let conjunction = expressions[0];
           for (const expression of expressions.slice(1)) {
             conjunction = AF.createOperatorExpression('&&', [ conjunction, expression ]);
@@ -148,7 +191,7 @@ const customTranslateGraphPattern: IndirDef<any, 'translateGraphPattern', any, [
     }
 
     // Fall through to original implementation for non-hinted groups and other patterns
-    return origTranslateGraphPattern.fun({ SUBRULE })(C, pattern);
+    return origTranslateGraphPattern.fun({ SUBRULE })(context, pattern);
   },
 };
 
@@ -166,10 +209,10 @@ export const hintedGroupAlgebraBuilder = IndirBuilder
  * nested group graph patterns produce hinted-group operations instead of being flattened.
  */
 export function toAlgebraWithHintedGroup(
-  query: any,
-  options: any = {},
+  query: SparqlQuery,
+  options: ContextConfigs = {},
 ): Algebra.Operation {
-  const c: any = createAlgebraContext(options);
+  const c: HintedAlgebraContext = createAlgebraContext(options);
   const transformer = hintedGroupAlgebraBuilder.build();
-  return (<any> transformer).translateQuery(c, query, options.quads, options.blankToVariable);
+  return transformer.translateQuery(c, query, options.quads, options.blankToVariable);
 }
