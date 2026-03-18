@@ -9,7 +9,7 @@ import { createAlgebraContext } from '@traqula/algebra-transformations-1-2';
 import type { Algebra } from '@traqula/algebra-transformations-1-2';
 import type { IndirDef } from '@traqula/core';
 import { IndirBuilder } from '@traqula/core';
-import type { TripleNesting } from '@traqula/rules-sparql-1-2';
+import type { GraphNode, Path, TermIri, TermIriFull, TermIriPrefixed, TermVariable, TripleNesting } from '@traqula/rules-sparql-1-2';
 
 // Get original rules from the 1.2 builder
 const origTranslateGraphPattern = toAlgebra12Builder.getRule('translateGraphPattern');
@@ -24,29 +24,38 @@ const origTranslateBgp = toAlgebra12Builder.getRule('translateBgp');
  * We check for both the prefix-resolved form and the raw prefix form.
  */
 function isHintTriple(triple: TripleNesting, prefixes: Record<string, string>): boolean {
-  const s: any = triple.subject;
-  const p: any = triple.predicate;
-  const o: any = triple.object;
+  const s = triple.subject;
+  const p: TermIri | TermVariable | Path = triple.predicate;
+  const o = triple.object;
 
   if (!(o?.subType === 'literal' && o.value === HINT_OBJECT)) {
     return false;
   }
 
   return matchesHintIri(s, HINT_SUBJECT, prefixes) &&
-    matchesHintIri(p, HINT_PREDICATE, prefixes);
+    isIriTerm(p) && matchesHintIri(p, HINT_PREDICATE, prefixes);
+}
+
+export function isIriTerm(node: TermIri | TermVariable | Path): node is TermIriFull | TermIriPrefixed {
+  return node.type === 'term' && node.subType === 'namedNode';
 }
 
 /**
  * Checks if an AST term matches a hint IRI.
  * Handles both full IRIs and prefixed names.
  */
-function matchesHintIri(term: any, expectedFullIri: string, prefixes: Record<string, string>): boolean {
+function matchesHintIri(term: GraphNode, expectedFullIri: string, prefixes: Record<string, string>): boolean {
   if (term?.subType !== 'namedNode') {
     return false;
   }
   // Full IRI match
   if (term.value === expectedFullIri) {
     return true;
+  }
+  // If prefix doesn't exist on a term and it doesn't match above 
+  // it won't match
+  if (!('prefix' in term)){
+    return false;
   }
   // Prefixed name: resolve prefix + local name
   if (term.prefix && prefixes[term.prefix]) {

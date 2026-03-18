@@ -171,5 +171,30 @@ describe('ActorQueryParseSparql', () => {
       const inner = (<any> result.operation).input;
       expect(inner.type).toBe('bgp');
     });
+    it('should produce nested hinted-group for multi-level nested braces', async() => {
+      const actorWithPrefix = new ActorQueryParseSparql({
+        name: 'actor',
+        bus,
+        prefixes: { comunica: 'http://comunica-internal/' },
+      });
+      const query = `SELECT * WHERE {
+        comunica:hint comunica:optimizer "None" .
+        {
+          {
+            {
+              ?a a ?b . 
+              ?c a ?d . 
+            }
+            {
+              ?e a ?f .
+              ?e a ?g
+            }
+          }
+          ?a a ?e
+        }
+      }`;
+      const result = await actorWithPrefix.run({ query, context });
+      expect(result.operation.type).toBe('project');
+    })
   });
 });
