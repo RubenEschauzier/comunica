@@ -100,6 +100,29 @@ function containsHintTriple(patterns: Pattern[], prefixes: Record<string, string
 }
 
 /**
+ * Checks if any pattern recursively contains the hint triple.
+ */
+function containsHintTripleRecursively(pattern: Pattern, prefixes: Record<string, string>): boolean {
+  if (pattern.subType === 'bgp') {
+    return pattern.triples.some((entry: BasicPatternEntry) => isTripleNesting(entry) && isHintTriple(entry, prefixes));
+  }
+  if (pattern.subType === 'group') {
+    return pattern.patterns.some((subPattern: Pattern) => containsHintTripleRecursively(subPattern, prefixes));
+  }
+  return false;
+}
+
+/**
+ * Checks if the top-level group contains a misplaced hint triple.
+ * The hint is only allowed in a top-level BGP.
+ */
+function hasMisplacedHintTriple(groupPattern: PatternGroup, prefixes: Record<string, string>): boolean {
+  return groupPattern.patterns.some(
+    (pattern: Pattern) => pattern.subType !== 'bgp' && containsHintTripleRecursively(pattern, prefixes),
+  );
+}
+
+/**
  * Custom translateGraphPattern that detects the query hint triple in the top-level group graph pattern
  * and produces hinted-group algebra operations instead of flattened BGP/Join operations.
  *
@@ -140,6 +163,12 @@ const customTranslateGraphPattern: IndirDef<
       const isTopLevelGroup = !context.topLevelGroupProcessed;
       if (isTopLevelGroup) {
         context.topLevelGroupProcessed = true;
+        if (hasMisplacedHintTriple(groupPattern, currentPrefixes)) {
+          throw new Error(
+            'Invalid query hint placement: `comunica:hint comunica:optimizer "None"` ' +
+            'must appear in a top-level BGP of the WHERE clause.',
+          );
+        }
         context.hintedMode = containsHintTriple(groupPattern.patterns, currentPrefixes);
       }
 

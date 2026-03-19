@@ -232,10 +232,9 @@ describe('ActorQueryParseSparql', () => {
         }
         ?c a ?d .
       }`;
-      const result = await actorWithPrefix.run({ query, context });
-      expect(result.operation.type).toBe('project');
-      // Hint inside nested group should not activate global hinted mode
-      expect((<any> result.operation).input.type).not.toBe(TypesComunica.HINTED_GROUP);
+      await expect(actorWithPrefix.run({ query, context }))
+        .rejects.toThrow('Invalid query hint placement: `comunica:hint comunica:optimizer "None"` ' +
+          'must appear in a top-level BGP of the WHERE clause.');
     });
   });
 });
