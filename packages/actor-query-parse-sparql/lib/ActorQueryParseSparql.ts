@@ -4,9 +4,9 @@ import { KeysInitQuery } from '@comunica/context-entries';
 import type { IActorTest, TestResult } from '@comunica/core';
 import { failTest, passTestVoid } from '@comunica/core';
 import type { ComunicaDataFactory } from '@comunica/types';
-import { toAlgebra } from '@traqula/algebra-sparql-1-2';
 import { Parser as SparqlParser } from '@traqula/parser-sparql-1-2';
 import { AstFactory } from '@traqula/rules-sparql-1-2';
+import { toAlgebraWithHintedGroup } from './hintedGroupAlgebra';
 
 /**
  * A comunica Algebra SPARQL Parse Actor.
@@ -48,7 +48,7 @@ export class ActorQueryParseSparql extends ActorQueryParse {
     }
     return {
       baseIRI,
-      operation: toAlgebra(parsedSyntax, {
+      operation: toAlgebraWithHintedGroup(parsedSyntax, {
         quads: true,
         prefixes: this.prefixes,
         blankToVariable: true,
@@ -77,7 +77,8 @@ export interface IActorQueryParseSparqlArgs extends IActorQueryParseArgs {
    *   "dbpedia-owl": "http://dbpedia.org/ontology/",
    *   "dbpprop": "http://dbpedia.org/property/",
    *   "schema": "http://schema.org/",
-   *   "skos": "http://www.w3.org/2008/05/skos#"
+   *   "skos": "http://www.w3.org/2008/05/skos#",
+   *   "comunica": "http://comunica-internal/"
    * }}
    */
   prefixes?: Record<string, string>;
