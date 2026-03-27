@@ -1,13 +1,17 @@
 import type { IActorQueryOperationTypedMediatedArgs } from '@comunica/bus-query-operation';
-import {
-  ActorQueryOperationTypedMediated,
-} from '@comunica/bus-query-operation';
+import { ActorQueryOperationTypedMediated } from '@comunica/bus-query-operation';
 import type { MediatorRdfJoin } from '@comunica/bus-rdf-join';
 import { ActorRdfJoin } from '@comunica/bus-rdf-join';
 import { KeysInitQuery } from '@comunica/context-entries';
 import type { IActorTest, TestResult } from '@comunica/core';
 import { passTestVoid } from '@comunica/core';
-import type { IQueryOperationResult, IActionContext, IJoinEntry, ComunicaDataFactory } from '@comunica/types';
+import type { 
+  IQueryOperationResult, 
+  IActionContext, 
+  IJoinEntry, 
+  ComunicaDataFactory,
+  IPhysicalQueryPlanLogger 
+} from '@comunica/types';
 import type { Algebra } from '@comunica/utils-algebra';
 import { AlgebraFactory, TypesComunica } from '@comunica/utils-algebra';
 import { MetadataValidationState } from '@comunica/utils-metadata';
@@ -16,12 +20,6 @@ import type * as RDF from '@rdfjs/types';
 import { ArrayIterator } from 'asynciterator';
 import { DataFactory } from 'rdf-data-factory';
 
-/**
- * A comunica Hinted Group Query Operation Actor.
- * Handles hinted-group algebra operations, executing joins strictly in the order
- * defined by the input array. This preserves the query structure as authored,
- * bypassing heuristic join reordering.
- */
 export class ActorQueryOperationHintedGroup extends ActorQueryOperationTypedMediated<Algebra.HintedGroup> {
   public readonly mediatorJoin: MediatorRdfJoin;
 
@@ -45,10 +43,39 @@ export class ActorQueryOperationHintedGroup extends ActorQueryOperationTypedMedi
     const algebraFactory = new AlgebraFactory(dataFactory);
     const subOperations: Algebra.Operation[] = operationOriginal.input;
 
-    // Execute all sub-operations (including nested hinted-groups, which will recurse)
+    // Establish physical query plan logging context
+    const action = { operation: operationOriginal, context };
+    let subContext = context;
+    let parentPhysicalQueryPlanNode: any;
+
+    if (context.has(KeysInitQuery.physicalQueryPlanLogger)) {
+      parentPhysicalQueryPlanNode = context.get(KeysInitQuery.physicalQueryPlanNode);
+      subContext = context.set(KeysInitQuery.physicalQueryPlanNode, action);
+    }
+
+    const physicalQueryPlanLogger: IPhysicalQueryPlanLogger | undefined = subContext.get(
+      KeysInitQuery.physicalQueryPlanLogger,
+    );
+
+    if (physicalQueryPlanLogger) {
+      physicalQueryPlanLogger.stashChildren(
+        parentPhysicalQueryPlanNode,
+        (node: any) => node.logicalOperator && node.logicalOperator.startsWith('join'),
+      );
+      physicalQueryPlanLogger.logOperation(
+        'join', // Groups act as logical joins
+        'hinted-group',
+        action,
+        parentPhysicalQueryPlanNode,
+        this.name,
+        {},
+      );
+    }
+
+    // Execute sub-operations using the updated context
     const entries: IJoinEntry[] = (await Promise.all(subOperations
       .map(async subOperation => ({
-        output: await this.mediatorQueryOperation.mediate({ operation: subOperation, context }),
+        output: await this.mediatorQueryOperation.mediate({ operation: subOperation, context: subContext }),
         operation: subOperation,
       }))))
       .map(({ output, operation }) => ({
@@ -56,7 +83,6 @@ export class ActorQueryOperationHintedGroup extends ActorQueryOperationTypedMedi
         operation,
       }));
 
-    // Return immediately if one of the join entries has cardinality zero
     if ((await Promise.all(entries.map(entry => entry.output.metadata())))
       .some(entry => (entry.cardinality.value === 0 && entry.cardinality.type === 'exact'))) {
       for (const entry of entries) {
@@ -73,28 +99,24 @@ export class ActorQueryOperationHintedGroup extends ActorQueryOperationTypedMedi
       };
     }
 
-    // If only one entry, return directly
     if (entries.length === 1) {
       return entries[0].output;
     }
 
-    // If exactly two entries, join directly
     if (entries.length === 2) {
-      return this.mediatorJoin.mediate({ type: 'inner', entries, context });
+      return this.mediatorJoin.mediate({ type: 'inner', entries, context: subContext });
     }
 
-    // For 3+ entries: strict left-deep join in array order (no sorting/heuristics)
-    // Join first two, then join result with each subsequent entry
     let currentEntry: IJoinEntry = {
       output: getSafeBindings(await this.mediatorJoin
-        .mediate({ type: 'inner', entries: [ entries[0], entries[1] ], context })),
+        .mediate({ type: 'inner', entries: [ entries[0], entries[1] ], context: subContext })),
       operation: algebraFactory.createJoin([ entries[0].operation, entries[1].operation ], false),
     };
 
     for (let i = 2; i < entries.length; i++) {
       currentEntry = {
         output: getSafeBindings(await this.mediatorJoin
-          .mediate({ type: 'inner', entries: [ currentEntry, entries[i] ], context })),
+          .mediate({ type: 'inner', entries: [ currentEntry, entries[i] ], context: subContext })),
         operation: algebraFactory.createJoin([ currentEntry.operation, entries[i].operation ], false),
       };
     }
@@ -104,8 +126,5 @@ export class ActorQueryOperationHintedGroup extends ActorQueryOperationTypedMedi
 }
 
 export interface IActorQueryOperationHintedGroupArgs extends IActorQueryOperationTypedMediatedArgs {
-  /**
-   * A mediator for joining Bindings streams
-   */
   mediatorJoin: MediatorRdfJoin;
 }
