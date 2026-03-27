@@ -307,6 +307,10 @@ export const KeysQueryOperation = {
   serviceSources: new ActionContextKey<Record<string, IQuerySourceWrapper>>(
     '@comunica/bus-query-operation:serviceSources',
   ),
+  /**
+   * If the join order has been fixed by a query hint, so join actors should not reorder.
+   */
+  isJoinOrderFixed: new ActionContextKey<boolean>('@comunica/bus-query-operation:isJoinOrderFixed'),
 };
 
 export const KeysRdfParseJsonLd = {

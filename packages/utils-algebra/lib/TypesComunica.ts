@@ -4,4 +4,5 @@
 export enum TypesComunica {
   NODES = 'nodes',
   DISTINCT_TERMS = 'distinctterms',
+  HINTED_GROUP = 'hintedgroup',
 }

@@ -50,7 +50,7 @@ export type Closed<T extends object > = {[K in keyof T]: CloseSingle<T[K]> };
 // Redefinitions of types
 export type KnownOperation = Ask | KnownExpression | Bgp | Construct | Describe | Distinct | Extend | From | Filter
   | Graph | Group | Join | LeftJoin | Minus | Nop | OrderBy | Path | Pattern | Project | KnownPropertyPathSymbol
-  | Reduced | Service | Slice | Union | Values | KnownUpdate | CompositeUpdate | Nodes | DistinctTerms;
+  | Reduced | Service | Slice | Union | Values | KnownUpdate | CompositeUpdate | Nodes | DistinctTerms | HintedGroup;
 export type KnownExpression = AggregateExpression | GroupConcatExpression | ExistenceExpression | NamedExpression |
   OperatorExpression | TermExpression | WildcardExpression | BoundAggregate;
 export type KnownPropertyPathSymbol = Alt | Inv | Link | Nps | OneOrMorePath | Seq | ZeroOrMorePath | ZeroOrOnePath;
@@ -192,3 +192,15 @@ export interface DistinctTermsUnopened extends BaseOperation {
   terms: Record<string, QuadTermName>;
 }
 export type DistinctTerms = Opened<DistinctTermsUnopened>;
+
+/**
+ * A non-standard operator to represent a group of operations whose join order
+ * is fixed by a query hint. The operations in the input array must be executed
+ * strictly in the order they appear, supporting bushy tree structures through
+ * nested HintedGroup operations.
+ */
+export interface HintedGroupUnopened extends BaseOperation {
+  type: TypesComunica.HINTED_GROUP;
+  input: Algebra.Operation[];
+}
+export type HintedGroup = Opened<HintedGroupUnopened>;
