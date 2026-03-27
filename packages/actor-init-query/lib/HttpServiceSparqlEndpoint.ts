@@ -270,8 +270,7 @@ export class HttpServiceSparqlEndpoint {
       cluster.disconnect();
     });
   }
-
-  /**
+/**
    * Start the HTTP service as worker.
    * @param {module:stream.internal.Writable} stdout The output stream to log to.
    * @param {module:stream.internal.Writable} stderr The error stream to log errors to.
@@ -285,20 +284,27 @@ export class HttpServiceSparqlEndpoint {
     for (const type of Object.keys(mediaTypes)) {
       variants.push({ type, quality: mediaTypes[type] });
     }
-    // Start the server
-    // eslint-disable-next-line ts/no-misused-promises
-    const server = http.createServer(this.handleRequest.bind(this, engine, variants, stdout, stderr));
+
+    const openConnections: Set<ServerResponse> = new Set();
+
+    const performShutdown = async (): Promise<void> => {
+      stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections for cache refresh.\n`);
+      server.close();
+      await this.terminateConnections(openConnections, '!RESTARTING!');
+      process.exit(15);
+    };
+
+    // Consolidate server initialization and request tracking
+    const server = http.createServer((request: IncomingMessage, response: ServerResponse) => {
+      openConnections.add(response);
+      response.on('close', () => openConnections.delete(response));
+
+      this.handleRequest(engine, variants, stdout, stderr, performShutdown, request, response)
+        .catch(error => stderr.write(`Request error: ${(<Error>error).message}\n`));
+    });
+
     server.listen(this.port);
     stderr.write(`Server worker (${process.pid}) running on http://localhost:${this.port}/sparql\n`);
-
-    // Keep track of all open connections
-    const openConnections: Set<ServerResponse> = new Set();
-    server.on('request', (request: IncomingMessage, response: ServerResponse) => {
-      openConnections.add(response);
-      response.on('close', () => {
-        openConnections.delete(response);
-      });
-    });
 
     // Subscribe to shutdown messages
     // eslint-disable-next-line ts/no-misused-promises
@@ -309,89 +315,81 @@ export class HttpServiceSparqlEndpoint {
           server.close(() => resolve());
         });
 
-        // For non-update queries we first call the abort controller. This signal
-        // 1. Ends any ASK query streams
-        // 2. Flushes metadata such as HTTP requests from serialization actor
-        // (for example ActorQueryResultSerializeSparqlJson)
-        if (this.workerCurrentQueryType !== 'void'){
+        // For non-update queries, abort streams and flush metadata
+        if (this.workerCurrentQueryType !== 'void') {
           const abortController = this.abortControllers.get(this.lastQueryId - 1);
           if (abortController) {
             abortController.abort();
             this.abortControllers.delete(this.lastQueryId - 1);
-          }
-          else if(this.workerCurrentQueryType === 'boolean') {
+          } else if (this.workerCurrentQueryType === 'boolean') {
             throw new Error('Could not abort ASK query due to missing abortController');
+          } else {
+            stderr.write(`Could not find abort controller, only using .destroy() fallback\n`);
           }
-          else {
-            stderr.write(`Could not find abort controller, only using .destroy() fallback`);
+          
+          if (this.workerCurrentStream) {
+            this.workerCurrentStream.destroy();
           }
-          // We also destroy the underlying stream, ensuring the query terminates
-          this.workerCurrentStream!.destroy();
         }
 
-        // // Sleep while query ends (somewhat unreliable workaround)
+        // Sleep while query ends
         await this.sleep(this.timeoutSleep);
 
-        // Clear all connections regardless of the type of query
-        const killPromises: Promise<void>[] = [];
-        for (const response of openConnections) {
-          killPromises.push(new Promise<void>((resolve) => {
-            response.end('!TIMEDOUT!');
-            // Destroy socket to immediately close the server and prevent any connections
-            // from being kept alive
-            if (response.socket && !response.socket.destroyed) {
-              response.socket.destroy();
-            }
-            resolve();
-          }));
-        }
-        await Promise.all(killPromises);
-        openConnections.clear();
-
+        // Terminate all lingering connections
+        await this.terminateConnections(openConnections, '!TIMEDOUT!');
         await closingServer;
 
         if (this.workerCurrentQueryType === 'void') {
-          stderr.write(`Shutting down worker ${process.pid} executing update query with ${openConnections.size} open connections.\n`);
-          // Kill the worker once the connections have been closed as cancelling an update
-          // query is not straightforward
+          stderr.write(`Shutting down worker ${process.pid} executing update query.\n`);
           process.exit(15);
         } 
 
-        // Send ready signal (only used for logging)
         if (process.send) {
           process.send({ type: 'ready' });
         }
 
-        // Open worker for new queries
         server.listen(this.port);
       }
     });
 
-    // Catch global errors, and cleanly close open connections
+    // Catch global errors and terminate open connections cleanly
     // eslint-disable-next-line ts/no-misused-promises
     process.on('uncaughtException', async(error) => {
       stderr.write(`Terminating worker ${process.pid} with ${openConnections.size} open connections due to uncaught exception.\n`);
-      stderr.write(error.stack);
+      stderr.write(error.stack + '\n');
 
-      // Stop new connections from being accepted
       server.close();
-
-      // Close all open connections
-      for (const connection of openConnections) {
-        await new Promise<void>(resolve => connection.end('!ERROR!', resolve));
-      }
-
-      // Kill the worker once the connections have been closed
+      await this.terminateConnections(openConnections, '!ERROR!');
       process.exit(15);
     });
   }
 
   /**
+   * Closes active HTTP responses and forcefully destroys underlying sockets.
+   * @param {Set<ServerResponse>} openConnections The set of active connections.
+   * @param {string} message The payload to send before terminating.
+   */
+  private async terminateConnections(openConnections: Set<ServerResponse>, message: string): Promise<void> {
+    const killPromises = Array.from(openConnections).map(connection => 
+      new Promise<void>(resolve => {
+        connection.end(message);
+        if (connection.socket && !connection.socket.destroyed) {
+          connection.socket.destroy();
+        }
+        resolve();
+      })
+    );
+    await Promise.all(killPromises);
+    openConnections.clear();
+  }
+
+/**
    * Handles an HTTP request.
    * @param {QueryEngineBase} engine A SPARQL engine.
    * @param {{type: string; quality: number}[]} variants Allowed variants.
    * @param {module:stream.internal.Writable} stdout Output stream.
    * @param {module:stream.internal.Writable} stderr Error output stream.
+   * @param {() => Promise<void>} performShutdown Callback to trigger worker shutdown.
    * @param {module:http.IncomingMessage} request Request object.
    * @param {module:http.ServerResponse} response Response object.
    */
@@ -400,14 +398,28 @@ export class HttpServiceSparqlEndpoint {
     variants: { type: string; quality: number }[],
     stdout: Writable,
     stderr: Writable,
+    performShutdown: () => Promise<void>,
     request: http.IncomingMessage,
     response: http.ServerResponse,
   ): Promise<void> {
+    // Cache refresh signal triggers worker shutdown
+    if (request.headers['x-comunica-refresh-cache']) {
+      stdout.write(`[200] Cache refresh signal received on worker ${process.pid}.\n`);
+      response.writeHead(200, { 
+        'content-type': HttpServiceSparqlEndpoint.MIME_JSON, 
+        'Access-Control-Allow-Origin': '*' 
+      });
+      response.end(JSON.stringify({ message: 'Worker is restarting to refresh cache.' }));
+      await performShutdown();
+      return;
+    }
+
     const negotiated = require('negotiate').choose(variants, request)
       .sort((first: any, second: any) => second.qts - first.qts);
     const variant: any = request.headers.accept ? negotiated[0] : null;
+    
     // Require qts strictly larger than 2, as 1 and 2 respectively allow * and */* matching.
-    // For qts 0, 1, and 2, we fallback to our built-in media type defaults, for which we pass null.
+    // For qts 0, 1, and 2, fallback to built-in media type defaults, passing null.
     const mediaType: string = variant && variant.qts > 2 ? variant.type : null;
 
     // Verify the path
