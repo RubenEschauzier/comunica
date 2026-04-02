@@ -68,3 +68,8 @@ export class DereferenceCachePolicyHttpWrapper implements ICachePolicy<IActionDe
     };
   }
 }
+
+export interface ISerializedDereferenceCachePolicyHttp {
+  policyData: ICachePolicy<IActionHttp>;
+  maxAcceptHeader: number;
+}

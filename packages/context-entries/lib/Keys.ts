@@ -249,6 +249,10 @@ export const KeysInitQuery = {
    * Abort controller indicating a query has been aborted.
    */
   abortSignalQuery: new ActionContextKey<AbortSignal>('@comunica/actor-init-query:abortSignalQuery'),
+  /**
+   * Callbacks that run after HttpServiceSparqlEndpoint times out a query
+   */
+  timeoutCallbacks: new ActionContextKey<Function[]>('@comunica/actor-init-query:timeoutCallbacks'),
 };
 
 export const KeysExpressionEvaluator = {

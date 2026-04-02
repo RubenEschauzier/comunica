@@ -8,20 +8,11 @@ import * as path from 'node:path';
 import * as querystring from 'node:querystring';
 import type { Writable } from 'node:stream';
 import * as url from 'node:url';
-import type { IActionSparqlSerialize } from '@comunica/bus-query-result-serialize';
 import { KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
-import type {
-  BindingsStream,
-  ICliArgsHandler,
-  IQueryOperationResultBindings,
-  IQueryOperationResultQuads,
-  QueryQuads,
-  QueryType,
-} from '@comunica/types';
+import type { ICliArgsHandler, QueryQuads, QueryType } from '@comunica/types';
 import { Algebra } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
-import type { AsyncIterator } from 'asynciterator';
 import { ArrayIterator } from 'asynciterator';
 
 import yargs from 'yargs';
@@ -54,7 +45,6 @@ export class HttpServiceSparqlEndpoint {
 
   public readonly context: any;
   public readonly timeout: number;
-  public readonly timeoutSleep: number;
   public readonly port: number;
   public readonly workers: number;
 
@@ -64,16 +54,16 @@ export class HttpServiceSparqlEndpoint {
 
   public readonly voidMetadataEmitter: VoidMetadataEmitter;
 
-  public workerCurrentQueryType: 'boolean' | 'void' | 'bindings' | 'quads' | undefined;
-  public workerCurrentStream: BindingsStream | AsyncIterator<RDF.Quad> | undefined;
-  public abortControllers: Map<number, AbortController> = new Map();
-
   public lastQueryId = 0;
+  /**
+   * Callbacks that run when timeout is reached.
+   */
+  public timeoutCallbacks =  [];
 
   public constructor(args: IHttpServiceSparqlEndpointArgs) {
     this.context = args.context || {};
     this.timeout = args.timeout ?? 60_000;
-    this.timeoutSleep = args.timeoutSleep ?? 5_000;
+    
     this.port = args.port ?? 3_000;
     this.workers = args.workers ?? 1;
     this.freshWorkerPerQuery = Boolean(args.freshWorkerPerQuery);
@@ -225,7 +215,7 @@ export class HttpServiceSparqlEndpoint {
     }
 
     // Attach listeners to each new worker
-    cluster.on('online', (worker) => {
+    cluster.on('listening', (worker) => {
       // Respawn crashed workers
       worker.once('exit', (code, signal) => {
         if (!worker.exitedAfterDisconnect) {
@@ -259,8 +249,6 @@ export class HttpServiceSparqlEndpoint {
           stderr.write(`Worker ${worker.process.pid} has completed query ${queryId}.\n`);
           clearTimeout(workerTimeouts[queryId]);
           delete workerTimeouts[queryId];
-        } else if (type === 'ready') {
-          stderr.write(`Worker ${worker.process.pid} resumed service.\n`);
         }
       });
     });
@@ -270,7 +258,8 @@ export class HttpServiceSparqlEndpoint {
       cluster.disconnect();
     });
   }
-/**
+
+  /**
    * Start the HTTP service as worker.
    * @param {module:stream.internal.Writable} stdout The output stream to log to.
    * @param {module:stream.internal.Writable} stderr The error stream to log errors to.
@@ -285,111 +274,74 @@ export class HttpServiceSparqlEndpoint {
       variants.push({ type, quality: mediaTypes[type] });
     }
 
-    const openConnections: Set<ServerResponse> = new Set();
-
-    const performShutdown = async (): Promise<void> => {
-      stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections for cache refresh.\n`);
-      server.close();
-      await this.terminateConnections(openConnections, '!RESTARTING!');
-      process.exit(15);
-    };
-
-    // Consolidate server initialization and request tracking
-    const server = http.createServer((request: IncomingMessage, response: ServerResponse) => {
-      openConnections.add(response);
-      response.on('close', () => openConnections.delete(response));
-
-      this.handleRequest(engine, variants, stdout, stderr, performShutdown, request, response)
-        .catch(error => stderr.write(`Request error: ${(<Error>error).message}\n`));
-    });
-
+    // Start the server
+    // eslint-disable-next-line ts/no-misused-promises
+    const server = http.createServer(this.handleRequest.bind(this, engine, variants, stdout, stderr));
     server.listen(this.port);
     stderr.write(`Server worker (${process.pid}) running on http://localhost:${this.port}/sparql\n`);
+
+    // Keep track of all open connections
+    const openConnections: Set<ServerResponse> = new Set();
+    server.on('request', (request: IncomingMessage, response: ServerResponse) => {
+      openConnections.add(response);
+      response.on('close', () => {
+        openConnections.delete(response);
+      });
+    });
 
     // Subscribe to shutdown messages
     // eslint-disable-next-line ts/no-misused-promises
     process.on('message', async(message: string): Promise<void> => {
+      // TODO: This should also call the metadata writer to write metadata and end the response while this cleans up. Ensure that 
+      // this doesn't produce race conditions
       if (message === 'shutdown') {
-        // Close server
-        const closingServer = new Promise<void>((resolve) => {
-          server.close(() => resolve());
-        });
-
-        // For non-update queries, abort streams and flush metadata
-        if (this.workerCurrentQueryType !== 'void') {
-          const abortController = this.abortControllers.get(this.lastQueryId - 1);
-          if (abortController) {
-            abortController.abort();
-            this.abortControllers.delete(this.lastQueryId - 1);
-          } else if (this.workerCurrentQueryType === 'boolean') {
-            throw new Error('Could not abort ASK query due to missing abortController');
-          } else {
-            stderr.write(`Could not find abort controller, only using .destroy() fallback\n`);
-          }
-          
-          if (this.workerCurrentStream) {
-            this.workerCurrentStream.destroy();
+        stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
+        if (this.timeoutCallbacks && this.timeoutCallbacks.length > 0) {
+          stderr.write(`Executing ${this.timeoutCallbacks.length} clean-up callbacks.\n`);
+          try {
+            await Promise.all(this.timeoutCallbacks.map((cb: () => Promise<void>) => cb()));
+          } catch (error: unknown) {
+            stderr.write(`Error during timeout callbacks: ${(<Error>error).message}\n`);
           }
         }
+        // Stop new connections from being accepted
+        server.close();
 
-        // Sleep while query ends
-        await this.sleep(this.timeoutSleep);
-
-        // Terminate all lingering connections
-        await this.terminateConnections(openConnections, '!TIMEDOUT!');
-        await closingServer;
-
-        if (this.workerCurrentQueryType === 'void') {
-          stderr.write(`Shutting down worker ${process.pid} executing update query.\n`);
-          process.exit(15);
-        } 
-
-        if (process.send) {
-          process.send({ type: 'ready' });
+        // Close all open connections
+        for (const connection of openConnections) {
+          await new Promise<void>(resolve => connection.end('!TIMEDOUT!', resolve));
         }
 
-        server.listen(this.port);
+        // Kill the worker once the connections have been closed
+        process.exit(15);
       }
     });
 
-    // Catch global errors and terminate open connections cleanly
+    // Catch global errors, and cleanly close open connections
     // eslint-disable-next-line ts/no-misused-promises
     process.on('uncaughtException', async(error) => {
       stderr.write(`Terminating worker ${process.pid} with ${openConnections.size} open connections due to uncaught exception.\n`);
-      stderr.write(error.stack + '\n');
+      stderr.write(error.stack);
 
+      // Stop new connections from being accepted
       server.close();
-      await this.terminateConnections(openConnections, '!ERROR!');
+
+      // Close all open connections
+      for (const connection of openConnections) {
+        await new Promise<void>(resolve => connection.end('!ERROR!', resolve));
+      }
+
+      // Kill the worker once the connections have been closed
       process.exit(15);
     });
   }
 
   /**
-   * Closes active HTTP responses and forcefully destroys underlying sockets.
-   * @param {Set<ServerResponse>} openConnections The set of active connections.
-   * @param {string} message The payload to send before terminating.
-   */
-  private async terminateConnections(openConnections: Set<ServerResponse>, message: string): Promise<void> {
-    const killPromises = Array.from(openConnections).map(connection => 
-      new Promise<void>(resolve => {
-        connection.end(message);
-        if (connection.socket && !connection.socket.destroyed) {
-          connection.socket.destroy();
-        }
-        resolve();
-      })
-    );
-    await Promise.all(killPromises);
-    openConnections.clear();
-  }
-
-/**
    * Handles an HTTP request.
    * @param {QueryEngineBase} engine A SPARQL engine.
    * @param {{type: string; quality: number}[]} variants Allowed variants.
    * @param {module:stream.internal.Writable} stdout Output stream.
    * @param {module:stream.internal.Writable} stderr Error output stream.
-   * @param {() => Promise<void>} performShutdown Callback to trigger worker shutdown.
    * @param {module:http.IncomingMessage} request Request object.
    * @param {module:http.ServerResponse} response Response object.
    */
@@ -398,28 +350,14 @@ export class HttpServiceSparqlEndpoint {
     variants: { type: string; quality: number }[],
     stdout: Writable,
     stderr: Writable,
-    performShutdown: () => Promise<void>,
     request: http.IncomingMessage,
     response: http.ServerResponse,
   ): Promise<void> {
-    // Cache refresh signal triggers worker shutdown
-    if (request.headers['x-comunica-refresh-cache']) {
-      stdout.write(`[200] Cache refresh signal received on worker ${process.pid}.\n`);
-      response.writeHead(200, { 
-        'content-type': HttpServiceSparqlEndpoint.MIME_JSON, 
-        'Access-Control-Allow-Origin': '*' 
-      });
-      response.end(JSON.stringify({ message: 'Worker is restarting to refresh cache.' }));
-      await performShutdown();
-      return;
-    }
-
     const negotiated = require('negotiate').choose(variants, request)
       .sort((first: any, second: any) => second.qts - first.qts);
     const variant: any = request.headers.accept ? negotiated[0] : null;
-    
     // Require qts strictly larger than 2, as 1 and 2 respectively allow * and */* matching.
-    // For qts 0, 1, and 2, fallback to built-in media type defaults, passing null.
+    // For qts 0, 1, and 2, we fallback to our built-in media type defaults, for which we pass null.
     const mediaType: string = variant && variant.qts > 2 ? variant.type : null;
 
     // Verify the path
@@ -531,24 +469,24 @@ export class HttpServiceSparqlEndpoint {
     // Send message to master process to indicate the start of an execution
     process.send!({ type: 'start', queryId });
 
+    // Refresh callbacks for each query so they don't accumulate
+    this.timeoutCallbacks = [];
+
     // Determine context
     let context = {
       ...this.context,
       ...this.contextOverride ? queryBody.context : undefined,
+      [KeysInitQuery.timeoutCallbacks.name]: this.timeoutCallbacks
     };
+
     if (readOnly) {
       context = { ...context, [KeysQueryOperation.readOnly.name]: readOnly };
     }
 
     let result: QueryType;
     try {
-      const abortController = new AbortController();
-      this.abortControllers.set(queryId, abortController);
-      context = { ...context, [KeysInitQuery.abortSignalQuery.name]: abortController.signal };
-
       result = await engine.query(queryBody.value, context);
 
-      this.workerCurrentQueryType = result.resultType;
       // For update queries, also await the result
       if (result.resultType === 'void') {
         await result.execute();
@@ -601,27 +539,7 @@ export class HttpServiceSparqlEndpoint {
 
     let eventEmitter: EventEmitter | undefined;
     try {
-      const handle: IActionSparqlSerialize = {
-        ...await QueryEngineBase.finalToInternalResult(result),
-        context: new ActionContext(),
-      };
-      if (handle.type === 'bindings') {
-        this.workerCurrentStream = (<IQueryOperationResultBindings> handle).bindingsStream;
-      }
-      if (handle.type === 'quads') {
-        this.workerCurrentStream = (<IQueryOperationResultQuads> handle).quadStream;
-      }
-      const { data } = await engine.resultToString(
-        result,
-        mediaType,
-        new ActionContext(
-          {
-            [KeysInitQuery.abortSignalQuery.name]: this.abortControllers.get(queryId)!.signal,
-          }
-        ),
-        handle,
-      );
-
+      const { data } = await engine.resultToString(result, mediaType);
       data.on('error', (error: Error) => {
         stdout.write(`[500] Server error in results: ${error.message} \n`);
         if (!response.writableEnded) {
@@ -641,7 +559,6 @@ export class HttpServiceSparqlEndpoint {
 
     // Send message to master process to indicate the end of an execution
     response.on('close', () => {
-      this.abortControllers.clear();
       process.send!({ type: 'end', queryId });
     });
 
@@ -702,6 +619,7 @@ export class HttpServiceSparqlEndpoint {
           quads.push(quad);
         }
       }
+
       // Flush results
       const { data } = await engine.resultToString(<QueryQuads>{
         resultType: 'quads',
@@ -846,12 +764,6 @@ export class HttpServiceSparqlEndpoint {
       });
     });
   }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => {
-      setTimeout(resolve, ms);
-    });
-  }
 }
 
 export interface IQueryBody {
@@ -863,7 +775,6 @@ export interface IQueryBody {
 export interface IHttpServiceSparqlEndpointArgs extends IDynamicQueryEngineOptions {
   context?: any;
   timeout?: number;
-  timeoutSleep?: number;
   port?: number;
   workers?: number;
   freshWorkerPerQuery?: boolean;

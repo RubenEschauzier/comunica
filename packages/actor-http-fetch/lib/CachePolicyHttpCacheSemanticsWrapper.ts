@@ -93,4 +93,27 @@ export class CachePolicyHttpCacheSemanticsWrapper implements ICachePolicy<IActio
     }
     return fetchHeaders;
   }
+
+  public toObject(): ISerializedCachePolicyHttp{
+    return {
+      policyData: this.cachePolicy.toObject(),
+      queryTimestamp: this.queryTimestamp,
+    };
+  }
+
+  public static fromObject(
+    serialized: ISerializedCachePolicyHttp,
+    fetchInitPreprocessor: IFetchInitPreprocessor,
+  ): CachePolicyHttpCacheSemanticsWrapper {
+    return new CachePolicyHttpCacheSemanticsWrapper(
+      CachePolicy.fromObject(serialized.policyData),
+      serialized.queryTimestamp,
+      fetchInitPreprocessor,
+    );
+  }
+}
+
+export interface ISerializedCachePolicyHttp {
+  policyData: CachePolicy.CachePolicyObject;
+  queryTimestamp?: number;
 }

@@ -62,6 +62,8 @@ export interface ICachePolicy<I> {
     revalidationInput: I,
     revalidationResponse: ICacheResponseHead,
   ) => Promise<IRevalidationPolicy<I>>;
+
+  toObject?: () => any;
 }
 
 export interface IRevalidationPolicy<I> {
