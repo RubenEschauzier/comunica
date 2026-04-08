@@ -10,10 +10,10 @@ import type { Writable } from 'node:stream';
 import * as url from 'node:url';
 import { KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
-import type { ICliArgsHandler, QueryQuads, QueryType } from '@comunica/types';
+import type { BindingsStream, ICliArgsHandler, IQueryOperationResultBindings, IQueryOperationResultQuads, QueryQuads, QueryType } from '@comunica/types';
 import { Algebra } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
-import { ArrayIterator } from 'asynciterator';
+import { ArrayIterator, AsyncIterator } from 'asynciterator';
 
 import yargs from 'yargs';
 
@@ -24,6 +24,7 @@ import { QueryEngineBase, QueryEngineFactoryBase } from '..';
 import { CliArgsHandlerBase } from './cli/CliArgsHandlerBase';
 import { CliArgsHandlerHttp } from './cli/CliArgsHandlerHttp';
 import { VoidMetadataEmitter } from './VoidMetadataEmitter';
+import { IActionSparqlSerialize } from '@comunica/bus-query-result-serialize';
 
 // Use require instead of import for default exports, to be compatible with variants of esModuleInterop in tsconfig.
 const clusterUntyped = require('node:cluster');
@@ -53,6 +54,10 @@ export class HttpServiceSparqlEndpoint {
   public readonly emitVoid: boolean;
 
   public readonly voidMetadataEmitter: VoidMetadataEmitter;
+
+  public workerCurrentQueryType: 'boolean' | 'void' | 'bindings' | 'quads' | undefined;
+  public workerCurrentStream: BindingsStream | AsyncIterator<RDF.Quad> | undefined;
+  public abortControllers: Map<number, AbortController> = new Map();
 
   public lastQueryId = 0;
   /**
@@ -107,6 +112,7 @@ export class HttpServiceSparqlEndpoint {
       new HttpServiceSparqlEndpoint(options || {}).run(stdout, stderr)
         .then(resolve)
         .catch((error) => {
+          console.log(error)
           stderr.write(error);
           exit(1);
           resolve();
@@ -267,6 +273,17 @@ export class HttpServiceSparqlEndpoint {
   public async runWorker(stdout: Writable, stderr: Writable): Promise<void> {
     const engine: QueryEngineBase = await this.engine;
 
+    // Warmup query to rehydrate the cache. 
+    // TODO: Check if this actually triggers actor-preprocess calls.
+    stdout.write("Server worker executing warmup query\n");
+    const warmupResult = await engine.queryBindings(
+      'SELECT * WHERE { ?s ?p ?o } LIMIT 1',
+      { 
+        ...this.context,
+        sources: ["http://example.com"],
+      }
+    );
+
     // Determine the allowed media types for requests
     const mediaTypes: Record<string, number> = await engine.getResultMediaTypes();
     const variants: { type: string; quality: number }[] = [];
@@ -274,14 +291,17 @@ export class HttpServiceSparqlEndpoint {
       variants.push({ type, quality: mediaTypes[type] });
     }
 
+    const openConnections: Set<ServerResponse> = new Set();
+
     // Start the server
     // eslint-disable-next-line ts/no-misused-promises
-    const server = http.createServer(this.handleRequest.bind(this, engine, variants, stdout, stderr));
+    const server = http.createServer((request: IncomingMessage, response: ServerResponse) => {
+      return this.handleRequest(engine, variants, stdout, stderr, server, openConnections, request, response);
+    });
     server.listen(this.port);
+
     stderr.write(`Server worker (${process.pid}) running on http://localhost:${this.port}/sparql\n`);
 
-    // Keep track of all open connections
-    const openConnections: Set<ServerResponse> = new Set();
     server.on('request', (request: IncomingMessage, response: ServerResponse) => {
       openConnections.add(response);
       response.on('close', () => {
@@ -292,10 +312,27 @@ export class HttpServiceSparqlEndpoint {
     // Subscribe to shutdown messages
     // eslint-disable-next-line ts/no-misused-promises
     process.on('message', async(message: string): Promise<void> => {
-      // TODO: This should also call the metadata writer to write metadata and end the response while this cleans up. Ensure that 
-      // this doesn't produce race conditions
       if (message === 'shutdown') {
         stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
+        // TODO Add this back when it works (to isolate possible issues)
+        // if (this.workerCurrentQueryType !== 'void') {
+        //   const abortController = this.abortControllers.get(this.lastQueryId - 1);
+        //   if (abortController) {
+        //     abortController.abort();
+        //     this.abortControllers.delete(this.lastQueryId - 1);
+        //   } else if (this.workerCurrentQueryType === 'boolean') {
+        //     throw new Error('Could not abort ASK query due to missing abortController');
+        //   } else {
+        //     stderr.write(`Could not find abort controller, only using .destroy() fallback\n`);
+        //   }
+        // }
+        server.close();
+        server.closeAllConnections();
+
+        if (this.workerCurrentStream) {
+          this.workerCurrentStream.destroy();
+        }
+        
         if (this.timeoutCallbacks && this.timeoutCallbacks.length > 0) {
           stderr.write(`Executing ${this.timeoutCallbacks.length} clean-up callbacks.\n`);
           try {
@@ -304,16 +341,8 @@ export class HttpServiceSparqlEndpoint {
             stderr.write(`Error during timeout callbacks: ${(<Error>error).message}\n`);
           }
         }
-        // Stop new connections from being accepted
-        server.close();
-
-        // Close all open connections
-        for (const connection of openConnections) {
-          await new Promise<void>(resolve => connection.end('!TIMEDOUT!', resolve));
-        }
-
-        // Kill the worker once the connections have been closed
         process.exit(15);
+        // this.terminateWorker(server, openConnections);
       }
     });
 
@@ -337,6 +366,27 @@ export class HttpServiceSparqlEndpoint {
   }
 
   /**
+   * Closes active HTTP responses and forcefully destroys underlying sockets.
+   * @param {Set<ServerResponse>} openConnections The set of active connections.
+   * @param {string} message The payload to send before terminating.
+   */
+  private async terminateWorker(
+    server: http.Server<typeof http.IncomingMessage, typeof http.ServerResponse>,
+    openConnections: Set<http.ServerResponse<http.IncomingMessage>>,
+  ): Promise<void> {
+    // Stop new connections from being accepted
+    server.close();
+
+    // Close all open connections
+    for (const connection of openConnections) {
+      await new Promise<void>(resolve => connection.end('!TIMEDOUT!', resolve));
+    }
+
+    // Kill the worker once the connections have been closed
+    process.exit(15);
+  }
+
+  /**
    * Handles an HTTP request.
    * @param {QueryEngineBase} engine A SPARQL engine.
    * @param {{type: string; quality: number}[]} variants Allowed variants.
@@ -350,9 +400,23 @@ export class HttpServiceSparqlEndpoint {
     variants: { type: string; quality: number }[],
     stdout: Writable,
     stderr: Writable,
+    server: http.Server<typeof http.IncomingMessage, typeof http.ServerResponse>,
+    openConnections: Set<http.ServerResponse<http.IncomingMessage>>,
     request: http.IncomingMessage,
     response: http.ServerResponse,
   ): Promise<void> {
+    // Cache refresh signal triggers worker shutdown
+    if (request.headers['x-comunica-refresh-cache']) {
+      stdout.write(`[200] Cache refresh signal received on worker ${process.pid}.\n`);
+      response.writeHead(200, { 
+        'content-type': HttpServiceSparqlEndpoint.MIME_JSON, 
+        'Access-Control-Allow-Origin': '*' 
+      });
+      response.end(JSON.stringify({ message: 'Worker is restarting to refresh cache.' }));
+      await this.terminateWorker(server, openConnections);
+      return;
+    }
+
     const negotiated = require('negotiate').choose(variants, request)
       .sort((first: any, second: any) => second.qts - first.qts);
     const variant: any = request.headers.accept ? negotiated[0] : null;
@@ -485,6 +549,10 @@ export class HttpServiceSparqlEndpoint {
 
     let result: QueryType;
     try {
+      const abortController = new AbortController();
+      this.abortControllers.set(queryId, abortController);
+      context = { ...context, [KeysInitQuery.abortSignalQuery.name]: abortController.signal };
+
       result = await engine.query(queryBody.value, context);
 
       // For update queries, also await the result
@@ -539,7 +607,28 @@ export class HttpServiceSparqlEndpoint {
 
     let eventEmitter: EventEmitter | undefined;
     try {
-      const { data } = await engine.resultToString(result, mediaType);
+      const handle: IActionSparqlSerialize = {
+        ...await QueryEngineBase.finalToInternalResult(result),
+        context: new ActionContext(),
+      };
+      if (handle.type === 'bindings') {
+        this.workerCurrentStream = (<IQueryOperationResultBindings> handle).bindingsStream;
+      }
+      if (handle.type === 'quads') {
+        this.workerCurrentStream = (<IQueryOperationResultQuads> handle).quadStream;
+      }
+
+      const { data } = await engine.resultToString(
+        result,
+        mediaType,
+        new ActionContext(
+          {
+            [KeysInitQuery.abortSignalQuery.name]: this.abortControllers.get(queryId)!.signal,
+          }
+        ),
+        handle,
+      );
+
       data.on('error', (error: Error) => {
         stdout.write(`[500] Server error in results: ${error.message} \n`);
         if (!response.writableEnded) {
@@ -559,6 +648,7 @@ export class HttpServiceSparqlEndpoint {
 
     // Send message to master process to indicate the end of an execution
     response.on('close', () => {
+      this.abortControllers.clear();
       process.send!({ type: 'end', queryId });
     });
 
