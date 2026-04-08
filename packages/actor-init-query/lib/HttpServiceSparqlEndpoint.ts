@@ -313,37 +313,46 @@ export class HttpServiceSparqlEndpoint {
     // eslint-disable-next-line ts/no-misused-promises
     process.on('message', async(message: string): Promise<void> => {
       if (message === 'shutdown') {
-        stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
-        // TODO Add this back when it works (to isolate possible issues)
-        // if (this.workerCurrentQueryType !== 'void') {
-        //   const abortController = this.abortControllers.get(this.lastQueryId - 1);
-        //   if (abortController) {
-        //     abortController.abort();
-        //     this.abortControllers.delete(this.lastQueryId - 1);
-        //   } else if (this.workerCurrentQueryType === 'boolean') {
-        //     throw new Error('Could not abort ASK query due to missing abortController');
-        //   } else {
-        //     stderr.write(`Could not find abort controller, only using .destroy() fallback\n`);
-        //   }
-        // }
-        server.close();
-        server.closeAllConnections();
+        try {
+          stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
+          // TODO Add this back when it works (to isolate possible issues)
+          // if (this.workerCurrentQueryType !== 'void') {
+          //   const abortController = this.abortControllers.get(this.lastQueryId - 1);
+          //   if (abortController) {
+          //     abortController.abort();
+          //     this.abortControllers.delete(this.lastQueryId - 1);
+          //   } else if (this.workerCurrentQueryType === 'boolean') {
+          //     throw new Error('Could not abort ASK query due to missing abortController');
+          //   } else {
+          //     stderr.write(`Could not find abort controller, only using .destroy() fallback\n`);
+          //   }
+          // }
+          const closingServer = new Promise<void>((resolve) => {
+            server.close(() => resolve());
+          });
+          await this.terminateConnections(openConnections, '!TIMEDOUT!');
+          
+          await closingServer;
 
-        if (this.workerCurrentStream) {
-          this.workerCurrentStream.destroy();
-        }
-        
-        if (this.timeoutCallbacks && this.timeoutCallbacks.length > 0) {
-          stderr.write(`Executing ${this.timeoutCallbacks.length} clean-up callbacks.\n`);
-          try {
-            await Promise.all(this.timeoutCallbacks.map((cb: () => Promise<void>) => cb()));
-          } catch (error: unknown) {
-            stderr.write(`Error during timeout callbacks: ${(<Error>error).message}\n`);
+          if (this.workerCurrentStream) {
+            this.workerCurrentStream.destroy();
           }
+          
+          if (this.timeoutCallbacks && this.timeoutCallbacks.length > 0) {
+            stderr.write(`Executing ${this.timeoutCallbacks.length} clean-up callbacks.\n`);
+            try {
+              await Promise.all(this.timeoutCallbacks.map((cb: () => Promise<void>) => cb()));
+            } catch (error: unknown) {
+              stderr.write(`Error during timeout callbacks: ${(<Error>error).message}\n`);
+            }
+          }
+          process.exit(15);
+          // this.terminateWorker(server, openConnections);
+
+        } catch (error: unknown) {
+          stderr.write(`Error during shutdown: ${(<Error>error).message}\n`);
         }
-        process.exit(15);
-        // this.terminateWorker(server, openConnections);
-      }
+      } 
     });
 
     // Catch global errors, and cleanly close open connections
@@ -385,6 +394,27 @@ export class HttpServiceSparqlEndpoint {
     // Kill the worker once the connections have been closed
     process.exit(15);
   }
+
+  /**
+   * Closes active HTTP responses and forcefully destroys underlying sockets.
+   * @param {Set<ServerResponse>} openConnections The set of active connections.
+   * @param {string} message The payload to send before terminating.
+   */
+  private async terminateConnections(openConnections: Set<ServerResponse>, message: string): Promise<void> {
+    const killPromises = Array.from(openConnections).map(connection =>
+      new Promise<void>(resolve => {
+        connection.end(message);
+        if (connection.socket && !connection.socket.destroyed) {
+          connection.socket.once('close', resolve);
+          connection.socket.destroy();
+        } else {
+          resolve();
+        }
+      })
+    );
+    await Promise.all(killPromises);
+    openConnections.clear();
+  }  
 
   /**
    * Handles an HTTP request.
