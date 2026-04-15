@@ -122,7 +122,7 @@ describe('System test: QuerySparql', () => {
 
           const result = await arrayifyStream(await engine.queryQuads(query, context));
           expect(result).toHaveLength(expectedResult.length);
-          expect(result).toMatchObject(expectedResult);
+          expect(result).toBeRdfIsomorphic(expectedResult);
         });
 
         it('should return the valid result with a json-ld data source', async() => {
@@ -132,7 +132,7 @@ describe('System test: QuerySparql', () => {
 
           const result = await arrayifyStream(await engine.queryQuads(query, context));
           expect(result).toHaveLength(expectedResult.length);
-          expect(result).toMatchObject(expectedResult);
+          expect(result).toBeRdfIsomorphic(expectedResult);
         });
 
         it('should return the valid result with no base IRI', async() => {
@@ -160,7 +160,7 @@ describe('System test: QuerySparql', () => {
 
           const result = await arrayifyStream(await engine.queryQuads(query, context));
           expect(result).toHaveLength(expectedResult.length);
-          expect(result).toMatchObject(expectedResult);
+          expect(result).toBeRdfIsomorphic(expectedResult);
         });
 
         it('should return the valid result with multiple sources', async() => {
@@ -988,7 +988,7 @@ SELECT * WHERE {
         expect(called).toBe(0);
       });
 
-      it('with two triple patterns over a paged collection (no browser)', async() => {
+      it('with two triple patterns over a paged collection', async() => {
         const bindingsStream = await engine.queryBindings(`
 SELECT *
 WHERE {
@@ -1017,7 +1017,7 @@ SELECT * WHERE {
         expect((await bindingsStream.toArray()).length > 0).toBeTruthy();
       });*/
 
-      it('on the LOV SPARQL service description (no browser)', async() => {
+      it('on the LOV SPARQL service description', async() => {
         await expect(engine.queryBindings(`
 PREFIX sh: <http://www.w3.org/ns/shacl#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -1031,7 +1031,7 @@ WHERE {
         })).rejects.toThrow('RDF parsing failed');
       });
 
-      it('on the LOV SPARQL service description with property paths (2) (no browser)', async() => {
+      it('on the LOV SPARQL service description with property paths (2)', async() => {
         await expect(engine.queryBindings(`
 PREFIX sh: <http://www.w3.org/ns/shacl#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -1045,7 +1045,7 @@ WHERE {
         })).rejects.toThrow('RDF parsing failed');
       });
 
-      it('should time out slow SPARQL service description requests and continue processing (no browser)', async() => {
+      it('should time out slow SPARQL service description requests and continue processing', async() => {
         await engine.invalidateHttpCache();
 
         const endpoint = 'https://example.org/sparql';
@@ -1121,7 +1121,7 @@ WHERE {
         expect(queryInitSignal).not.toBe(serviceDescriptionInitSignal);
       });
 
-      it('should not push distinct construct into a SPARQL endpoint (no browser)', async() => {
+      it('should not push distinct construct into a SPARQL endpoint', async() => {
         const quadsStream = await engine.queryQuads(`
 PREFIX dcat: <http://www.w3.org/ns/dcat#>
 construct { ?s a dcat:Dataset }
@@ -1135,7 +1135,7 @@ where {
         await expect((quadsStream.toArray())).resolves.toHaveLength(1);
       });
 
-      it('should not push unsupported extension functions into a SPARQL endpoint (no browser)', async() => {
+      it('should not push unsupported extension functions into a SPARQL endpoint', async() => {
         const bindingsStream = await engine.queryBindings(`
 PREFIX dbr: <http://dbpedia.org/resource/>
 PREFIX dbo: <http://dbpedia.org/ontology/>
@@ -1158,7 +1158,7 @@ WHERE {
         await expect((bindingsStream.toArray())).resolves.toHaveLength(1);
       });
 
-      it('on a SPARQL endpoint detected via Server header (no browser)', async() => {
+      it('on a SPARQL endpoint detected via Server header', async() => {
         const result = await engine.queryBindings(`
         SELECT * WHERE {
           ?s ?p ?o.
@@ -1213,6 +1213,67 @@ SELECT ?person ?name ?book ?title {
           sources: [],
         });
         await expect(bindingsStream.toArray()).resolves.toHaveLength(10);
+      });
+    });
+
+    describe('compositefile source', () => {
+      it('should query over a compositefile source with multiple file URLs', async() => {
+        const result = <QueryBindings> await engine.query(`SELECT * WHERE {
+      ?s ?p ?o.
+    }`, {
+          sources: [{
+            type: 'compositefile',
+            value: [
+              'https://www.rubensworks.net/',
+              'https://raw.githubusercontent.com/w3c/data-shapes/gh-pages/shacl-compact-syntax/tests/valid/basic-shape-iri.ttl',
+            ],
+          }],
+        });
+        expect((await arrayifyStream(await result.execute())).length).toBeGreaterThan(0);
+      });
+
+      it('should produce the same results as individual file sources grouped by the optimizer', async() => {
+        const query = `SELECT * WHERE { ?s ?p ?o }`;
+        const compositeResult = await engine.queryBindings(query, {
+          sources: [{
+            type: 'compositefile',
+            value: [
+              'https://www.rubensworks.net/',
+              'https://raw.githubusercontent.com/w3c/data-shapes/gh-pages/shacl-compact-syntax/tests/valid/basic-shape-iri.ttl',
+            ],
+          }],
+        });
+        const compositeBindings = await compositeResult.toArray();
+
+        // Two file-type sources will be grouped into a compositefile by the optimizer
+        const groupedResult = await engine.queryBindings(query, {
+          sources: [
+            { type: 'file', value: 'https://www.rubensworks.net/' },
+            { type: 'file', value: 'https://raw.githubusercontent.com/w3c/data-shapes/gh-pages/shacl-compact-syntax/tests/valid/basic-shape-iri.ttl' },
+          ],
+        });
+        const groupedBindings = await groupedResult.toArray();
+
+        expect(compositeBindings).toHaveLength(groupedBindings.length);
+        expect(compositeBindings.length).toBeGreaterThan(0);
+      });
+
+      it('should internally use a single compositefile source when grouping file sources', async() => {
+        const url1 = 'https://www.rubensworks.net/';
+        const url2 = 'https://raw.githubusercontent.com/w3c/data-shapes/gh-pages/shacl-compact-syntax/tests/valid/basic-shape-iri.ttl';
+
+        // Explain the physical plan for two individual file sources
+        const result = await engine.explain(`SELECT * WHERE { ?s ?p ?o }`, {
+          sources: [
+            { type: 'file', value: url1 },
+            { type: 'file', value: url2 },
+          ],
+        }, 'physical');
+
+        // The physical plan should show a single composite source, not two separate file sources
+        expect(result.data).toContain(`QuerySourceRdfJs(composite: ${url1},${url2})`);
+        // Only one source (SkolemID:0), not two (SkolemID:0 and SkolemID:1)
+        expect(result.data).not.toContain('SkolemID:1');
       });
     });
 
@@ -2127,9 +2188,61 @@ WHERE {
           ]),
         ]);
       });
+
+      it('with nested FILTER NOT EXISTS', async() => {
+        // Outer bindings must be substituted into FILTER NOT EXISTS subqueries to avoid matching unintended solutions.
+        const context: QueryStringContext = {
+          sources: [
+            {
+              type: 'serialized',
+              value: `
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix : <urn:example:>.
+
+:i1 :p1 :o1.
+:i1 rdf:type :c1.
+:i1 rdf:type :c2.
+
+:c1 rdfs:subClassOf :c2.
+:c1 rdfs:subClassOf :c1.
+:c2 rdfs:subClassOf :c2.
+`,
+              mediaType: 'text/turtle',
+              baseIRI: 'http://example.org/',
+            },
+          ],
+        };
+
+        await expect(engine.queryBindings(`
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX : <urn:example:>
+
+SELECT ?i ?o ?c
+WHERE {
+    ?i :p1 ?o.
+    ?i rdf:type ?c.
+    FILTER NOT EXISTS {
+        ?i rdf:type ?c_other.
+        ?c_other rdfs:subClassOf ?c.
+        FILTER NOT EXISTS {
+            ?c rdfs:subClassOf ?c_other
+        }
+    }
+}
+`, context)).resolves.toEqualBindingsStream([
+          BF.bindings([
+            [ DF.variable('i'), DF.namedNode('urn:example:i1') ],
+            [ DF.variable('o'), DF.namedNode('urn:example:o1') ],
+            [ DF.variable('c'), DF.namedNode('urn:example:c1') ],
+          ]),
+        ]);
+      });
     });
 
-    describe('logger warning grouping (no browser)', () => {
+    describe('logger warning grouping', () => {
       class TestLogger extends Logger {
         public readonly warnings: string[] = [];
 
@@ -2159,6 +2272,53 @@ WHERE {
 
         expect(logger.warnings[0]).toBe('Error occurred while filtering.');
         expect(logger.warnings[1]).toMatch(/Error occurred while filtering\. \(\d+ times\)/u);
+      });
+    });
+
+    describe('HTTP retry body', () => {
+      it('should retry when the response body stream breaks', async() => {
+        const turtle = '<http://example.org/s> <http://example.org/p> <http://example.org/o> .\n';
+        let getRequests = 0;
+        const contentLength = String(Buffer.byteLength(turtle));
+        const url = 'http://example.org/data.ttl';
+        const fetch = async(_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => {
+          getRequests++;
+          if (getRequests === 1) {
+            return new Response(new ReadableStream({
+              start(controller) {
+                controller.enqueue(Buffer.from(turtle.slice(0, 20)));
+                setTimeout(() => controller.error(new Error('Body stream error')), 0);
+              },
+            }), {
+              status: 200,
+              headers: {
+                'Content-Type': 'text/turtle',
+                'Content-Length': contentLength,
+              },
+            });
+          }
+
+          return new Response(turtle, {
+            status: 200,
+            headers: {
+              'Content-Type': 'text/turtle',
+              'Content-Length': contentLength,
+            },
+          });
+        };
+
+        await expect(arrayifyStream(await engine.queryQuads('CONSTRUCT WHERE { ?s ?p ?o }', {
+          sources: [ url ],
+          fetch,
+          httpRetryBodyCount: 1,
+        }))).resolves.toBeRdfIsomorphic([
+          DF.quad(
+            DF.namedNode('http://example.org/s'),
+            DF.namedNode('http://example.org/p'),
+            DF.namedNode('http://example.org/o'),
+          ),
+        ]);
+        expect(getRequests).toBe(2);
       });
     });
   });
@@ -2221,8 +2381,7 @@ CONSTRUCT {
       .toBeRdfIsomorphic(expectedResult);
   });
 
-  // We skip these tests in browsers due to CORS issues
-  describe('foaf ontology broken link (no browser)', () => {
+  describe('foaf ontology broken link', () => {
     it('returns results with link recovery on [using full key]', async() => {
       const result = <QueryBindings> await engine.query(`SELECT * WHERE {
     <http://xmlns.com/foaf/0.1/> a <http://www.w3.org/2002/07/owl#Ontology>.
@@ -2585,7 +2744,7 @@ CONSTRUCT {
     });
   });
 
-  describe('DistinctTerms optimization (no browser)', () => {
+  describe('DistinctTerms optimization', () => {
     it('should optimize SELECT DISTINCT with subject and graph variables', async() => {
       const store = RdfStore.createDefault();
       store.addQuad(DF.quad(
