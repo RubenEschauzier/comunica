@@ -18,6 +18,7 @@ import type { ActionObserverAdaptiveJoin } from './ActionObserverAdaptiveJoin';
 import type { ActionObserverHttp } from './ActionObserverHttp';
 import { ActionObserverContextPreprocess } from './ActionObserverContextPreprocess';
 import { KeysInitQuery } from '@comunica/context-entries';
+import { ServerResponse } from 'http';
 
 /**
  * A comunica sparql-results+xml Serialize Actor.
@@ -121,15 +122,31 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
         yield cb();
       }
 
-      const abortSignal: AbortSignal | undefined = context.get(KeysInitQuery.abortSignalQuery);
-      if (abortSignal) {
-        abortSignal.addEventListener('abort', () => {
+      const finalizeCbs: (((res: ServerResponse) => Promise<void>)[]) | undefined
+        = context.get(KeysInitQuery.timeoutFinalizeResponseCallbacks);
+      console.log(finalizeCbs);
+      if (finalizeCbs) {
+        finalizeCbs.push(async (res: ServerResponse) => {
+          console.log("TEST")
           if (!metadataEmitted) {
+            console.log("Start push")
             data.push(finalize());
+            console.log("Pushed")
             resultStream.destroy();
           }
-        }, { once: true });
+          console.log("END TEST")
+        })
       }
+
+      // const abortSignal: AbortSignal | undefined = context.get(KeysInitQuery.abortSignalQuery);
+      // if (abortSignal) {
+      //   abortSignal.addEventListener('abort', () => {
+      //     if (!metadataEmitted) {
+      //       data.push(finalize());
+      //       resultStream.destroy();
+      //     }
+      //   }, { once: true });
+      // }
       const finalize = () => {
         if (metadataEmitted) return '';
         metadataEmitted = true;

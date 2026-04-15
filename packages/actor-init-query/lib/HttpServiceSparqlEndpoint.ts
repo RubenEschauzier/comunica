@@ -62,8 +62,14 @@ export class HttpServiceSparqlEndpoint {
   public lastQueryId = 0;
   /**
    * Callbacks that run when timeout is reached.
+   * TODO: This causes concurrency issues for multiple queries per worker
+   * and should be a map just like the other callback
    */
-  public timeoutCallbacks =  [];
+  protected timeoutCallbacks: (() => Promise<void>)[] =  [];
+  /**
+   * Callbacks that run when timeout is reached and before http reponse closes
+   */
+  protected timeoutFinalizeResponseCallbacks = new Map<ServerResponse, ((res: ServerResponse) => Promise<void>)[]>();
 
   public constructor(args: IHttpServiceSparqlEndpointArgs) {
     this.context = args.context || {};
@@ -304,8 +310,10 @@ export class HttpServiceSparqlEndpoint {
 
     server.on('request', (request: IncomingMessage, response: ServerResponse) => {
       openConnections.add(response);
+      this.timeoutFinalizeResponseCallbacks.set(response, []);
       response.on('close', () => {
         openConnections.delete(response);
+        this.timeoutFinalizeResponseCallbacks.delete(response);
       });
     });
 
@@ -315,21 +323,25 @@ export class HttpServiceSparqlEndpoint {
       if (message === 'shutdown') {
         try {
           stderr.write(`Shutting down worker ${process.pid} with ${openConnections.size} open connections.\n`);
-          // TODO Add this back when it works (to isolate possible issues)
-          // if (this.workerCurrentQueryType !== 'void') {
-          //   const abortController = this.abortControllers.get(this.lastQueryId - 1);
-          //   if (abortController) {
-          //     abortController.abort();
-          //     this.abortControllers.delete(this.lastQueryId - 1);
-          //   } else if (this.workerCurrentQueryType === 'boolean') {
-          //     throw new Error('Could not abort ASK query due to missing abortController');
-          //   } else {
-          //     stderr.write(`Could not find abort controller, only using .destroy() fallback\n`);
-          //   }
-          // }
+
           const closingServer = new Promise<void>((resolve) => {
             server.close(() => resolve());
           });
+
+          // Call finalize callbacks, which prompt other actors to execute cleanup code 
+          // for example the serialize sparql-json to emit metadata
+          if (this.timeoutFinalizeResponseCallbacks && this.timeoutFinalizeResponseCallbacks.size > 0) {
+            stderr.write(`Executing ${this.timeoutCallbacks.length} pre-HTTP close callbacks.\n`);
+            try {
+              const executionPromises = Array.from(this.timeoutFinalizeResponseCallbacks.entries())
+                .flatMap(([res, cbArr]) => cbArr.map((cb) => cb(res)));
+              console.log(executionPromises)
+              await Promise.all(executionPromises);
+            } catch (error: unknown) {
+              stderr.write(`Error during timeout callbacks: ${(<Error>error).message}\n`);
+            }
+          }
+
           await this.terminateConnections(openConnections, '!TIMEDOUT!');
           
           await closingServer;
@@ -446,6 +458,8 @@ export class HttpServiceSparqlEndpoint {
       await this.terminateWorker(server, openConnections);
       return;
     }
+
+    
 
     const negotiated = require('negotiate').choose(variants, request)
       .sort((first: any, second: any) => second.qts - first.qts);
@@ -566,11 +580,13 @@ export class HttpServiceSparqlEndpoint {
     // Refresh callbacks for each query so they don't accumulate
     this.timeoutCallbacks = [];
 
+
     // Determine context
     let context = {
       ...this.context,
       ...this.contextOverride ? queryBody.context : undefined,
-      [KeysInitQuery.timeoutCallbacks.name]: this.timeoutCallbacks
+      [KeysInitQuery.timeoutCallbacks.name]: this.timeoutCallbacks,
+      [KeysInitQuery.timeoutFinalizeResponseCallbacks.name]: this.timeoutFinalizeResponseCallbacks.get(response)
     };
 
     if (readOnly) {
@@ -653,7 +669,7 @@ export class HttpServiceSparqlEndpoint {
         mediaType,
         new ActionContext(
           {
-            [KeysInitQuery.abortSignalQuery.name]: this.abortControllers.get(queryId)!.signal,
+            [KeysInitQuery.timeoutFinalizeResponseCallbacks.name]: this.timeoutFinalizeResponseCallbacks.get(response),
           }
         ),
         handle,

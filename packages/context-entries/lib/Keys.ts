@@ -26,6 +26,7 @@ import type { Algebra } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
 import { PersistentCacheManager } from '@comunica/actor-context-preprocess-set-persistent-cache-manager';
+import { ServerResponse } from 'http';
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
@@ -250,9 +251,13 @@ export const KeysInitQuery = {
    */
   abortSignalQuery: new ActionContextKey<AbortSignal>('@comunica/actor-init-query:abortSignalQuery'),
   /**
-   * Callbacks that run after HttpServiceSparqlEndpoint times out a query
+   * Callbacks that run after HttpServiceSparqlEndpoint times out a query and kills the HTTP connections.
    */
-  timeoutCallbacks: new ActionContextKey<Function[]>('@comunica/actor-init-query:timeoutCallbacks'),
+  timeoutCallbacks: new ActionContextKey<(() => Promise<void>)[]>('@comunica/actor-init-query:timeoutCallbacks'),
+  /**
+   * Callbacks that run before HttpServiceSparqlEndpoint times out a query and kills the HTTP connections.
+   */
+  timeoutFinalizeResponseCallbacks: new ActionContextKey<((res: ServerResponse) => Promise<void>)[]>('@comunica/actor-init-query:timeoutFinalizeResponseCallbacks')
 };
 
 export const KeysExpressionEvaluator = {
