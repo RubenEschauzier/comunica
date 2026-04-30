@@ -62,6 +62,7 @@ export class ActorQuerySourceDereferenceLinkHypermedia extends ActorQuerySourceD
       );
 
       rdfMetadataOutput.data.on('error', () => {
+        console.log("ERROR!")
         // Silence errors in the data stream,
         // as they will be emitted again in the metadata stream,
         // and will result in a promise rejection anyways.

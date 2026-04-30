@@ -70,7 +70,6 @@ export class ActorHttpFetch extends ActorHttp {
       timeoutCallback = () => abortController.abort(new Error(`Fetch timed out for ${ActorHttp.getInputUrl(action.input).href} after ${httpTimeout} ms`));
       timeoutHandle = setTimeout(() => timeoutCallback(), httpTimeout);
     }
-
     const response: IActorHttpOutput = await fetchFunction(action.input, requestInit);
 
     response.fromCache = response.headers.get('x-comunica-cache') === 'HIT';

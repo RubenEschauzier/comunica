@@ -449,10 +449,23 @@ export class QuerySourceQpf implements IQuerySource {
   }
 
   public queryQuads(
-    _operation: Algebra.Operation,
-    _context: IActionContext,
+    operation: Algebra.Operation,
+    context: IActionContext,
   ): AsyncIterator<RDF.Quad> {
-    throw new Error('queryQuads is not implemented in QuerySourceQpf');
+    if (!isKnownOperation(operation, Algebra.Types.PATTERN)) {
+      throw new Error(`Attempted to pass non-pattern operation '${operation.type}' to QuerySourceQpf`);
+    }
+
+    const unionDefaultGraph = Boolean(context.get(KeysQueryOperation.unionDefaultGraph));
+
+    return this.match(
+      operation.subject,
+      operation.predicate,
+      operation.object,
+      operation.graph,
+      unionDefaultGraph,
+      context,
+    );
   }
 
   public queryBoolean(
