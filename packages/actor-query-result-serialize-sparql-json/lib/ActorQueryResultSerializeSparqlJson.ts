@@ -124,17 +124,12 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
 
       const finalizeCbs: (((res: ServerResponse) => Promise<void>)[]) | undefined
         = context.get(KeysInitQuery.timeoutFinalizeResponseCallbacks);
-      console.log(finalizeCbs);
       if (finalizeCbs) {
         finalizeCbs.push(async (res: ServerResponse) => {
-          console.log("TEST")
           if (!metadataEmitted) {
-            console.log("Start push")
             data.push(finalize());
-            console.log("Pushed")
             resultStream.destroy();
           }
-          console.log("END TEST")
         })
       }
 

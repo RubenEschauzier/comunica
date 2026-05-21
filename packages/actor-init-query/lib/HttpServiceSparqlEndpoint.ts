@@ -335,7 +335,6 @@ export class HttpServiceSparqlEndpoint {
             try {
               const executionPromises = Array.from(this.timeoutFinalizeResponseCallbacks.entries())
                 .flatMap(([res, cbArr]) => cbArr.map((cb) => cb(res)));
-              console.log(executionPromises)
               await Promise.all(executionPromises);
             } catch (error: unknown) {
               stderr.write(`Error during timeout callbacks: ${(<Error>error).message}\n`);

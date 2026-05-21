@@ -1,4 +1,4 @@
-import type { BindingsStream, IActionContext, ISourceState, ISourceStateBloomFilter } from '@comunica/types';
+import type { BindingsStream, IActionContext, ILink, ISourceState, ISourceStateBloomFilter } from '@comunica/types';
 import { ViewKey } from './ViewKey';
 import { Algebra } from '@comunica/utils-algebra';
 import { AsyncIterator } from 'asynciterator';
@@ -20,33 +20,29 @@ export const CacheSourceStateViews = {
       }, 
       ISourceState
     >('@comunica/persistent-cache-manager:sourceStateView'),
-
-  cacheQueryView:
+  /**
+   * 
+   */
+  indexedCacheGetView:
     new ViewKey<
       ISourceState,
       { url: string, mode: 'get', action: IActionQuerySourceDereferenceLink },
       BindingsStream | AsyncIterator<RDF.Quad> | ISourceState
     >('@comunica/persistent-cache-manager:cacheQuery'),
 
-  cacheQueryViewBloomFilter:
-    new ViewKey<
-      ISourceStateBloomFilter,
-      { url: string, mode: 'get', action: IActionQuerySourceDereferenceLink } | { mode: 'queryBindings' | 'queryQuads', operation: Algebra.Operation},
-      AsyncIterator<BindingsStream> | AsyncIterator<AsyncIterator<RDF.Quad>> | ISourceState
-    >('@comunica/persistent-cache-manager:cacheQueryBloomFilter'),
-  
-  cacheCountView:
+  indexedCacheCountView:
     new ViewKey<
       ISourceState,
-      { operation: Algebra.Operation, documents: string[] },
+      { operation: Algebra.Operation },
       number
     >('@comunica/persistent-cache-manager:cacheCount'),
-  cacheCountBloomFilterView:
+
+  indexedCacheCountViewOfflineTraversal:
     new ViewKey<
-      ISourceStateBloomFilter,
-      { operation: Algebra.Operation, documents: string[] },
+      ISourceState,
+      { operation: Algebra.Operation, seeds: ILink[], query: Algebra.BaseOperation },
       number
-    >('@comunica/persistent-cache-manager:cacheCountBloomFilter'),
+    >('@comunica/persistent-cache-manager:cacheCount'),
 
 };
 
