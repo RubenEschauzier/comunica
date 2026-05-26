@@ -1,12 +1,16 @@
 import type { AsyncIterator } from 'asynciterator';
 
-export interface IPersistentCache<T> {
-  get: (key: string) => Promise<T | undefined>;
-  getMany: (keys: string[]) => Promise<(T | undefined)[]>;
-  set: (key: string, value: T) => Promise<void>;
+/**
+ * Interface for a cache entry, allows the cache to output (O) different data
+ * from what it being put into the cache (I).
+ */
+export interface IPersistentCache<S, O> {
+  get: (key: string) => Promise<O | undefined>;
+  getMany: (keys: string[]) => Promise<(O | undefined)[]>;
+  set: (key: string, value: S) => Promise<void>;
   has: (key: string) => Promise<boolean>;
   delete: (key: string) => Promise<boolean>;
-  entries: () => AsyncIterator<[string, T]>;
+  entries: () => AsyncIterator<[string, O]>;
   size: () => Promise<number>;
   serialize: () => Promise<void>;
   /**
@@ -48,25 +52,29 @@ export interface ICacheMetrics {
    * tracking period
    */
   evictionPercentage: number;
+  /**
+   * Additional metrics not covered by the base class
+   */
+  additionalMetrics?: Record<string, any>;
 }
 /**
  * Interface of class that sets a value in a given cache for a given key. This can
  * be a simple URL -> ISourceState mapping or URL -> Source Data Summary. The
  * computation and logic of what to store is done in the setInCache function.
- * T = The type of data being stored (e.g., ISourceState)
+ * I = The type of data being stored (e.g., ISourceState)
  * C = The context needed to derive additional storage logic
  */
 export interface ISetFn<I, S, C> {
   setInCache: (
     key: string,
     value: I,
-    cache: IPersistentCache<S>,
+    cache: IPersistentCache<S, any>,
     context: C
   ) => Promise<void>;
 }
 
-export interface ICacheRegistryEntry<I, S, C> {
-  cache: IPersistentCache<S>;
+export interface ICacheRegistryEntry<I, S, O, C> {
+  cache: IPersistentCache<S, O>;
   setFn: ISetFn<I, S, C>;
 }
 
@@ -74,10 +82,10 @@ export interface ICacheRegistryEntry<I, S, C> {
  * Interface for a class that returns a view over the cache. This can be
  * just retrieving a key, a summary of the content of the cache, or
  * the content of a cache matching a certain operator (e.g. triple pattern).
- * T the output type of the constructed view
+ * I the output type of the constructed view
  * C the context needed to construct the view
  */
-export interface ICacheView<S, C, K> {
-  construct: (cache: IPersistentCache<S>, context: C) => Promise<K | undefined>;
+export interface ICacheView<S, O, C, K> {
+  construct: (cache: IPersistentCache<S, O>, context: C) => Promise<K | undefined>;
 }
 
