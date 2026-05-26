@@ -16,8 +16,8 @@ import type {
 // TODO: Run experiments
 
 export class PersistentCacheManager {
-  protected cacheRegistry = new Map<string, ICacheRegistryEntry<any, any, any>>();
-  protected viewRegistry = new Map<string, ICacheView<any, any, any>>();
+  protected cacheRegistry = new Map<string, ICacheRegistryEntry<any, any, any, any>>();
+  protected viewRegistry = new Map<string, ICacheView<any, any, any, any>>();
 
   protected trackCacheMetrics: boolean;
 
@@ -32,9 +32,9 @@ export class PersistentCacheManager {
    * @param cache the cache being registered
    * @param setFn the function called when a new value is added to the cache
    */
-  public registerCache<I, S, C>(
+  public registerCache<I, S, O, C>(
     cacheKey: ICacheKey<I, S, C>,
-    cache: IPersistentCache<S>,
+    cache: IPersistentCache<S, O>,
     setFn: ISetFn<I, S, C>,
   ): void {
     if (this.cacheRegistry.has(cacheKey.id)) {
@@ -54,9 +54,9 @@ export class PersistentCacheManager {
    * @param view The function used to create the view
    * @returns
    */
-  public registerCacheView<T, C, K>(
-    viewKey: IViewKey<T, C, K>,
-    view: ICacheView<T, C, K>,
+  public registerCacheView<S, O, C, K>(
+    viewKey: IViewKey<S, C, K>,
+    view: ICacheView<S, O, C, K>,
   ) {
     if (this.viewRegistry.has(viewKey.id)) {
       return;
@@ -158,7 +158,7 @@ export class PersistentCacheManager {
     return this.viewRegistry.has(viewKey.id);
   }
 
-  protected ensureCache<I, S, C>(cacheKey: ICacheKey<I, S, C>): ICacheRegistryEntry<I, S, C> {
+  protected ensureCache<I, S, O, C>(cacheKey: ICacheKey<I, S, C>): ICacheRegistryEntry<I, S, O, C> {
     const relevantCache = this.cacheRegistry.get(cacheKey.id);
     if (!relevantCache) {
       throw new Error('Tried to set or get from a cache that was never registered');
@@ -166,7 +166,7 @@ export class PersistentCacheManager {
     return relevantCache;
   }
 
-  protected ensureView<S, C, K>(viewKey: IViewKey<S, C, K>): ICacheView<S, C, K> {
+  protected ensureView<S, O, C, K>(viewKey: IViewKey<S, C, K>): ICacheView<S, O, C, K> {
     const view = this.viewRegistry.get(viewKey.id);
     if (!view) {
       throw new Error(`Tried to get a cache view that was never registered`);
