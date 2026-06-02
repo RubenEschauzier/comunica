@@ -43,7 +43,15 @@ export const CacheSourceStateViews = {
       { operation: Algebra.Operation, seeds: ILink[], query: Algebra.BaseOperation },
       number
     >('@comunica/persistent-cache-manager:cacheCount'),
-
 };
+
+export const CacheDataSummariesViews = {
+  cacheCsetCpEstimationView:
+    new ViewKey<
+      any,
+      any,
+      any
+    >('@comunica/persistent-cache-manager-cset-cp-estimation-view'),
+}
 
 
