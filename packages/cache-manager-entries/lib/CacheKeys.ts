@@ -18,3 +18,9 @@ ISourceState,
     '@comunica/persistent-cache-manager:sourceStateQuerySource',
   ),
 };
+
+export const CacheEntryDataSummary = {
+  cacheSourceStateQuerySource: new CacheKey<ISourceState, ISourceState, { headers: Headers } >(
+    '@comunica/persistent-cache-manager:data-summary-cset-cp',
+  ),
+}
