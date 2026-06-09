@@ -5,7 +5,7 @@ export const CacheEntrySourceState = {
   /**
    * Cache for storing source states in a persistent manner over multiple queries
    */
-  cacheSourceState: new CacheKey<
+  cacheSourceStateUnIndexed: new CacheKey<
   ISourceState,
 ISourceState,
 { headers: Headers }
@@ -14,13 +14,23 @@ ISourceState,
    * Cache stores indexed source states and acts as a query source. Getting from cache
    * emits the bindings to any queryBinding calls associated with that get
    */
-  cacheSourceStateQuerySource: new CacheKey<ISourceState, ISourceState, { headers: Headers } >(
+  cacheSourceStateIndexed: new CacheKey<ISourceState, ISourceState, 
+  { headers: Headers } 
+  >(
     '@comunica/persistent-cache-manager:sourceStateQuerySource',
   ),
+  cacheSourceStateIndexedDisk: new CacheKey<ISourceState, ISourceState, 
+  { headers: Headers  } 
+  >(
+    '@comunica/persistent-cache-manager:cacheSourceStateIndexedDisk',
+  ),
+
 };
 
 export const CacheEntryDataSummary = {
-  cacheSourceStateQuerySource: new CacheKey<ISourceState, ISourceState, { headers: Headers } >(
+  cacheCsetCpsSummary: new CacheKey<
+    ISourceState, ISourceState, { headers: Headers, updateTraverse?: boolean } 
+  >(
     '@comunica/persistent-cache-manager:data-summary-cset-cp',
   ),
 }
