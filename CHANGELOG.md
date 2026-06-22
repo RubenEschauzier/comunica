@@ -1,6 +1,38 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+<a name="v5.2.4"></a>
+## [v5.2.4](https://github.com/comunica/comunica/compare/v5.2.3...v5.2.4) - 2026-06-19
+
+### Fixed
+* [Consider application/octet-stream as unknown media type](https://github.com/comunica/comunica/commit/b7e62bec4fb0093cdeecc7e8b1145e03ff6b2181)
+
+<a name="v5.2.3"></a>
+## [v5.2.3](https://github.com/comunica/comunica/compare/v5.2.2...v5.2.3) - 2026-05-26
+
+### Changed
+* [Add SPARQL 1.2 service-description compatibility while preserving SPARQL 1.1 behavior (#1709)](https://github.com/comunica/comunica/commit/91d763c425da4ea3e00b6f019fd570c5e72f2b39)
+
+### Fixed
+* [Fix performance issue for complex queries in doesShapeAcceptOperation](https://github.com/comunica/comunica/commit/b56114e839b84fbab574141c17ad43864a24f91c)
+* [Make SPARQL TSV header serialization spec-compliant by prefixing variables with `?` (#1713)](https://github.com/comunica/comunica/commit/f487e2ec2e8fa2978399b1d0644b689bb8e92df2)
+
+<a name="v5.2.2"></a>
+## [v5.2.2](https://github.com/comunica/comunica/compare/v5.2.1...v5.2.2) - 2026-05-03
+
+### Changed
+* [Update dependency bignumber.js to v11 (#1698)](https://github.com/comunica/comunica/commit/7213f274972388b33127980aca373b9b912413b9)
+
+### Fixed
+* [Fix aggregate queries with partially unbound variables, Closes #1705](https://github.com/comunica/comunica/commit/cc9d52762622c4de065d216da90612a582f4bbad)
+* [Fix prototype pollution vulnerability in Actor constructor (#1704)](https://github.com/comunica/comunica/commit/aef95bc0adffa5dc500ce0eb5e5fd38d8fe5de1e)
+
+<a name="v5.2.1"></a>
+## [v5.2.1](https://github.com/comunica/comunica/compare/v5.2.0...v5.2.1) - 2026-04-20
+
+### Fixed
+* [Remove backwards-incompatible config change in query optimizers (#1701)](https://github.com/comunica/comunica/commit/4384ad36ccea6f29fe62eff7b32f6d2e72a65d3f)
+
 <a name="v5.2.0"></a>
 ## [v5.2.0](https://github.com/comunica/comunica/compare/v5.1.3...v5.2.0) - 2026-04-14
 
