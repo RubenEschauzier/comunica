@@ -24,6 +24,11 @@ ISourceState,
   >(
     '@comunica/persistent-cache-manager:cacheSourceStateIndexedDisk',
   ),
+  cacheSourceStateIndexedQuadStore: new CacheKey<ISourceState, ISourceState, 
+  { headers: Headers  } 
+  >(
+    '@comunica/persistent-cache-manager:cacheSourceStateIndexedQuadStore',
+  ),
 
 };
 
