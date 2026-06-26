@@ -276,7 +276,11 @@ export const KeysInitQuery = {
   /**
    * Callbacks that run before HttpServiceSparqlEndpoint times out a query and kills the HTTP connections.
    */
-  timeoutFinalizeResponseCallbacks: new ActionContextKey<((res: ServerResponse) => Promise<void>)[]>('@comunica/actor-init-query:timeoutFinalizeResponseCallbacks')
+  timeoutFinalizeResponseCallbacks: new ActionContextKey<((res: ServerResponse) => Promise<void>)[]>('@comunica/actor-init-query:timeoutFinalizeResponseCallbacks'),
+  /**
+   * Indicator if this is a worker thread for endpoint
+   */
+  isMaster: new ActionContextKey<boolean>('@comunica/actor-init-query:isMaster'),
 };
 
 export const KeysExpressionEvaluator = {
