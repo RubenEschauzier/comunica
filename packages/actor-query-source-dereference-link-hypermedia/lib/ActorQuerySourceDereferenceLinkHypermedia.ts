@@ -88,7 +88,6 @@ export class ActorQuerySourceDereferenceLinkHypermedia extends ActorQuerySourceD
       const rdfMetadataOutput: IActorRdfMetadataOutput = await this.mediatorMetadata.mediate(
         { context, url, quads: dereferenceRdfOutput.data, triples: dereferenceRdfOutput.metadata?.triples },
       );
-
       rdfMetadataOutput.data.on('error', () => {
         // Silence errors in the data stream,
         // as they will be emitted again in the metadata stream,
@@ -105,6 +104,7 @@ export class ActorQuerySourceDereferenceLinkHypermedia extends ActorQuerySourceD
         headers: dereferenceRdfOutput.headers,
         requestTime: dereferenceRdfOutput.requestTime,
       })).metadata;
+
       quads = rdfMetadataOutput.data;
 
       // Transform quads if needed.
@@ -112,6 +112,7 @@ export class ActorQuerySourceDereferenceLinkHypermedia extends ActorQuerySourceD
         quads = await action.link.transform(quads);
       }
     } catch (error: unknown) {
+      console.log(error)
       // Make sure that dereference errors are only emitted once an actor really needs the read quads
       // This allows SPARQL endpoints that error on service description fetching to still be source-forcible
       quads = new Readable();
