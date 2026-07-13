@@ -8,7 +8,7 @@ import * as path from 'node:path';
 import * as querystring from 'node:querystring';
 import type { Writable } from 'node:stream';
 import * as url from 'node:url';
-import { KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
+import { KeysCaching, KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
 import type { BindingsStream, ICliArgsHandler, IQueryOperationResultBindings, IQueryOperationResultQuads, QueryQuads, QueryType } from '@comunica/types';
 import { Algebra } from '@comunica/utils-algebra';
@@ -454,6 +454,16 @@ export class HttpServiceSparqlEndpoint {
         'Access-Control-Allow-Origin': '*' 
       });
       response.end(JSON.stringify({ message: 'Worker is restarting to refresh cache.' }));
+      stdout.write("Server worker executing query to clear cache\n");
+      const warmupResult = await engine.queryBindings(
+        'SELECT * WHERE { ?s ?p ?o } LIMIT 1',
+        { 
+          ...this.context,
+          sources: ["http://example.com"],
+          [KeysCaching.clearCache.name]: true,
+        }
+      );
+
       await this.terminateWorker(server, openConnections);
       return;
     }
