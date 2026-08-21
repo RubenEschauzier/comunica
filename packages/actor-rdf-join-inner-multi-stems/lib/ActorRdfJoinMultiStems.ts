@@ -85,6 +85,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
   ): Promise<IActorRdfJoinOutputInner> {
     const skipLog = action.context.get(KeysStatistics.skipStatisticTracking);
     const logger = ActorRdfJoinMultiStems.getContextLogger(action.context);
+    
     // TODO: This goes wrong with multiple separate connected components
     const snapShotLogger = action.context.get(KeysStatistics.adaptiveJoinStatistics);
     const queryString = action.context.get(KeysInitQuery.queryString);

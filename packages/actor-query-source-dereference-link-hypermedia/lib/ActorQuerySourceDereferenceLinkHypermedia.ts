@@ -60,9 +60,7 @@ export class ActorQuerySourceDereferenceLinkHypermedia extends ActorQuerySourceD
       const rdfMetadataOutput: IActorRdfMetadataOutput = await this.mediatorMetadata.mediate(
         { context, url, quads: dereferenceRdfOutput.data, triples: dereferenceRdfOutput.metadata?.triples },
       );
-
       rdfMetadataOutput.data.on('error', () => {
-        console.log("ERROR!")
         // Silence errors in the data stream,
         // as they will be emitted again in the metadata stream,
         // and will result in a promise rejection anyways.
@@ -78,7 +76,6 @@ export class ActorQuerySourceDereferenceLinkHypermedia extends ActorQuerySourceD
         requestTime: dereferenceRdfOutput.requestTime,
       })).metadata;
       quads = rdfMetadataOutput.data;
-
       // Transform quads if needed.
       if (action.link.transform) {
         quads = await action.link.transform(quads);
@@ -92,7 +89,6 @@ export class ActorQuerySourceDereferenceLinkHypermedia extends ActorQuerySourceD
         return null;
       };
       ({ metadata } = await this.mediatorMetadataAccumulate.mediate({ context, mode: 'initialize' }));
-
       // Log as warning, because the quads above may not always be consumed (e.g. for SPARQL endpoints),
       // so the user would not be notified of something going wrong otherwise.
       this.logWarn(context, `Metadata extraction for ${action.link.url} failed: ${(<Error>error).message}`);

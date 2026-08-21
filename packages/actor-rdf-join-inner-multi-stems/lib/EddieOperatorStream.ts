@@ -194,6 +194,7 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
       let itemBuffer: IEddieJoinEntry | null = null;
       let item = null;
       let joinVars: RDF.Variable[] | undefined;
+      
       // Read from buffer first as these are intermediate results
       itemBuffer = <IEddieJoinEntry | null> super.read();
       if (itemBuffer === null) {

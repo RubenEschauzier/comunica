@@ -1,7 +1,8 @@
 import { KeysRdfUpdateQuads } from '@comunica/context-entries';
 import type { FragmentSelectorShape, IActionContext, IDataDestination, IQuerySourceWrapper } from '@comunica/types';
-import { Algebra, algebraUtils, isKnownSubType } from '@comunica/utils-algebra';
+import { Algebra, algebraUtils, isKnownOperation, isKnownSubType } from '@comunica/utils-algebra';
 import { getDataDestinationValue } from './Utils';
+import type * as RDF from '@rdfjs/types';
 
 /**
  * Check if the given shape accepts the given query operation.
@@ -182,4 +183,123 @@ export async function passFullOperationToSource(
     }
   }
   return false;
+}
+export function canAnswerBgp(
+  shape: FragmentSelectorShape,
+  operation: Algebra.Bgp,
+  optionalVars: RDF.Variable[],
+  requiredVars: RDF.Variable[],
+): boolean {
+  if (shape.type !== 'operation' || shape.operation.operationType !== 'pattern') {
+    return false;
+  }
+
+  if (!isKnownOperation(shape.operation.pattern, Algebra.Types.BGP)) {
+    return false;
+  }
+
+  const shapePatterns = shape.operation.pattern.patterns;
+  const queryPatterns = operation.patterns;
+
+  if (shapePatterns.length !== queryPatterns.length) {
+    return false;
+  }
+
+  const shapePatternsOrdered = [...shapePatterns].sort(
+    (a, b) => getConstraintScore(b, optionalVars, requiredVars) - getConstraintScore(a, optionalVars, requiredVars),
+  );
+  const queryPatternsOrdered = [...queryPatterns].sort(
+    (a, b) => getConstraintScore(b, optionalVars, requiredVars) - getConstraintScore(a, optionalVars, requiredVars),
+  );
+
+  return matchPatternsRecursive(shapePatternsOrdered, queryPatternsOrdered, requiredVars, new Map());
+}
+
+function matchPatternsRecursive(
+  patterns1: Algebra.Pattern[],
+  patterns2: Algebra.Pattern[],
+  requiredVars: RDF.Variable[],
+  bindings: Map<string, RDF.Term>,
+): boolean {
+  if (patterns1.length !== patterns2.length) {
+    return false;
+  }
+
+  if (patterns1.length === 0) {
+    return true;
+  }
+
+  const currentPattern = patterns1[0];
+
+  for (let i = 0; i < patterns2.length; i++) {
+    const candidatePattern = patterns2[i];
+    const localBindings = new Map(bindings);
+
+    if (tryMatchTerms(currentPattern, candidatePattern, requiredVars, localBindings)) {
+      const remainingPatterns1 = patterns1.slice(1);
+      const remainingPatterns2 = patterns2.filter((_, idx) => idx !== i);
+
+      if (matchPatternsRecursive(remainingPatterns1, remainingPatterns2, requiredVars, localBindings)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function tryMatchTerms(
+  shapePat: Algebra.Pattern,
+  queryPat: Algebra.Pattern,
+  requiredVars: RDF.Variable[],
+  bindings: Map<string, RDF.Term>,
+): boolean {
+  const positions: (keyof Algebra.Pattern)[] = ['subject', 'predicate', 'object', 'graph'];
+
+  for (const pos of positions) {
+    const sTerm = shapePat[pos] as RDF.Term;
+    const qTerm = queryPat[pos] as RDF.Term;
+
+    if (sTerm.termType !== 'Variable') {
+      if (!sTerm.equals(qTerm)) {
+        return false;
+      }
+      continue;
+    }
+
+    const isRequired = requiredVars.some(v => v.equals(sTerm));
+    if (isRequired && qTerm.termType === 'Variable') {
+      return false;
+    }
+
+    // Ensure join consistency for shared variables across patterns
+    const varKey = sTerm.value;
+    if (bindings.has(varKey)) {
+      if (!bindings.get(varKey)!.equals(qTerm)) {
+        return false;
+      }
+    } else {
+      bindings.set(varKey, qTerm);
+    }
+  }
+
+  return true;
+}
+
+function getConstraintScore(
+  pattern: Algebra.Pattern,
+  optionalVars: RDF.Variable[],
+  requiredVars: RDF.Variable[],
+): number {
+  let score = 0;
+  for (const term of [pattern.subject, pattern.predicate, pattern.object, pattern.graph]) {
+    if (term.termType !== 'Variable' || requiredVars.some(required => required.equals(term))) {
+      score += 3;
+    } else if (optionalVars.some(optional => optional.equals(term))) {
+      score += 2;
+    } else {
+      score += 1;
+    }
+  }
+  return score;
 }
