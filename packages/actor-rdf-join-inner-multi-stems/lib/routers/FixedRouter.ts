@@ -1,3 +1,4 @@
+import { Algebra } from '@comunica/utils-algebra';
 import type { StemsOperatorStream } from '../StemsOperatorStream';
 import { type IStemsRouterFactory, type IStemsRoutingEntry, RouterBase } from './BaseRouter';
 
@@ -11,7 +12,7 @@ export class RouterFixedMinimalIndex extends RouterBase {
 }
 
 export class FixedRouterFactory implements IStemsRouterFactory {
-  public createRouter(): RouterFixedMinimalIndex {
-    return new RouterFixedMinimalIndex();
+  public createRouter(patterns: Algebra.Pattern[]): RouterFixedMinimalIndex {
+    return new RouterFixedMinimalIndex(patterns);
   }
 }

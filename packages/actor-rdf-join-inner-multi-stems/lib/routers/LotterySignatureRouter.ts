@@ -1,3 +1,4 @@
+import { Algebra } from '@comunica/utils-algebra';
 import type { StemsOperatorStream, ISelectivityData } from '../StemsOperatorStream';
 import type { IStemsRouterFactory, IStemsRoutingEntry } from './BaseRouter';
 import { RouterLotteryScheduling } from './LotteryRouter';
@@ -37,28 +38,8 @@ export class RouterLotterySchedulingSignature extends RouterLotteryScheduling {
         updatedRoutings.push(this.reorderWeightedChoice(route, ticketWeightsNonNegative))
       }
       updatedRoutingTable[key] = updatedRoutings;
-
-      // const key = Number.parseInt(doneKey, 10);
-      // // If size 0 or 1 no choice to be made
-      // if (routing.length < 2) {
-      //   updatedRoutingTable[key] = routing;
-      //   continue;
-      // }
-      // const ticketWeights: number[] = [];
-      // for (const idx of routing.map(x => x.next)) {
-      //   const selectivityData = selectivityMetadata[idx].selectivity[key];
-      //   if (selectivityData) {
-      //     ticketWeights.push(selectivityData.in - selectivityData.out);
-      //   } else {
-      //     ticketWeights.push(0);
-      //   }
-      // }
-
-      // const minScore = Math.min(...ticketWeights);
-      // const offset = minScore < 0 ? -minScore : 0;
-      // const ticketWeightsNonNegative = ticketWeights.map(w => w + offset + 1);
-      // updatedRoutingTable[key] = this.reorderWeightedChoice(routing, ticketWeightsNonNegative);
     }
+    
     return updatedRoutingTable;
   }
 
@@ -78,7 +59,7 @@ export class RouterLotterySchedulingSignature extends RouterLotteryScheduling {
 }
 
 export class LotterySignatureRouterFactory implements IStemsRouterFactory {
-  public createRouter(): RouterLotterySchedulingSignature {
-    return new RouterLotterySchedulingSignature();
+  public createRouter(patterns: Algebra.Pattern[]): RouterLotterySchedulingSignature {
+    return new RouterLotterySchedulingSignature(patterns);
   }
 }

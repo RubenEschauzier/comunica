@@ -134,7 +134,9 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
         );
         inputStreams.push(entry);
       }
-      const router = this.routerFactory.createRouter();
+      const router = this.routerFactory.createRouter(
+        connectedComponentEntries.map(entry => entry.operation)
+      );
 
       let logContext: Record<string, any> | undefined;
       if (logger && !skipLog) {

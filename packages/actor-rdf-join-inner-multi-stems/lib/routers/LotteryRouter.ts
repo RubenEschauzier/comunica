@@ -1,3 +1,4 @@
+import { Algebra } from '@comunica/utils-algebra';
 import type { StemsOperatorStream } from '../StemsOperatorStream';
 import { type IStemsRouterFactory, type IStemsRoutingEntry, RouterBase } from './BaseRouter';
 
@@ -24,12 +25,6 @@ export class RouterLotteryScheduling extends RouterBase {
       });
 
       updatedRoutingTable[key] = updatedRouting;
-      // const ticketWeights: number[] = routing.map(x => x.next).map(idx => ticketMetadata[idx].tickets);
-
-      // const minScore = Math.min(...ticketWeights);
-      // const offset = minScore < 0 ? -minScore : 0;
-      // const ticketWeightsNonNegative = ticketWeights.map(w => w + offset + 1);
-      // updatedRoutingTable[key] = this.reorderWeightedChoice(routing, ticketWeightsNonNegative);
     }
     return updatedRoutingTable;
   }
@@ -56,7 +51,7 @@ export class RouterLotteryScheduling extends RouterBase {
 }
 
 export class LotteryRouterFactory implements IStemsRouterFactory {
-  public createRouter(): RouterLotteryScheduling {
-    return new RouterLotteryScheduling();
+  public createRouter(patterns: Algebra.Pattern[]): RouterLotteryScheduling {
+    return new RouterLotteryScheduling(patterns);
   }
 }

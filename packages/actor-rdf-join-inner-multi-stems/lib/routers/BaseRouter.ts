@@ -3,8 +3,14 @@ import type { Bindings } from '@comunica/utils-bindings-factory';
 import type * as RDF from '@rdfjs/types';
 import { stemsContextKeys } from '../StemsControllerStream';
 import type { StemsOperatorStream } from '../StemsOperatorStream';
+import { Algebra } from '@comunica/utils-algebra';
 
 export abstract class RouterBase implements IStemsRouter {
+  public readonly patterns: Algebra.Pattern[];
+  
+  public constructor(patterns: Algebra.Pattern[]){
+    this.patterns = patterns;
+  }
   public createRouteTable(
     variables: RDF.Variable[][],
     namedNodes: RDF.NamedNode[][]
@@ -124,5 +130,5 @@ export interface IStemsRouterFactory {
    * Creates a new router instance for a specific query execution.
    * @param variables - The variables involved in this specific query.
    */
-  createRouter: () => IStemsRouter;
+  createRouter: (patterns: Algebra.Pattern[]) => IStemsRouter;
 }
