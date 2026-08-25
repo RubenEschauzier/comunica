@@ -24,10 +24,10 @@ import { DataFactory } from 'rdf-data-factory';
 import { Algebra, AlgebraFactory } from '@comunica/utils-algebra';
 
 // import { Factory } from 'sparqlalgebrajs';
-import { EddieControllerStream, TimestampGenerator } from './EddieControllerStream';
-import type { JoinFunction } from './EddieOperatorStream';
-import { EddieOperatorStream } from './EddieOperatorStream';
-import type { IEddieRouterFactory } from './routers/BaseRouter';
+import { StemsControllerStream, TimestampGenerator } from './StemsControllerStream';
+import type { JoinFunction } from './StemsOperatorStream';
+import { StemsOperatorStream } from './StemsOperatorStream';
+import type { IStemsRouterFactory } from './routers/BaseRouter';
 
 /**
  * A comunica Inner Multi Stems RDF Join Actor.
@@ -36,7 +36,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
   public readonly mediatorHashBindings: MediatorHashBindings;
   public readonly mediatorJoinEntriesSort: MediatorRdfJoinEntriesSort;
   public readonly mediatorJoin: MediatorRdfJoin;
-  public readonly routerFactory: IEddieRouterFactory;
+  public readonly routerFactory: IStemsRouterFactory;
   public readonly routerUpdateFrequency: number;
 
   private readonly DF = new DataFactory();
@@ -115,12 +115,12 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
           componentHasCartesian = true;
         }
       }
-      const stemOperators: EddieOperatorStream[] = [];
+      const stemOperators: StemsOperatorStream[] = [];
       const inputStreams = [];
 
       for (const [ i, entry ] of connectedComponentEntries.entries()) {
         stemOperators.push(
-          new EddieOperatorStream(
+          new StemsOperatorStream(
             entry.output.bindingsStream,
             timestampGenerator,
             hashFunction,
@@ -142,7 +142,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
           query: queryString,
         };
       }
-      const controllerStream = new EddieControllerStream(
+      const controllerStream = new StemsControllerStream(
         stemOperators,
         router,
         this.routerUpdateFrequency,
@@ -263,7 +263,7 @@ export interface IActorRdfJoinMultiStemsArgs extends IActorRdfJoinArgs<IActorRdf
   /**
    * The routing strategy used
    */
-  routerFactory: IEddieRouterFactory;
+  routerFactory: IStemsRouterFactory;
   /**
    * Update frequency of routing table, lower values mean more routing policy switches
    */

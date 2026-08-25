@@ -1,16 +1,16 @@
-import type { EddieOperatorStream } from '../EddieOperatorStream';
-import { type IEddieRouterFactory, type IEddieRoutingEntry, RouterBase } from './BaseRouter';
+import type { StemsOperatorStream } from '../StemsOperatorStream';
+import { type IStemsRouterFactory, type IStemsRoutingEntry, RouterBase } from './BaseRouter';
 
 export class RouterFixedMinimalIndex extends RouterBase {
   public updateRouteTable(
-    _operators: EddieOperatorStream[],
-    routeTable: Record<string, IEddieRoutingEntry[]>,
-  ): Record<number, IEddieRoutingEntry[]> {
+    _operators: StemsOperatorStream[],
+    routeTable: Record<string, IStemsRoutingEntry[][]>,
+  ): Record<number, IStemsRoutingEntry[][]> {
     return routeTable;
   };
 }
 
-export class FixedRouterFactory implements IEddieRouterFactory {
+export class FixedRouterFactory implements IStemsRouterFactory {
   public createRouter(): RouterFixedMinimalIndex {
     return new RouterFixedMinimalIndex();
   }

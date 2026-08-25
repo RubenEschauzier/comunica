@@ -3,14 +3,14 @@ import type { Bindings } from '@comunica/utils-bindings-factory';
 
 import type * as RDF from '@rdfjs/types';
 import { BufferedIterator } from 'asynciterator';
-import type { IEddieBindingsMetadata, ITimestampGenerator } from './EddieControllerStream';
-import { eddiesContextKeys } from './EddieControllerStream';
+import type { IStemsBindingsMetadata, ITimestampGenerator } from './StemsControllerStream';
+import { stemsContextKeys } from './StemsControllerStream';
 
 /**
  * We may want to implement AMJoin, which keeps track of a bitvector table to quickly determine join failures,
  * also look into how to route eddies tuples
  */
-export class EddieOperatorStream extends BufferedIterator<Bindings> {
+export class StemsOperatorStream extends BufferedIterator<Bindings> {
   /**
    * The variables that this operator can do a join on
    */
@@ -82,7 +82,7 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
   private nProduced = 0;
 
   private match: Bindings | null = null;
-  private matchMetadata: IEddieBindingsMetadata | null = null;
+  private matchMetadata: IStemsBindingsMetadata | null = null;
   private matches: Bindings[] = [];
   private matchIdx = 0;
 
@@ -162,7 +162,7 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
 
       while (this.matchIdx < this.matches.length) {
         const item = this.matches[this.matchIdx++];
-        const itemMetadata = item.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
+        const itemMetadata = item.getContextEntry(stemsContextKeys.eddiesMetadata)!;
         // Const matchMetadata = this.match!.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
 
         // If the timestamp of the interal index is newer (so larger)
@@ -186,7 +186,7 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
           copy.done |= 1 << this.bitLoc;
           copy.order = [ ...copy.order, this.bitLoc ];
 
-          result = result.setContextEntry(eddiesContextKeys.eddiesMetadata, copy);
+          result = result.setContextEntry(stemsContextKeys.eddiesMetadata, copy);
           return result;
         }
       }
@@ -231,13 +231,13 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
       if (joinVars === undefined) {
         this.nProduced++;
 
-        const itemMetadata: IEddieBindingsMetadata = {
+        const itemMetadata: IStemsBindingsMetadata = {
           done: 1 << this.bitLoc,
           timestamp: this.timestampGenerator.next(),
           order: [ this.bitLoc ],
         };
 
-        item = item.setContextEntry(eddiesContextKeys.eddiesMetadata, itemMetadata);
+        item = item.setContextEntry(stemsContextKeys.eddiesMetadata, itemMetadata);
 
         // For each variable we can join on, we hash the item and store it in the tripleMap.
         // This allows us to quickly find matches for any intermediate result and a given
@@ -256,7 +256,7 @@ export class EddieOperatorStream extends BufferedIterator<Bindings> {
         return item;
       }
 
-      this.matchMetadata = item.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
+      this.matchMetadata = item.getContextEntry(stemsContextKeys.eddiesMetadata)!;
       this.match = item;
       this.matchIdx = 0;
       if (joinVars.length > 0) {

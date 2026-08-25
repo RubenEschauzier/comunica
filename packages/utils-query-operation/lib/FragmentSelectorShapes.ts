@@ -184,6 +184,7 @@ export async function passFullOperationToSource(
   }
   return false;
 }
+
 export function canAnswerBgp(
   shape: FragmentSelectorShape,
   operation: Algebra.Bgp,
@@ -208,6 +209,7 @@ export function canAnswerBgp(
   const shapePatternsOrdered = [...shapePatterns].sort(
     (a, b) => getConstraintScore(b, optionalVars, requiredVars) - getConstraintScore(a, optionalVars, requiredVars),
   );
+  
   const queryPatternsOrdered = [...queryPatterns].sort(
     (a, b) => getConstraintScore(b, optionalVars, requiredVars) - getConstraintScore(a, optionalVars, requiredVars),
   );

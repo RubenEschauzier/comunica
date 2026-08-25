@@ -92,7 +92,10 @@
     "AggregateEvaluator",
     "ExpressionFunctionBase",
     "TermFunctionBase",
-    "possibleOperationTypes"
+    "possibleOperationTypes",
+
+    "StemsOperatorStream",
+    "StemsControllerStream"
   ],
   "modulePrefix": {
     "@comunica/actor-query-operation-service": "caqoser",

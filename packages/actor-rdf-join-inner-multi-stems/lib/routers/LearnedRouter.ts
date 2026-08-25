@@ -45,3 +45,8 @@
  *  "A contextual-bandit approach to personalized news article recommendation." WWW.
  * This is the standard, rigorous way to solve the curse of dimensionality in Bandit problems.
  */
+
+/**
+ * Validate if we can say that link traversal query optimziation is a non-stationary problem!
+ * 
+ */

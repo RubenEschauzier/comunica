@@ -1,27 +1,35 @@
-import type { EddieOperatorStream } from '../EddieOperatorStream';
-import { type IEddieRouterFactory, type IEddieRoutingEntry, RouterBase } from './BaseRouter';
+import type { StemsOperatorStream } from '../StemsOperatorStream';
+import { type IStemsRouterFactory, type IStemsRoutingEntry, RouterBase } from './BaseRouter';
 
 export class RouterLotteryScheduling extends RouterBase {
   public override updateRouteTable(
-    operators: EddieOperatorStream[],
-    routeTable: Record<string, IEddieRoutingEntry[]>,
-  ): Record<number, IEddieRoutingEntry[]> {
+    operators: StemsOperatorStream[],
+    routeTable: Record<string, IStemsRoutingEntry[][]>,
+  ): Record<number, IStemsRoutingEntry[][]> {
     const ticketMetadata: Record<string, number>[] = operators.map(op => ({ tickets: op.tickets }));
 
-    const updatedRoutingTable: Record<string, IEddieRoutingEntry[]> = {};
+    const updatedRoutingTable: Record<string, IStemsRoutingEntry[][]> = {};
     for (const [ doneKey, routing ] of Object.entries(routeTable)) {
       const key = Number.parseInt(doneKey, 10);
-      // If size 0 or 1 no choice to be made
-      if (routing.length < 2) {
-        updatedRoutingTable[key] = routing;
-        continue;
-      }
-      const ticketWeights: number[] = routing.map(x => x.next).map(idx => ticketMetadata[idx].tickets);
 
-      const minScore = Math.min(...ticketWeights);
-      const offset = minScore < 0 ? -minScore : 0;
-      const ticketWeightsNonNegative = ticketWeights.map(w => w + offset + 1);
-      updatedRoutingTable[key] = this.reorderWeightedChoice(routing, ticketWeightsNonNegative);
+      const updatedRouting = routing.map(exRoute => { 
+        if (exRoute.length < 2) {
+          return exRoute;
+        }
+        const ticketWeights: number[] = exRoute.map(x => x.next).map(idx => ticketMetadata[idx].tickets);
+        const minScore = Math.min(...ticketWeights);
+        const offset = minScore < 0 ? -minScore : 0;
+        const ticketWeightsNonNegative = ticketWeights.map(w => w + offset + 1);
+        return this.reorderWeightedChoice(exRoute, ticketWeightsNonNegative);
+      });
+
+      updatedRoutingTable[key] = updatedRouting;
+      // const ticketWeights: number[] = routing.map(x => x.next).map(idx => ticketMetadata[idx].tickets);
+
+      // const minScore = Math.min(...ticketWeights);
+      // const offset = minScore < 0 ? -minScore : 0;
+      // const ticketWeightsNonNegative = ticketWeights.map(w => w + offset + 1);
+      // updatedRoutingTable[key] = this.reorderWeightedChoice(routing, ticketWeightsNonNegative);
     }
     return updatedRoutingTable;
   }
@@ -47,7 +55,7 @@ export class RouterLotteryScheduling extends RouterBase {
   }
 }
 
-export class LotteryRouterFactory implements IEddieRouterFactory {
+export class LotteryRouterFactory implements IStemsRouterFactory {
   public createRouter(): RouterLotteryScheduling {
     return new RouterLotteryScheduling();
   }

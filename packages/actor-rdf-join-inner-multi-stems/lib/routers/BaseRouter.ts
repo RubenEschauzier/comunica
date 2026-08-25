@@ -1,18 +1,16 @@
 import type { Bindings } from '@comunica/utils-bindings-factory';
 
 import type * as RDF from '@rdfjs/types';
-import { eddiesContextKeys } from '../EddieControllerStream';
-import type { EddieOperatorStream } from '../EddieOperatorStream';
+import { stemsContextKeys } from '../StemsControllerStream';
+import type { StemsOperatorStream } from '../StemsOperatorStream';
 
-export abstract class RouterBase implements IEddieRouter {
-  // /**
-  //  * Connected components of join graph. Represented by their bitmask index
-  //  */
-  // protected connectedComponents: number[][];
-
-  public createRouteTable(variables: RDF.Variable[][], namedNodes: RDF.NamedNode[][]): Record<number, IEddieRoutingEntry[]> {
+export abstract class RouterBase implements IStemsRouter {
+  public createRouteTable(
+    variables: RDF.Variable[][],
+    namedNodes: RDF.NamedNode[][]
+  ): Record<number, IStemsRoutingEntry[][]> {
     const n = variables.length;
-    const routeTable: Record<number, IEddieRoutingEntry[]> = {};
+    const routeTable: Record<number, IStemsRoutingEntry[][]> = {};
     const variableValues = variables.map(vArr => vArr.map(x => x.value));
     const namedNodeValues = namedNodes.map(nArr => nArr.map(x => x.value));
 
@@ -29,7 +27,7 @@ export abstract class RouterBase implements IEddieRouter {
       const doneVars = new Set(doneIndexes.flatMap(i => variableValues[i]));
       const doneNamedNodes = new Set(doneIndexes.flatMap(i => namedNodeValues[i]));
 
-      const possibleNext: IEddieRoutingEntry[] = [];
+      const possibleNext: IStemsRoutingEntry[] = [];
 
       for (let nextIdx = 0; nextIdx < n; nextIdx++) {
         if ((state & (1 << nextIdx)) === 0) {
@@ -54,7 +52,7 @@ export abstract class RouterBase implements IEddieRouter {
         }
       }
 
-      routeTable[state] = possibleNext;
+      routeTable[state] = [possibleNext];
     }
     return routeTable;
   };
@@ -83,7 +81,7 @@ export abstract class RouterBase implements IEddieRouter {
   }
 
   public routeBinding(binding: Bindings, n: number): number | undefined {
-    const done = binding.getContextEntry(eddiesContextKeys.eddiesMetadata)!.done;
+    const done = binding.getContextEntry(stemsContextKeys.eddiesMetadata)!.done;
     if (done === (1 << n) - 1) {
       return undefined;
     }
@@ -93,28 +91,38 @@ export abstract class RouterBase implements IEddieRouter {
   }
 
   public abstract updateRouteTable(
-    operators: EddieOperatorStream[],
-    routeTable: Record<string, IEddieRoutingEntry[]>
-  ): Record<number, IEddieRoutingEntry[]>;
+    operators: StemsOperatorStream[],
+    routeTable: Record<string, IStemsRoutingEntry[][]>
+  ): Record<number, IStemsRoutingEntry[][]>;
 }
 
-export interface IEddieRouter {
+/**
+ * Stem routing interface using routing table. Routing tables allow
+ * multiple exclusive next routes. These exclusive routes are in the outer array of 
+ * IStemsRoutingEntry[][]. These exclusive routes are concurrently followed and should
+ * naturally be exclusive through the set 'done' bits. 
+ */
+export interface IStemsRouter {
   routeBinding: (binding: Bindings, n: number) => number | undefined;
-  createRouteTable: (variables: RDF.Variable[][], namedNodes: RDF.NamedNode[][]) => Record<number, IEddieRoutingEntry[]>;
+  createRouteTable: (
+    variables: RDF.Variable[][], 
+    namedNodes: RDF.NamedNode[][]
+  ) => Record<number, IStemsRoutingEntry[][]>;
   updateRouteTable: (
-    operators: EddieOperatorStream[], routeTable: Record<string, IEddieRoutingEntry[]>
-  ) => Record<number, IEddieRoutingEntry[]>;
+    operators: StemsOperatorStream[], 
+    routeTable: Record<string, IStemsRoutingEntry[][]>
+  ) => Record<number, IStemsRoutingEntry[][]>;
 }
 
-export interface IEddieRoutingEntry {
+export interface IStemsRoutingEntry {
   next: number;
   joinVars: RDF.Variable[];
 }
 
-export interface IEddieRouterFactory {
+export interface IStemsRouterFactory {
   /**
    * Creates a new router instance for a specific query execution.
    * @param variables - The variables involved in this specific query.
    */
-  createRouter: () => IEddieRouter;
+  createRouter: () => IStemsRouter;
 }

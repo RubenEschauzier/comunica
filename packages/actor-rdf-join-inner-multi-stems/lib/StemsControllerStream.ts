@@ -9,24 +9,24 @@ import type {
 } from '@comunica/types';
 import type { Bindings } from '@comunica/utils-bindings-factory';
 import { AsyncIterator } from 'asynciterator';
-import type { EddieOperatorStream, ISelectivityData } from './EddieOperatorStream';
-import type { IEddieRouter, IEddieRoutingEntry } from './routers/BaseRouter';
+import type { StemsOperatorStream, ISelectivityData } from './StemsOperatorStream';
+import type { IStemsRouter, IStemsRoutingEntry } from './routers/BaseRouter';
 
-export class EddieControllerStream extends AsyncIterator<Bindings> {
+export class StemsControllerStream extends AsyncIterator<Bindings> {
   /**
    * The iterators performing the half-joins and producing triple pattern
    * matches
    */
-  private readonly eddieIterators: EddieOperatorStream[];
+  private readonly eddieIterators: StemsOperatorStream[];
   /**
    * The routing object constructing the routing table.
    */
-  private readonly router: IEddieRouter;
+  private readonly router: IStemsRouter;
   /**
    * Table indicating the next eddieIterator for a given 'done'
    * signature
    */
-  private routingTable: Record<string, IEddieRoutingEntry[]>;
+  private routingTable: Record<string, IStemsRoutingEntry[][]>;
   /**
    * Flag indicating if the all triple patterns have no new matches.
    * If this flag is set, the iterator should finish all current intermediate
@@ -62,8 +62,8 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
   private readonly routingUpdateFrequency: number;
 
   public constructor(
-    eddieIterators: EddieOperatorStream[],
-    router: IEddieRouter,
+    eddieIterators: StemsOperatorStream[],
+    router: IStemsRouter,
     updateFrequency: number,
     snapshotsTracker?: Record<number, IAdaptivePlanStatistics>,
     logger?: Logger,
@@ -138,15 +138,25 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
 
         producedResults = true;
 
-        const partialResultMetadata = item.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
-        const nextEddie = this.routingTable[partialResultMetadata.done];
+        const partialResultMetadata = item.getContextEntry(stemsContextKeys.eddiesMetadata)!;
+        const nextRoutes = this.routingTable[partialResultMetadata.done];
 
-        // All done bits equal to 1
-        if (nextEddie === undefined) {
+        // All done bits equal to 1 (terminal state)
+        if (nextRoutes === undefined || nextRoutes.length === 0) {
           return item;
         }
 
-        this.eddieIterators[nextEddie[0].next].push({ item, joinVars: nextEddie[0].joinVars });
+        // Push to the next operator of each alternative route
+        // TODO: This might cause bug if metadata state spills over!!
+        for (const route of nextRoutes) {
+          if (route.length > 0) {
+            const nextStep = route[0];
+            this.eddieIterators[nextStep.next].push({
+              item,
+              joinVars: nextStep.joinVars,
+            });
+          }
+        }
 
         if (this.bindingsSinceUpdate >= this.routingUpdateFrequency) {
           const start = performance.now();
@@ -347,8 +357,8 @@ export class EddieControllerStream extends AsyncIterator<Bindings> {
   }
 }
 
-export const eddiesContextKeys = {
-  eddiesMetadata: new ActionContextKey<IEddieBindingsMetadata>('metadata'),
+export const stemsContextKeys = {
+  eddiesMetadata: new ActionContextKey<IStemsBindingsMetadata>('metadata'),
 };
 
 export interface ITimestampGenerator {
@@ -375,7 +385,7 @@ function _bitmaskToVector(doneMask: number, totalCount: number): number[] {
   return vector;
 }
 
-export interface IEddieBindingsMetadata {
+export interface IStemsBindingsMetadata {
   done: number;
   timestamp: number;
   order: number[];

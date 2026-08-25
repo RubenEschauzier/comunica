@@ -1,41 +1,69 @@
-import type { EddieOperatorStream, ISelectivityData } from '../EddieOperatorStream';
-import type { IEddieRouterFactory, IEddieRoutingEntry } from './BaseRouter';
+import type { StemsOperatorStream, ISelectivityData } from '../StemsOperatorStream';
+import type { IStemsRouterFactory, IStemsRoutingEntry } from './BaseRouter';
 import { RouterLotteryScheduling } from './LotteryRouter';
 
 export class RouterLotterySchedulingSignature extends RouterLotteryScheduling {
   public override updateRouteTable(
-    operators: EddieOperatorStream[],
-    routeTable: Record<string, IEddieRoutingEntry[]>,
-  ): Record<number, IEddieRoutingEntry[]> {
+    operators: StemsOperatorStream[],
+    routeTable: Record<string, IStemsRoutingEntry[][]>,
+  ): Record<number, IStemsRoutingEntry[][]> {
     const selectivityMetadata: Record<string, Record<number, ISelectivityData>>[] = this.collectMetadata(operators);
 
-    const updatedRoutingTable: Record<string, IEddieRoutingEntry[]> = {};
+    const updatedRoutingTable: Record<string, IStemsRoutingEntry[][]> = {};
     for (const [ doneKey, routing ] of Object.entries(routeTable)) {
       const key = Number.parseInt(doneKey, 10);
-      // If size 0 or 1 no choice to be made
-      if (routing.length < 2) {
-        updatedRoutingTable[key] = routing;
-        continue;
-      }
-      const ticketWeights: number[] = [];
-      for (const idx of routing.map(x => x.next)) {
-        const selectivityData = selectivityMetadata[idx].selectivity[key];
-        if (selectivityData) {
-          ticketWeights.push(selectivityData.in - selectivityData.out);
-        } else {
-          ticketWeights.push(0);
-        }
-      }
 
-      const minScore = Math.min(...ticketWeights);
-      const offset = minScore < 0 ? -minScore : 0;
-      const ticketWeightsNonNegative = ticketWeights.map(w => w + offset + 1);
-      updatedRoutingTable[key] = this.reorderWeightedChoice(routing, ticketWeightsNonNegative);
+      const updatedRoutings: IStemsRoutingEntry[][] = [];
+      for (const route of routing){
+        // If size 0 or 1 no choice to be made
+        if (route.length < 2) {
+          updatedRoutings.push(route)
+          continue;
+        }
+        const ticketWeights: number[] = [];
+        for (const idx of route.map(x => x.next)) {
+          const selectivityData = selectivityMetadata[idx].selectivity[key];
+          if (selectivityData) {
+            ticketWeights.push(selectivityData.in - selectivityData.out);
+          } else {
+            ticketWeights.push(0);
+          }
+        }
+
+        const minScore = Math.min(...ticketWeights);
+        const offset = minScore < 0 ? -minScore : 0;
+        const ticketWeightsNonNegative = ticketWeights.map(w => w + offset + 1);
+
+        updatedRoutings.push(this.reorderWeightedChoice(route, ticketWeightsNonNegative))
+      }
+      updatedRoutingTable[key] = updatedRoutings;
+
+      // const key = Number.parseInt(doneKey, 10);
+      // // If size 0 or 1 no choice to be made
+      // if (routing.length < 2) {
+      //   updatedRoutingTable[key] = routing;
+      //   continue;
+      // }
+      // const ticketWeights: number[] = [];
+      // for (const idx of routing.map(x => x.next)) {
+      //   const selectivityData = selectivityMetadata[idx].selectivity[key];
+      //   if (selectivityData) {
+      //     ticketWeights.push(selectivityData.in - selectivityData.out);
+      //   } else {
+      //     ticketWeights.push(0);
+      //   }
+      // }
+
+      // const minScore = Math.min(...ticketWeights);
+      // const offset = minScore < 0 ? -minScore : 0;
+      // const ticketWeightsNonNegative = ticketWeights.map(w => w + offset + 1);
+      // updatedRoutingTable[key] = this.reorderWeightedChoice(routing, ticketWeightsNonNegative);
     }
     return updatedRoutingTable;
   }
 
-  protected collectMetadata(operators: EddieOperatorStream[]): { selectivity: Record<number, ISelectivityData> }[] {
+  protected collectMetadata(operators: StemsOperatorStream[])
+  : { selectivity: Record<number, ISelectivityData> }[] {
     return operators.map(op => ({ selectivity: op.selectivitiesSignatures }));
   }
 
@@ -49,7 +77,7 @@ export class RouterLotterySchedulingSignature extends RouterLotteryScheduling {
   }
 }
 
-export class LotterySignatureRouterFactory implements IEddieRouterFactory {
+export class LotterySignatureRouterFactory implements IStemsRouterFactory {
   public createRouter(): RouterLotterySchedulingSignature {
     return new RouterLotterySchedulingSignature();
   }

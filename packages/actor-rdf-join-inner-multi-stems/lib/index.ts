@@ -1,4 +1,6 @@
 export * from './ActorRdfJoinMultiStems';
+export * from './StemsControllerStream';
+export * from './StemsOperatorStream';
 export * from './routers/BaseRouter';
 export * from './routers/FixedRouter';
 export * from './routers/LotteryRouter';
