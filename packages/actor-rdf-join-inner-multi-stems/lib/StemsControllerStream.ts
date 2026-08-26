@@ -10,7 +10,7 @@ import type {
 import type { Bindings } from '@comunica/utils-bindings-factory';
 import { AsyncIterator } from 'asynciterator';
 import type { StemsOperatorStream, ISelectivityData } from './StemsOperatorStream';
-import type { IStemsRouter, IStemsRoutingEntry } from './routers/BaseRouter';
+import type { IRouteTableOperation, IStemsRouter, IStemsRoutingEntry } from './routers/BaseRouter';
 
 export class StemsControllerStream extends AsyncIterator<Bindings> {
   /**
@@ -75,8 +75,12 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
     this.router = router;
     this.routingUpdateFrequency = updateFrequency;
     this.routingTable = this.router.createRouteTable(
-      this.eddieIterators.map(x => x.variables),
-      this.eddieIterators.map(x => x.namedNodes),
+      this.eddieIterators.map(it => ({
+        operation: it.operation,
+        doneBitMask: it.doneBitMask,
+        variables: it.variables,
+        namedNodes: it.namedNodes,
+      })),
     );
 
     this.endTuples = false;

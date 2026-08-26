@@ -1,4 +1,3 @@
-import { Algebra } from '@comunica/utils-algebra';
 import type { StemsOperatorStream } from '../StemsOperatorStream';
 import { type IStemsRouterFactory, type IStemsRoutingEntry, RouterBase } from './BaseRouter';
 
@@ -41,7 +40,7 @@ export class RouterLotteryScheduling extends RouterBase {
         reordered[0] = reordered[i];
         reordered[i] = temp;
         return reordered;
-      };
+      }
     }
     const temp = reordered[0];
     reordered[0] = reordered[items.length - 1];
@@ -51,7 +50,7 @@ export class RouterLotteryScheduling extends RouterBase {
 }
 
 export class LotteryRouterFactory implements IStemsRouterFactory {
-  public createRouter(patterns: Algebra.Pattern[]): RouterLotteryScheduling {
-    return new RouterLotteryScheduling(patterns);
+  public createRouter(): RouterLotteryScheduling {
+    return new RouterLotteryScheduling();
   }
 }

@@ -1,4 +1,5 @@
 import type { BindingsStream } from '@comunica/types';
+import { Algebra } from '@comunica/utils-algebra';
 import type { Bindings } from '@comunica/utils-bindings-factory';
 
 import type * as RDF from '@rdfjs/types';
@@ -11,6 +12,14 @@ import { stemsContextKeys } from './StemsControllerStream';
  * also look into how to route eddies tuples
  */
 export class StemsOperatorStream extends BufferedIterator<Bindings> {
+  /**
+   * The underlying SPARQL algebra operation for this operator
+   */
+  public readonly operation: Algebra.Operation;
+  /**
+   * The bitmask of operations satisfied by this operator
+   */
+  public readonly doneBitMask: number;
   /**
    * The variables that this operator can do a join on
    */
@@ -74,7 +83,10 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   private readonly funHash: HashFunction;
   private readonly funJoin: JoinFunction;
 
-  private readonly bitLoc: number;
+  /**
+   * The index of this operator within the controller's operator list
+   */
+  public readonly operatorIndex: number;
 
   /**
    * Number of tuples produced by the triple pattern underlying this operator
@@ -91,7 +103,9 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
     timestampGenerator: ITimestampGenerator,
     funHash: HashFunction,
     funJoin: JoinFunction,
-    bitLoc: number,
+    operatorIndex: number,
+    doneBitMask: number,
+    operation: Algebra.Operation,
     variables: RDF.Variable[],
     namedNodes: RDF.NamedNode[],
     joinVariables: RDF.Variable[][],
@@ -99,6 +113,8 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   ) {
     super();
 
+    this.operation = operation;
+    this.doneBitMask = doneBitMask;
     this.variables = variables;
     this.namedNodes = namedNodes;
     this.joinVariables = joinVariables;
@@ -125,7 +141,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
 
     this.timestampGenerator = timestampGenerator;
 
-    this.bitLoc = bitLoc;
+    this.operatorIndex = operatorIndex;
   }
 
   public override _end(): void {
@@ -183,8 +199,8 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
           // as we throw away the intermediate results, mutating the metadata is not a problem
           // as we will never try to access it to get the previous metadata state.
           const copy = { ...this.matchMetadata! };
-          copy.done |= 1 << this.bitLoc;
-          copy.order = [ ...copy.order, this.bitLoc ];
+          copy.done |= this.doneBitMask;
+          copy.order = [ ...copy.order, this.operatorIndex ];
 
           result = result.setContextEntry(stemsContextKeys.eddiesMetadata, copy);
           return result;
@@ -232,9 +248,9 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
         this.nProduced++;
 
         const itemMetadata: IStemsBindingsMetadata = {
-          done: 1 << this.bitLoc,
+          done: this.doneBitMask,
           timestamp: this.timestampGenerator.next(),
-          order: [ this.bitLoc ],
+          order: [ this.operatorIndex ],
         };
 
         item = item.setContextEntry(stemsContextKeys.eddiesMetadata, itemMetadata);

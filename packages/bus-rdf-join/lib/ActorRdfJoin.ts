@@ -240,20 +240,34 @@ TS
    * @param entries
    * @returns
    */
+  /**
+   * Find all connected components of the join graph using the find-union datastructure
+   * based on shared variables and constant subjects (subject star-joins).
+   * @param entries
+   * @returns
+   */
   static findConnectedComponentsInJoinGraph(
     entries: IJoinEntryWithMetadata[],
   ): IConnectedComponents {
-    function find(idx: number, parent: number[]): number {
+    const n = entries.length;
+    if (n === 0) {
+      return { entries: [], indexes: [] };
+    }
+
+    const parent: number[] = Array.from({ length: n }, (_, i) => i);
+    const size: number[] = Array.from({ length: n }, () => 1);
+
+    function find(idx: number): number {
       if (parent[idx] === idx) {
         return idx;
       }
-      parent[idx] = find(parent[idx], parent);
+      parent[idx] = find(parent[idx]);
       return parent[idx];
     }
 
-    function union(a: number, b: number, parent: number[], size: number[]) {
-      const rootA = find(a, parent);
-      const rootB = find(b, parent);
+    function union(a: number, b: number) {
+      const rootA = find(a);
+      const rootB = find(b);
       if (rootA === rootB) {
         return;
       }
@@ -266,13 +280,8 @@ TS
       }
     }
 
-    const n = entries.length;
-    const parent: number[] = Array.from({ length: n }, (_, i) => i);
-    const size: number[] = Array.from({ length: n }, () => 1);
-
     const variableToEntry: Map<string, number[]> = new Map();
     const subjectToEntry: Map<string, number[]> = new Map();
-    const objectToEntry: Map<string, number[]> = new Map();
 
     function addDefault<T>(key: string, value: T, map: Map<string, T[]>) {
       if (!map.has(key)) {
@@ -281,54 +290,35 @@ TS
       map.get(key)!.push(value);
     }
 
-    // Map variables, subjects, and blanknodes to their entries to know which entries to merge
+    // Map variables and constant subjects to their entries to know which entries to merge
     for (let i = 0; i < n; i++) {
       const entryVariables = entries[i].metadata.variables.map(variable => variable.variable.value);
-      const { subjects, objects } = this.getOperatorPatternSubjectObjectIRIs(entries[i].operation);
+      const subjects = this.extractConstantSubjects(entries[i].operation);
       for (const entryVariable of entryVariables) {
         addDefault(entryVariable, i, variableToEntry);
       }
       for (const subject of subjects) {
         addDefault(subject, i, subjectToEntry);
       }
-      for (const object of objects) {
-        addDefault(object, i, objectToEntry);
-      }
     }
+
     function mergeOverlapping(termToEntry: Map<string, number[]>) {
       for (const entryIndexes of termToEntry.values()) {
         for (let k = 1; k < entryIndexes.length; k++) {
-          union(entryIndexes[0], entryIndexes[k], parent, size);
+          union(entryIndexes[0], entryIndexes[k]);
         }
       }
     }
 
-    function mergeOverlappingSubjObj(
-      subjToEntry: Map<string, number[]>,
-      objToEntry: Map<string, number[]>,
-    ) {
-      for (const subj of subjToEntry.keys()) {
-        // When subject is in obj map, then there is a connection
-        if (objToEntry.has(subj)) {
-          const combinedEntries = [ ...subjToEntry.get(subj)!, ...objToEntry.get(subj)! ];
-          for (let k = 1; k < combinedEntries.length; k++) {
-            union(combinedEntries[0], combinedEntries[k], parent, size);
-          }
-        }
-      }
-    }
-    // Merge connected entries with: overlapping variables and
-    // overlapping subject or object IRIs
+    // Merge connected entries with overlapping variables or constant subjects
     mergeOverlapping(variableToEntry);
     mergeOverlapping(subjectToEntry);
-    mergeOverlapping(objectToEntry);
-    mergeOverlappingSubjObj(subjectToEntry, objectToEntry);
 
     // Reconstruct connected components from union-find datastructure
     const connectedComponents: Map<number, IJoinEntryWithMetadata[]> = new Map();
     const connectedComponentsIndexes: Map<number, number[]> = new Map();
     for (let l = 0; l < n; l++) {
-      const parentOfEntry = find(l, parent);
+      const parentOfEntry = find(l);
       if (!connectedComponents.has(parentOfEntry)) {
         connectedComponents.set(parentOfEntry, []);
         connectedComponentsIndexes.set(parentOfEntry, []);
@@ -342,24 +332,25 @@ TS
     };
   }
 
-  public static getOperatorPatternSubjectObjectIRIs(operator: Algebra.Operation):
-  { subjects: Set<string>; objects: Set<string> } {
+  public static extractConstantSubjects(operator: Algebra.Operation): Set<string> {
     const subjects = new Set<string>();
-    const objects = new Set<string>();
     visitOperation(operator, {
       [Algebra.Types.PATTERN]: {
         visitor: (op) => {
-          // Extract subject IRIs
-          if (op.subject.termType === 'NamedNode') {
+          if (op.subject.termType === 'NamedNode' || op.subject.termType === 'Literal') {
             subjects.add(op.subject.value);
           }
-          if (op.object.termType === 'NamedNode') {
-            objects.add(op.object.value);
+        },
+      },
+      [Algebra.Types.PATH]: {
+        visitor: (op) => {
+          if (op.subject.termType === 'NamedNode' || op.subject.termType === 'Literal') {
+            subjects.add(op.subject.value);
           }
         },
-      }
+      },
     });
-    return { subjects, objects };
+    return subjects;
   }
 
   /**

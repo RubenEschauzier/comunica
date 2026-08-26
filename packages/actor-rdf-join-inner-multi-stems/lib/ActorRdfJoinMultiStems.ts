@@ -126,17 +126,17 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
             hashFunction,
             <JoinFunction> ActorRdfJoin.joinBindings,
             i,
+            1 << i,
+            entry.operation,
             (await entry.output.metadata()).variables.map(x => x.variable),
-            this.getComponentSubjectObjectIRIs(entry),
+            this.getComponentSubjectIRIs(entry),
             entriesJoinVariables[i],
             componentHasCartesian,
           ),
         );
         inputStreams.push(entry);
       }
-      const router = this.routerFactory.createRouter(
-        connectedComponentEntries.map(entry => entry.operation)
-      );
+      const router = this.routerFactory.createRouter();
 
       let logContext: Record<string, any> | undefined;
       if (logger && !skipLog) {
@@ -219,10 +219,9 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     }, { ...sideData, sortedEntries });
   }
 
-  protected getComponentSubjectObjectIRIs(entry: IJoinEntryWithMetadata): RDF.NamedNode[] {
-    const { subjects, objects } = ActorRdfJoin.getOperatorPatternSubjectObjectIRIs(entry.operation);
-    const namedNodesAsString = [ ...subjects.values(), ...objects.values() ];
-    return namedNodesAsString.map(x => this.DF.namedNode(x));
+  protected getComponentSubjectIRIs(entry: IJoinEntryWithMetadata): RDF.NamedNode[] {
+    const subjects = ActorRdfJoin.extractConstantSubjects(entry.operation);
+    return [ ...subjects.values() ].map(x => this.DF.namedNode(x));
   }
 
   protected async getJoinVariables(entries: IJoinEntryWithMetadata[]): Promise<RDF.Variable[][][]> {
@@ -232,18 +231,23 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
 
     for (let i = 0; i < entries.length; i++) {
       const overlappingVariables: string[][] = [];
+      const variablesOuter = (await entries[i].output.metadata()).variables.map(x => x.variable.value);
+
       for (let j = 0; j < entries.length; j++) {
         if (i !== j) {
           const variablesInner = new Set((await entries[j].output.metadata()).variables.map(x => x.variable.value));
-          const variablesOuter = (await entries[i].output.metadata()).variables.map(x => x.variable.value);
-          const intersection = variablesOuter.filter(x => variablesInner.has(x));
-          // Ensure no duplicate entries are added
-          if (intersection.length > 0 && !overlappingVariables.some(x => x.every(y => intersection.includes(y)))) {
-            overlappingVariables.push(intersection);
+          const intersection = variablesOuter.filter(x => variablesInner.has(x)).sort();
+          // Ensure no duplicate entries are added (exact array equality)
+          if (intersection.length > 0) {
+            const alreadyPresent = overlappingVariables.some(existing =>
+              existing.length === intersection.length && existing.every((val, idx) => val === intersection[idx]));
+            if (!alreadyPresent) {
+              overlappingVariables.push(intersection);
+            }
           }
         }
       }
-      entryJoinVariables.push([ ...overlappingVariables ].map(x => x.map(y => this.DF.variable(y))));
+      entryJoinVariables.push(overlappingVariables.map(x => x.map(y => this.DF.variable(y))));
     }
     return entryJoinVariables;
   }

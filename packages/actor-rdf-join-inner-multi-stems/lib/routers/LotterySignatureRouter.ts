@@ -1,4 +1,3 @@
-import { Algebra } from '@comunica/utils-algebra';
 import type { StemsOperatorStream, ISelectivityData } from '../StemsOperatorStream';
 import type { IStemsRouterFactory, IStemsRoutingEntry } from './BaseRouter';
 import { RouterLotteryScheduling } from './LotteryRouter';
@@ -18,7 +17,7 @@ export class RouterLotterySchedulingSignature extends RouterLotteryScheduling {
       for (const route of routing){
         // If size 0 or 1 no choice to be made
         if (route.length < 2) {
-          updatedRoutings.push(route)
+          updatedRoutings.push(route);
           continue;
         }
         const ticketWeights: number[] = [];
@@ -35,7 +34,7 @@ export class RouterLotterySchedulingSignature extends RouterLotteryScheduling {
         const offset = minScore < 0 ? -minScore : 0;
         const ticketWeightsNonNegative = ticketWeights.map(w => w + offset + 1);
 
-        updatedRoutings.push(this.reorderWeightedChoice(route, ticketWeightsNonNegative))
+        updatedRoutings.push(this.reorderWeightedChoice(route, ticketWeightsNonNegative));
       }
       updatedRoutingTable[key] = updatedRoutings;
     }
@@ -59,7 +58,7 @@ export class RouterLotterySchedulingSignature extends RouterLotteryScheduling {
 }
 
 export class LotterySignatureRouterFactory implements IStemsRouterFactory {
-  public createRouter(patterns: Algebra.Pattern[]): RouterLotterySchedulingSignature {
-    return new RouterLotterySchedulingSignature(patterns);
+  public createRouter(): RouterLotterySchedulingSignature {
+    return new RouterLotterySchedulingSignature();
   }
 }

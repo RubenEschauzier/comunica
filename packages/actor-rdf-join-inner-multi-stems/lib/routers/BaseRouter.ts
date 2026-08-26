@@ -1,67 +1,105 @@
+import { Algebra } from '@comunica/utils-algebra';
 import type { Bindings } from '@comunica/utils-bindings-factory';
 
 import type * as RDF from '@rdfjs/types';
 import { stemsContextKeys } from '../StemsControllerStream';
 import type { StemsOperatorStream } from '../StemsOperatorStream';
-import { Algebra } from '@comunica/utils-algebra';
+
+export interface IRouteTableOperation {
+  // Operation of this routing entry
+  operation: Algebra.Operation;
+  // Bit mask representing the operations satisfied by this entry
+  doneBitMask: number;
+  // Variables in operation
+  variables: RDF.Variable[];
+  // Named nodes in operation
+  namedNodes: RDF.NamedNode[];
+}
 
 export abstract class RouterBase implements IStemsRouter {
-  public readonly patterns: Algebra.Pattern[];
-  
-  public constructor(patterns: Algebra.Pattern[]){
-    this.patterns = patterns;
-  }
+  protected routeOperations: IRouteTableOperation[] = [];
+
   public createRouteTable(
-    variables: RDF.Variable[][],
-    namedNodes: RDF.NamedNode[][]
+    operations: IRouteTableOperation[],
   ): Record<number, IStemsRoutingEntry[][]> {
-    const n = variables.length;
+    if (operations.length > 30) {
+      throw new Error(`RouterBase supports up to 30 operations (received ${operations.length}).`);
+    }
+    // Guard against router reuse with different route operations
+    if (this.routeOperations.length > 0) {
+      if (
+        this.routeOperations.length !== operations.length ||
+        this.routeOperations.some((op, i) => op.operation !== operations[i].operation)
+      ) {
+        throw new Error(
+          'Router state error: createRouteTable was called with routeOperations that differ from already set routeOperations.',
+        );
+      }
+    }
+
+    this.routeOperations = operations;
+
+    // Calculate total composite query completion mask across all operations
+    const allBitsMask = operations.reduce((acc, op) => acc | op.doneBitMask, 0);
+    // Find the number of bits needed to represent all states
+    const nBits = allBitsMask === 0 ? 0 : 32 - Math.clz32(allBitsMask);
+    const totalStates = 1 << nBits;
+
     const routeTable: Record<number, IStemsRoutingEntry[][]> = {};
-    const variableValues = variables.map(vArr => vArr.map(x => x.value));
-    const namedNodeValues = namedNodes.map(nArr => nArr.map(x => x.value));
 
-    const totalStates = 1 << n;
     for (let state = 1; state < totalStates; state++) {
-      // Build doneVector array from bits of state
-      const doneIndexes = this.getSetBitIndexes(state);
-
-      // // If all done, there is no next entry
-      if (doneIndexes.length === n) {
+      // If all operations in the query are completed, no next entry
+      if ((state & allBitsMask) === allBitsMask) {
         continue;
       }
 
-      const doneVars = new Set(doneIndexes.flatMap(i => variableValues[i]));
-      const doneNamedNodes = new Set(doneIndexes.flatMap(i => namedNodeValues[i]));
+      // Collect variables and namedNodes from all operations satisfied in this state
+      const doneOperations = this.routeOperations.filter(
+        op => (state & op.doneBitMask) === op.doneBitMask,
+      );
+      const doneVars = new Set(
+        doneOperations.flatMap(op => op.variables.map(v => v.value)),
+      );
+      const doneNamedNodes = new Set(
+        doneOperations.flatMap(op => op.namedNodes.map(n => n.value)),
+      );
 
       const possibleNext: IStemsRoutingEntry[] = [];
 
-      for (let nextIdx = 0; nextIdx < n; nextIdx++) {
-        if ((state & (1 << nextIdx)) === 0) {
-          // First check for overlapping variables between triple patterns
-          const varsNext = variables[nextIdx];
-          const joinVars = varsNext.filter(v => doneVars.has(v.value));
+      for (let nextIdx = 0; nextIdx < this.routeOperations.length; nextIdx++) {
+        const nextEntry = this.routeOperations[nextIdx];
+
+        // An operator can only be routed to if none of its operations have already been completed
+        if ((state & nextEntry.doneBitMask) === 0) {
+          // Check for overlapping variables between triple patterns
+          const joinVars = nextEntry.variables.filter(v => doneVars.has(v.value));
           // When variables overlap we add it to possible next routing decision
           if (joinVars.length > 0) {
-            possibleNext.push({ next: nextIdx, joinVars });
+            possibleNext.push({
+              next: nextIdx,
+              operation: nextEntry.operation,
+              joinVars,
+            });
             continue;
           }
-          // Same approach but for IRIs, if a IRI matches between triple patterns
-          // it is a valid routing decision
-          const namedNodesNext = namedNodes[nextIdx];
-          const joinNamedNodes = namedNodesNext.filter(n => doneNamedNodes.has(n.value));
+
+          // Same approach for IRIs, if an IRI matches between triple patterns it is a valid routing decision
+          const joinNamedNodes = nextEntry.namedNodes.filter(n => doneNamedNodes.has(n.value));
           if (joinNamedNodes.length > 0) {
-            // JoinVars is used to determine matches using the hash function. We
-            // set join vars to empty for a join with no variables. This
-            // means the hash for these joins always match
-            possibleNext.push({ next: nextIdx, joinVars });
+            // JoinVars is empty for joins with no overlapping variables
+            possibleNext.push({
+              next: nextIdx,
+              operation: nextEntry.operation,
+              joinVars: [],
+            });
           }
         }
       }
 
-      routeTable[state] = [possibleNext];
+      routeTable[state] = [ possibleNext ];
     }
     return routeTable;
-  };
+  }
 
   protected getSetBitIndexes(mask: number): number[] {
     const indexes: number[] = [];
@@ -86,6 +124,11 @@ export abstract class RouterBase implements IStemsRouter {
     return indexes;
   }
 
+  protected doneIndexesToMask(indexes: number[]){
+    // Sum the indexes by their respective bit representation
+    return indexes.reduce((acc: number, curr: number) => acc + (1 << curr), 0);
+  }
+
   public routeBinding(binding: Bindings, n: number): number | undefined {
     const done = binding.getContextEntry(stemsContextKeys.eddiesMetadata)!.done;
     if (done === (1 << n) - 1) {
@@ -98,7 +141,7 @@ export abstract class RouterBase implements IStemsRouter {
 
   public abstract updateRouteTable(
     operators: StemsOperatorStream[],
-    routeTable: Record<string, IStemsRoutingEntry[][]>
+    routeTable: Record<string, IStemsRoutingEntry[][]>,
   ): Record<number, IStemsRoutingEntry[][]>;
 }
 
@@ -111,24 +154,23 @@ export abstract class RouterBase implements IStemsRouter {
 export interface IStemsRouter {
   routeBinding: (binding: Bindings, n: number) => number | undefined;
   createRouteTable: (
-    variables: RDF.Variable[][], 
-    namedNodes: RDF.NamedNode[][]
+    operations: IRouteTableOperation[],
   ) => Record<number, IStemsRoutingEntry[][]>;
   updateRouteTable: (
     operators: StemsOperatorStream[], 
-    routeTable: Record<string, IStemsRoutingEntry[][]>
+    routeTable: Record<string, IStemsRoutingEntry[][]>,
   ) => Record<number, IStemsRoutingEntry[][]>;
 }
 
 export interface IStemsRoutingEntry {
   next: number;
+  operation: Algebra.Operation;
   joinVars: RDF.Variable[];
 }
 
 export interface IStemsRouterFactory {
   /**
    * Creates a new router instance for a specific query execution.
-   * @param variables - The variables involved in this specific query.
    */
-  createRouter: (patterns: Algebra.Pattern[]) => IStemsRouter;
+  createRouter: () => IStemsRouter;
 }
