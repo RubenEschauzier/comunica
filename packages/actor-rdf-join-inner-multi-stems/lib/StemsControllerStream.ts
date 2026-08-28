@@ -111,6 +111,14 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
     this.on('end', () => this._end());
   }
 
+  get numOperators(){
+    return this.eddieIterators.length;
+  }
+
+  public addOperator(){
+    
+  }
+
   public override _end(): void {
     if (!this.loggedEndEvent && this.snapshots && this.logger) {
       const finalStatistics = this.buildStatistics();

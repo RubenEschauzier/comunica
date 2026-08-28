@@ -30,9 +30,9 @@ export interface IAdaptiveJoinComponent {
    * @param metadata Optional metadata, cost coefficients, or routing ticket hints.
    * @returns True if the source was accepted and attached, false otherwise.
    */
-  addCompositeSource: <T extends Bindings | RDF.Quad>(
+  addCompositeSource: (
     operations: Algebra.Operation[],
-    dataStream: AsyncIterator<T>,
+    dataStream: AsyncIterator<Bindings>,
     metadata?: Record<string, any>,
   ) => boolean;
 }
