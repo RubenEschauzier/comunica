@@ -144,6 +144,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
           query: queryString,
         };
       }
+
       const controllerStream = new StemsControllerStream(
         stemOperators,
         router,
@@ -152,6 +153,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
         logger,
         logContext,
       );
+
       eddieControllerStreams.push(controllerStream);
       eddieEntriesInput.push(inputStreams);
     }
@@ -171,6 +173,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
         },
       };
     }
+    
     const dataFactory: ComunicaDataFactory = action.context.getSafe(KeysInitQuery.dataFactory);
     const algebraFactory = new AlgebraFactory(dataFactory);
     const connectedComponentEntries = [];
