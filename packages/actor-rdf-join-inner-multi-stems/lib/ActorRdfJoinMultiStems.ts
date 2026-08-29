@@ -127,7 +127,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
             <JoinFunction> ActorRdfJoin.joinBindings,
             i,
             1 << i,
-            entry.operation,
+            [ entry.operation ],
             (await entry.output.metadata()).variables.map(x => x.variable),
             this.getComponentSubjectIRIs(entry),
             entriesJoinVariables[i],

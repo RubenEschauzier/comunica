@@ -4,10 +4,11 @@ import type { Bindings } from '@comunica/utils-bindings-factory';
 import type * as RDF from '@rdfjs/types';
 import { stemsContextKeys } from '../StemsControllerStream';
 import type { StemsOperatorStream } from '../StemsOperatorStream';
+import equal = require('deep-equal');
 
 export interface IRouteTableOperation {
-  // Operation of this routing entry
-  operation: Algebra.Operation;
+  // Operations satisfied by this entry
+  operations: Algebra.Operation[];
   // Bit mask representing the operations satisfied by this entry
   doneBitMask: number;
   // Variables in operation
@@ -29,7 +30,7 @@ export abstract class RouterBase implements IStemsRouter {
     if (this.routeOperations.length > 0) {
       if (
         this.routeOperations.length !== operations.length ||
-        this.routeOperations.some((op, i) => op.operation !== operations[i].operation)
+        this.routeOperations.some((op, i) => !equal(op.operations, operations[i].operations))
       ) {
         throw new Error(
           'Router state error: createRouteTable was called with routeOperations that differ from already set routeOperations.',
@@ -57,9 +58,11 @@ export abstract class RouterBase implements IStemsRouter {
       const doneOperations = this.routeOperations.filter(
         op => (state & op.doneBitMask) === op.doneBitMask,
       );
+
       const doneVars = new Set(
         doneOperations.flatMap(op => op.variables.map(v => v.value)),
       );
+      
       const doneNamedNodes = new Set(
         doneOperations.flatMap(op => op.namedNodes.map(n => n.value)),
       );
@@ -71,28 +74,13 @@ export abstract class RouterBase implements IStemsRouter {
 
         // An operator can only be routed to if none of its operations have already been completed
         if ((state & nextEntry.doneBitMask) === 0) {
-          // Check for overlapping variables between triple patterns
-          const joinVars = nextEntry.variables.filter(v => doneVars.has(v.value));
-          // When variables overlap we add it to possible next routing decision
-          if (joinVars.length > 0) {
-            possibleNext.push({
-              next: nextIdx,
-              operation: nextEntry.operation,
-              joinVars,
-            });
-            continue;
-          }
-
-          // Same approach for IRIs, if an IRI matches between triple patterns it is a valid routing decision
-          const joinNamedNodes = nextEntry.namedNodes.filter(n => doneNamedNodes.has(n.value));
-          if (joinNamedNodes.length > 0) {
-            // JoinVars is empty for joins with no overlapping variables
-            possibleNext.push({
-              next: nextIdx,
-              operation: nextEntry.operation,
-              joinVars: [],
-            });
-          }
+          this.addOperatorIfOverlapping(
+            possibleNext,
+            nextIdx,
+            nextEntry,
+            doneVars,
+            doneNamedNodes,
+          );
         }
       }
 
@@ -139,6 +127,106 @@ export abstract class RouterBase implements IStemsRouter {
     return Math.min(...indexesReadyEddies);
   }
 
+  public addOperator(
+    routeTable: Record<number, IStemsRoutingEntry[][]>,
+    stemsOperatorStream: StemsOperatorStream,
+    metadata?: Record<string, any>,
+  ): Record<number, IStemsRoutingEntry[][]> {
+    const newOpIndex = stemsOperatorStream.operatorIndex;
+    const setBitsMask = stemsOperatorStream.doneBitMask; 
+    this.routeOperations.push({
+      operations: stemsOperatorStream.operations,
+      doneBitMask: stemsOperatorStream.doneBitMask,
+      variables: stemsOperatorStream.variables,
+      namedNodes: stemsOperatorStream.namedNodes,
+    });
+
+    for (const [ doneKey, routing ] of Object.entries(routeTable)) {
+      const key = Number.parseInt(doneKey, 10);
+      // If the done signature has no overlap with the current entry we can route to this derived resource
+      if ((key & setBitsMask) === 0){
+        const doneOperations = this.routeOperations.filter(
+          op => (key & op.doneBitMask) === op.doneBitMask,
+        );
+        const doneVars = new Set(
+          doneOperations.flatMap(op => op.variables.map(v => v.value)),
+        );
+        const doneNamedNodes = new Set(
+          doneOperations.flatMap(op => op.namedNodes.map(n => n.value)),
+        );
+
+        const newRouting: IStemsRoutingEntry[] = [];
+        this.addOperatorIfOverlapping(
+          newRouting,
+          stemsOperatorStream.operatorIndex,
+          stemsOperatorStream,
+          doneVars,
+          doneNamedNodes,
+        );
+        
+        const possibleNextOperators = this.routeOperations.filter(
+          operation => (operation.doneBitMask & setBitsMask) === 0
+        );
+
+        for (const nextOp of possibleNextOperators){
+          
+        }
+        // TODO Iterate over all the other operators (possibleNextOperators) in the table and determine 
+        // if there is any overlap with current doneKey +  doneKey of derived resource
+        // Then push this new routing into the existing `routing` variable.
+      }
+      // TODO, do we need to update existing routing?
+    }
+
+    return routeTable;
+  }
+
+  protected getDerivedResourceBits(derivedOperations: Algebra.Operation[]){
+    const indexes = this.routeOperations.flatMap((routeOperation, idx) =>
+      derivedOperations.some(derivedOperation =>
+        routeOperation.operations.some(op => equal(derivedOperation, op))
+      ) ? [idx] : []
+    );
+    if (indexes.length === 0){
+      throw new Error("Tried to add derived resource with no overlap with current routingTable");
+    }
+    return this.doneIndexesToMask(indexes);
+  }
+
+  protected addOperatorIfOverlapping(
+    possibleNext: IStemsRoutingEntry[],
+    nextIdx: number,
+    nextEntry: IRouteTableOperation,
+    doneVars: Set<string>,
+    doneNamedNodes: Set<string>,
+  ): boolean {
+    // Check for overlapping variables between triple patterns
+    const joinVars = nextEntry.variables.filter(v => doneVars.has(v.value));
+    // When variables overlap we add it to possible next routing decision
+    if (joinVars.length > 0) {
+      possibleNext.push({
+        next: nextIdx,
+        operations: nextEntry.operations,
+        joinVars,
+      });
+      return true;
+    }
+
+    // Same approach for IRIs, if an IRI matches between triple patterns it is a valid routing decision
+    const joinNamedNodes = nextEntry.namedNodes.filter(n => doneNamedNodes.has(n.value));
+    if (joinNamedNodes.length > 0) {
+      // JoinVars is empty for joins with no overlapping variables
+      possibleNext.push({
+        next: nextIdx,
+        operations: nextEntry.operations,
+        joinVars: [],
+      });
+      return true;
+    }
+
+    return false;
+  }
+
   public abstract updateRouteTable(
     operators: StemsOperatorStream[],
     routeTable: Record<string, IStemsRoutingEntry[][]>,
@@ -152,6 +240,11 @@ export abstract class RouterBase implements IStemsRouter {
  * naturally be exclusive through the set 'done' bits. 
  */
 export interface IStemsRouter {
+  addOperator(
+    routeTable: Record<number, IStemsRoutingEntry[][]>,
+    stemsOperatorStream: StemsOperatorStream,
+    metadata?: Record<string, any>,
+  ): Record<number, IStemsRoutingEntry[][]>;
   routeBinding: (binding: Bindings, n: number) => number | undefined;
   createRouteTable: (
     operations: IRouteTableOperation[],
@@ -164,7 +257,7 @@ export interface IStemsRouter {
 
 export interface IStemsRoutingEntry {
   next: number;
-  operation: Algebra.Operation;
+  operations: Algebra.Operation[];
   joinVars: RDF.Variable[];
 }
 

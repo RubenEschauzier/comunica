@@ -13,9 +13,9 @@ import { stemsContextKeys } from './StemsControllerStream';
  */
 export class StemsOperatorStream extends BufferedIterator<Bindings> {
   /**
-   * The underlying SPARQL algebra operation for this operator
+   * The underlying SPARQL algebra operations for this operator
    */
-  public readonly operation: Algebra.Operation;
+  public readonly operations: Algebra.Operation[];
   /**
    * The bitmask of operations satisfied by this operator
    */
@@ -105,7 +105,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
     funJoin: JoinFunction,
     operatorIndex: number,
     doneBitMask: number,
-    operation: Algebra.Operation,
+    operations: Algebra.Operation[],
     variables: RDF.Variable[],
     namedNodes: RDF.NamedNode[],
     joinVariables: RDF.Variable[][],
@@ -113,7 +113,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   ) {
     super();
 
-    this.operation = operation;
+    this.operations = operations;
     this.doneBitMask = doneBitMask;
     this.variables = variables;
     this.namedNodes = namedNodes;

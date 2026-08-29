@@ -1,11 +1,11 @@
 import type { AsyncIterator } from 'asynciterator';
 import type * as RDF from '@rdfjs/types';
 import type { Bindings, BindingsStream, IJoinEntryWithMetadata } from '@comunica/types';
-import type { Algebra } from '@comunica/utils-algebra';
+import { Algebra, algebraUtils } from '@comunica/utils-algebra';
 import { IStemsRouter, ITimestampGenerator, JoinFunction, StemsControllerStream, StemsOperatorStream } from '@comunica/actor-rdf-join-inner-multi-stems';
 import { HashFunction } from '@comunica/bus-hash-bindings';
 import { IAdaptiveJoinComponent } from './IAdaptiveJoinController';
-import equal from 'deep-equal';
+import equal = require('deep-equal');
 
 
 export interface IAdaptiveJoinComponentSteMsArgs {
@@ -86,16 +86,11 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
 
     // Identify variables required by the component for joining with the rest of the graph
     const componentJoinVariables = this.computeJoinVariablesForSubset(matchedIndexes);
-
-
-
-    let operatorVariables: RDF.Variable[];
-    operatorVariables = this.extractVariablesFromOperations(operations);
-
+    const operatorVariables = this.extractVariablesFromOperations(operations);
+    const operatorNamedNodes = this.extractSubjectNamedNodesFromOperations(operations);
 
     // Instantiate a new StemsOperatorStream with the component's internal generators
     const newOperatorIndex = this.stemsControllerStream.numOperators;
-    const compositeOperation = operations.length === 1 ? operations[0] : this.createCompositeOperation(operations);
 
     const operator = new StemsOperatorStream(
       dataStream,
@@ -104,10 +99,9 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
       this.joinFn,
       newOperatorIndex,
       setBitsMask,
-      compositeOperation,
+      operations,
       operatorVariables,
-      // TODO: Determine the named nodes this can join on!
-      [], // Named nodes
+      operatorNamedNodes,
       componentJoinVariables,
       false,
     );
@@ -142,24 +136,59 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
   protected extractVariablesFromOperations(operations: Algebra.Operation[]): RDF.Variable[] {
     const vars = new Map<string, RDF.Variable>();
     for (const op of operations) {
-      if (op.type === 'pattern') {
-        for (const v of this.extractPatternVariables(op as Algebra.Pattern)) {
-          vars.set(v.value, v);
-        }
-      }
+      algebraUtils.visitOperation(op, {
+        [Algebra.Types.PATTERN]: {
+          visitor: (pattern) => {
+            const terms = [pattern.subject, pattern.predicate, pattern.object, pattern.graph];
+            for (const term of terms) {
+              if (term.termType === 'Variable') {
+                vars.set(term.value, term);
+              }
+            }
+          },
+        },
+        [Algebra.Types.PATH]: {
+          visitor: (path) => {
+            const terms = [path.subject, path.object, path.graph];
+            for (const term of terms) {
+              if (term.termType === 'Variable') {
+                vars.set(term.value, term);
+              }
+            }
+          },
+        },
+        [Algebra.Types.VALUES]: {
+          visitor: (values) => {
+            for (const v of values.variables) {
+              vars.set(v.value, v);
+            }
+          },
+        },
+      });
     }
     return Array.from(vars.values());
   }
 
-  protected extractPatternVariables(pattern: Algebra.Pattern): RDF.Variable[] {
-    const terms = [pattern.subject, pattern.predicate, pattern.object, pattern.graph];
-    return terms.filter((term): term is RDF.Variable => term.termType === 'Variable');
-  }
-
-  protected createCompositeOperation(operations: Algebra.Operation[]): Algebra.Operation {
-    return {
-      type: 'bgp',
-      patterns: operations.filter((op): op is Algebra.Pattern => op.type === 'pattern'),
-    } as any;
+  protected extractSubjectNamedNodesFromOperations(operations: Algebra.Operation[]): RDF.NamedNode[] {
+    const namedNodes = new Map<string, RDF.NamedNode>();
+    for (const op of operations) {
+      algebraUtils.visitOperation(op, {
+        [Algebra.Types.PATTERN]: {
+          visitor: (pattern) => {
+            if (pattern.subject.termType === 'NamedNode') {
+              namedNodes.set(pattern.subject.value, pattern.subject);
+            }
+          },
+        },
+        [Algebra.Types.PATH]: {
+          visitor: (path) => {
+            if (path.subject.termType === 'NamedNode') {
+              namedNodes.set(path.subject.value, path.subject);
+            }
+          },
+        },
+      });
+    }
+    return Array.from(namedNodes.values());
   }
 }

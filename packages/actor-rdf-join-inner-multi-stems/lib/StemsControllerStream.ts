@@ -17,7 +17,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
    * The iterators performing the half-joins and producing triple pattern
    * matches
    */
-  private readonly eddieIterators: StemsOperatorStream[];
+  private readonly stemsIterators: StemsOperatorStream[];
   /**
    * The routing object constructing the routing table.
    */
@@ -70,13 +70,13 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
     logContext?: Record<string, any>,
   ) {
     super();
-    this.eddieIterators = eddieIterators;
+    this.stemsIterators = eddieIterators;
     this.finishedReading = Array.from<number>({ length: eddieIterators.length }).fill(0);
     this.router = router;
     this.routingUpdateFrequency = updateFrequency;
     this.routingTable = this.router.createRouteTable(
-      this.eddieIterators.map(it => ({
-        operation: it.operation,
+      this.stemsIterators.map(it => ({
+        operations: it.operations,
         doneBitMask: it.doneBitMask,
         variables: it.variables,
         namedNodes: it.namedNodes,
@@ -89,11 +89,11 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
     this.logger = logger;
     this.logContext = logContext;
 
-    if (this.eddieIterators.some(it => it.readable)) {
+    if (this.stemsIterators.some(it => it.readable)) {
       this.readable = true;
     }
 
-    for (const [ index, it ] of this.eddieIterators.entries()) {
+    for (const [ index, it ] of this.stemsIterators.entries()) {
       it.on('readable', () => this.readable = true);
       it.on('endRead', () => {
         // When all eddiestreams finished creating new tuples,
@@ -101,7 +101,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
         this.finishedReading[index] = 1;
         if (this.finishedReading.every(val => val === 1)) {
           this.endTuples = true;
-          const hasBufferedData = this.eddieIterators.some(op => op.readable && !op.ended);
+          const hasBufferedData = this.stemsIterators.some(op => op.readable && !op.ended);
           if (!hasBufferedData) {
             this._end();
           }
@@ -112,11 +112,43 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
   }
 
   get numOperators(){
-    return this.eddieIterators.length;
+    return this.stemsIterators.length;
   }
 
-  public addOperator(){
-    
+  public addOperator(
+    stemsOperatorStream: StemsOperatorStream,
+    metadata?: Record<string, any>,
+  ) {
+    const updatedTable = this.router.addOperator(
+      this.routingTable,
+      stemsOperatorStream,
+      metadata,
+    );
+    if (updatedTable) {
+      this.routingTable = updatedTable;
+    }
+
+    this.stemsIterators.push(stemsOperatorStream);
+    this.finishedReading.push(0);
+    // Ensure that if the other streams are ended and we get a new stream the controller
+    // stream stays open
+    this.endTuples = false;
+    if (stemsOperatorStream.readable){
+      this.readable = true;
+    }
+    stemsOperatorStream.on('readable', () => this.readable = true);
+    stemsOperatorStream.on('endRead', () => {
+      // When all eddiestreams finished creating new tuples,
+      // we only need to process the remaining tuples in buffers
+      this.finishedReading[this.finishedReading.length - 1] = 1;
+      if (this.finishedReading.every(val => val === 1)) {
+        this.endTuples = true;
+        const hasBufferedData = this.stemsIterators.some(op => op.readable && !op.ended);
+        if (!hasBufferedData) {
+          this._end();
+        }
+      }
+    });
   }
 
   public override _end(): void {
@@ -130,7 +162,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
       this.logger.debug(JSON.stringify(this.snapshots, null, 2), this.logContext);
       this.loggedEndEvent = true;
     }
-    for (const it of this.eddieIterators) {
+    for (const it of this.stemsIterators) {
       it.destroy();
     }
     super._end();
@@ -140,7 +172,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
     while (true) {
       let item: Bindings | null = null;
       let producedResults = false;
-      for (const eddieIterator of this.eddieIterators) {
+      for (const eddieIterator of this.stemsIterators) {
         item = eddieIterator.read();
         if (item === null) {
           continue;
@@ -163,7 +195,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
         for (const route of nextRoutes) {
           if (route.length > 0) {
             const nextStep = route[0];
-            this.eddieIterators[nextStep.next].push({
+            this.stemsIterators[nextStep.next].push({
               item,
               joinVars: nextStep.joinVars,
             });
@@ -172,7 +204,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
 
         if (this.bindingsSinceUpdate >= this.routingUpdateFrequency) {
           const start = performance.now();
-          this.routingTable = this.router.updateRouteTable(this.eddieIterators, this.routingTable);
+          this.routingTable = this.router.updateRouteTable(this.stemsIterators, this.routingTable);
           const end = performance.now();
           if (this.logger && this.logContext && this.snapshots) {
             const statisticsAtUpdate = this.buildStatistics();
@@ -219,23 +251,23 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
 
   private getOperatorSummary(producedTuples: number[]): IStatsOperators[] {
     const operatorSummaries: IStatsOperators[] = [];
-    for (let i = 0; i < this.eddieIterators.length; i++) {
+    for (let i = 0; i < this.stemsIterators.length; i++) {
       operatorSummaries.push({
         producedTuples: producedTuples[i],
-        timeEmpty: this.eddieIterators[i].timeEmpty,
-        timeNonEmpty: this.eddieIterators[i].timeNonEmpty,
-        emptyReads: this.eddieIterators[i].nFailedReads,
-        nonEmptyReads: this.eddieIterators[i].nSuccessReads,
+        timeEmpty: this.stemsIterators[i].timeEmpty,
+        timeNonEmpty: this.stemsIterators[i].timeNonEmpty,
+        emptyReads: this.stemsIterators[i].nFailedReads,
+        nonEmptyReads: this.stemsIterators[i].nSuccessReads,
       });
     }
     return operatorSummaries;
   }
 
   private getProducedTuplesSummary(): IProducedTupleSummary {
-    const producedTuples: number[] = <number[]> Array.from({ length: this.eddieIterators.length }).fill(0);
+    const producedTuples: number[] = <number[]> Array.from({ length: this.stemsIterators.length }).fill(0);
     let producedJoinResults = 0;
     let producedIntermediateResults = 0;
-    const orderSelectivities = this.eddieIterators.map(it => it.selectivitiesOrders);
+    const orderSelectivities = this.stemsIterators.map(it => it.selectivitiesOrders);
     for (const orderSelectivity of orderSelectivities) {
       for (const [ key, value ] of Object.entries(orderSelectivity)) {
         const orderAsArray = key.split(',').map(s => Number.parseInt(s.trim(), 10));
@@ -248,7 +280,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
         }
         // Last iterator isn't in the key signature as it is implied by the index of the
         // eddies iterator
-        if (orderAsArray.length === this.eddieIterators.length - 1) {
+        if (orderAsArray.length === this.stemsIterators.length - 1) {
           producedJoinResults += value.out;
         } else {
           producedIntermediateResults += value.out;
@@ -259,8 +291,8 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
   }
 
   private buildPlanSummary(): IPlanSummary {
-    const orderSelectivities = this.eddieIterators.map(it => it.selectivitiesOrders);
-    const fullOrderSize = this.eddieIterators.length;
+    const orderSelectivities = this.stemsIterators.map(it => it.selectivitiesOrders);
+    const fullOrderSize = this.stemsIterators.length;
     const fullOrders: IPlanStatistic[] = [];
     const coveredOrders: Set<string> = new Set();
 
