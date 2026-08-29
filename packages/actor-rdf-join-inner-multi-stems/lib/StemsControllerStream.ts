@@ -119,15 +119,6 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
     stemsOperatorStream: StemsOperatorStream,
     metadata?: Record<string, any>,
   ) {
-    const updatedTable = this.router.addOperator(
-      this.routingTable,
-      stemsOperatorStream,
-      metadata,
-    );
-    if (updatedTable) {
-      this.routingTable = updatedTable;
-    }
-
     this.stemsIterators.push(stemsOperatorStream);
     this.finishedReading.push(0);
     // Ensure that if the other streams are ended and we get a new stream the controller
@@ -149,6 +140,15 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
         }
       }
     });
+    const updatedTable = this.router.addOperator(
+      this.routingTable,
+      stemsOperatorStream,
+      metadata,
+    );
+
+    if (updatedTable) {
+      this.routingTable = updatedTable;
+    }
   }
 
   public override _end(): void {
