@@ -132,19 +132,14 @@ export abstract class RouterBase implements IStemsRouter {
     stemsOperatorStream: StemsOperatorStream,
     metadata?: Record<string, any>,
   ): Record<number, IStemsRoutingEntry[][]> {
-    const newOpIndex = stemsOperatorStream.operatorIndex;
+    // TODO, do we need to update existing routing?
     const setBitsMask = stemsOperatorStream.doneBitMask; 
-    this.routeOperations.push({
-      operations: stemsOperatorStream.operations,
-      doneBitMask: stemsOperatorStream.doneBitMask,
-      variables: stemsOperatorStream.variables,
-      namedNodes: stemsOperatorStream.namedNodes,
-    });
 
     for (const [ doneKey, routing ] of Object.entries(routeTable)) {
       const key = Number.parseInt(doneKey, 10);
       // If the done signature has no overlap with the current entry we can route to this derived resource
       if ((key & setBitsMask) === 0){
+        // Find all done operations and their variables and namedNodes
         const doneOperations = this.routeOperations.filter(
           op => (key & op.doneBitMask) === op.doneBitMask,
         );
@@ -156,6 +151,7 @@ export abstract class RouterBase implements IStemsRouter {
         );
 
         const newRouting: IStemsRoutingEntry[] = [];
+        // Always add the composite resource to the routing entry
         this.addOperatorIfOverlapping(
           newRouting,
           stemsOperatorStream.operatorIndex,
@@ -164,19 +160,33 @@ export abstract class RouterBase implements IStemsRouter {
           doneNamedNodes,
         );
         
-        const possibleNextOperators = this.routeOperations.filter(
-          operation => (operation.doneBitMask & setBitsMask) === 0
-        );
+        // Iterate over all other operator streams to see which ones are
+        // also options
+        for (let nextIdx = 0; nextIdx < this.routeOperations.length; nextIdx++) {
+          const nextEntry = this.routeOperations[nextIdx];
 
-        for (const nextOp of possibleNextOperators){
-          
+          // The possible iterators in a composite resource path are those that
+          // are not yet completed and have no overlap with the composite resource
+          if ((key & nextEntry.doneBitMask) === 0 && (setBitsMask & nextEntry.doneBitMask) === 0) {
+            this.addOperatorIfOverlapping(
+              newRouting,
+              nextIdx,
+              nextEntry,
+              doneVars,
+              doneNamedNodes,
+            );
+          }
         }
-        // TODO Iterate over all the other operators (possibleNextOperators) in the table and determine 
-        // if there is any overlap with current doneKey +  doneKey of derived resource
-        // Then push this new routing into the existing `routing` variable.
+        routing.push(newRouting);
       }
-      // TODO, do we need to update existing routing?
     }
+    this.routeOperations.push({
+      operations: stemsOperatorStream.operations,
+      doneBitMask: stemsOperatorStream.doneBitMask,
+      variables: stemsOperatorStream.variables,
+      namedNodes: stemsOperatorStream.namedNodes,
+    });
+
 
     return routeTable;
   }
