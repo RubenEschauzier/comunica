@@ -398,3 +398,19 @@ To avoid the double-drop hazard, you must distinguish between **raw un-joined tr
 ### The Concrete Rule:
 - **In Base Operator `_read()`**: Drop any triple coming from `sourceIterator` if its source is in `answeredSourceSelectors`.
 - **In Controller**: Only discard a tuple from an answered file if **it has not yet satisfied all of $CR$'s operations** (`(partialResult.done & CR.doneBitMask) !== CR.doneBitMask`). If it already satisfied all of $CR$'s operations, let it pass through to the rest of the query ($TP_1, TP_2$).
+
+
+### Next steps
+
+- Implement performant source attribution. Specifically, using a wrapper around fileSourceLazy, check
+that context remains when added to aggStore. Ensure joins retain the sources
+
+- Think about what partial joins should do, probably be dropped too (see next)
+
+- Using source attribution filter out any triples covered by CR. Keep in mind, any triples outside
+of the constraint should continue, just within the domain of CR and within the authoritativeness.
+
+- Same as before, filter any triples covered by CR that are incomplete joins in the controller.
+
+- Using triple maps, filter any results already produced by the engine, by checking the content of tripleMap for
+each of the bindings.
