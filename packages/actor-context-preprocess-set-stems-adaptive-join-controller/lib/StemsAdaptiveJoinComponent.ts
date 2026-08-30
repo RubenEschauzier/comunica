@@ -1,4 +1,5 @@
-import type { AsyncIterator } from 'asynciterator';
+import { AsyncIterator, UnionIterator } from 'asynciterator';
+import { AsyncReiterableArray } from 'asyncreiterable';
 import type * as RDF from '@rdfjs/types';
 import type { Bindings, BindingsStream, IJoinEntryWithMetadata } from '@comunica/types';
 import { Algebra, algebraUtils } from '@comunica/utils-algebra';
@@ -6,7 +7,6 @@ import { IStemsRouter, ITimestampGenerator, JoinFunction, StemsControllerStream,
 import { HashFunction } from '@comunica/bus-hash-bindings';
 import { IAdaptiveJoinComponent } from './IAdaptiveJoinController';
 import equal = require('deep-equal');
-
 
 export interface IAdaptiveJoinComponentSteMsArgs {
   id: number | string;
@@ -36,6 +36,7 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
   protected readonly joinFn: JoinFunction;
   protected readonly dataFactory: RDF.DataFactory;
   protected readonly metadata?: Record<string, any>;
+  protected readonly compositeSources: Map<number, AsyncReiterableArray<AsyncIterator<Bindings>>> = new Map();
 
   public constructor(args: IAdaptiveJoinComponentSteMsArgs) {
     this.id = args.id;
@@ -84,16 +85,29 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
       (acc: number, curr: number) => acc + (1 << curr), 0
     );
 
+    // If an operator for this operation array already exists, push to its stream
+    const existingSource = this.compositeSources.get(setBitsMask);
+    if (existingSource) {
+      existingSource.push(dataStream);
+      return true;
+    }
+
     // Identify variables required by the component for joining with the rest of the graph
     const componentJoinVariables = this.computeJoinVariablesForSubset(matchedIndexes);
     const operatorVariables = this.extractVariablesFromOperations(operations);
     const operatorNamedNodes = this.extractSubjectNamedNodesFromOperations(operations);
 
+    // Create dynamic source holder using AsyncReiterableArray and union iterator
+    const sourcesArray = AsyncReiterableArray.fromInitialEmpty<AsyncIterator<Bindings>>();
+    sourcesArray.push(dataStream);
+    const unionStream = new UnionIterator(sourcesArray.iterator(), { autoStart: false });
+    this.compositeSources.set(setBitsMask, sourcesArray);
+
     // Instantiate a new StemsOperatorStream with the component's internal generators
     const newOperatorIndex = this.stemsControllerStream.numOperators;
 
     const operator = new StemsOperatorStream(
-      dataStream,
+      unionStream,
       this.timestampGenerator,
       this.hashFn,
       this.joinFn,

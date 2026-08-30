@@ -191,14 +191,21 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
         }
 
         // Push to the next operator of each alternative route
+        // Only create a alternative route of actual split occurs.
+        // as state after split is the same
+
         // TODO: This might cause bug if metadata state spills over!!
+        const nextRoutesSeen = new Set();
         for (const route of nextRoutes) {
           if (route.length > 0) {
-            const nextStep = route[0];
-            this.stemsIterators[nextStep.next].push({
-              item,
-              joinVars: nextStep.joinVars,
-            });
+            if (!nextRoutesSeen.has(route[0].next)){
+              const nextStep = route[0];
+              this.stemsIterators[nextStep.next].push({
+                item,
+                joinVars: nextStep.joinVars,
+              });
+              nextRoutesSeen.add(route[0].next);
+            }
           }
         }
 

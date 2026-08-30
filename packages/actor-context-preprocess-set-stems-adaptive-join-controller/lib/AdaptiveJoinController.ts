@@ -34,14 +34,14 @@ export class AdaptiveJoinController implements IAdaptiveJoinController {
 
     // Fast path: single matching component
     if (matchingComponents.length === 1) {
-      return matchingComponents[0].addCompositeSource(operations, dataStream, metadata);
+      return matchingComponents[0].addCompositeSource(operations, <AsyncIterator<RDF.Bindings>> <any> dataStream, metadata);
     }
 
     // If multiple components contain these patterns (e.g. across UNION branches),
     // clone the stream so each component gets its own readable copy.
     let anySucceeded = false;
     for (const component of matchingComponents) {
-      if (component.addCompositeSource(operations, dataStream.clone(), metadata)) {
+      if (component.addCompositeSource(operations, <AsyncIterator<RDF.Bindings>> <any> dataStream.clone(), metadata)) {
         anySucceeded = true;
       }
     }

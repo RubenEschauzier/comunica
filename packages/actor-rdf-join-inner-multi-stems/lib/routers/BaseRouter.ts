@@ -132,7 +132,13 @@ export abstract class RouterBase implements IStemsRouter {
     stemsOperatorStream: StemsOperatorStream,
     metadata?: Record<string, any>,
   ): Record<number, IStemsRoutingEntry[][]> {
+    // TODO: This does not work currently, exclusivity routing is not enforced properly
+    // we must construct an alternative routing strategy.
+    // Possibly add one routing, but whenever a CR gets picked also route to an alternative non-cr
     // TODO, do we need to update existing routing?
+    /**
+     * 
+     */
     const setBitsMask = stemsOperatorStream.doneBitMask; 
 
     for (const [ doneKey, routing ] of Object.entries(routeTable)) {
@@ -152,13 +158,16 @@ export abstract class RouterBase implements IStemsRouter {
 
         const newRouting: IStemsRoutingEntry[] = [];
         // Always add the composite resource to the routing entry
-        this.addOperatorIfOverlapping(
+        const added = this.addOperatorIfOverlapping(
           newRouting,
           stemsOperatorStream.operatorIndex,
           stemsOperatorStream,
           doneVars,
           doneNamedNodes,
         );
+        if (!added){
+          continue;
+        }
         
         // Iterate over all other operator streams to see which ones are
         // also options

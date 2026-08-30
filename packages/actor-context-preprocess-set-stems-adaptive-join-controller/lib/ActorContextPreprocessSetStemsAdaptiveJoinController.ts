@@ -14,6 +14,6 @@ export class ActorContextPreprocessSetStemsAdaptiveJoinController extends ActorC
   }
 
   public async run(action: IActionContextPreprocess): Promise<IActorContextPreprocessOutput> {
-    return true; // TODO implement
+    return { context: action.context }; // TODO implement
   }
 }
