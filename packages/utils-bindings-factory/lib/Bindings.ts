@@ -197,6 +197,11 @@ export class Bindings implements RDF.Bindings {
     context: IActionContext,
     otherContext: IActionContext,
   ): IActionContext {
+    // Fast-path: if both contexts reference the exact same ActionContext instance
+    if (context === otherContext) {
+      return context;
+    }
+
     // All keys can contain duplicates, we prevent this by checking our built datamap for duplicates
     const allKeys = [ ...context.keys(), ...otherContext.keys() ];
     // Map we build up with merged context values

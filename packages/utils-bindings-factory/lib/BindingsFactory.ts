@@ -2,6 +2,7 @@ import type { IBindingsContextMergeHandler, MediatorMergeBindingsContext } from 
 import type { ComunicaDataFactory, IActionContext } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { Map } from 'immutable';
+import type { IContextHolder } from './Bindings';
 import { Bindings } from './Bindings';
 
 /**
@@ -30,11 +31,15 @@ export class BindingsFactory implements RDF.BindingsFactory {
     );
   }
 
-  public bindings(entries: [RDF.Variable, RDF.Term][] = []): Bindings {
+  public getContextMergeHandlers(): Record<string, IBindingsContextMergeHandler<any>> | undefined {
+    return this.contextMergeHandlers;
+  }
+
+  public bindings(entries: [RDF.Variable, RDF.Term][] = [], contextHolder?: IContextHolder): Bindings {
     return new Bindings(
       this.dataFactory,
       Map(entries.map(([ key, value ]) => [ key.value, value ])),
-      this.contextMergeHandlers ? { contextMergeHandlers: this.contextMergeHandlers } : undefined,
+      contextHolder ?? (this.contextMergeHandlers ? { contextMergeHandlers: this.contextMergeHandlers } : undefined),
     );
   }
 

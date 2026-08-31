@@ -39,5 +39,13 @@ describe('ActorMergeBindingFactoryContextUnion', () => {
       const inputSets = [[ '1', '2', '3' ], [ '1', '3', '5' ], [ '2', '1' ]];
       expect(setUnionMergeHandler.run(...inputSets)).toStrictEqual([ '1', '2', '3', '5' ]);
     });
+    it('merge handler should return the same instance for single input set', () => {
+      const singleSet = [ '1', '2' ];
+      expect(setUnionMergeHandler.run(singleSet)).toBe(singleSet);
+    });
+    it('merge handler should return the same instance for identical input set references', () => {
+      const sameSet = [ '1', '2' ];
+      expect(setUnionMergeHandler.run(sameSet, sameSet)).toBe(sameSet);
+    });
   });
 });

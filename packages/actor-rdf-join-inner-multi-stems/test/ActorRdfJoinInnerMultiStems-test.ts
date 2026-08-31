@@ -7,6 +7,8 @@ import type * as RDF from '@rdfjs/types';
 import { ArrayIterator } from 'asynciterator';
 import { DataFactory } from 'rdf-data-factory';
 import { toSparql } from 'sparqlalgebrajs';
+import { KeysMergeBindingsContext } from '@comunica/context-entries';
+import { SetUnionBindingsContextMergeHandler } from '@comunica/actor-merge-bindings-context-union';
 import { ActorRdfJoinMultiStems } from '../lib/ActorRdfJoinMultiStems';
 import { RouterFixedMinimalIndex } from '../lib/routers/FixedRouter';
 import { StemsControllerStream, TimestampGenerator, stemsContextKeys, type ITimestampGenerator } from '../lib/StemsControllerStream';
@@ -559,6 +561,57 @@ describe('ActorRdfJoinInnerMultiStems', () => {
         // Note: Deduplication between Base and CR plans is not yet considered,
         // so multiple exclusive plans may concurrently produce valid results.
         expect(Array.from(new Set(sortedActual)).sort()).toEqual(expectedGroundTruth);
+      });
+
+      it('retains and merges sourcesBinding context across STeMs joins', async () => {
+        const BFWithSources = new BindingsFactory(DF, {
+          [KeysMergeBindingsContext.sourcesBinding.name]: new SetUnionBindingsContextMergeHandler(),
+        });
+
+        const data0 = [
+          BFWithSources.bindings([[ DF.variable('x'), DF.literal('x1') ], [ DF.variable('y'), DF.literal('y1') ]])
+            .setContextEntry(KeysMergeBindingsContext.sourcesBinding, [ 'http://example.org/doc1' ]),
+        ];
+        const data1 = [
+          BFWithSources.bindings([[ DF.variable('y'), DF.literal('y1') ], [ DF.variable('z'), DF.literal('z1') ]])
+            .setContextEntry(KeysMergeBindingsContext.sourcesBinding, [ 'http://example.org/doc2' ]),
+        ];
+
+        const tsGen = new TimestampGenerator();
+        const opStream0 = new StemsOperatorStream(
+          <BindingsStream> <unknown> new ArrayIterator(data0),
+          tsGen,
+          hashFn,
+          joinFn,
+          0,
+          1 << 0,
+          [ op0 ],
+          [ DF.variable('x'), DF.variable('y') ],
+          [],
+          [[ DF.variable('y') ]],
+          false,
+        );
+        const opStream1 = new StemsOperatorStream(
+          <BindingsStream> <unknown> new ArrayIterator(data1),
+          tsGen,
+          hashFn,
+          joinFn,
+          1,
+          1 << 1,
+          [ op1 ],
+          [ DF.variable('y'), DF.variable('z') ],
+          [],
+          [[ DF.variable('y') ]],
+          false,
+        );
+
+        const router = new RouterFixedMinimalIndex();
+        const controller = new StemsControllerStream([ opStream0, opStream1 ], router, 100);
+        const results = await collectControllerResults(controller);
+
+        expect(results).toHaveLength(1);
+        const finalSources = (<Bindings> results[0]).getContextEntry(KeysMergeBindingsContext.sourcesBinding);
+        expect(finalSources).toEqual([ 'http://example.org/doc1', 'http://example.org/doc2' ]);
       });
     });
   });

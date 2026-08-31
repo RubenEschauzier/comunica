@@ -1,5 +1,6 @@
+import { KeysMergeBindingsContext } from '@comunica/context-entries';
 import { AlgebraFactory } from '@comunica/utils-algebra';
-import { BindingsFactory } from '@comunica/utils-bindings-factory';
+import { BindingsFactory, Bindings } from '@comunica/utils-bindings-factory';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
 import type { AsyncIterator } from 'asynciterator';
@@ -413,6 +414,46 @@ describe('Utils', () => {
           { variable: DF.variable('op'), canBeUndef: false },
         ],
       });
+    });
+
+    it('attaches sourcesBinding from NamedNode graph and shares context holders across identical graphs', async() => {
+      const quadStream = new ArrayIterator([
+        quad('s1', 'p1', 'o1', 'http://example.org/doc1'),
+        quad('s2', 'p2', 'o2', 'http://example.org/doc1'),
+        quad('s3', 'p3', 'o3', 'http://example.org/doc2'),
+        quad('s4', 'p4', 'o4'),
+      ], { autoStart: false });
+      const pattern = AF.createPattern(
+        DF.variable('s'),
+        DF.variable('p'),
+        DF.variable('o'),
+      );
+      const BFWithSources = new BindingsFactory(DF, {
+        [KeysMergeBindingsContext.sourcesBinding.name]: { run: (...args: any[]) => args.flat() },
+      });
+      const bindingsStream = quadsToBindings(quadStream, pattern, DF, BFWithSources, true);
+      const results = <Bindings[]> (await bindingsStream.toArray());
+
+      expect(results).toHaveLength(4);
+      expect(results[0].getContextEntry(KeysMergeBindingsContext.sourcesBinding))
+        .toEqual([ 'http://example.org/doc1' ]);
+      expect(results[1].getContextEntry(KeysMergeBindingsContext.sourcesBinding))
+        .toEqual([ 'http://example.org/doc1' ]);
+      expect(results[2].getContextEntry(KeysMergeBindingsContext.sourcesBinding))
+        .toEqual([ 'http://example.org/doc2' ]);
+      expect(results[3].getContextEntry(KeysMergeBindingsContext.sourcesBinding))
+        .toBeUndefined();
+
+      // Test flyweight context sharing
+      expect(results[0].getContext()).toBe(results[1].getContext());
+
+      // Test default behavior when no merge handler is configured
+      const quadStreamDefault = new ArrayIterator([
+        quad('s1', 'p1', 'o1', 'http://example.org/doc1'),
+      ], { autoStart: false });
+      const bindingsStreamDefault = quadsToBindings(quadStreamDefault, pattern, DF, BF, true);
+      const resultsDefault = <Bindings[]> (await bindingsStreamDefault.toArray());
+      expect(resultsDefault[0].getContextEntry(KeysMergeBindingsContext.sourcesBinding)).toBeUndefined();
     });
   });
 

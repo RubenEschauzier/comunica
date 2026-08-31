@@ -1,6 +1,8 @@
+import { KeysMergeBindingsContext } from '@comunica/context-entries';
+import { ActionContext } from '@comunica/core';
 import type { BindingsStream, ComunicaDataFactory, MetadataBindings, MetadataQuads, TermsOrder } from '@comunica/types';
 import type { Algebra } from '@comunica/utils-algebra';
-import type { BindingsFactory } from '@comunica/utils-bindings-factory';
+import type { BindingsFactory, IContextHolder } from '@comunica/utils-bindings-factory';
 import { ClosableIterator } from '@comunica/utils-iterator';
 import { validateMetadataQuads } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
@@ -82,14 +84,38 @@ export function quadsToBindings(
     });
   }
 
+  // Flyweight pool of context holders per named graph source to avoid per-quad allocations
+  const contextHolders = new Map<string, IContextHolder>();
+  const mergeHandlers = bindingsFactory.getContextMergeHandlers();
+  const shouldAnnotateSources = Boolean(mergeHandlers && mergeHandlers[KeysMergeBindingsContext.sourcesBinding.name]);
+
   // Wrap it in a ClosableIterator, so we can propagate destroy calls
-  const it = new ClosableIterator(filteredOutput.map<RDF.Bindings>(quad => bindingsFactory
-    .bindings(Object.keys(elementVariables).map((key) => {
-      const keys: QuadTermName[] = <any>key.split('_');
-      const variable = elementVariables[key];
-      const term = getValueNestedPath(quad, keys);
-      return [ dataFactory.variable(variable), term ];
-    }))), {
+  const it = new ClosableIterator(filteredOutput.map<RDF.Bindings>((quad) => {
+    let contextHolder: IContextHolder | undefined;
+    if (shouldAnnotateSources && quad.graph.termType === 'NamedNode') {
+      const graphUrl = quad.graph.value;
+      contextHolder = contextHolders.get(graphUrl);
+      if (!contextHolder) {
+        contextHolder = {
+          contextMergeHandlers: mergeHandlers ?? {},
+          context: new ActionContext({
+            [KeysMergeBindingsContext.sourcesBinding.name]: [ graphUrl ],
+          }),
+        };
+        contextHolders.set(graphUrl, contextHolder);
+      }
+    }
+
+    return bindingsFactory.bindings(
+      Object.keys(elementVariables).map((key) => {
+        const keys: QuadTermName[] = <any>key.split('_');
+        const variable = elementVariables[key];
+        const term = getValueNestedPath(quad, keys);
+        return [ dataFactory.variable(variable), term ];
+      }),
+      contextHolder,
+    );
+  }), {
     onClose: () => quads.destroy(),
   });
 
