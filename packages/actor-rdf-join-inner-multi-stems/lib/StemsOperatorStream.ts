@@ -98,6 +98,8 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   private matches: Bindings[] = [];
   private matchIdx = 0;
 
+  public readonly isCompositeResource: boolean;
+
   public constructor(
     sourceIterator: BindingsStream,
     timestampGenerator: ITimestampGenerator,
@@ -110,6 +112,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
     namedNodes: RDF.NamedNode[],
     joinVariables: RDF.Variable[][],
     canBeCartesian: boolean,
+    isCompositeResource: boolean = false,
   ) {
     super();
 
@@ -119,6 +122,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
     this.namedNodes = namedNodes;
     this.joinVariables = joinVariables;
     this.canBeCartesian = canBeCartesian;
+    this.isCompositeResource = isCompositeResource;
 
     this.funHash = funHash;
     this.funJoin = funJoin;
@@ -199,9 +203,13 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
           // set a bit entry to 1, this prevents extra work copying the object. Furthmore
           // as we throw away the intermediate results, mutating the metadata is not a problem
           // as we will never try to access it to get the previous metadata state.
-          const copy = { ...this.matchMetadata! };
+          const copy: IStemsBindingsMetadata = { ...this.matchMetadata! };
           copy.done |= this.doneBitMask;
           copy.order = [ ...copy.order, this.operatorIndex ];
+
+          if (this.isCompositeResource) {
+            copy.lastCrIndex = this.operatorIndex;
+          }
 
           result = result.setContextEntry(stemsContextKeys.eddiesMetadata, copy);
           return result;
@@ -252,6 +260,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
           done: this.doneBitMask,
           timestamp: this.timestampGenerator.next(),
           order: [ this.operatorIndex ],
+          lastCrIndex: this.isCompositeResource ? this.operatorIndex : undefined,
         };
 
         item = item.setContextEntry(stemsContextKeys.eddiesMetadata, itemMetadata);

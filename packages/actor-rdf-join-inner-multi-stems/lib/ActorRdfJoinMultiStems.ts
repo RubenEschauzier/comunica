@@ -23,7 +23,6 @@ import type * as RDF from '@rdfjs/types';
 import { DataFactory } from 'rdf-data-factory';
 import { Algebra, AlgebraFactory } from '@comunica/utils-algebra';
 
-// import { Factory } from 'sparqlalgebrajs';
 import { StemsControllerStream, TimestampGenerator } from './StemsControllerStream';
 import type { JoinFunction } from './StemsOperatorStream';
 import { StemsOperatorStream } from './StemsOperatorStream';

@@ -122,6 +122,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
     stemsOperatorStream: StemsOperatorStream,
     metadata?: Record<string, any>,
   ) {
+    const opIndex = this.stemsIterators.length;
     this.stemsIterators.push(stemsOperatorStream);
     this.finishedReading.push(0);
     // Ensure that if the other streams are ended and we get a new stream the controller
@@ -134,7 +135,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
     stemsOperatorStream.on('endRead', () => {
       // When all eddiestreams finished creating new tuples,
       // we only need to process the remaining tuples in buffers
-      this.finishedReading[this.finishedReading.length - 1] = 1;
+      this.finishedReading[opIndex] = 1;
       if (this.finishedReading.every(val => val === 1)) {
         this.endTuples = true;
         const hasBufferedData = this.stemsIterators.some(op => op.readable && !op.ended);
@@ -193,21 +194,60 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
           return item;
         }
 
-        // Push to the next operator of each alternative route
-        // Only create a alternative route of actual split occurs.
-        // as state after split is the same
-
-        // TODO: This might cause bug if metadata state spills over!!
-        const nextRoutesSeen = new Set();
-        for (const route of nextRoutes) {
+        // Fast-path: When only a single route exists (e.g. pure base execution without CRs)
+        if (nextRoutes.length === 1) {
+          const route = nextRoutes[0];
           if (route.length > 0) {
-            if (!nextRoutesSeen.has(route[0].next)){
+            const nextStep = route[0];
+            this.stemsIterators[nextStep.next].push({
+              item,
+              joinVars: nextStep.joinVars,
+            });
+          }
+        } else {
+          // Multi-route path (with CR alternatives): use bitmask to avoid per-read Set allocation
+          let nextRoutesSeenMask = 0;
+          const lastCr = partialResultMetadata.lastCrIndex ?? -1;
+
+          for (const route of nextRoutes) {
+            if (route.length > 0) {
               const nextStep = route[0];
-              this.stemsIterators[nextStep.next].push({
-                item,
-                joinVars: nextStep.joinVars,
-              });
-              nextRoutesSeen.add(route[0].next);
+              const targetOp = this.stemsIterators[nextStep.next];
+
+              // If forbiddenBaseMask is set due to routing to a CR-based plan,
+              // target operator must not overlap with forbidden operators covered by the CR
+              if (partialResultMetadata.forbiddenBaseMask !== undefined &&
+                  (partialResultMetadata.forbiddenBaseMask & targetOp.doneBitMask) !== 0) {
+                continue;
+              }
+
+              // CRs must be executed in ascending order to prevent symmetry causing duplicate plans 
+              // (CR1 \Join CR2) is same as (CR2 \join CR1) and tuples get duplicated and routed to both
+              const stepCrIndex = nextStep.crIndex ?? (targetOp.isCompositeResource ? targetOp.operatorIndex : undefined);
+              if (stepCrIndex !== undefined && stepCrIndex <= lastCr) {
+                continue;
+              }
+
+              const targetBit = 1 << nextStep.next;
+              // Enforce lazy branching on CR paths by tracking nextRouting indexes
+              if ((nextRoutesSeenMask & targetBit) === 0) {
+                let itemToPush = item;
+                // If taking a CR alternative route where the next step is an intermediate base operator,
+                // record the CR's doneBitMask in forbiddenBaseMask to prevent joining replaced base operators
+                if (nextStep.crIndex !== undefined && nextStep.next !== nextStep.crIndex) {
+                  const newMetadata: IStemsBindingsMetadata = {
+                    ...partialResultMetadata,
+                    forbiddenBaseMask: (partialResultMetadata.forbiddenBaseMask ?? 0) | (nextStep.crDoneBitMask ?? 0),
+                  };
+                  itemToPush = item.setContextEntry(stemsContextKeys.eddiesMetadata, newMetadata);
+                }
+
+                this.stemsIterators[nextStep.next].push({
+                  item: itemToPush,
+                  joinVars: nextStep.joinVars,
+                });
+                nextRoutesSeenMask |= targetBit;
+              }
             }
           }
         }
@@ -440,7 +480,30 @@ function _bitmaskToVector(doneMask: number, totalCount: number): number[] {
 }
 
 export interface IStemsBindingsMetadata {
+  /**
+   * Bitmask representing which query operations (triple patterns / subqueries) have been completed.
+   */
   done: number;
+  /**
+   * Arrival timestamp from TimestampGenerator of the original source tuple that initiated this result.
+   */
   timestamp: number;
+  /**
+   * Order of operator indexes visited during the evaluation of this intermediate result.
+   */
   order: number[];
+  /**
+   * Exclusion bitmask.
+   * If this tuple branched down an alternative route targeting a Composite Resource (CR),
+   * forbiddenBaseMask contains the bitmasks of the base operators replaced by that CR.
+   * Any subsequent routing step whose target operator overlaps with this mask is pruned,
+   * excluding competing overlapping CRs.
+   */
+  forbiddenBaseMask?: number;
+  /**
+   * Operator index of the most recently joined Composite Resource.
+   * Used to enforce canonical plan symmetry breaking (Ascending CR Rule: next CR index > lastCrIndex),
+   * preventing duplicate symmetric plan evaluation (e.g. CR1 ⋈ CR2 vs CR2 ⋈ CR1).
+   */
+  lastCrIndex?: number;
 }

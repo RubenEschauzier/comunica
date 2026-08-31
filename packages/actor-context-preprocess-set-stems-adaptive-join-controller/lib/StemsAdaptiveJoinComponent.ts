@@ -124,6 +124,7 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
       operatorNamedNodes,
       componentJoinVariables,
       false,
+      true,
     );
 
     // Attach the operator to the StemsControllerStream and recalculate routes

@@ -15,6 +15,10 @@ export interface IRouteTableOperation {
   variables: RDF.Variable[];
   // Named nodes in operation
   namedNodes: RDF.NamedNode[];
+  // Indicates whether this operation represents a composite derived resource
+  isCompositeResource?: boolean;
+  // Operator index in the multi-stems operator collection
+  operatorIndex?: number;
 }
 
 export abstract class RouterBase implements IStemsRouter {
@@ -164,6 +168,8 @@ export abstract class RouterBase implements IStemsRouter {
           stemsOperatorStream,
           doneVars,
           doneNamedNodes,
+          stemsOperatorStream.operatorIndex,
+          stemsOperatorStream.doneBitMask,
         );
         if (!added){
           continue;
@@ -174,6 +180,11 @@ export abstract class RouterBase implements IStemsRouter {
         for (let nextIdx = 0; nextIdx < this.routeOperations.length; nextIdx++) {
           const nextEntry = this.routeOperations[nextIdx];
 
+          // Ascending CR Rule: If nextEntry is a composite resource, its index must be strictly greater
+          if (nextEntry.isCompositeResource && nextIdx <= stemsOperatorStream.operatorIndex) {
+            continue;
+          }
+
           // The possible iterators in a composite resource path are those that
           // are not yet completed and have no overlap with the composite resource
           if ((key & nextEntry.doneBitMask) === 0 && (setBitsMask & nextEntry.doneBitMask) === 0) {
@@ -183,6 +194,8 @@ export abstract class RouterBase implements IStemsRouter {
               nextEntry,
               doneVars,
               doneNamedNodes,
+              stemsOperatorStream.operatorIndex,
+              stemsOperatorStream.doneBitMask,
             );
           }
         }
@@ -194,6 +207,8 @@ export abstract class RouterBase implements IStemsRouter {
       doneBitMask: stemsOperatorStream.doneBitMask,
       variables: stemsOperatorStream.variables,
       namedNodes: stemsOperatorStream.namedNodes,
+      isCompositeResource: stemsOperatorStream.isCompositeResource,
+      operatorIndex: stemsOperatorStream.operatorIndex,
     });
 
 
@@ -218,6 +233,8 @@ export abstract class RouterBase implements IStemsRouter {
     nextEntry: IRouteTableOperation,
     doneVars: Set<string>,
     doneNamedNodes: Set<string>,
+    crIndex?: number,
+    crDoneBitMask?: number,
   ): boolean {
     // Check for overlapping variables between triple patterns
     const joinVars = nextEntry.variables.filter(v => doneVars.has(v.value));
@@ -227,6 +244,8 @@ export abstract class RouterBase implements IStemsRouter {
         next: nextIdx,
         operations: nextEntry.operations,
         joinVars,
+        crIndex,
+        crDoneBitMask,
       });
       return true;
     }
@@ -239,6 +258,8 @@ export abstract class RouterBase implements IStemsRouter {
         next: nextIdx,
         operations: nextEntry.operations,
         joinVars: [],
+        crIndex,
+        crDoneBitMask,
       });
       return true;
     }
@@ -275,9 +296,31 @@ export interface IStemsRouter {
 }
 
 export interface IStemsRoutingEntry {
+  /**
+   * Operator index in StemsControllerStream.stemsIterators to route the tuple to for this step.
+   */
   next: number;
+  /**
+   * Algebra operations represented by this routing step.
+   */
   operations: Algebra.Operation[];
+  /**
+   * Overlapping join variables between the completed tuple state and this target operator.
+   */
   joinVars: RDF.Variable[];
+  /**
+   * If this routing entry belongs to an alternative plan route targeting a Composite Resource (CR),
+   * crIndex holds the operator index of that target CR.
+   * This is used to enforce the Ascending CR rule (crIndex > lastCrIndex) even when the immediate
+   * next step is an intermediate base operator along the CR route.
+   */
+  crIndex?: number;
+  /**
+   * The satisfaction bitmask (doneBitMask) of the target Composite Resource that this route path leads to.
+   * When diverging onto an intermediate base operator along a CR route, this mask is stamped onto the tuple's
+   * forbiddenBaseMask to prevent the tuple from ever joining the base operators that the CR substitutes.
+   */
+  crDoneBitMask?: number;
 }
 
 export interface IStemsRouterFactory {
