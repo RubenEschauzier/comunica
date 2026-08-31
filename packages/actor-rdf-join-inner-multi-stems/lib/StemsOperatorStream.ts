@@ -127,6 +127,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
 
     // Check if already ended before setting up listeners
     if (this.sourceIterator.done) {
+      console.log("HERE 1")
       // Source is already exhausted, emit endRead immediately
       setImmediate(() => this.emit('endRead'));
     }

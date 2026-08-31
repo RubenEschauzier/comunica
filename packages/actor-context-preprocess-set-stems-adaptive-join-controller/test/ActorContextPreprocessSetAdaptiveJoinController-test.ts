@@ -1,5 +1,6 @@
-import { Bus } from '@comunica/core';
-import { ActorContextPreprocessSetAdaptiveJoinController } from '../lib/ActorContextPreprocessSetAdaptiveJoinController';
+import { ActionContext, Bus } from '@comunica/core';
+import { KeysRdfJoin } from '@comunica/context-entries';
+import { ActorContextPreprocessSetStemsAdaptiveJoinController } from '../lib/ActorContextPreprocessSetStemsAdaptiveJoinController';
 import '@comunica/utils-jest';
 
 describe('ActorContextPreprocessSetAdaptiveJoinController', () => {
@@ -10,18 +11,19 @@ describe('ActorContextPreprocessSetAdaptiveJoinController', () => {
   });
 
   describe('An ActorContextPreprocessSetAdaptiveJoinController instance', () => {
-    let actor: ActorContextPreprocessSetAdaptiveJoinController;
+    let actor: ActorContextPreprocessSetStemsAdaptiveJoinController;
 
     beforeEach(() => {
-      actor = new ActorContextPreprocessSetAdaptiveJoinController({ name: 'actor', bus });
+      actor = new ActorContextPreprocessSetStemsAdaptiveJoinController({ name: 'actor', bus });
     });
 
     it('should test', () => {
-      return expect(actor.test({ todo: true })).resolves.toPassTestVoid(); // TODO
+      return expect(actor.test({ context: new ActionContext() })).resolves.toPassTestVoid();
     });
 
-    it('should run', () => {
-      return expect(actor.run({ todo: true })).resolves.toMatchObject({ todo: true }); // TODO
+    it('should run', async () => {
+      const output = await actor.run({ context: new ActionContext() });
+      expect(output.context.has(KeysRdfJoin.adaptiveJoinController)).toBe(true);
     });
   });
 });

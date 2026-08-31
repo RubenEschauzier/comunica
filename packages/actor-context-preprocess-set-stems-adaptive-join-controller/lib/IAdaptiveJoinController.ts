@@ -27,7 +27,7 @@ export interface IAdaptiveJoinComponent {
    *
    * @param operations The operations satisfied by this data source.
    * @param dataStream Stream of either Bindings or raw RDF.Quads.
-   * @param metadata Optional metadata, cost coefficients, or routing ticket hints.
+    * @param metadata Optional metadata, cost coefficients, or routing ticket hints.
    * @returns True if the source was accepted and attached, false otherwise.
    */
   addCompositeSource: (
@@ -35,6 +35,12 @@ export interface IAdaptiveJoinComponent {
     dataStream: AsyncIterator<Bindings>,
     metadata?: Record<string, any>,
   ) => boolean;
+
+  /**
+   * Signals that no further composite sources will be added to this component.
+   * Closes any open dynamic source arrays (e.g. pushes null to AsyncReiterableArray).
+   */
+  finalize: () => void;
 }
 
 /**
@@ -76,40 +82,10 @@ export interface IAdaptiveJoinController {
    * Returns all currently registered active components.
    */
   getComponents: () => IAdaptiveJoinComponent[];
+
+  /**
+   * Signals that query source discovery is complete and no more composite sources
+   * will be pushed into active components.
+   */
+  finalize: () => void;
 }
-
-
-/**
- * TODO: 
- * Gotcha 1: "Zombie" (Ended) Components
-Subqueries often finish before the outer query finishes. If a subquery finishes and closes its 
-
-StemsControllerStream
-, you must not inject new derived sources into it:
-
-Fix: Either auto-unregister the component when its stream emits 'end', or filter out ended streams during lookup:
-typescript
-public getComponentsForOperations(operations: Algebra.Operation[]): A[] {
-  return this.components.filter(component => 
-    !component.stemsControllerStream.ended && 
-    component.canCoverOperations(operations)
-  );
-}
- */
-
-/**
- * TODO: 
- * Gotcha 2: Repeated Subquery Execution (Correlated / Bind Joins)
-If a subquery is evaluated inside an outer loop (e.g. repeated execution for each incoming binding):
-
-A new 
-
-StemsControllerStream
- is instantiated on each iteration.
-If components don't clean themselves up on 'end', they will accumulate in memory (memory leak) and receive duplicate events.
-Fix: Hook into the stream lifecycle inside addAdaptiveJoinConnectedComponent:
-typescript
-stemsControllerStream.on('end', () => {
-  this.unregisterComponent(component);
-});
- */

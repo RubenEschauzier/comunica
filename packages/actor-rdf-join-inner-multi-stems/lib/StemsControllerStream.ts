@@ -61,6 +61,9 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
    */
   private readonly routingUpdateFrequency: number;
 
+
+  protected totalProduced: number = 0;
+
   public constructor(
     eddieIterators: StemsOperatorStream[],
     router: IStemsRouter,

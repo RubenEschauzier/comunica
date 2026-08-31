@@ -5,9 +5,20 @@ import { AsyncIterator } from 'asynciterator';
 
 export class AdaptiveJoinController implements IAdaptiveJoinController {
   protected readonly components: Set<IAdaptiveJoinComponent> = new Set();
+  protected finalized = false;
+
+  public finalize(): void {
+    this.finalized = true;
+    for (const component of this.components) {
+      component.finalize();
+    }
+  }
 
   public registerComponent(component: IAdaptiveJoinComponent): void {
     this.components.add(component);
+    if (this.finalized) {
+      component.finalize();
+    }
   }
 
   public unregisterComponent(component: IAdaptiveJoinComponent): void {

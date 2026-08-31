@@ -25,6 +25,7 @@ import type {
 import type { Algebra } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
 import type { IDocumentLoader } from 'jsonld-context-parser';
+import { IAdaptiveJoinController } from '@comunica/actor-context-preprocess-set-stems-adaptive-join-controller';
 
 /**
  * When adding entries to this file, also add a shortcut for them in the contextKeyShortcuts TSDoc comment in
@@ -378,6 +379,10 @@ export const KeysRdfJoin = {
    * should be made by 'traditional' join actors
    */
   joinEntriesAdaptiveJoinResult: new ActionContextKey<boolean>('@comunica/bus-rdf-join:joinEntriesAdaptiveJoinResult'),
+  /**
+   * Adaptive Join Controller that allows adding composite sources to adaptive join execution
+   */
+  adaptiveJoinController: new ActionContextKey<IAdaptiveJoinController>('@comunica/bus-rdf-join:adaptiveJoinController'),
 };
 
 export const KeysStatistics = {

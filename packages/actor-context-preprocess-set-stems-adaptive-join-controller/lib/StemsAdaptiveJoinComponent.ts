@@ -8,18 +8,6 @@ import { HashFunction } from '@comunica/bus-hash-bindings';
 import { IAdaptiveJoinComponent } from './IAdaptiveJoinController';
 import equal = require('deep-equal');
 
-export interface IAdaptiveJoinComponentSteMsArgs {
-  id: number | string;
-  joinEntries: IJoinEntryWithMetadata[];
-  joinVariablesEntries: RDF.Variable[][][];
-  stemsControllerStream: StemsControllerStream;
-  router: IStemsRouter;
-  timestampGenerator: ITimestampGenerator;
-  hashFn: HashFunction;
-  joinFn: JoinFunction;
-  dataFactory: RDF.DataFactory;
-  metadata?: Record<string, any>;
-}
 /**
  * Wrapping class for managing stems executions and dynamically adding composite sources to
  * stems execution streams.
@@ -37,6 +25,7 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
   protected readonly dataFactory: RDF.DataFactory;
   protected readonly metadata?: Record<string, any>;
   protected readonly compositeSources: Map<number, AsyncReiterableArray<AsyncIterator<Bindings>>> = new Map();
+  protected finalized = false;
 
   public constructor(args: IAdaptiveJoinComponentSteMsArgs) {
     this.id = args.id;
@@ -56,10 +45,24 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
     return this.stemsControllerStream.ended;
   }
 
+  public finalize(): void {
+    this.finalized = true;
+    for (const sourcesArray of this.compositeSources.values()) {
+      if (!sourcesArray.isEnded()) {
+        sourcesArray.push(null);
+      }
+    }
+  }
+
   public canCoverOperations(operations: Algebra.Operation[]): boolean {
     return operations.every(targetOp =>
-      this.operations.some(op => equal(op, targetOp))
+      this.operations.some(op => equal(this.stripMetadata(op), this.stripMetadata(targetOp)))
     );
+  }
+
+  public stripMetadata(operation: Algebra.Operation){
+    operation.metadata = undefined;
+    return operation
   }
 
   public addCompositeSource(
@@ -67,7 +70,7 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
     dataStream: AsyncIterator<Bindings>,
     metadata?: Record<string, any>,
   ): boolean {
-    if (this.ended) {
+    if (this.ended || this.finalized) {
       return false;
     }
 
@@ -88,8 +91,11 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
     // If an operator for this operation array already exists, push to its stream
     const existingSource = this.compositeSources.get(setBitsMask);
     if (existingSource) {
-      existingSource.push(dataStream);
-      return true;
+      if (!existingSource.isEnded()) {
+        existingSource.push(dataStream);
+        return true;
+      }
+      return false;
     }
 
     // Identify variables required by the component for joining with the rest of the graph
@@ -205,4 +211,18 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
     }
     return Array.from(namedNodes.values());
   }
+}
+
+
+export interface IAdaptiveJoinComponentSteMsArgs {
+  id: number | string;
+  joinEntries: IJoinEntryWithMetadata[];
+  joinVariablesEntries: RDF.Variable[][][];
+  stemsControllerStream: StemsControllerStream;
+  router: IStemsRouter;
+  timestampGenerator: ITimestampGenerator;
+  hashFn: HashFunction;
+  joinFn: JoinFunction;
+  dataFactory: RDF.DataFactory;
+  metadata?: Record<string, any>;
 }

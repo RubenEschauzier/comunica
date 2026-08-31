@@ -28,6 +28,8 @@ import { StemsControllerStream, TimestampGenerator } from './StemsControllerStre
 import type { JoinFunction } from './StemsOperatorStream';
 import { StemsOperatorStream } from './StemsOperatorStream';
 import type { IStemsRouterFactory } from './routers/BaseRouter';
+import { AdaptiveJoinController } from '../../actor-context-preprocess-set-stems-adaptive-join-controller/lib/AdaptiveJoinController';
+import { StemsAdaptiveJoinComponent } from '@comunica/actor-context-preprocess-set-stems-adaptive-join-controller/lib/StemsAdaptiveJoinComponent';
 
 /**
  * A comunica Inner Multi Stems RDF Join Actor.
@@ -89,6 +91,8 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     // TODO: This goes wrong with multiple separate connected components
     const snapShotLogger = action.context.get(KeysStatistics.adaptiveJoinStatistics);
     const queryString = action.context.get(KeysInitQuery.queryString);
+
+    const adaptiveJoinController = action.context.get(KeysRdfJoin.adaptiveJoinController);
 
     let { metadatas } = sideData;
     metadatas = [ ...metadatas ];
@@ -156,6 +160,29 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
 
       eddieControllerStreams.push(controllerStream);
       eddieEntriesInput.push(inputStreams);
+
+      if (adaptiveJoinController){
+        const component = new StemsAdaptiveJoinComponent(
+          {
+            id: 0,
+            joinEntries: connectedComponentEntries,
+            joinVariablesEntries: entriesJoinVariables,
+            stemsControllerStream: controllerStream,
+            router,
+            timestampGenerator,
+            hashFn: hashFunction,
+            joinFn: <JoinFunction> ActorRdfJoin.joinBindings,
+            dataFactory: new DataFactory(),
+            metadata: {},
+          }
+        );
+        adaptiveJoinController.registerComponent(component);
+
+        controllerStream.on('end', () => {
+          component.finalize();
+          adaptiveJoinController.unregisterComponent(component);
+        });
+      }
     }
 
     // In most cases, we will have 1 connected component (no cart joins) and we just return the
