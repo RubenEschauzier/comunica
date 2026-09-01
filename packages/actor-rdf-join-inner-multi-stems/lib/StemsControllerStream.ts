@@ -7,7 +7,7 @@ import type {
   IStatsOperators,
   Logger,
 } from '@comunica/types';
-import type { Bindings } from '@comunica/utils-bindings-factory';
+import { Bindings } from '@comunica/utils-bindings-factory';
 import { AsyncIterator } from 'asynciterator';
 import type { StemsOperatorStream, ISelectivityData } from './StemsOperatorStream';
 import type { IRouteTableOperation, IStemsRouter, IStemsRoutingEntry } from './routers/BaseRouter';
@@ -181,12 +181,13 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
         if (item === null) {
           continue;
         }
+        // console.log((<Bindings>item).getContext())
         this.bindingsSinceUpdate++;
         this.bindingsTotal++;
 
         producedResults = true;
 
-        const partialResultMetadata = item.getContextEntry(stemsContextKeys.eddiesMetadata)!;
+        const partialResultMetadata = item.getContextEntry(stemsContextKeys.stemsMetadata)!;
         const nextRoutes = this.routingTable[partialResultMetadata.done];
 
         // All done bits equal to 1 (terminal state)
@@ -239,7 +240,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
                     ...partialResultMetadata,
                     forbiddenBaseMask: (partialResultMetadata.forbiddenBaseMask ?? 0) | (nextStep.crDoneBitMask ?? 0),
                   };
-                  itemToPush = item.setContextEntry(stemsContextKeys.eddiesMetadata, newMetadata);
+                  itemToPush = item.setContextEntry(stemsContextKeys.stemsMetadata, newMetadata);
                 }
 
                 this.stemsIterators[nextStep.next].push({
@@ -452,7 +453,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
 }
 
 export const stemsContextKeys = {
-  eddiesMetadata: new ActionContextKey<IStemsBindingsMetadata>('metadata'),
+  stemsMetadata: new ActionContextKey<IStemsBindingsMetadata>('stemsMetadata'),
 };
 
 export interface ITimestampGenerator {

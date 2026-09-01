@@ -65,7 +65,6 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
    * Number of reads with result
    */
   public nSuccessReads = 0;
-
   /**
    * The variables present in the bindings produced by this operator
    */
@@ -77,6 +76,9 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
 
   private readonly sourceIterator: BindingsStream;
 
+  /**
+   * Internal map keeping track of the produced bindings by this operator
+   */
   private readonly tripleMap: Map<number, Bindings[]> = new Map();
   private readonly timestampGenerator: ITimestampGenerator;
 
@@ -98,6 +100,9 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   private matches: Bindings[] = [];
   private matchIdx = 0;
 
+  /**
+   * If this operator covers multiple join entries in the execution
+   */
   public readonly isCompositeResource: boolean;
 
   public constructor(
@@ -131,7 +136,6 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
 
     // Check if already ended before setting up listeners
     if (this.sourceIterator.done) {
-      console.log("HERE 1")
       // Source is already exhausted, emit endRead immediately
       setImmediate(() => this.emit('endRead'));
     }
@@ -141,7 +145,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
     }
 
     this.sourceIterator.on('readable', () => this.readable = true);
-    this.sourceIterator.on('error', error => this.destroy(error));
+    this.sourceIterator.on('error', (error: Error) => this.destroy(error));
     this.sourceIterator.on('end', () => this.emit('endRead'));
 
     this.timestampGenerator = timestampGenerator;
@@ -183,7 +187,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
 
       while (this.matchIdx < this.matches.length) {
         const item = this.matches[this.matchIdx++];
-        const itemMetadata = item.getContextEntry(stemsContextKeys.eddiesMetadata)!;
+        const itemMetadata = item.getContextEntry(stemsContextKeys.stemsMetadata)!;
         // Const matchMetadata = this.match!.getContextEntry(eddiesContextKeys.eddiesMetadata)!;
 
         // If the timestamp of the interal index is newer (so larger)
@@ -211,7 +215,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
             copy.lastCrIndex = this.operatorIndex;
           }
 
-          result = result.setContextEntry(stemsContextKeys.eddiesMetadata, copy);
+          result = result.setContextEntry(stemsContextKeys.stemsMetadata, copy);
           return result;
         }
       }
@@ -263,7 +267,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
           lastCrIndex: this.isCompositeResource ? this.operatorIndex : undefined,
         };
 
-        item = item.setContextEntry(stemsContextKeys.eddiesMetadata, itemMetadata);
+        item = item.setContextEntry(stemsContextKeys.stemsMetadata, itemMetadata);
 
         // For each variable we can join on, we hash the item and store it in the tripleMap.
         // This allows us to quickly find matches for any intermediate result and a given
@@ -282,7 +286,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
         return item;
       }
 
-      this.matchMetadata = item.getContextEntry(stemsContextKeys.eddiesMetadata)!;
+      this.matchMetadata = item.getContextEntry(stemsContextKeys.stemsMetadata)!;
       this.match = item;
       this.matchIdx = 0;
       if (joinVars.length > 0) {

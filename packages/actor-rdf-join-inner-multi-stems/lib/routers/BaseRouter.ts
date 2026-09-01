@@ -122,7 +122,7 @@ export abstract class RouterBase implements IStemsRouter {
   }
 
   public routeBinding(binding: Bindings, n: number): number | undefined {
-    const done = binding.getContextEntry(stemsContextKeys.eddiesMetadata)!.done;
+    const done = binding.getContextEntry(stemsContextKeys.stemsMetadata)!.done;
     if (done === (1 << n) - 1) {
       return undefined;
     }
