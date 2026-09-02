@@ -105,6 +105,12 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
    */
   public readonly isCompositeResource: boolean;
 
+  /**
+   * Filter functions added to the operator. Can be used to deduplicate data from
+   * individual triple patterns and composite sources
+   */
+  private filterFns?: ((binding: Bindings) => boolean)[];
+
   public constructor(
     sourceIterator: BindingsStream,
     timestampGenerator: ITimestampGenerator,
@@ -221,13 +227,13 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
       }
 
       let itemBuffer: IEddieJoinEntry | null = null;
-      let item = null;
+      let item: Bindings | null = null;
       let joinVars: RDF.Variable[] | undefined;
       
       // Read from buffer first as these are intermediate results
       itemBuffer = <IEddieJoinEntry | null> super.read();
       if (itemBuffer === null) {
-        item = this.sourceIterator.read();
+        item = <Bindings> this.sourceIterator.read();
       } else {
         item = itemBuffer.item;
         joinVars = itemBuffer.joinVars;
@@ -252,12 +258,21 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
         this.readable = false;
         return null;
       }
-      item = <Bindings> item;
       this.nSuccessReads++;
 
       // We read from the sourceIterator. In this case we need to hash for each
       // possible join variable. And possible cartesian products
       if (joinVars === undefined) {
+
+        // If any filter returns false, we filter the produced binding
+        if (this.filterFns && this.filterFns.some(
+          filterFn => !(filterFn(<Bindings> item)))
+        ){
+          // TODO: We should track this for the paper to see how many bindings
+          // are filtered compared to the produced bindings by composite resources
+          continue
+        }
+
         this.nProduced++;
 
         const itemMetadata: IStemsBindingsMetadata = {
@@ -312,6 +327,13 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
       this.selectivitiesOrders[orderKey].in++;
       this.tickets += 1;
     }
+  }
+
+  /**
+   * Adds a filter function to the operator. Filter = true means it is included
+   */
+  public addFilter(filter: (binding: Bindings) => boolean){
+     (this.filterFns ??= []).push(filter);
   }
 }
 
