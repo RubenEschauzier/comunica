@@ -3,153 +3,152 @@ import { Bindings } from "@comunica/types";
 export class SegmentedUriTrieFilter {
   protected readonly authorities: Map<string, TrieNode> = new Map();
 
-  public constructor() {
+  public constructor() {}
 
-  }
+  public hasFilterMatching(uri: string): boolean {
+    const { authority, path } = this.parseUri(uri);
 
-  public hasFilterMatching(uri: string){
-    const {scheme, authority, path} = this.parseUri(uri);
-    // TODO: Remove split and fix authority / and authoriy only URIs
-    const splitPath = path.split("/");
-
-    const rootNode = this.authorities.get(authority);
-    if (!rootNode){
+    let currentNode = this.authorities.get(authority);
+    if (!currentNode) {
       return false;
     }
 
-    let currentNode: TrieNode | undefined = rootNode;
-    for (let i = 0; i < splitPath.length; i++){
-      if (currentNode.isTerminal){
+    const len = path.length;
+    // Checks for "/"
+    let startIdx = path.charCodeAt(0) === 47 ? 1 : 0;
+
+    // Handle root authority matching (e.g., filter registered at root "/")
+    if (startIdx >= len) {
+      return Boolean(currentNode.isTerminal);
+    }
+
+    while (startIdx < len) {
+      if (currentNode.isTerminal) {
         return true;
       }
-      currentNode = currentNode?.getChild(splitPath[i]);
-      if (!currentNode){
-        return false;
+
+      let endIdx = path.indexOf('/', startIdx);
+      if (endIdx === -1) {
+        endIdx = len;
       }
+
+      if (endIdx > startIdx) {
+        const segment = path.substring(startIdx, endIdx);
+        const child = currentNode.getChild(segment);
+        if (!child) {
+          return false;
+        }
+        currentNode = child;
+      }
+
+      startIdx = endIdx + 1;
     }
-    if (!currentNode.isTerminal){
-      return false;
-    }
-    
-    return true;
+
+    return Boolean(currentNode.isTerminal);
   }
 
-  public addStringFilter(filterUri: string){
-    const {scheme, authority, path} = this.parseUri(filterUri);
-    // TODO: Remove split
-    const splitPath = path.split("/");
+  public addStringFilter(filterUri: string): void {
+    const { authority, path } = this.parseUri(filterUri);
 
-    let rootNode = this.authorities.get(authority)!;
-    if (!rootNode){
-      // Root of Trie is the authority
-      const newTrieNode = new TrieNode(
-        authority,
-        (binding: Bindings) => true,
-      )
-      // For each path entry add a childNode to parentNode and
-      // then switch parentNode so the next path is attached to child.
-      this.addNodeSequence(newTrieNode, splitPath);
+    let currentNode = this.authorities.get(authority);
+    if (!currentNode) {
+      currentNode = new TrieNode(authority, (binding: Bindings) => true, false);
+      this.authorities.set(authority, currentNode);
+    }
 
-      this.authorities.set(authority, newTrieNode);
+    const len = path.length;
+    let startIdx = path.charCodeAt(0) === 47 /* '/' */ ? 1 : 0;
+
+    // Filter applies to the entire authority root (e.g. "http://example.org/")
+    if (startIdx >= len) {
+      currentNode.isTerminal = true;
       return;
     }
 
-    // Authority exists and we should update the trie
-    for (let i = 0; i < splitPath.length; i++){
-      const child = rootNode.getChild(splitPath[i]);
-      if (child){
-        rootNode = child;
-        continue;
+    while (startIdx < len) {
+      let endIdx = path.indexOf('/', startIdx);
+      const isLastSegment = endIdx === -1 || endIdx === len - 1;
+      
+      if (endIdx === -1) {
+        endIdx = len;
       }
-      // This part of path doesn't exist so we add the rest of path as sequence
-      // of nodes
-      this.addNodeSequence(rootNode, splitPath.slice(i));
-      return;
+
+      if (endIdx > startIdx) {
+        const segment = path.substring(startIdx, endIdx);
+        let child: TrieNode | undefined = currentNode!.getChild(segment);
+
+        if (!child) {
+          child = new TrieNode(segment, (binding: Bindings) => true, isLastSegment);
+          currentNode!.addChild(child);
+        } else if (isLastSegment) {
+          child.isTerminal = true;
+        }
+
+        currentNode = child;
+      }
+
+      startIdx = endIdx + 1;
     }
-    return;
   }
 
-  protected addNodeSequence(parentNode: TrieNode, splitPathSequence: string[]){
-    for (let i = 0; i < splitPathSequence.length; i++){
-      const childNode = new TrieNode(
-        splitPathSequence[i],
-        (binding: Bindings) => true,
-        i === (splitPathSequence.length - 1),
-      );
-      parentNode.addChild(childNode);
-      parentNode = childNode;
-    }
-  }
-
-  /**
-   * Faster parser of URIs. Assumes source attribution and quad terms have already
-   * been parsed before, allowing us to avoid doing the full WHATWG spec-compliant 
-   * new URL()
-   * @param uri 
-   * @returns Split uri into scheme, authority, and path
-   */
-  protected parseUri(uri: string): IParsedUri{
+  protected parseUri(uri: string): IParsedUri {
     const splitIndex = uri.indexOf("://");
-
-    // Scheme is case-insenstive
-    const scheme: string = uri.slice(0,splitIndex).toLowerCase()
-    const rest = uri.slice(splitIndex + 3);
+    const scheme = splitIndex === -1 ? "" : uri.slice(0, splitIndex).toLowerCase();
+    const rest = splitIndex === -1 ? uri : uri.slice(splitIndex + 3);
 
     const authorityPathSplit = rest.indexOf('/');
-    if (authorityPathSplit === -1){
+    if (authorityPathSplit === -1) {
       return {
         scheme,
-        authority: rest,
-        path: "/"
-      }
+        authority: this.normalizeAuthority(rest),
+        path: "/",
+      };
     }
 
-    const authority = rest.slice(0,authorityPathSplit);
-    const atIndex = authority.indexOf('@');
+    const authority = rest.slice(0, authorityPathSplit);
+    let path = rest.slice(authorityPathSplit);
 
-    // Domain should be case insensitive
-    const normalizedAuthority = atIndex === -1
-      ? authority.toLowerCase()
-      : authority.slice(0, atIndex + 1) + authority.slice(atIndex + 1).toLowerCase();
-
-    let path: string = rest.slice(authorityPathSplit);
-
-    const indexQuery = path.indexOf("?");
-    if (indexQuery > -1){
+    const indexQuery = path.indexOf('?');
+    if (indexQuery > -1) {
       path = path.slice(0, indexQuery);
     }
-    const indexFragment = path.indexOf("#");
-    if (indexFragment > -1){
+    const indexFragment = path.indexOf('#');
+    if (indexFragment > -1) {
       path = path.slice(0, indexFragment);
     }
 
     return {
       scheme,
-      authority: normalizedAuthority,
+      authority: this.normalizeAuthority(authority),
       path,
-    }
+    };
+  }
+
+  private normalizeAuthority(authority: string): string {
+    const atIndex = authority.indexOf('@');
+    return atIndex === -1
+      ? authority.toLowerCase()
+      : authority.slice(0, atIndex + 1) + authority.slice(atIndex + 1).toLowerCase();
   }
 }
 
 export class TrieNode {
-  protected readonly value: string;
-  protected readonly filterFn: any;
-  public readonly isTerminal?: boolean;
+  public readonly value: string;
+  public readonly filterFn: any;
+  public isTerminal: boolean;
+  public readonly children: Map<string, TrieNode> = new Map();
 
-  protected readonly children: Map<string, TrieNode> = new Map();
-
-  // TODO add filterFn type
-  public constructor(value: string, filterFn: any, isTerminal?: boolean){
+  public constructor(value: string, filterFn: any, isTerminal = false) {
     this.value = value;
     this.filterFn = filterFn;
     this.isTerminal = isTerminal;
   }
 
-  public addChild(child: TrieNode){
+  public addChild(child: TrieNode): void {
     this.children.set(child.value, child);
   }
 
-  public getChild(value: string): TrieNode | undefined{
+  public getChild(value: string): TrieNode | undefined {
     return this.children.get(value);
   }
 }
