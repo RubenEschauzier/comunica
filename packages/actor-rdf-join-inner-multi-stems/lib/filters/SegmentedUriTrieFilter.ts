@@ -1,28 +1,173 @@
 import { Bindings } from "@comunica/types";
 
-export class SegmentedUriTrieFilter {
-  protected readonly authorities: Map<string, TrieNode> = new Map();
+export interface ICompositeRule {
+  /**
+   * The canonical namespace prefix representing the composite resource domain.
+   * e.g., "https://pod.example/alice/"
+   */
+  readonly domainPrefix: string;
+
+  /**
+   * The variable names that must reside within `domainPrefix`.
+   * - Star pattern: ['s']
+   * - Linear 2-hop: ['s', 'o1'] (terminal ?o2 is omitted)
+   */
+  readonly requiredAuthoritativeVars: string[];
+}
+
+export interface IParsedUri {
+  scheme: string;
+  authority: string;
+  path: string;
+}
+
+export class TrieNode<T = ICompositeRule> {
+  public readonly value: string;
+  public isTerminal: boolean;
+  public readonly rules: T[] = [];
+  public readonly children: Map<string, TrieNode<T>> = new Map();
+
+  public constructor(value: string, isTerminal = false) {
+    this.value = value;
+    this.isTerminal = isTerminal;
+  }
+
+  public addChild(child: TrieNode<T>): void {
+    this.children.set(child.value, child);
+  }
+
+  public getChild(value: string): TrieNode<T> | undefined {
+    return this.children.get(value);
+  }
+}
+
+export class SegmentedUriTrieFilter<T = ICompositeRule> {
+  protected readonly authorities: Map<string, TrieNode<T>> = new Map();
 
   public constructor() {}
 
+  /**
+   * Registers a domain prefix rule associated with a composite resource.
+   */
+  public addDomainRule(filterUri: string, rule: T): void {
+    const { authority, path } = this.parseUri(filterUri);
+
+    let currentNode: TrieNode<T> | undefined = this.authorities.get(authority);
+    if (!currentNode) {
+      currentNode = new TrieNode<T>(authority, false);
+      this.authorities.set(authority, currentNode);
+    }
+
+    const len = path.length;
+    let startIdx = path.charCodeAt(0) === 47 /* '/' */ ? 1 : 0;
+
+    // Rule applies to the root authority (e.g., "https://example.org/")
+    if (startIdx >= len) {
+      currentNode.isTerminal = true;
+      currentNode.rules.push(rule);
+      return;
+    }
+
+    // Narrowed to strictly non-undefined for the traversal loop
+    let activeNode: TrieNode<T> = currentNode;
+
+    while (startIdx < len) {
+      let endIdx = path.indexOf('/', startIdx);
+      const isLastSegment = endIdx === -1 || endIdx === len - 1;
+
+      if (endIdx === -1) {
+        endIdx = len;
+      }
+
+      if (endIdx > startIdx) {
+        const segment = path.substring(startIdx, endIdx);
+        let child: TrieNode<T> | undefined = activeNode.getChild(segment);
+
+        if (!child) {
+          child = new TrieNode<T>(segment, isLastSegment);
+          activeNode.addChild(child);
+        } else if (isLastSegment) {
+          child.isTerminal = true;
+        }
+
+        if (isLastSegment) {
+          child.rules.push(rule);
+        }
+
+        // child is guaranteed to be TrieNode<T> here
+        activeNode = child;
+      }
+
+      startIdx = endIdx + 1;
+    }
+  }
+
+  /**
+   * Resolves all composite rules that claim authority over this document source URI.
+   * Collects rules hierarchically from root to deepest prefix.
+   */
+  public getAllMatchingRules(uri: string): T[] {
+    const { authority, path } = this.parseUri(uri);
+
+    let currentNode: TrieNode<T> | undefined = this.authorities.get(authority);
+    if (!currentNode) {
+      return [];
+    }
+
+    let results: T[] = [];
+
+    // Collect root authority rules if present
+    if (currentNode.rules.length > 0) {
+      results = results.concat(currentNode.rules);
+    }
+
+    const len = path.length;
+    let startIdx = path.charCodeAt(0) === 47 /* '/' */ ? 1 : 0;
+
+    while (startIdx < len && currentNode !== undefined) {
+      let endIdx = path.indexOf('/', startIdx);
+      if (endIdx === -1) {
+        endIdx = len;
+      }
+
+      if (endIdx > startIdx) {
+        const segment = path.substring(startIdx, endIdx);
+        const nextNode: TrieNode<T> | undefined = currentNode.getChild(segment);
+        if (!nextNode) {
+          break;
+        }
+        currentNode = nextNode;
+
+        if (currentNode.rules.length > 0) {
+          results = results.concat(currentNode.rules);
+        }
+      }
+
+      startIdx = endIdx + 1;
+    }
+
+    return results;
+  }
+
+  /**
+   * Fast boolean check: returns true if any terminal node covers this URI.
+   */
   public hasFilterMatching(uri: string): boolean {
     const { authority, path } = this.parseUri(uri);
 
-    let currentNode = this.authorities.get(authority);
+    let currentNode: TrieNode<T> | undefined = this.authorities.get(authority);
     if (!currentNode) {
       return false;
     }
 
     const len = path.length;
-    // Checks for "/"
-    let startIdx = path.charCodeAt(0) === 47 ? 1 : 0;
+    let startIdx = path.charCodeAt(0) === 47 /* '/' */ ? 1 : 0;
 
-    // Handle root authority matching (e.g., filter registered at root "/")
     if (startIdx >= len) {
       return Boolean(currentNode.isTerminal);
     }
 
-    while (startIdx < len) {
+    while (startIdx < len && currentNode !== undefined) {
       if (currentNode.isTerminal) {
         return true;
       }
@@ -34,64 +179,47 @@ export class SegmentedUriTrieFilter {
 
       if (endIdx > startIdx) {
         const segment = path.substring(startIdx, endIdx);
-        const child = currentNode.getChild(segment);
-        if (!child) {
+        const nextNode: TrieNode<T> | undefined = currentNode.getChild(segment);
+        if (!nextNode) {
           return false;
         }
-        currentNode = child;
+        currentNode = nextNode;
       }
 
       startIdx = endIdx + 1;
     }
 
-    return Boolean(currentNode.isTerminal);
+    return Boolean(currentNode?.isTerminal);
   }
 
-  public addStringFilter(filterUri: string): void {
-    const { authority, path } = this.parseUri(filterUri);
+  /**
+   * Validates whether a given term URI belongs strictly to a specified prefix domain.
+   */
+  public matchesPrefix(termUri: string, prefixDomain: string): boolean {
+    const parsedTerm = this.parseUri(termUri);
+    const parsedPrefix = this.parseUri(prefixDomain);
 
-    let currentNode = this.authorities.get(authority);
-    if (!currentNode) {
-      currentNode = new TrieNode(authority, (binding: Bindings) => true, false);
-      this.authorities.set(authority, currentNode);
+    if (parsedTerm.authority !== parsedPrefix.authority) {
+      return false;
     }
 
-    const len = path.length;
-    let startIdx = path.charCodeAt(0) === 47 /* '/' */ ? 1 : 0;
-
-    // Filter applies to the entire authority root (e.g. "http://example.org/")
-    if (startIdx >= len) {
-      currentNode.isTerminal = true;
-      return;
+    if (!parsedTerm.path.startsWith(parsedPrefix.path)) {
+      return false;
     }
 
-    while (startIdx < len) {
-      let endIdx = path.indexOf('/', startIdx);
-      const isLastSegment = endIdx === -1 || endIdx === len - 1;
-      
-      if (endIdx === -1) {
-        endIdx = len;
-      }
-
-      if (endIdx > startIdx) {
-        const segment = path.substring(startIdx, endIdx);
-        let child: TrieNode | undefined = currentNode!.getChild(segment);
-
-        if (!child) {
-          child = new TrieNode(segment, (binding: Bindings) => true, isLastSegment);
-          currentNode!.addChild(child);
-        } else if (isLastSegment) {
-          child.isTerminal = true;
-        }
-
-        currentNode = child;
-      }
-
-      startIdx = endIdx + 1;
+    // Boundary check: prevent /api matching /apigateway
+    if (
+      parsedPrefix.path.endsWith('/') ||
+      parsedTerm.path.length === parsedPrefix.path.length ||
+      parsedTerm.path.charAt(parsedPrefix.path.length) === '/'
+    ) {
+      return true;
     }
+
+    return false;
   }
 
-  protected parseUri(uri: string): IParsedUri {
+  public parseUri(uri: string): IParsedUri {
     const splitIndex = uri.indexOf("://");
     const scheme = splitIndex === -1 ? "" : uri.slice(0, splitIndex).toLowerCase();
     const rest = splitIndex === -1 ? uri : uri.slice(splitIndex + 3);
@@ -132,29 +260,96 @@ export class SegmentedUriTrieFilter {
   }
 }
 
-export class TrieNode {
-  public readonly value: string;
-  public readonly filterFn: any;
-  public isTerminal: boolean;
-  public readonly children: Map<string, TrieNode> = new Map();
+export class AuthoritativeSourceFilter {
+  // Caches applicable candidate rules per source URI
+  public readonly sourceRulesCache: Map<string, ICompositeRule[]> = new Map();
 
-  public constructor(value: string, filterFn: any, isTerminal = false) {
-    this.value = value;
-    this.filterFn = filterFn;
-    this.isTerminal = isTerminal;
+  // Unified domain and rule trie
+  protected readonly uriTrie: SegmentedUriTrieFilter<ICompositeRule> =
+    new SegmentedUriTrieFilter<ICompositeRule>();
+
+  protected hasRules: boolean = false;
+
+  // Run-length temporal cache for quad bursts emitted from the same document
+  private lastSource: string | null = null;
+  private lastRules: ICompositeRule[] | null = null;
+
+  public constructor(
+    protected readonly sourceExtractor: (binding: Bindings) => string
+  ) {}
+
+  /**
+   * Registers a composite resource rule on a domain prefix.
+   * Flushes the source cache and resets the burst pointer in O(1).
+   */
+  public registerCompositeResource(
+    domainPrefix: string,
+    requiredAuthoritativeVars: string[]
+  ): void {
+    this.hasRules = true;
+    this.lastSource = null;
+    this.lastRules = null;
+    this.sourceRulesCache.clear();
+
+    this.uriTrie.addDomainRule(domainPrefix, {
+      domainPrefix,
+      requiredAuthoritativeVars,
+    });
   }
 
-  public addChild(child: TrieNode): void {
-    this.children.set(child.value, child);
-  }
+  /**
+   * Evaluates whether a binding should be suppressed based on active composite rules.
+   */
+  public shouldFilter(binding: Bindings): boolean {
+    if (!this.hasRules) {
+      return false;
+    }
 
-  public getChild(value: string): TrieNode | undefined {
-    return this.children.get(value);
-  }
-}
+    const source = this.sourceExtractor(binding);
 
-export interface IParsedUri {
-  scheme: string;
-  authority: string;
-  path: string;
+    // 1. Resolve candidate rules covering this source (Burst cache -> Map cache -> Trie)
+    let rules: ICompositeRule[];
+
+    if (source === this.lastSource && this.lastRules !== null) {
+      rules = this.lastRules;
+    } else {
+      const cached = this.sourceRulesCache.get(source);
+      if (cached !== undefined) {
+        rules = cached;
+      } else {
+        rules = this.uriTrie.getAllMatchingRules(source);
+        this.sourceRulesCache.set(source, rules);
+      }
+      this.lastSource = source;
+      this.lastRules = rules;
+    }
+
+    // Fast-path: document source is not covered by any composite resource
+    if (rules.length === 0) {
+      return false;
+    }
+
+    // 2. Test candidate composite rules
+    for (let i = 0; i < rules.length; i++) {
+      const rule = rules[i];
+      let allVarsMatch = true;
+
+      for (let j = 0; j < rule.requiredAuthoritativeVars.length; j++) {
+        const varName = rule.requiredAuthoritativeVars[j];
+        const term = binding.get(varName);
+
+        if (!term || !this.uriTrie.matchesPrefix(term.value, rule.domainPrefix)) {
+          allVarsMatch = false;
+          break;
+        }
+      }
+
+      // If all required variables reside in the authoritative domain, filter out
+      if (allVarsMatch) {
+        return true;
+      }
+    }
+
+    return false;
+  }
 }

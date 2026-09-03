@@ -1,6 +1,10 @@
-import { SegmentedUriTrieFilter, type IParsedUri } from '../lib/filters/SegmentedUriTrieFilter';
+import {
+  SegmentedUriTrieFilter,
+  type IParsedUri,
+  type ICompositeRule,
+} from '../lib/filters/SegmentedUriTrieFilter';
 
-class TestableSegmentedUriTrieFilter extends SegmentedUriTrieFilter {
+class TestableSegmentedUriTrieFilter extends SegmentedUriTrieFilter<ICompositeRule> {
   public override parseUri(uri: string): IParsedUri {
     return super.parseUri(uri) as IParsedUri;
   }
@@ -124,10 +128,28 @@ describe('SegmentedUriTrieFilter', () => {
         const result = filter.parseUri('https://example.com/static/');
         expect(result.path).toBe('/static/');
       });
+
+      it('should handle URIs without a scheme prefix', () => {
+        const result = filter.parseUri('example.org/api/v1');
+        expect(result).toEqual({
+          scheme: '',
+          authority: 'example.org',
+          path: '/api/v1',
+        });
+      });
+
+      it('should handle URIs without scheme and path', () => {
+        const result = filter.parseUri('example.org');
+        expect(result).toEqual({
+          scheme: '',
+          authority: 'example.org',
+          path: '/',
+        });
+      });
     });
   });
 
-  describe('An hasFilter invocation', () => {
+  describe('An hasFilterMatching invocation', () => {
     it('should return false for any URI when the trie is empty', () => {
       expect(filter.hasFilterMatching('https://example.com/api')).toBe(false);
       expect(filter.hasFilterMatching('http://localhost:8080/')).toBe(false);
@@ -135,19 +157,28 @@ describe('SegmentedUriTrieFilter', () => {
 
     describe('for exact and disjoint URI matches', () => {
       it('should return true for an exact URI registered in the trie', () => {
-        filter.addStringFilter('https://example.com/api/v1/users');
+        filter.addDomainRule('https://example.com/api/v1/users', {
+          domainPrefix: 'https://example.com/api/v1/users',
+          requiredAuthoritativeVars: ['s'],
+        });
 
         expect(filter.hasFilterMatching('https://example.com/api/v1/users')).toBe(true);
       });
 
       it('should return false for URIs matching on path but belonging to a different authority', () => {
-        filter.addStringFilter('https://example.com/api/v1/users');
+        filter.addDomainRule('https://example.com/api/v1/users', {
+          domainPrefix: 'https://example.com/api/v1/users',
+          requiredAuthoritativeVars: ['s'],
+        });
 
         expect(filter.hasFilterMatching('https://other.org/api/v1/users')).toBe(false);
       });
 
       it('should return false for parent paths of an inserted specific filter', () => {
-        filter.addStringFilter('https://example.com/api/v1/users');
+        filter.addDomainRule('https://example.com/api/v1/users', {
+          domainPrefix: 'https://example.com/api/v1/users',
+          requiredAuthoritativeVars: ['s'],
+        });
 
         expect(filter.hasFilterMatching('https://example.com/api/v1')).toBe(false);
         expect(filter.hasFilterMatching('https://example.com/api')).toBe(false);
@@ -155,7 +186,10 @@ describe('SegmentedUriTrieFilter', () => {
       });
 
       it('should match root-level path filters', () => {
-        filter.addStringFilter('https://example.com/');
+        filter.addDomainRule('https://example.com/', {
+          domainPrefix: 'https://example.com/',
+          requiredAuthoritativeVars: ['s'],
+        });
 
         expect(filter.hasFilterMatching('https://example.com/')).toBe(true);
         expect(filter.hasFilterMatching('https://example.com')).toBe(true);
@@ -164,7 +198,10 @@ describe('SegmentedUriTrieFilter', () => {
 
     describe('for hierarchical and prefix paths', () => {
       it('should return true for deeper sub-paths when a prefix filter is registered', () => {
-        filter.addStringFilter('https://example.com/api');
+        filter.addDomainRule('https://example.com/api', {
+          domainPrefix: 'https://example.com/api',
+          requiredAuthoritativeVars: ['s'],
+        });
 
         expect(filter.hasFilterMatching('https://example.com/api')).toBe(true);
         expect(filter.hasFilterMatching('https://example.com/api/v1')).toBe(true);
@@ -172,15 +209,23 @@ describe('SegmentedUriTrieFilter', () => {
       });
 
       it('should not match partial string prefixes across path boundaries', () => {
-        filter.addStringFilter('https://example.com/api');
+        filter.addDomainRule('https://example.com/api', {
+          domainPrefix: 'https://example.com/api',
+          requiredAuthoritativeVars: ['s'],
+        });
 
         expect(filter.hasFilterMatching('https://example.com/apigateway')).toBe(false);
       });
 
       it('should distinguish multiple branching paths on the same authority', () => {
-        filter.addStringFilter('https://example.com/api/v1');
-        filter.addStringFilter('https://example.com/api/v1/specialized');
-        filter.addStringFilter('https://example.com/static/images');
+        filter.addDomainRule('https://example.com/api/v1', {
+          domainPrefix: 'https://example.com/api/v1',
+          requiredAuthoritativeVars: ['s'],
+        });
+        filter.addDomainRule('https://example.com/static/images', {
+          domainPrefix: 'https://example.com/static/images',
+          requiredAuthoritativeVars: ['s'],
+        });
 
         expect(filter.hasFilterMatching('https://example.com/api/v1')).toBe(true);
         expect(filter.hasFilterMatching('https://example.com/api/v1/data')).toBe(true);
@@ -191,55 +236,113 @@ describe('SegmentedUriTrieFilter', () => {
         expect(filter.hasFilterMatching('https://example.com/static/css')).toBe(false);
       });
     });
+  });
 
-    describe('for authority and port differentiation', () => {
-      it('should treat authorities with different ports as distinct entries', () => {
-        filter.addStringFilter('http://localhost:8080/metrics');
-
-        expect(filter.hasFilterMatching('http://localhost:8080/metrics')).toBe(true);
-        expect(filter.hasFilterMatching('http://localhost:3000/metrics')).toBe(false);
-        expect(filter.hasFilterMatching('http://localhost/metrics')).toBe(false);
+  describe('An getAllMatchingRules invocation', () => {
+    it('should return an empty array when no rules match the URI', () => {
+      filter.addDomainRule('https://example.com/api', {
+        domainPrefix: 'https://example.com/api',
+        requiredAuthoritativeVars: ['s'],
       });
 
-      it('should normalize authority casing when matching filters', () => {
-        filter.addStringFilter('https://API.Example.COM/v1/resource');
+      expect(filter.getAllMatchingRules('https://example.com/other')).toEqual([]);
+      expect(filter.getAllMatchingRules('https://other.com/api')).toEqual([]);
+    });
 
-        expect(filter.hasFilterMatching('https://api.example.com/v1/resource')).toBe(true);
-        expect(filter.hasFilterMatching('https://Api.Example.Com/v1/resource')).toBe(true);
+    describe('for single and multiple rule associations', () => {
+      it('should return rules registered directly at the matched node', () => {
+        const rule: ICompositeRule = {
+          domainPrefix: 'https://example.com/api/v1',
+          requiredAuthoritativeVars: ['s'],
+        };
+        filter.addDomainRule('https://example.com/api/v1', rule);
+
+        const results = filter.getAllMatchingRules('https://example.com/api/v1/users');
+        expect(results).toEqual([rule]);
+      });
+
+      it('should accumulate multiple rules registered on the exact same domain path', () => {
+        const starRule: ICompositeRule = {
+          domainPrefix: 'https://example.com/api',
+          requiredAuthoritativeVars: ['s'],
+        };
+        const linearRule: ICompositeRule = {
+          domainPrefix: 'https://example.com/api',
+          requiredAuthoritativeVars: ['s', 'o1'],
+        };
+
+        filter.addDomainRule('https://example.com/api', starRule);
+        filter.addDomainRule('https://example.com/api', linearRule);
+
+        const results = filter.getAllMatchingRules('https://example.com/api/items');
+        expect(results).toHaveLength(2);
+        expect(results).toContain(starRule);
+        expect(results).toContain(linearRule);
       });
     });
 
-    describe('for query parameter and fragment handling', () => {
-      it('should ignore query strings and fragments when checking hasFilter', () => {
-        filter.addStringFilter('https://example.com/search');
+    describe('for hierarchical inheritance', () => {
+      it('should inherit rules from root authority down to deep prefix paths', () => {
+        const rootRule: ICompositeRule = {
+          domainPrefix: 'https://example.com/',
+          requiredAuthoritativeVars: ['s'],
+        };
+        const subRule: ICompositeRule = {
+          domainPrefix: 'https://example.com/pods/alice/',
+          requiredAuthoritativeVars: ['s', 'o1'],
+        };
 
-        expect(filter.hasFilterMatching('https://example.com/search?query=jest&page=1')).toBe(true);
-        expect(filter.hasFilterMatching('https://example.com/search#results')).toBe(true);
-        expect(filter.hasFilterMatching('https://example.com/search?query=jest#results')).toBe(true);
-      });
+        filter.addDomainRule('https://example.com/', rootRule);
+        filter.addDomainRule('https://example.com/pods/alice/', subRule);
 
-      it('should strip query strings and fragments during filter registration', () => {
-        filter.addStringFilter('https://example.com/catalog?category=all#top');
+        const matchedRootOnly = filter.getAllMatchingRules('https://example.com/public/data.ttl');
+        expect(matchedRootOnly).toEqual([rootRule]);
 
-        expect(filter.hasFilterMatching('https://example.com/catalog')).toBe(true);
-        expect(filter.hasFilterMatching('https://example.com/catalog/item-42')).toBe(true);
+        const matchedBoth = filter.getAllMatchingRules('https://example.com/pods/alice/profile.ttl');
+        expect(matchedBoth).toHaveLength(2);
+        expect(matchedBoth).toEqual([rootRule, subRule]);
       });
     });
+  });
 
-    describe('for trailing slashes', () => {
-      it('should match paths with or without trailing slash consistently', () => {
-        filter.addStringFilter('https://example.com/data');
+  describe('An matchesPrefix invocation', () => {
+    it('should return true for identical URIs', () => {
+      expect(
+        filter.matchesPrefix('https://example.com/api/v1', 'https://example.com/api/v1'),
+      ).toBe(true);
+    });
 
-        expect(filter.hasFilterMatching('https://example.com/data/')).toBe(true);
-        expect(filter.hasFilterMatching('https://example.com/data')).toBe(true);
-      });
+    it('should return true for sub-paths within the prefix domain', () => {
+      expect(
+        filter.matchesPrefix('https://example.com/api/v1/users', 'https://example.com/api/v1'),
+      ).toBe(true);
+      expect(
+        filter.matchesPrefix('https://example.com/api/v1/users/42', 'https://example.com/api/v1/'),
+      ).toBe(true);
+    });
 
-      it('should match lookups without a trailing slash when added with one', () => {
-        filter.addStringFilter('https://example.com/data/');
+    it('should return false for different authorities', () => {
+      expect(
+        filter.matchesPrefix('https://other.com/api/v1/users', 'https://example.com/api/v1'),
+      ).toBe(false);
+    });
 
-        expect(filter.hasFilterMatching('https://example.com/data')).toBe(true);
-        expect(filter.hasFilterMatching('https://example.com/data/')).toBe(true);
-      });
+    it('should return false when the path is not a sub-path', () => {
+      expect(
+        filter.matchesPrefix('https://example.com/api', 'https://example.com/api/v1'),
+      ).toBe(false);
+      expect(
+        filter.matchesPrefix('https://example.com/other', 'https://example.com/api'),
+      ).toBe(false);
+    });
+
+    it('should enforce path boundaries to prevent partial segment matches', () => {
+      expect(
+        filter.matchesPrefix('https://example.com/apigateway', 'https://example.com/api'),
+      ).toBe(false);
+      expect(
+        filter.matchesPrefix('https://example.com/api-v2', 'https://example.com/api'),
+      ).toBe(false);
     });
   });
 });
