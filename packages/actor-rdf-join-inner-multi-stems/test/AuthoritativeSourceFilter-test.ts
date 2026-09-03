@@ -210,5 +210,62 @@ describe('AuthoritativeSourceFilter', () => {
         expect(filter['lastRules']).toBeNull();
       });
     });
+    describe('for nested / overlapping composite domains (sub-paths)', () => {
+      beforeEach(() => {
+        // Parent domain: broader Star pattern covering the whole pod
+        filter.registerCompositeResource('https://pod.example/alice/', ['s']);
+        // Child domain: nested Linear pattern with stricter constraints on intermediate hop ?o1
+        filter.registerCompositeResource('https://pod.example/alice/projects/', ['s', 'o1']);
+      });
+
+      it('should match only parent rule when source is outside the child sub-path', () => {
+        // Source is at the root of Alice's pod, not inside /projects/
+        const binding = createMockBinding({
+          _source: 'https://pod.example/alice/profile.ttl',
+          s: 'https://pod.example/alice/profile.ttl#me',
+          o1: 'https://external.org/item',
+        });
+
+        // Parent rule only requires ?s to be in /alice/ -> true
+        expect(filter.shouldFilter(binding)).toBe(true);
+      });
+
+      it('should return true when child rule fails but parent rule passes', () => {
+        // Source is inside /projects/, so it inherits [parentRule, childRule]
+        const binding = createMockBinding({
+          _source: 'https://pod.example/alice/projects/p1/data.ttl',
+          s: 'https://pod.example/alice/projects/p1/task',
+          o1: 'https://pod.example/alice/common/tag42',
+        });
+
+        // Parent rule: ?s is in /alice/ -> PASS
+        // Child rule: ?o1 is not in /alice/projects/ -> FAIL
+        // Result: filtered because parent rule is satisfied
+        expect(filter.shouldFilter(binding)).toBe(true);
+      });
+
+      it('should return true when child rule is satisfied directly', () => {
+        // Both ?s and ?o1 are strictly contained in /projects/
+        const binding = createMockBinding({
+          _source: 'https://pod.example/alice/projects/p1/data.ttl',
+          s: 'https://pod.example/alice/projects/p1/task',
+          o1: 'https://pod.example/alice/projects/shared/subtask',
+        });
+
+        // Both rules pass -> filtered
+        expect(filter.shouldFilter(binding)).toBe(true);
+      });
+
+      it('should return false when terms violate both parent and child rule domains', () => {
+        const binding = createMockBinding({
+          _source: 'https://pod.example/alice/projects/p1/data.ttl',
+          s: 'https://external-service.org/concepts/GlobalTask',
+          o1: 'https://external-service.org/concepts/Category',
+        });
+
+        // Subject is external: fails parent rule and fails child rule
+        expect(filter.shouldFilter(binding)).toBe(false);
+      });
+    });
   });
 });
