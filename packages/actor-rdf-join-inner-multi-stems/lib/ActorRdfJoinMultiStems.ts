@@ -8,7 +8,7 @@ import type {
 } from '@comunica/bus-rdf-join';
 import { ActorRdfJoin } from '@comunica/bus-rdf-join';
 import type { MediatorRdfJoinEntriesSort } from '@comunica/bus-rdf-join-entries-sort';
-import { KeysInitQuery, KeysRdfJoin, KeysStatistics } from '@comunica/context-entries';
+import { KeysInitQuery, KeysMergeBindingsContext, KeysRdfJoin, KeysStatistics } from '@comunica/context-entries';
 import type { TestResult } from '@comunica/core';
 import { failTest, passTestWithSideData } from '@comunica/core';
 import type { IMediatorTypeJoinCoefficients } from '@comunica/mediatortype-join-coefficients';
@@ -29,6 +29,9 @@ import { StemsOperatorStream } from './StemsOperatorStream';
 import type { IStemsRouterFactory } from './routers/BaseRouter';
 import { AdaptiveJoinController } from '../../actor-context-preprocess-set-stems-adaptive-join-controller/lib/AdaptiveJoinController';
 import { StemsAdaptiveJoinComponent } from '@comunica/actor-context-preprocess-set-stems-adaptive-join-controller/lib/StemsAdaptiveJoinComponent';
+import { AuthoritativeSourceFilter } from './filters/AuthoritativeSourceFilter';
+import { bitForIndex } from './utils/BitUtils';
+import { Bindings } from '@comunica/utils-bindings-factory';
 
 /**
  * A comunica Inner Multi Stems RDF Join Actor.
@@ -122,6 +125,10 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
       const inputStreams = [];
 
       for (const [ i, entry ] of connectedComponentEntries.entries()) {
+        const authoritativeSourceFilter = new AuthoritativeSourceFilter(
+          (binding: Bindings) => binding.getContextEntry(KeysMergeBindingsContext.sourcesBinding) ?? [],
+        );
+
         stemOperators.push(
           new StemsOperatorStream(
             entry.output.bindingsStream,
@@ -129,12 +136,13 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
             hashFunction,
             <JoinFunction> ActorRdfJoin.joinBindings,
             i,
-            1 << i,
+            bitForIndex(i),
             [ entry.operation ],
             (await entry.output.metadata()).variables.map(x => x.variable),
             this.getComponentSubjectIRIs(entry),
             entriesJoinVariables[i],
             componentHasCartesian,
+            authoritativeSourceFilter,
           ),
         );
         inputStreams.push(entry);

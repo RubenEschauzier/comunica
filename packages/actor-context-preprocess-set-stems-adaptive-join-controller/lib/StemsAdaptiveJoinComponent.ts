@@ -1,12 +1,14 @@
 import { AsyncIterator, UnionIterator } from 'asynciterator';
 import { AsyncReiterableArray } from 'asyncreiterable';
 import type * as RDF from '@rdfjs/types';
-import type { Bindings, BindingsStream, IJoinEntryWithMetadata } from '@comunica/types';
+import type { Bindings, IJoinEntryWithMetadata } from '@comunica/types';
 import { Algebra, algebraUtils } from '@comunica/utils-algebra';
-import { IStemsRouter, ITimestampGenerator, JoinFunction, StemsControllerStream, StemsOperatorStream } from '@comunica/actor-rdf-join-inner-multi-stems';
+import { IStemsRouter, ITimestampGenerator, JoinFunction, StemsControllerStream, StemsOperatorStream, indexesToMask } from '@comunica/actor-rdf-join-inner-multi-stems';
 import { HashFunction } from '@comunica/bus-hash-bindings';
 import { IAdaptiveJoinComponent } from './IAdaptiveJoinController';
 import equal = require('deep-equal');
+import { AuthoritativeSourceFilter } from '@comunica/actor-rdf-join-inner-multi-stems';
+import { KeysMergeBindingsContext } from '@comunica/context-entries';
 
 /**
  * Wrapping class for managing stems executions and dynamically adding composite sources to
@@ -74,19 +76,22 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
       return false;
     }
 
+    // Map each operation answered by this source to the index of the component operation
+    // it covers (-1 when the component does not contain it). The operations are compared
+    // structurally, as the algebra objects handed to us are not reference-identical to the
+    // ones the join entries were built from.
+    const operationToOperatorIndex = operations.map(targetOp =>
+      this.operations.findIndex(op => equal(this.stripMetadata(op), this.stripMetadata(targetOp))));
+
     // Calculate bitmask for the operations answered by this source
-    const matchedIndexes = this.operations.flatMap((op, idx) =>
-      operations.some(targetOp => equal(op, targetOp)) ? [idx] : []
-    );
+    const matchedIndexes = [ ...new Set(operationToOperatorIndex.filter(idx => idx !== -1)) ].sort();
 
     if (matchedIndexes.length === 0) {
       return false;
     }
 
     // Convert to binary representation
-    const setBitsMask = matchedIndexes.reduce(
-      (acc: number, curr: number) => acc + (1 << curr), 0
-    );
+    const setBitsMask = indexesToMask(matchedIndexes);
 
     // If an operator for this operation array already exists, push to its stream
     const existingSource = this.compositeSources.get(setBitsMask);
@@ -112,6 +117,10 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
     // Instantiate a new StemsOperatorStream with the component's internal generators
     const newOperatorIndex = this.stemsControllerStream.numOperators;
 
+    const authoritativeSourceFilter = new AuthoritativeSourceFilter(
+      (binding: Bindings) => (<any>binding).getContextEntry(KeysMergeBindingsContext.sourcesBinding) ?? [],
+    );
+
     const operator = new StemsOperatorStream(
       unionStream,
       this.timestampGenerator,
@@ -124,11 +133,18 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
       operatorNamedNodes,
       componentJoinVariables,
       false,
+      authoritativeSourceFilter,
       true,
     );
 
-    // Attach the operator to the StemsControllerStream and recalculate routes
-    this.stemsControllerStream.addOperator(operator, metadata);
+    // Attach the operator to the StemsControllerStream and recalculate routes.
+    // The passed metadata contains mappings from operators to their extraction variables,
+    // extended with the operator indexes covered by this source so the controller does not
+    // have to rediscover them from the algebra.
+    this.stemsControllerStream.addOperator(operator, {
+      ...metadata,
+      operationToOperatorIndex,
+    });
 
     return true;
   }

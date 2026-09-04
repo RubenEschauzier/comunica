@@ -11,6 +11,8 @@ import { Bindings } from '@comunica/utils-bindings-factory';
 import { AsyncIterator } from 'asynciterator';
 import type { StemsOperatorStream, ISelectivityData } from './StemsOperatorStream';
 import type { IRouteTableOperation, IStemsRouter, IStemsRoutingEntry } from './routers/BaseRouter';
+import { bitForIndex, getSetBitIndexes, isDisjointMask, mergeMasks } from './utils/BitUtils';
+import type * as RDF from '@rdfjs/types';
 
 export class StemsControllerStream extends AsyncIterator<Bindings> {
   /**
@@ -122,6 +124,36 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
     stemsOperatorStream: StemsOperatorStream,
     metadata?: Record<string, any>,
   ) {
+    // Add filters to the operators replaced by this composite resource, so they stop emitting
+    // tuples the composite resource is authoritative over. This requires knowing both which
+    // operators are covered (operationToOperatorIndex) and which domain the composite resource
+    // claims authority over (authoritativeDomain).
+    if (metadata && metadata.patternToExtractor && metadata.authoritativeDomain) {
+      // Outer array: the operations in the new operator, inner array the variables to extract per
+      // operation
+      const patternVariables: RDF.Variable[][] = metadata.patternToExtractor;
+      // Index i holds the index into this.stemsIterators of the operator covered by operation i
+      // of the new operator, or -1 when that operation is not covered by any operator.
+      const operationToOperatorIndex: number[] = metadata.operationToOperatorIndex ?? [];
+
+      for (const [ i, operatorIndex ] of operationToOperatorIndex.entries()) {
+        const coveredOperator = operatorIndex === -1 ? undefined : this.stemsIterators[operatorIndex];
+        // Only base operators (covering a single operation) can be deduplicated this way:
+        // a composite operator covering multiple operations is not fully replaced by this one.
+        if (!coveredOperator || coveredOperator.operations.length !== 1) {
+          continue;
+        }
+        coveredOperator.addResourceFilter(
+          metadata.authoritativeDomain,
+          patternVariables[i].map(variable => variable.value),
+        );
+      }
+    }
+    const stemsOperatorsCovered = getSetBitIndexes(stemsOperatorStream.doneBitMask).map(i => 
+      this.stemsIterators[i]
+    );
+
+
     const opIndex = this.stemsIterators.length;
     this.stemsIterators.push(stemsOperatorStream);
     this.finishedReading.push(0);
@@ -218,27 +250,27 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
               // If forbiddenBaseMask is set due to routing to a CR-based plan,
               // target operator must not overlap with forbidden operators covered by the CR
               if (partialResultMetadata.forbiddenBaseMask !== undefined &&
-                  (partialResultMetadata.forbiddenBaseMask & targetOp.doneBitMask) !== 0) {
+                  !isDisjointMask(partialResultMetadata.forbiddenBaseMask, targetOp.doneBitMask)) {
                 continue;
               }
 
-              // CRs must be executed in ascending order to prevent symmetry causing duplicate plans 
+              // CRs must be executed in ascending order to prevent symmetry causing duplicate plans
               // (CR1 \Join CR2) is same as (CR2 \join CR1) and tuples get duplicated and routed to both
               const stepCrIndex = nextStep.crIndex ?? (targetOp.isCompositeResource ? targetOp.operatorIndex : undefined);
               if (stepCrIndex !== undefined && stepCrIndex <= lastCr) {
                 continue;
               }
 
-              const targetBit = 1 << nextStep.next;
+              const targetBit = bitForIndex(nextStep.next);
               // Enforce lazy branching on CR paths by tracking nextRouting indexes
-              if ((nextRoutesSeenMask & targetBit) === 0) {
+              if (isDisjointMask(nextRoutesSeenMask, targetBit)) {
                 let itemToPush = item;
                 // If taking a CR alternative route where the next step is an intermediate base operator,
                 // record the CR's doneBitMask in forbiddenBaseMask to prevent joining replaced base operators
                 if (nextStep.crIndex !== undefined && nextStep.next !== nextStep.crIndex) {
                   const newMetadata: IStemsBindingsMetadata = {
                     ...partialResultMetadata,
-                    forbiddenBaseMask: (partialResultMetadata.forbiddenBaseMask ?? 0) | (nextStep.crDoneBitMask ?? 0),
+                    forbiddenBaseMask: mergeMasks(partialResultMetadata.forbiddenBaseMask ?? 0, nextStep.crDoneBitMask ?? 0),
                   };
                   itemToPush = item.setContextEntry(stemsContextKeys.stemsMetadata, newMetadata);
                 }
@@ -247,7 +279,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
                   item: itemToPush,
                   joinVars: nextStep.joinVars,
                 });
-                nextRoutesSeenMask |= targetBit;
+                nextRoutesSeenMask = mergeMasks(nextRoutesSeenMask, targetBit);
               }
             }
           }
@@ -440,7 +472,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
     size: number,
   ): string[] {
     return Object.keys(selectivities).filter((key) => {
-      // 1. Split the key by comma to count the hops
+      // Split the key by comma to count the hops
       const hops = key.split(',');
 
       // A full order contains n - 1 indices, as the last is not included
@@ -466,18 +498,6 @@ export class TimestampGenerator implements ITimestampGenerator {
   public next(): number {
     return this.counter++;
   }
-}
-
-function _bitmaskToVector(doneMask: number, totalCount: number): number[] {
-  const vector: number[] = [];
-  // Iterate through bit positions 0 to N-1
-  for (let i = 0; i < totalCount; i++) {
-    // Shift the mask right by 'i' and check if the last bit is 1
-    const bit = (doneMask >> i) & 1;
-    vector.push(bit);
-  }
-
-  return vector;
 }
 
 export interface IStemsBindingsMetadata {

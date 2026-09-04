@@ -1,6 +1,6 @@
 import type { AsyncIterator } from 'asynciterator';
 import type * as RDF from '@rdfjs/types';
-import type { Bindings, IJoinEntryWithMetadata } from '@comunica/types';
+import type { Bindings } from '@comunica/types';
 import type { Algebra } from '@comunica/utils-algebra';
 
 /**

@@ -6,6 +6,8 @@ import type * as RDF from '@rdfjs/types';
 import { BufferedIterator } from 'asynciterator';
 import type { IStemsBindingsMetadata, ITimestampGenerator } from './StemsControllerStream';
 import { stemsContextKeys } from './StemsControllerStream';
+import { AuthoritativeSourceFilter } from './filters/AuthoritativeSourceFilter';
+import { mergeMasks } from './utils/BitUtils';
 
 /**
  * We may want to implement AMJoin, which keeps track of a bitvector table to quickly determine join failures,
@@ -109,7 +111,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
    * Filter functions added to the operator. Can be used to deduplicate data from
    * individual triple patterns and composite sources
    */
-  private filterFns?: ((binding: Bindings) => boolean)[];
+  protected readonly authoritativeSourceFilter: AuthoritativeSourceFilter;
 
   public constructor(
     sourceIterator: BindingsStream,
@@ -123,6 +125,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
     namedNodes: RDF.NamedNode[],
     joinVariables: RDF.Variable[][],
     canBeCartesian: boolean,
+    authoritativeSourceFilter: AuthoritativeSourceFilter,
     isCompositeResource: boolean = false,
   ) {
     super();
@@ -139,6 +142,8 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
     this.funJoin = funJoin;
 
     this.sourceIterator = sourceIterator;
+    
+    this.authoritativeSourceFilter = authoritativeSourceFilter;
 
     // Check if already ended before setting up listeners
     if (this.sourceIterator.done) {
@@ -214,7 +219,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
           // as we throw away the intermediate results, mutating the metadata is not a problem
           // as we will never try to access it to get the previous metadata state.
           const copy: IStemsBindingsMetadata = { ...this.matchMetadata! };
-          copy.done |= this.doneBitMask;
+          copy.done = mergeMasks(copy.done, this.doneBitMask);
           copy.order = [ ...copy.order, this.operatorIndex ];
 
           if (this.isCompositeResource) {
@@ -263,15 +268,18 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
       // We read from the sourceIterator. In this case we need to hash for each
       // possible join variable. And possible cartesian products
       if (joinVars === undefined) {
-
-        // If any filter returns false, we filter the produced binding
-        if (this.filterFns && this.filterFns.some(
-          filterFn => !(filterFn(<Bindings> item)))
-        ){
-          // TODO: We should track this for the paper to see how many bindings
-          // are filtered compared to the produced bindings by composite resources
-          continue
+        if (this.authoritativeSourceFilter.shouldFilter(item)){
+          continue;
         }
+
+        // // If any filter returns false, we filter the produced binding
+        // if (this.filterFns && this.filterFns.some(
+        //   filterFn => !(filterFn(<Bindings> item)))
+        // ){
+        //   // TODO: We should track this for the paper to see how many bindings
+        //   // are filtered compared to the produced bindings by composite resources
+        //   continue
+        // }
 
         this.nProduced++;
 
@@ -330,10 +338,16 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   }
 
   /**
-   * Adds a filter function to the operator. Filter = true means it is included
+   * Adds a composite resource filter. 
+   * This will filter on the domain of the composite resource and the binding's source and
+   * on if the passed requiredVarsAuthorititive variable bindings are within the composite
+   * resource's domain
    */
-  public addFilter(filter: (binding: Bindings) => boolean){
-     (this.filterFns ??= []).push(filter);
+  public addResourceFilter(domain: string, requiredVarsAuthorititive: string[]){
+    this.authoritativeSourceFilter.registerResourceFilter(
+      domain,
+      requiredVarsAuthorititive,
+    )
   }
 }
 

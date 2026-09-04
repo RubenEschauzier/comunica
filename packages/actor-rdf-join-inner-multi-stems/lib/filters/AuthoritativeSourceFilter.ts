@@ -1,4 +1,4 @@
-import { Bindings } from "@comunica/types";
+import { Bindings } from "@comunica/utils-bindings-factory";
 import { ICompositeRule, SegmentedUriTrieFilter } from "./SegmentedUriTrieFilter";
 
 export class AuthoritativeSourceFilter {
@@ -16,14 +16,14 @@ export class AuthoritativeSourceFilter {
   private lastRules: ICompositeRule[] | null = null;
 
   public constructor(
-    protected readonly sourceExtractor: (binding: Bindings) => string
+    protected readonly sourceExtractor: (binding: Bindings) => string[]
   ) {}
 
   /**
    * Registers a composite resource rule on a domain prefix.
    * Flushes the source cache and resets the burst pointer in O(1).
    */
-  public registerCompositeResource(
+  public registerResourceFilter(
     domainPrefix: string,
     requiredAuthoritativeVars: string[]
   ): void {
@@ -48,20 +48,27 @@ export class AuthoritativeSourceFilter {
 
     const source = this.sourceExtractor(binding);
 
-    // 1. Resolve candidate rules covering this source (Burst cache -> Map cache -> Trie)
+    if (source.length !== 1){
+      console.log(this)
+      console.log([...(<any>binding).entries.entries()]);
+      throw Error(`${this.constructor.name} expects one source per binding, got: 
+        ${JSON.stringify(source, null, 2)}`);
+    }
+    const sourceString = source[0];
+    // Resolve candidate rules covering this source
     let rules: ICompositeRule[];
 
-    if (source === this.lastSource && this.lastRules !== null) {
+    if (sourceString === this.lastSource && this.lastRules !== null) {
       rules = this.lastRules;
     } else {
-      const cached = this.sourceRulesCache.get(source);
+      const cached = this.sourceRulesCache.get(sourceString);
       if (cached !== undefined) {
         rules = cached;
       } else {
-        rules = this.uriTrie.getAllMatchingRules(source);
-        this.sourceRulesCache.set(source, rules);
+        rules = this.uriTrie.getAllMatchingRules(sourceString);
+        this.sourceRulesCache.set(sourceString, rules);
       }
-      this.lastSource = source;
+      this.lastSource = sourceString;
       this.lastRules = rules;
     }
 

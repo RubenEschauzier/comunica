@@ -4,6 +4,7 @@ import type { Bindings } from '@comunica/utils-bindings-factory';
 import type * as RDF from '@rdfjs/types';
 import { stemsContextKeys } from '../StemsControllerStream';
 import type { StemsOperatorStream } from '../StemsOperatorStream';
+import { allOnesMask, bitLength, getSetBitIndexes, getUnsetBitIndexes, hasAllBits, indexesToMask, isDisjointMask } from '../utils/BitUtils';
 import equal = require('deep-equal');
 
 export interface IRouteTableOperation {
@@ -47,20 +48,20 @@ export abstract class RouterBase implements IStemsRouter {
     // Calculate total composite query completion mask across all operations
     const allBitsMask = operations.reduce((acc, op) => acc | op.doneBitMask, 0);
     // Find the number of bits needed to represent all states
-    const nBits = allBitsMask === 0 ? 0 : 32 - Math.clz32(allBitsMask);
+    const nBits = bitLength(allBitsMask);
     const totalStates = 1 << nBits;
 
     const routeTable: Record<number, IStemsRoutingEntry[][]> = {};
 
     for (let state = 1; state < totalStates; state++) {
       // If all operations in the query are completed, no next entry
-      if ((state & allBitsMask) === allBitsMask) {
+      if (hasAllBits(state, allBitsMask)) {
         continue;
       }
 
       // Collect variables and namedNodes from all operations satisfied in this state
       const doneOperations = this.routeOperations.filter(
-        op => (state & op.doneBitMask) === op.doneBitMask,
+        op => hasAllBits(state, op.doneBitMask),
       );
 
       const doneVars = new Set(
@@ -93,40 +94,12 @@ export abstract class RouterBase implements IStemsRouter {
     return routeTable;
   }
 
-  protected getSetBitIndexes(mask: number): number[] {
-    const indexes: number[] = [];
-    let position = 0;
-    while (mask !== 0) {
-      if ((mask & 1) === 1) {
-        indexes.push(position);
-      }
-      mask >>>= 1;
-      position++;
-    }
-    return indexes;
-  }
-
-  protected getUnSetBitIndexes(mask: number, n: number): number[] {
-    const indexes: number[] = [];
-    for (let i = 0; i < n; i++) {
-      if ((mask & (1 << i)) === 0) {
-        indexes.push(i);
-      }
-    }
-    return indexes;
-  }
-
-  protected doneIndexesToMask(indexes: number[]){
-    // Sum the indexes by their respective bit representation
-    return indexes.reduce((acc: number, curr: number) => acc + (1 << curr), 0);
-  }
-
   public routeBinding(binding: Bindings, n: number): number | undefined {
     const done = binding.getContextEntry(stemsContextKeys.stemsMetadata)!.done;
-    if (done === (1 << n) - 1) {
+    if (done === allOnesMask(n)) {
       return undefined;
     }
-    const indexesReadyEddies = this.getUnSetBitIndexes(done, n);
+    const indexesReadyEddies = getUnsetBitIndexes(done, n);
 
     return Math.min(...indexesReadyEddies);
   }
@@ -143,15 +116,15 @@ export abstract class RouterBase implements IStemsRouter {
     /**
      * 
      */
-    const setBitsMask = stemsOperatorStream.doneBitMask; 
+    const setBitsMask = stemsOperatorStream.doneBitMask;
 
     for (const [ doneKey, routing ] of Object.entries(routeTable)) {
       const key = Number.parseInt(doneKey, 10);
       // If the done signature has no overlap with the current entry we can route to this derived resource
-      if ((key & setBitsMask) === 0){
+      if (isDisjointMask(key, setBitsMask)){
         // Find all done operations and their variables and namedNodes
         const doneOperations = this.routeOperations.filter(
-          op => (key & op.doneBitMask) === op.doneBitMask,
+          op => hasAllBits(key, op.doneBitMask),
         );
         const doneVars = new Set(
           doneOperations.flatMap(op => op.variables.map(v => v.value)),
@@ -224,7 +197,7 @@ export abstract class RouterBase implements IStemsRouter {
     if (indexes.length === 0){
       throw new Error("Tried to add derived resource with no overlap with current routingTable");
     }
-    return this.doneIndexesToMask(indexes);
+    return indexesToMask(indexes);
   }
 
   protected addOperatorIfOverlapping(

@@ -33,7 +33,7 @@ describe('AuthoritativeSourceFilter', () => {
       });
 
       it('should return false when the source URI does not match any registered domain', () => {
-        filter.registerCompositeResource('https://pod.example/alice/', ['s']);
+        filter.registerResourceFilter('https://pod.example/alice/', ['s']);
 
         const binding = createMockBinding({
           _source: 'https://pod.example/bob/profile.ttl',
@@ -46,7 +46,7 @@ describe('AuthoritativeSourceFilter', () => {
 
     describe('for star patterns (single authoritative variable)', () => {
       beforeEach(() => {
-        filter.registerCompositeResource('https://pod.example/alice/', ['s']);
+        filter.registerResourceFilter('https://pod.example/alice/', ['s']);
       });
 
       it('should return true when source and subject are both within the domain', () => {
@@ -85,7 +85,7 @@ describe('AuthoritativeSourceFilter', () => {
     describe('for linear path patterns (multiple authoritative variables)', () => {
       beforeEach(() => {
         // Linear path (?s -> ?o1 -> ?o2) requiring ?s and intermediate hop ?o1 to be local
-        filter.registerCompositeResource('https://pod.example/alice/', ['s', 'o1']);
+        filter.registerResourceFilter('https://pod.example/alice/', ['s', 'o1']);
       });
 
       it('should return true when all required variables are in the domain, ignoring leaf ?o2', () => {
@@ -114,9 +114,9 @@ describe('AuthoritativeSourceFilter', () => {
     describe('for heterogeneous shape coexistence across domains', () => {
       beforeEach(() => {
         // Alice has a Star pattern
-        filter.registerCompositeResource('https://pod.example/alice/', ['s']);
+        filter.registerResourceFilter('https://pod.example/alice/', ['s']);
         // Bob has a Linear pattern
-        filter.registerCompositeResource('https://pod.example/bob/', ['s', 'o1']);
+        filter.registerResourceFilter('https://pod.example/bob/', ['s', 'o1']);
       });
 
       it('should evaluate Alice bindings according to the Star rule', () => {
@@ -148,7 +148,7 @@ describe('AuthoritativeSourceFilter', () => {
 
     describe('for temporal burst and Map cache optimization', () => {
       it('should reuse rules via temporal pointer comparison for identical consecutive sources', () => {
-        filter.registerCompositeResource('https://pod.example/alice/', ['s']);
+        filter.registerResourceFilter('https://pod.example/alice/', ['s']);
 
         const spy = jest.spyOn(filter['uriTrie'], 'getAllMatchingRules');
 
@@ -169,8 +169,8 @@ describe('AuthoritativeSourceFilter', () => {
       });
 
       it('should serve rules from Map cache when source switches back after an interleave', () => {
-        filter.registerCompositeResource('https://pod.example/alice/', ['s']);
-        filter.registerCompositeResource('https://pod.example/bob/', ['s']);
+        filter.registerResourceFilter('https://pod.example/alice/', ['s']);
+        filter.registerResourceFilter('https://pod.example/bob/', ['s']);
 
         const spy = jest.spyOn(filter['uriTrie'], 'getAllMatchingRules');
 
@@ -193,7 +193,7 @@ describe('AuthoritativeSourceFilter', () => {
 
     describe('for cache invalidation during rule registration', () => {
       it('should clear the source rule cache and reset burst pointer when a new rule is added', () => {
-        filter.registerCompositeResource('https://pod.example/alice/', ['s']);
+        filter.registerResourceFilter('https://pod.example/alice/', ['s']);
 
         const binding = createMockBinding({
           _source: 'https://pod.example/alice/items.ttl',
@@ -203,7 +203,7 @@ describe('AuthoritativeSourceFilter', () => {
         filter.shouldFilter(binding);
         expect(filter.sourceRulesCache.size).toBe(1);
 
-        filter.registerCompositeResource('https://pod.example/bob/', ['s']);
+        filter.registerResourceFilter('https://pod.example/bob/', ['s']);
 
         expect(filter.sourceRulesCache.size).toBe(0);
         expect(filter['lastSource']).toBeNull();
@@ -213,9 +213,9 @@ describe('AuthoritativeSourceFilter', () => {
     describe('for nested / overlapping composite domains (sub-paths)', () => {
       beforeEach(() => {
         // Parent domain: broader Star pattern covering the whole pod
-        filter.registerCompositeResource('https://pod.example/alice/', ['s']);
+        filter.registerResourceFilter('https://pod.example/alice/', ['s']);
         // Child domain: nested Linear pattern with stricter constraints on intermediate hop ?o1
-        filter.registerCompositeResource('https://pod.example/alice/projects/', ['s', 'o1']);
+        filter.registerResourceFilter('https://pod.example/alice/projects/', ['s', 'o1']);
       });
 
       it('should match only parent rule when source is outside the child sub-path', () => {
