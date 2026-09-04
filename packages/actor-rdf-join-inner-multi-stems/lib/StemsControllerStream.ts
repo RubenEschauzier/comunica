@@ -129,9 +129,9 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
     // operators are covered (operationToOperatorIndex) and which domain the composite resource
     // claims authority over (authoritativeDomain).
     if (metadata && metadata.patternToExtractor && metadata.authoritativeDomain) {
-      // Outer array: the operations in the new operator, inner array the variables to extract per
-      // operation
-      const patternVariables: RDF.Variable[][] = metadata.patternToExtractor;
+      // Outer array: the operations in the new operator, inner array the terms to check for
+      // authoritativeness per operation (a mix of Variables and constants is allowed)
+      const patternVariables: RDF.Term[][] = metadata.patternToExtractor;
       // Index i holds the index into this.stemsIterators of the operator covered by operation i
       // of the new operator, or -1 when that operation is not covered by any operator.
       const operationToOperatorIndex: number[] = metadata.operationToOperatorIndex ?? [];
@@ -145,7 +145,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
         }
         coveredOperator.addResourceFilter(
           metadata.authoritativeDomain,
-          patternVariables[i].map(variable => variable.value),
+          patternVariables[i],
         );
       }
     }

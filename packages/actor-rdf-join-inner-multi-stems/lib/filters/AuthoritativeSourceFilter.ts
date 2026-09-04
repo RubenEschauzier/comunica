@@ -39,6 +39,15 @@ export class AuthoritativeSourceFilter {
   }
 
   /**
+   * Checks whether a term's URI value resides within the given domain prefix.
+   * Exposed so callers can resolve constant (non-Variable) terms once, at registration time,
+   * instead of registering a per-binding obligation for something that never varies.
+   */
+  public isWithinDomain(uri: string, domainPrefix: string): boolean {
+    return this.uriTrie.matchesPrefix(uri, domainPrefix);
+  }
+
+  /**
    * Evaluates whether a binding should be suppressed based on active composite rules.
    */
   public shouldFilter(binding: Bindings): boolean {

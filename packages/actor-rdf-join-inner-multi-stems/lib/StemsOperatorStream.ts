@@ -272,15 +272,6 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
           continue;
         }
 
-        // // If any filter returns false, we filter the produced binding
-        // if (this.filterFns && this.filterFns.some(
-        //   filterFn => !(filterFn(<Bindings> item)))
-        // ){
-        //   // TODO: We should track this for the paper to see how many bindings
-        //   // are filtered compared to the produced bindings by composite resources
-        //   continue
-        // }
-
         this.nProduced++;
 
         const itemMetadata: IStemsBindingsMetadata = {
@@ -338,15 +329,41 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   }
 
   /**
-   * Adds a composite resource filter. 
-   * This will filter on the domain of the composite resource and the binding's source and
-   * on if the passed requiredVarsAuthorititive variable bindings are within the composite
-   * resource's domain
-   */
-  public addResourceFilter(domain: string, requiredVarsAuthorititive: string[]){
+   * Adds a composite resource filter for the given domain, from the terms that must reside
+   * within it for a base tuple to already be covered by the composite resource.
+   * this explicitly follows the authorativeness assumption of sources.
+  */
+  public addResourceFilter(domain: string, requiredAuthoritativeTerms: RDF.Term[]){
+    // Filters should only be added when one triple term should be checked.
+    // Otherwise no filter means all constant terms have already been checked 
+    // -> filter all
+    if (requiredAuthoritativeTerms.length === 0) {
+      throw new Error(
+        `addResourceFilter for domain '${domain}' was called with no terms to check; ` +
+        `this operation must have at least one authoritative term position.`,
+      );
+    }
+
+
+    const domainForTermCheck = domain.endsWith('/') ? domain.slice(0, -1) : domain;
+
+    const requiredAuthoritativeVars: string[] = [];
+    for (const term of requiredAuthoritativeTerms) {
+      if (term.termType === 'Variable') {
+        requiredAuthoritativeVars.push(term.value);
+        continue;
+      }
+      if (term.termType !== 'NamedNode' ||
+          !this.authoritativeSourceFilter.isWithinDomain(term.value, domainForTermCheck)) {
+        return;
+      }
+      // Constant term already known to reside in the domain: dropped, so we
+      // only check the source of binding is in domain
+    }
+
     this.authoritativeSourceFilter.registerResourceFilter(
       domain,
-      requiredVarsAuthorititive,
+      requiredAuthoritativeVars,
     )
   }
 }
