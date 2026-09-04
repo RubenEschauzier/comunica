@@ -6,4 +6,5 @@ export * from './routers/FixedRouter';
 export * from './routers/LotteryRouter';
 export * from './routers/LotterySignatureRouter';
 export * from './utils/BitUtils';
+export * from './utils/JoinVariables';
 export * from './filters/AuthoritativeSourceFilter';

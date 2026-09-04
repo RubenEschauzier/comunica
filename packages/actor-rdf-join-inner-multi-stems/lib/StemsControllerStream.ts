@@ -149,10 +149,13 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
         );
       }
     }
-    const stemsOperatorsCovered = getSetBitIndexes(stemsOperatorStream.doneBitMask).map(i => 
-      this.stemsIterators[i]
-    );
 
+    // Only composite resources are attached after construction, and a composite resource's
+    // doneBitMask sets exactly the bits of the base operations it covers. Base operator i sits at
+    // index i, so this resolves the base operators it replaces. Recorded on the operator so it can
+    // tell whether those operators already produced the tuples an incoming binding is made of.
+    stemsOperatorStream.coveredOperators = getSetBitIndexes(stemsOperatorStream.doneBitMask)
+      .map(index => this.stemsIterators[index]);
 
     const opIndex = this.stemsIterators.length;
     this.stemsIterators.push(stemsOperatorStream);

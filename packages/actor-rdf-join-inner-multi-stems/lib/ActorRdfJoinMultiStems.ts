@@ -31,6 +31,7 @@ import { AdaptiveJoinController } from '../../actor-context-preprocess-set-stems
 import { StemsAdaptiveJoinComponent } from '@comunica/actor-context-preprocess-set-stems-adaptive-join-controller/lib/StemsAdaptiveJoinComponent';
 import { AuthoritativeSourceFilter } from './filters/AuthoritativeSourceFilter';
 import { bitForIndex } from './utils/BitUtils';
+import { computePairwiseJoinVariables } from './utils/JoinVariables';
 import { Bindings } from '@comunica/utils-bindings-factory';
 
 /**
@@ -173,7 +174,6 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
           {
             id: 0,
             joinEntries: connectedComponentEntries,
-            joinVariablesEntries: entriesJoinVariables,
             stemsControllerStream: controllerStream,
             router,
             timestampGenerator,
@@ -264,29 +264,10 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
   protected async getJoinVariables(entries: IJoinEntryWithMetadata[]): Promise<RDF.Variable[][][]> {
     // For each entry, we determine the variables that overlap with other entries.
     // As some entries are joined on multiple variables, each join variable entry is an array.
-    const entryJoinVariables: RDF.Variable[][][] = [];
-
-    for (let i = 0; i < entries.length; i++) {
-      const overlappingVariables: string[][] = [];
-      const variablesOuter = (await entries[i].output.metadata()).variables.map(x => x.variable.value);
-
-      for (let j = 0; j < entries.length; j++) {
-        if (i !== j) {
-          const variablesInner = new Set((await entries[j].output.metadata()).variables.map(x => x.variable.value));
-          const intersection = variablesOuter.filter(x => variablesInner.has(x)).sort();
-          // Ensure no duplicate entries are added (exact array equality)
-          if (intersection.length > 0) {
-            const alreadyPresent = overlappingVariables.some(existing =>
-              existing.length === intersection.length && existing.every((val, idx) => val === intersection[idx]));
-            if (!alreadyPresent) {
-              overlappingVariables.push(intersection);
-            }
-          }
-        }
-      }
-      entryJoinVariables.push(overlappingVariables.map(x => x.map(y => this.DF.variable(y))));
-    }
-    return entryJoinVariables;
+    const variableSets = await Promise.all(
+      entries.map(async entry => (await entry.output.metadata()).variables.map(x => x.variable)),
+    );
+    return computePairwiseJoinVariables(variableSets);
   }
 }
 

@@ -3,7 +3,7 @@ import { AsyncReiterableArray } from 'asyncreiterable';
 import type * as RDF from '@rdfjs/types';
 import type { Bindings, IJoinEntryWithMetadata } from '@comunica/types';
 import { Algebra, algebraUtils } from '@comunica/utils-algebra';
-import { IStemsRouter, ITimestampGenerator, JoinFunction, StemsControllerStream, StemsOperatorStream, indexesToMask } from '@comunica/actor-rdf-join-inner-multi-stems';
+import { IStemsRouter, ITimestampGenerator, JoinFunction, StemsControllerStream, StemsOperatorStream, computePairwiseJoinVariables, indexesToMask } from '@comunica/actor-rdf-join-inner-multi-stems';
 import { HashFunction } from '@comunica/bus-hash-bindings';
 import { IAdaptiveJoinComponent } from './IAdaptiveJoinController';
 import equal = require('deep-equal');
@@ -20,7 +20,6 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
   public readonly stemsControllerStream: StemsControllerStream;
   public readonly router: IStemsRouter;
   protected readonly joinEntries: IJoinEntryWithMetadata[];
-  protected readonly joinVariablesEntries: RDF.Variable[][][];
   protected readonly timestampGenerator: ITimestampGenerator;
   protected readonly hashFn: HashFunction;
   protected readonly joinFn: JoinFunction;
@@ -33,7 +32,6 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
     this.id = args.id;
     this.joinEntries = args.joinEntries;
     this.operations = args.joinEntries.map(entry => entry.operation);
-    this.joinVariablesEntries = args.joinVariablesEntries;
     this.stemsControllerStream = args.stemsControllerStream;
     this.router = args.router;
     this.timestampGenerator = args.timestampGenerator;
@@ -134,7 +132,6 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
       componentJoinVariables,
       false,
       authoritativeSourceFilter,
-      true,
     );
 
     // Attach the operator to the StemsControllerStream and recalculate routes.
@@ -152,22 +149,38 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
   /**
    * Determines overlapping join variables between this composite source
    * and all other existing operators in the connected component.
-   * The RDF.Variable[][] indicates 
+   * The RDF.Variable[][] indicates
    * (inner): an array of variables it can join on (multiple variables can join same time)
    * (outer): The different join variables for the other entries
    * Outer array order does not matter, just indicates which variables need to be hashed.
+   *
+   * This reuses the same pairwise-intersection logic ActorRdfJoinMultiStems#getJoinVariables
+   * uses for base operators: the covered entries are merged into a single variable set
+   * representing the composite resource, which is then compared against every entry it does
+   * not cover, exactly as if the composite resource were one join entry among the rest.
    */
   protected computeJoinVariablesForSubset(matchedIndexes: number[]): RDF.Variable[][] {
     const matchedSet = new Set(matchedIndexes);
-    const overlappingVars: RDF.Variable[][] = [];
+    const compositeVariables = new Map<string, RDF.Variable>();
+    const uncoveredVariableSets: RDF.Variable[][] = [];
+
     for (let i = 0; i < this.joinEntries.length; i++) {
-      if (!matchedSet.has(i)) {
-        // Find variables shared between the matched subset and outside operator i
-        const shared = this.joinVariablesEntries[i].flat();
-        overlappingVars.push(shared);
+      const entryVariables = this.joinEntries[i].metadata.variables.map(x => x.variable);
+      if (matchedSet.has(i)) {
+        for (const variable of entryVariables) {
+          compositeVariables.set(variable.value, variable);
+        }
+      } else {
+        uncoveredVariableSets.push(entryVariables);
       }
     }
-    return overlappingVars;
+
+    // The composite resource is placed at index 0, so its row in the result is exactly its
+    // intersection with every uncovered entry, which are the only other participants
+    const [ compositeJoinVariables ] = computePairwiseJoinVariables(
+      [ [ ...compositeVariables.values() ], ...uncoveredVariableSets ],
+    );
+    return compositeJoinVariables;
   }
 
   protected extractVariablesFromOperations(operations: Algebra.Operation[]): RDF.Variable[] {
@@ -234,7 +247,6 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
 export interface IAdaptiveJoinComponentSteMsArgs {
   id: number | string;
   joinEntries: IJoinEntryWithMetadata[];
-  joinVariablesEntries: RDF.Variable[][][];
   stemsControllerStream: StemsControllerStream;
   router: IStemsRouter;
   timestampGenerator: ITimestampGenerator;

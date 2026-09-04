@@ -27,6 +27,13 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
    */
   public joinVariables: RDF.Variable[][];
   /**
+   * The join variable combination that partitions the tripleMap most finely, i.e. the one whose
+   * hash covers the most variables. Every produced tuple is indexed under every combination, so
+   * they are all complete indexes and any of them can be looked up in; this one just yields the
+   * smallest buckets to scan. Derived from joinVariables at construction.
+   */
+  private readonly mostSelectiveJoinVariables: RDF.Variable[] | undefined;
+  /**
    * Indicating if this operator might have to perform a cartesian join
    */
   public canBeCartesian: boolean;
@@ -103,9 +110,18 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   private matchIdx = 0;
 
   /**
+   * The base operators whose join entries this operator covers, when it is a composite resource.
+   * Undefined for a plain base operator. Assigned by StemsControllerStream#addOperator when the
+   * operator is attached, since that is where the operator list this indexes into lives.
+   */
+  public coveredOperators: StemsOperatorStream[] | undefined;
+
+  /**
    * If this operator covers multiple join entries in the execution
    */
-  public readonly isCompositeResource: boolean;
+  public get isCompositeResource(): boolean {
+    return this.coveredOperators !== undefined;
+  }
 
   /**
    * Filter functions added to the operator. Can be used to deduplicate data from
@@ -126,7 +142,6 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
     joinVariables: RDF.Variable[][],
     canBeCartesian: boolean,
     authoritativeSourceFilter: AuthoritativeSourceFilter,
-    isCompositeResource: boolean = false,
   ) {
     super();
 
@@ -134,9 +149,11 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
     this.doneBitMask = doneBitMask;
     this.variables = variables;
     this.namedNodes = namedNodes;
-    this.joinVariables = joinVariables;
+    this.joinVariables = StemsOperatorStream.deduplicateJoinVariables(joinVariables);
+    this.mostSelectiveJoinVariables = this.joinVariables.length === 0 ?
+      undefined :
+      this.joinVariables.reduce((best, current) => current.length > best.length ? current : best);
     this.canBeCartesian = canBeCartesian;
-    this.isCompositeResource = isCompositeResource;
 
     this.funHash = funHash;
     this.funJoin = funJoin;
@@ -162,6 +179,76 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
     this.timestampGenerator = timestampGenerator;
 
     this.operatorIndex = operatorIndex;
+  }
+
+  /**
+   * Removes duplicate join variable combinations.
+   *
+   * Every combination is hashed once per produced tuple and inserted into the tripleMap, so two
+   * equal combinations hash to the same bucket and insert the same tuple twice. On probe that
+   * bucket is joined against in full, producing duplicate results with inflated cardinality.
+   *
+   * Only exactly equal sequences are collapsed: a different ordering of the same variables is a
+   * different hash key, so those are deliberately left alone.
+   */
+  private static deduplicateJoinVariables(joinVariables: RDF.Variable[][]): RDF.Variable[][] {
+    const seen: Set<string> = new Set();
+    const deduplicated: RDF.Variable[][] = [];
+    for (const joinVariable of joinVariables) {
+      // ',' cannot occur in a SPARQL variable name, so it is a safe separator
+      const key = joinVariable.map(variable => variable.value).join(',');
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduplicated.push(joinVariable);
+      }
+    }
+    return deduplicated;
+  }
+
+  /**
+   * Whether every operator this composite resource covers has already produced the part of the
+   * given binding that falls within that operator's own variables.
+   *
+   * If they all have, the base operators between them already hold every tuple this binding is
+   * composed of, and the symmetric hash join will produce (or has already produced) the same
+   * combination without the composite resource - so emitting it here would duplicate it. If even
+   * one of them is missing its part, the base plan cannot complete that combination on its own
+   * (the authoritative source filter stops it from reading that tuple later), so the composite
+   * resource must still emit.
+   */
+  protected isCoveredByProducedBaseTuples(binding: Bindings): boolean {
+    if (this.coveredOperators === undefined || this.coveredOperators.length === 0) {
+      return false;
+    }
+    return this.coveredOperators.every(operator => operator.hasProducedBinding(binding));
+  }
+
+  /**
+   * Whether this operator has already produced a tuple agreeing with the given binding on every
+   * one of this operator's variables.
+   *
+   * A hash hit only establishes agreement on the hashed key, so the bucket it lands in still has
+   * to be verified against this operator's full variable list.
+   */
+  public hasProducedBinding(binding: Bindings): boolean {
+    // Without a join variable there is no hash key to look under, so fall back to the cartesian
+    // bucket, which holds every produced tuple when the component has a cartesian product
+    if (this.mostSelectiveJoinVariables === undefined) {
+      return this.canBeCartesian && this.agreesOnVariables(this.cartesianList, binding);
+    }
+    const bucket = this.tripleMap.get(this.funHash(binding, this.mostSelectiveJoinVariables));
+    if (bucket === undefined) {
+      return false;
+    }
+    return this.agreesOnVariables(bucket, binding);
+  }
+
+  private agreesOnVariables(candidates: Bindings[], binding: Bindings): boolean {
+    return candidates.some(candidate => this.variables.every((variable) => {
+      const candidateTerm = candidate.get(variable);
+      const bindingTerm = binding.get(variable);
+      return candidateTerm !== undefined && bindingTerm !== undefined && candidateTerm.equals(bindingTerm);
+    }));
   }
 
   public override _end(): void {
@@ -271,6 +358,9 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
         if (this.authoritativeSourceFilter.shouldFilter(item)){
           continue;
         }
+        if (this.isCoveredByProducedBaseTuples(item)){
+          continue;
+        }
 
         this.nProduced++;
 
@@ -288,12 +378,14 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
         // join variable.
         for (const joinVar of this.joinVariables) {
           const hash = this.funHash(item, joinVar);
-          if (!this.tripleMap.has(hash)) {
-            this.tripleMap.set(hash, []);
+          let bucket = this.tripleMap.get(hash);
+          if (bucket === undefined) {
+            bucket = [];
+            this.tripleMap.set(hash, bucket);
           }
-          const result = this.tripleMap.get(hash)!;
-          result.push(item);
+          bucket.push(item);
         }
+        
         if (this.canBeCartesian) {
           this.cartesianList.push(item);
         }
