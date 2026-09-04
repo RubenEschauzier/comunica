@@ -75,6 +75,17 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
    */
   public nSuccessReads = 0;
   /**
+   * Number of tuples dropped by the authoritative source filter, i.e. tuples whose source
+   * document a composite resource has claimed authority over (see AuthoritativeSourceFilter).
+   */
+  public nFilteredByAuthoritativeSource = 0;
+  /**
+   * Number of tuples pruned because every operator this composite resource covers had already
+   * produced the matching part of them (see isCoveredByProducedBaseTuples). Only ever
+   * incremented on a composite resource operator.
+   */
+  public nPrunedAsAlreadyCovered = 0;
+  /**
    * The variables present in the bindings produced by this operator
    */
   public variables: RDF.Variable[];
@@ -356,9 +367,11 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
       // possible join variable. And possible cartesian products
       if (joinVars === undefined) {
         if (this.authoritativeSourceFilter.shouldFilter(item)){
+          this.nFilteredByAuthoritativeSource++;
           continue;
         }
         if (this.isCoveredByProducedBaseTuples(item)){
+          this.nPrunedAsAlreadyCovered++;
           continue;
         }
 

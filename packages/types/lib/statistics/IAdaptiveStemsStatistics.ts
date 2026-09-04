@@ -67,6 +67,16 @@ export interface IStatsOperators {
    * Number of times a read() call produced a result (does not have to be a join result)
    */
   nonEmptyReads: number;
+  /**
+   * Number of tuples dropped by the authoritative source filter, i.e. tuples whose source
+   * document a composite resource has claimed authority over
+   */
+  filteredByAuthoritativeSource: number;
+  /**
+   * Number of tuples pruned because every operator this composite resource covers had already
+   * produced the matching part of them. Only ever nonzero on a composite resource operator
+   */
+  prunedAsAlreadyCovered: number;
 }
 
 /**

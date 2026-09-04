@@ -344,6 +344,8 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
         timeNonEmpty: this.stemsIterators[i].timeNonEmpty,
         emptyReads: this.stemsIterators[i].nFailedReads,
         nonEmptyReads: this.stemsIterators[i].nSuccessReads,
+        filteredByAuthoritativeSource: this.stemsIterators[i].nFilteredByAuthoritativeSource,
+        prunedAsAlreadyCovered: this.stemsIterators[i].nPrunedAsAlreadyCovered,
       });
     }
     return operatorSummaries;
