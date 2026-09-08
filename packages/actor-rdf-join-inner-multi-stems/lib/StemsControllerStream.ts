@@ -124,20 +124,20 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
     stemsOperatorStream: StemsOperatorStream,
     metadata?: Record<string, any>,
   ) {
-    // Add filters to the operators replaced by this composite resource, so they stop emitting
-    // tuples the composite resource is authoritative over. This requires knowing both which
-    // operators are covered (operationToOperatorIndex) and which domain the composite resource
-    // claims authority over (authoritativeDomain).
+    // Add filters to the operators replaced by this composite resource that filter bindings
+    // emitted by the composite resource. This requires the covered operators and domain of the resource
     if (metadata && metadata.patternToExtractor && metadata.authoritativeDomain) {
-      // Outer array: the operations in the new operator, inner array the terms to check for
-      // authoritativeness per operation (a mix of Variables and constants is allowed)
+      // For each covered operation, we have array of terms the filter should check authoritativeness
+      // So for a star-shaped composite resource it should be authoritative over the subjects of the star
+      // thus patternVariables = [[Variable(s)],..., Variable(s)] if ?s the subject of the star
       const patternVariables: RDF.Term[][] = metadata.patternToExtractor;
-      // Index i holds the index into this.stemsIterators of the operator covered by operation i
-      // of the new operator, or -1 when that operation is not covered by any operator.
+      // Mapping of operation index to operator index that represents it.
+      // so operationToOperatorIndex[0] = 2, means operations[0] = operators[2]
       const operationToOperatorIndex: number[] = metadata.operationToOperatorIndex ?? [];
 
       for (const [ i, operatorIndex ] of operationToOperatorIndex.entries()) {
         const coveredOperator = operatorIndex === -1 ? undefined : this.stemsIterators[operatorIndex];
+        // TODO: How to deal with composite too?
         // Only base operators (covering a single operation) can be deduplicated this way:
         // a composite operator covering multiple operations is not fully replaced by this one.
         if (!coveredOperator || coveredOperator.operations.length !== 1) {
@@ -150,16 +150,15 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
       }
     }
 
-    // Only composite resources are attached after construction, and a composite resource's
-    // doneBitMask sets exactly the bits of the base operations it covers. Base operator i sits at
-    // index i, so this resolves the base operators it replaces. Recorded on the operator so it can
-    // tell whether those operators already produced the tuples an incoming binding is made of.
+    // Composite resources record operators it covers to deduplicate results when the
+    // non-composite operators already produced a result that's also in the composite operator
     stemsOperatorStream.coveredOperators = getSetBitIndexes(stemsOperatorStream.doneBitMask)
       .map(index => this.stemsIterators[index]);
 
     const opIndex = this.stemsIterators.length;
     this.stemsIterators.push(stemsOperatorStream);
     this.finishedReading.push(0);
+
     // Ensure that if the other streams are ended and we get a new stream the controller
     // stream stays open
     this.endTuples = false;
