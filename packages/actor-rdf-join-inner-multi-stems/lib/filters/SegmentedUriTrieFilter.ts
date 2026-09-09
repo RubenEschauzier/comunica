@@ -50,7 +50,7 @@ export class SegmentedUriTrieFilter<T = ICompositeRule> {
    * Registers a domain prefix rule associated with a composite resource.
    */
   public addDomainRule(filterUri: string, rule: T): void {
-    const { authority, path } = this.parseUri(filterUri);
+    const { authority, path } = SegmentedUriTrieFilter.parseUri(filterUri);
 
     let currentNode: TrieNode<T> | undefined = this.authorities.get(authority);
     if (!currentNode) {
@@ -107,7 +107,7 @@ export class SegmentedUriTrieFilter<T = ICompositeRule> {
    * Collects rules hierarchically from root to deepest prefix.
    */
   public getAllMatchingRules(uri: string): T[] {
-    const { authority, path } = this.parseUri(uri);
+    const { authority, path } = SegmentedUriTrieFilter.parseUri(uri);
 
     let currentNode: TrieNode<T> | undefined = this.authorities.get(authority);
     if (!currentNode) {
@@ -153,7 +153,7 @@ export class SegmentedUriTrieFilter<T = ICompositeRule> {
    * Fast boolean check: returns true if any terminal node covers this URI.
    */
   public hasFilterMatching(uri: string): boolean {
-    const { authority, path } = this.parseUri(uri);
+    const { authority, path } = SegmentedUriTrieFilter.parseUri(uri);
 
     let currentNode: TrieNode<T> | undefined = this.authorities.get(authority);
     if (!currentNode) {
@@ -196,8 +196,8 @@ export class SegmentedUriTrieFilter<T = ICompositeRule> {
    * Validates whether a given term URI belongs strictly to a specified prefix domain.
    */
   public matchesPrefix(termUri: string, prefixDomain: string): boolean {
-    const parsedTerm = this.parseUri(termUri);
-    const parsedPrefix = this.parseUri(prefixDomain);
+    const parsedTerm = SegmentedUriTrieFilter.parseUri(termUri);
+    const parsedPrefix = SegmentedUriTrieFilter.parseUri(prefixDomain);
 
     if (parsedTerm.authority !== parsedPrefix.authority) {
       return false;
@@ -219,7 +219,7 @@ export class SegmentedUriTrieFilter<T = ICompositeRule> {
     return false;
   }
 
-  public parseUri(uri: string): IParsedUri {
+  public static parseUri(uri: string): IParsedUri {
     const splitIndex = uri.indexOf("://");
     const scheme = splitIndex === -1 ? "" : uri.slice(0, splitIndex).toLowerCase();
     const rest = splitIndex === -1 ? uri : uri.slice(splitIndex + 3);
@@ -252,7 +252,7 @@ export class SegmentedUriTrieFilter<T = ICompositeRule> {
     };
   }
 
-  private normalizeAuthority(authority: string): string {
+  public static normalizeAuthority(authority: string): string {
     const atIndex = authority.indexOf('@');
     return atIndex === -1
       ? authority.toLowerCase()

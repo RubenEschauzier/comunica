@@ -518,6 +518,10 @@ export interface IStemsBindingsMetadata {
    */
   order: number[];
   /**
+   * The composite resources involved in producing this binding
+   */
+  crMask: number;
+  /**
    * Exclusion bitmask.
    * If this tuple branched down an alternative route targeting a Composite Resource (CR),
    * forbiddenBaseMask contains the bitmasks of the base operators replaced by that CR.

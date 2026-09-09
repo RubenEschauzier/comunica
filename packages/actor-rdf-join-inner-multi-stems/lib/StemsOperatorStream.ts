@@ -7,7 +7,7 @@ import { BufferedIterator } from 'asynciterator';
 import type { IStemsBindingsMetadata, ITimestampGenerator } from './StemsControllerStream';
 import { stemsContextKeys } from './StemsControllerStream';
 import { AuthoritativeSourceFilter } from './filters/AuthoritativeSourceFilter';
-import { mergeMasks } from './utils/BitUtils';
+import { bitForIndex, mergeMasks } from './utils/BitUtils';
 
 /**
  * We may want to implement AMJoin, which keeps track of a bitvector table to quickly determine join failures,
@@ -28,9 +28,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   public joinVariables: RDF.Variable[][];
   /**
    * The join variable combination that partitions the tripleMap most finely, i.e. the one whose
-   * hash covers the most variables. Every produced tuple is indexed under every combination, so
-   * they are all complete indexes and any of them can be looked up in; this one just yields the
-   * smallest buckets to scan. Derived from joinVariables at construction.
+   * hash covers the most variables.
    */
   private readonly mostSelectiveJoinVariables: RDF.Variable[] | undefined;
   /**
@@ -321,6 +319,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
           copy.order = [ ...copy.order, this.operatorIndex ];
 
           if (this.isCompositeResource) {
+            copy.crMask = mergeMasks(copy.crMask, bitForIndex(this.operatorIndex));
             copy.lastCrIndex = this.operatorIndex;
           }
 
@@ -381,6 +380,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
           done: this.doneBitMask,
           timestamp: this.timestampGenerator.next(),
           order: [ this.operatorIndex ],
+          crMask: this.isCompositeResource ? bitForIndex(this.operatorIndex) : 0,
           lastCrIndex: this.isCompositeResource ? this.operatorIndex : undefined,
         };
 
