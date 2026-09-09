@@ -8,6 +8,7 @@ import type { IStemsBindingsMetadata, ITimestampGenerator } from './StemsControl
 import { stemsContextKeys } from './StemsControllerStream';
 import { AuthoritativeSourceFilter } from './filters/AuthoritativeSourceFilter';
 import { bitForIndex, mergeMasks } from './utils/BitUtils';
+import { DelegatedPatternsFilter, IDelegatedPatterns } from './filters/DelegatedPatternsFilter';
 
 /**
  * We may want to implement AMJoin, which keeps track of a bitvector table to quickly determine join failures,
@@ -132,11 +133,12 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
     return this.coveredOperators !== undefined;
   }
 
-  /**
-   * Filter functions added to the operator. Can be used to deduplicate data from
-   * individual triple patterns and composite sources
-   */
-  protected readonly authoritativeSourceFilter: AuthoritativeSourceFilter;
+  protected readonly delegatedPatternFilters: IDelegatedPatterns[] = [];
+  // /**
+  //  * Filter functions added to the operator. Can be used to deduplicate data from
+  //  * individual triple patterns and composite sources
+  //  */
+  // protected readonly authoritativeSourceFilter: AuthoritativeSourceFilter;
 
   public constructor(
     sourceIterator: BindingsStream,
@@ -150,7 +152,6 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
     namedNodes: RDF.NamedNode[],
     joinVariables: RDF.Variable[][],
     canBeCartesian: boolean,
-    authoritativeSourceFilter: AuthoritativeSourceFilter,
   ) {
     super();
 
@@ -169,7 +170,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
 
     this.sourceIterator = sourceIterator;
     
-    this.authoritativeSourceFilter = authoritativeSourceFilter;
+    // this.authoritativeSourceFilter = authoritativeSourceFilter;
 
     // Check if already ended before setting up listeners
     if (this.sourceIterator.done) {
@@ -217,13 +218,6 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   /**
    * Whether every operator this composite resource covers has already produced the part of the
    * given binding that falls within that operator's own variables.
-   *
-   * If they all have, the base operators between them already hold every tuple this binding is
-   * composed of, and the symmetric hash join will produce (or has already produced) the same
-   * combination without the composite resource - so emitting it here would duplicate it. If even
-   * one of them is missing its part, the base plan cannot complete that combination on its own
-   * (the authoritative source filter stops it from reading that tuple later), so the composite
-   * resource must still emit.
    */
   protected isCoveredByProducedBaseTuples(binding: Bindings): boolean {
     if (this.coveredOperators === undefined || this.coveredOperators.length === 0) {
@@ -365,10 +359,21 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
       // We read from the sourceIterator. In this case we need to hash for each
       // possible join variable. And possible cartesian products
       if (joinVars === undefined) {
-        if (this.authoritativeSourceFilter.shouldFilter(item)){
+        const crMask = this.isCompositeResource ? bitForIndex(this.operatorIndex) : 0;
+        // The flag is needed because a `continue` inside the loop below would resume the
+        // loop over the filters rather than the read loop, leaving the tuple to be indexed
+        let filtered = false;
+        for (const filter of this.delegatedPatternFilters){
+          if (filter.shouldFilter(<Bindings> item, this.doneBitMask, crMask)){
+            filtered = true;
+            break;
+          }
+        }
+        if (filtered){
           this.nFilteredByAuthoritativeSource++;
           continue;
         }
+
         if (this.isCoveredByProducedBaseTuples(item)){
           this.nPrunedAsAlreadyCovered++;
           continue;
@@ -380,7 +385,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
           done: this.doneBitMask,
           timestamp: this.timestampGenerator.next(),
           order: [ this.operatorIndex ],
-          crMask: this.isCompositeResource ? bitForIndex(this.operatorIndex) : 0,
+          crMask,
           lastCrIndex: this.isCompositeResource ? this.operatorIndex : undefined,
         };
 
@@ -432,45 +437,49 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
       this.tickets += 1;
     }
   }
-
-  /**
-   * Adds a composite resource filter for the given domain, from the terms that must reside
-   * within it for a base tuple to already be covered by the composite resource.
-   * this explicitly follows the authorativeness assumption of sources.
-  */
-  public addResourceFilter(domain: string, requiredAuthoritativeTerms: RDF.Term[]){
-    // Filters should only be added when one triple term should be checked.
-    // Otherwise no filter means all constant terms have already been checked 
-    // -> filter all
-    if (requiredAuthoritativeTerms.length === 0) {
-      throw new Error(
-        `addResourceFilter for domain '${domain}' was called with no terms to check; ` +
-        `this operation must have at least one authoritative term position.`,
-      );
-    }
-
-
-    const domainForTermCheck = domain.endsWith('/') ? domain.slice(0, -1) : domain;
-
-    const requiredAuthoritativeVars: string[] = [];
-    for (const term of requiredAuthoritativeTerms) {
-      if (term.termType === 'Variable') {
-        requiredAuthoritativeVars.push(term.value);
-        continue;
-      }
-      if (term.termType !== 'NamedNode' ||
-          !this.authoritativeSourceFilter.isWithinDomain(term.value, domainForTermCheck)) {
-        return;
-      }
-      // Constant term already known to reside in the domain: dropped, so we
-      // only check the source of binding is in domain
-    }
-
-    this.authoritativeSourceFilter.registerResourceFilter(
-      domain,
-      requiredAuthoritativeVars,
-    )
+  public addDelegatedPatternFilter(
+    delegatedPatternsFilter: DelegatedPatternsFilter,
+  ){
+    this.delegatedPatternFilters.push(delegatedPatternsFilter);
   }
+  // /**
+  //  * Adds a composite resource filter for the given domain, from the terms that must reside
+  //  * within it for a base tuple to already be covered by the composite resource.
+  //  * this explicitly follows the authorativeness assumption of sources.
+  // */
+  // public addResourceFilter(domain: string, requiredAuthoritativeTerms: RDF.Term[]){
+  //   // Filters should only be added when one triple term should be checked.
+  //   // Otherwise no filter means all constant terms have already been checked 
+  //   // -> filter all
+  //   if (requiredAuthoritativeTerms.length === 0) {
+  //     throw new Error(
+  //       `addResourceFilter for domain '${domain}' was called with no terms to check; ` +
+  //       `this operation must have at least one authoritative term position.`,
+  //     );
+  //   }
+
+
+  //   const domainForTermCheck = domain.endsWith('/') ? domain.slice(0, -1) : domain;
+
+  //   const requiredAuthoritativeVars: string[] = [];
+  //   for (const term of requiredAuthoritativeTerms) {
+  //     if (term.termType === 'Variable') {
+  //       requiredAuthoritativeVars.push(term.value);
+  //       continue;
+  //     }
+  //     if (term.termType !== 'NamedNode' ||
+  //         !this.authoritativeSourceFilter.isWithinDomain(term.value, domainForTermCheck)) {
+  //       return;
+  //     }
+  //     // Constant term already known to reside in the domain: dropped, so we
+  //     // only check the source of binding is in domain
+  //   }
+
+  //   this.authoritativeSourceFilter.registerResourceFilter(
+  //     domain,
+  //     requiredAuthoritativeVars,
+  //   )
+  // }
 }
 
 export interface IEddieJoinEntry {

@@ -126,10 +126,6 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
       const inputStreams = [];
 
       for (const [ i, entry ] of connectedComponentEntries.entries()) {
-        const authoritativeSourceFilter = new AuthoritativeSourceFilter(
-          (binding: Bindings) => binding.getContextEntry(KeysMergeBindingsContext.sourcesBinding) ?? [],
-        );
-
         stemOperators.push(
           new StemsOperatorStream(
             entry.output.bindingsStream,
@@ -143,7 +139,6 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
             this.getComponentSubjectIRIs(entry),
             entriesJoinVariables[i],
             componentHasCartesian,
-            authoritativeSourceFilter,
           ),
         );
         inputStreams.push(entry);

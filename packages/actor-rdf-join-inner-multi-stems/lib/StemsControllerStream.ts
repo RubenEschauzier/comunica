@@ -13,6 +13,8 @@ import type { StemsOperatorStream, ISelectivityData } from './StemsOperatorStrea
 import type { IRouteTableOperation, IStemsRouter, IStemsRoutingEntry } from './routers/BaseRouter';
 import { bitForIndex, getSetBitIndexes, isDisjointMask, mergeMasks } from './utils/BitUtils';
 import type * as RDF from '@rdfjs/types';
+import { DelegatedPatternsFilter, IDelegatedPatterns } from './filters/DelegatedPatternsFilter';
+import { KeysMergeBindingsContext } from '@comunica/context-entries';
 
 export class StemsControllerStream extends AsyncIterator<Bindings> {
   /**
@@ -29,6 +31,11 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
    * signature
    */
   private routingTable: Record<string, IStemsRoutingEntry[][]>;
+  /**
+   * All filters that filter out intermediate results based on
+   * if their anchor variables are all filled
+   */
+  private delegatedPatternsFilters: IDelegatedPatterns[] = [];
   /**
    * Flag indicating if the all triple patterns have no new matches.
    * If this flag is set, the iterator should finish all current intermediate
@@ -126,27 +133,76 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
   ) {
     // Add filters to the operators replaced by this composite resource that filter bindings
     // emitted by the composite resource. This requires the covered operators and domain of the resource
-    if (metadata && metadata.patternToExtractor && metadata.authoritativeDomain) {
-      // For each covered operation, we have array of terms the filter should check authoritativeness
-      // So for a star-shaped composite resource it should be authoritative over the subjects of the star
-      // thus patternVariables = [[Variable(s)],..., Variable(s)] if ?s the subject of the star
-      const patternVariables: RDF.Term[][] = metadata.patternToExtractor;
+    if (metadata && metadata.anchorTerms && metadata.authoritativeDomain) {
+      const anchors: RDF.Term[] = metadata.anchorTerms;
+
+      if (anchors.length === 0) {
+        throw new Error(
+          `Delegated block for '${metadata.authoritativeDomain}' declares no anchors`,
+        );
+      }
+
+      // Only the variable anchors are tested per binding, as the constants are settled
+      // once below. The coverage check further down needs these as well: a constant anchor
+      // never occurs among an operator's variables, so including it there would make every
+      // operator look as though it fails to cover the block.
+      const anchorVariables = anchors.filter(anchor => anchor.termType === 'Variable');
+
       // Mapping of operation index to operator index that represents it.
       // so operationToOperatorIndex[0] = 2, means operations[0] = operators[2]
       const operationToOperatorIndex: number[] = metadata.operationToOperatorIndex ?? [];
+      const delegatedPatternsFilter = new DelegatedPatternsFilter(
+          stemsOperatorStream.doneBitMask,
+          stemsOperatorStream.operatorIndex,
+          anchorVariables.map(anchor => anchor.value),
+          (binding: Bindings) => { 
+            const sources = binding.getContextEntry(KeysMergeBindingsContext.sourcesBinding);
+            if (sources === undefined || sources.length === 0){
+              throw new Error(`No valid source in binding for derived resource`);
+            }
+            return sources;
+          },
+          metadata.authoritativeDomain
+      );
+      
+      // Constant anchors are decided once, here. In scope they are discharged and never
+      // tested per binding again; out of scope the resource cannot answer this block at
+      // all, so no filter is registered anywhere and the default operators keep every
+      // mapping they produce for it.
+      const constantAnchorsInScope = anchors.every(anchor =>
+        anchor.termType === 'Variable' ||
+        (anchor.termType === 'NamedNode' &&
+          delegatedPatternsFilter.withinSubjectDomain(anchor.value)));
 
-      for (const [ i, operatorIndex ] of operationToOperatorIndex.entries()) {
-        const coveredOperator = operatorIndex === -1 ? undefined : this.stemsIterators[operatorIndex];
-        // TODO: How to deal with composite too?
-        // Only base operators (covering a single operation) can be deduplicated this way:
-        // a composite operator covering multiple operations is not fully replaced by this one.
-        if (!coveredOperator || coveredOperator.operations.length !== 1) {
-          continue;
+      if (constantAnchorsInScope) {
+        let operatorCoversAllAnchors = false;
+        for (const [ i, operatorIndex ] of operationToOperatorIndex.entries()) {
+          const coveredOperator = operatorIndex === -1 ? undefined : this.stemsIterators[operatorIndex];
+          // TODO: How to deal with composite too?
+          // Only base operators (covering a single operation) can be deduplicated this way:
+          // a composite operator covering multiple operations is not fully replaced by this one.
+          // TODO: Important for micro-benchmark!
+          if (!coveredOperator || coveredOperator.operations.length !== 1) {
+            continue;
+          }
+
+
+          if (anchorVariables.every(
+            (variable: RDF.Term) => coveredOperator.variables.some(
+              (variableInner) => variable.equals(variableInner))
+          )){
+            // Only add filters to operators where all
+            // anchorVariables can be satisfied by a produced binding
+            coveredOperator.addDelegatedPatternFilter(
+              delegatedPatternsFilter
+            );
+            operatorCoversAllAnchors = true;
+          }
         }
-        coveredOperator.addResourceFilter(
-          metadata.authoritativeDomain,
-          patternVariables[i],
-        );
+
+        if (!operatorCoversAllAnchors){
+          this.delegatedPatternsFilters.push(delegatedPatternsFilter)
+        }
       }
     }
 
@@ -223,6 +279,23 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
 
         const partialResultMetadata = item.getContextEntry(stemsContextKeys.stemsMetadata)!;
         const nextRoutes = this.routingTable[partialResultMetadata.done];
+
+        // Filter before returning, as complete results could also need to
+        // be filtered to prevent duplicates
+        let filtered = false;
+        for (let i = 0; i < this.delegatedPatternsFilters.length; i++) {
+          if (this.delegatedPatternsFilters[i].shouldFilter(
+            item, 
+            partialResultMetadata.done,
+            partialResultMetadata.crMask
+          )) {
+            filtered = true;
+            break;
+          }
+        }
+        if (filtered){
+          continue;
+        }
 
         // All done bits equal to 1 (terminal state)
         if (nextRoutes === undefined || nextRoutes.length === 0) {

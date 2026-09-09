@@ -1,5 +1,4 @@
 import { Bindings } from "@comunica/utils-bindings-factory";
-import { IParsedUri, SegmentedUriTrieFilter } from "./SegmentedUriTrieFilter";
 import { bitForIndex, isDisjointMask } from "../utils/BitUtils";
 
 /**
@@ -11,6 +10,36 @@ import { bitForIndex, isDisjointMask } from "../utils/BitUtils";
 const CHAR_SLASH = 47;
 const CHAR_HASH = 35;
 const CHAR_QUESTION = 63;
+
+/**
+ * Whether a domain already ends on a separator, in which case a value starting with it is
+ * inside it and no boundary character has to be inspected. Worth hoisting out of a loop
+ * when the same domain is tested against many values.
+ */
+export function isDomainDelimited(domain: string): boolean {
+  const lastChar = domain.charCodeAt(domain.length - 1);
+  return lastChar === CHAR_SLASH || lastChar === CHAR_HASH;
+}
+
+/**
+ * Whether a term or document URI lies within a domain.
+ * @param domainIsDelimited Pass the precomputed `isDomainDelimited(domain)` on paths that
+ * test many values against one domain; it is derived per call otherwise.
+ */
+export function isWithinDomain(
+  value: string,
+  domain: string,
+  domainIsDelimited: boolean = isDomainDelimited(domain),
+): boolean {
+  if (!value.startsWith(domain)) {
+    return false;
+  }
+  if (domainIsDelimited || value.length === domain.length) {
+    return true;
+  }
+  const boundary = value.charCodeAt(domain.length);
+  return boundary === CHAR_SLASH || boundary === CHAR_HASH || boundary === CHAR_QUESTION;
+}
 
 export interface IDelegatedPatterns {
   // /**
@@ -44,11 +73,8 @@ export interface IDelegatedPatterns {
 
 
 export class DelegatedPatternsFilter implements IDelegatedPatterns {
-  // readonly domains: IParsedUri[];
-
   /**
-   * Bit of the owning composite resource, so the exemption is a mask test rather than a
-   * shift per binding.
+   * Bit of the owning composite resource
    */
   private readonly ownerBit: number;
 
@@ -64,13 +90,9 @@ export class DelegatedPatternsFilter implements IDelegatedPatterns {
     protected readonly anchorVars: string[],
     protected readonly sourceExtractor: (binding: Bindings) => string[],
     protected readonly subjectDomain: string,
-    // domains: string[],
   ){
-    // this.domains = domains.map(domain => SegmentedUriTrieFilter.parseUri(domain));
     this.ownerBit = bitForIndex(ownerOperatorIndex);
-
-    const lastChar = subjectDomain.charCodeAt(subjectDomain.length - 1);
-    this.subjectDomainIsDelimited = lastChar === CHAR_SLASH || lastChar === CHAR_HASH;
+    this.subjectDomainIsDelimited = isDomainDelimited(subjectDomain);
   }
 
   /**
@@ -120,18 +142,7 @@ export class DelegatedPatternsFilter implements IDelegatedPatterns {
    * Whether a term or document URI lies within the subject domain.
   */
   public withinSubjectDomain(value: string): boolean {
-    const domain = this.subjectDomain;
-    if (!value.startsWith(domain)){
-      return false;
-    }
-    if (this.subjectDomainIsDelimited || value.length === domain.length){
-      return true;
-    }
-    const boundary = value.charCodeAt(domain.length);
-
-    // If boundary is not one of the characters, the startsWith is a false positive:
-    // e.g. domain = /posts and value = /posts-unrelated
-    return boundary === CHAR_SLASH || boundary === CHAR_HASH || boundary === CHAR_QUESTION;
+    return isWithinDomain(value, this.subjectDomain, this.subjectDomainIsDelimited);
   }
 
   /**
@@ -153,3 +164,4 @@ export class DelegatedPatternsFilter implements IDelegatedPatterns {
     return true;
   }
 }
+

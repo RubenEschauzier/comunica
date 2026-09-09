@@ -7,8 +7,6 @@ import { IStemsRouter, ITimestampGenerator, JoinFunction, StemsControllerStream,
 import { HashFunction } from '@comunica/bus-hash-bindings';
 import { IAdaptiveJoinComponent } from './IAdaptiveJoinController';
 import equal = require('deep-equal');
-import { AuthoritativeSourceFilter } from '@comunica/actor-rdf-join-inner-multi-stems';
-import { KeysMergeBindingsContext } from '@comunica/context-entries';
 
 /**
  * Wrapping class for managing stems executions and dynamically adding composite sources to
@@ -115,10 +113,6 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
     // Instantiate a new StemsOperatorStream with the component's internal generators
     const newOperatorIndex = this.stemsControllerStream.numOperators;
 
-    const authoritativeSourceFilter = new AuthoritativeSourceFilter(
-      (binding: Bindings) => (<any>binding).getContextEntry(KeysMergeBindingsContext.sourcesBinding) ?? [],
-    );
-
     const operator = new StemsOperatorStream(
       unionStream,
       this.timestampGenerator,
@@ -131,7 +125,6 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
       operatorNamedNodes,
       componentJoinVariables,
       false,
-      authoritativeSourceFilter,
     );
 
     // Attach the operator to the StemsControllerStream and recalculate routes.
