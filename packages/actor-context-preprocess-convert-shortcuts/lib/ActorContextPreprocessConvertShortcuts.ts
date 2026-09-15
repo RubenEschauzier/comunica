@@ -56,6 +56,8 @@ export interface IActorContextPreprocessConvertShortcutsArgs extends IActorConte
    *   "queryTimestampHighResolution": "@comunica/actor-init-query:queryTimestampHighResolution",
    *   "httpProxyHandler": "@comunica/actor-http-proxy:httpProxyHandler",
    *   "lenient": "@comunica/actor-init-query:lenient",
+   *   "serviceAllowFileTargets": "@comunica/actor-init-query:serviceAllowFileTargets",
+   *   "serviceAllowVariableTargets": "@comunica/actor-init-query:serviceAllowVariableTargets",
    *   "parseUnsupportedVersions": "@comunica/actor-init-query:parseUnsupportedVersions",
    *   "httpIncludeCredentials": "@comunica/bus-http:include-credentials",
    *   "httpAuth": "@comunica/bus-http:auth",
@@ -65,6 +67,10 @@ export interface IActorContextPreprocessConvertShortcutsArgs extends IActorConte
    *   "httpRetryDelayFallback": "@comunica/bus-http:http-retry-delay-fallback",
    *   "httpRetryDelayLimit": "@comunica/bus-http:http-retry-delay-limit",
    *   "httpRetryStatusCodes": "@comunica/bus-http:http-retry-status-codes",
+   *   "httpRetryBodyCount": "@comunica/bus-http:http-retry-body-count",
+   *   "httpRetryBodyDelayFallback": "@comunica/bus-http:http-retry-body-delay-fallback",
+   *   "httpRetryBodyAllowUnsafe": "@comunica/bus-http:http-retry-body-allow-unsafe",
+   *   "httpRetryBodyMaxBytes": "@comunica/bus-http:http-retry-body-max-bytes",
    *   "httpAbortSignal": "@comunica/bus-http:http-abort-controller",
    *   "httpCache": "@comunica/bus-http:httpCache",
    *   "fetch": "@comunica/bus-http:fetch",
@@ -80,6 +86,8 @@ export interface IActorContextPreprocessConvertShortcutsArgs extends IActorConte
    *   "invalidateCache": "@comunica/actor-init-query:invalidateCache",
    *   "dataFactory": "@comunica/actor-init-query:dataFactory",
    *   "distinctConstruct": "@comunica/actor-init-query:distinctConstruct",
+   *   "nonLexicalComparison": "@comunica/utils-expression-evaluator:nonLexicalComparison",
+   *   "fullTermComparison": "@comunica/utils-expression-evaluator:fullTermComparison",
    *   "rdfSerializationPrefixes": "@comunica/bus-rdf-serialize:rdfSerializationPrefixes"
    * }}
    */

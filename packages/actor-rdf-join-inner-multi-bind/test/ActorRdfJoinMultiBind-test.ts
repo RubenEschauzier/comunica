@@ -7,7 +7,7 @@ import { KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
 import type { Actor, IActorTest, Mediator } from '@comunica/core';
 import { ActionContext, Bus } from '@comunica/core';
 import type { IActionContext, IQueryOperationResultBindings } from '@comunica/types';
-import { AlgebraFactory, Algebra } from '@comunica/utils-algebra';
+import { AlgebraFactory, Algebra, algebraUtils } from '@comunica/utils-algebra';
 import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
@@ -92,6 +92,7 @@ IQueryOperationResultBindings
         bus,
         bindOrder: 'depth-first',
         selectivityModifier: 0.1,
+        subQueryCost: 100,
         mediatorQueryOperation,
         mediatorJoinSelectivity,
         mediatorJoinEntriesSort,
@@ -104,6 +105,111 @@ IQueryOperationResultBindings
     async function getSideData(action: IActionRdfJoin): Promise<IActorRdfJoinMultiBindTestSideData> {
       return (await actor.test(action)).getSideData();
     }
+
+    describe('constructor', () => {
+      it('should fall back to a default sub-query cost', () => {
+        expect(new ActorRdfJoinMultiBind({
+          name: 'actor',
+          bus,
+          bindOrder: 'depth-first',
+          selectivityModifier: 0.1,
+          mediatorQueryOperation,
+          mediatorJoinSelectivity,
+          mediatorJoinEntriesSort,
+          mediatorMergeBindingsContext,
+          minMaxCardinalityRatio: 100,
+        }).subQueryCost).toBe(100);
+      });
+    });
+
+    describe('static helper methods', () => {
+      describe('canBindWithOperation', () => {
+        describe('default without boundVariables', () => {
+          it('should return true even with conflicting variables with LEFT_JOIN', () => {
+            const leftPattern = FACTORY.createPattern(DF.variable('a'), DF.namedNode('p'), DF.namedNode('o'));
+            const rightPattern = FACTORY.createPattern(DF.variable('b'), DF.namedNode('p2'), DF.namedNode('o2'));
+            const leftJoinOp = FACTORY.createLeftJoin(leftPattern, rightPattern);
+
+            expect(ActorRdfJoinMultiBind.canBindWithOperation(leftJoinOp)).toBe(true);
+          });
+
+          it('should return true even with conflicting variables with MINUS', () => {
+            const leftPattern = FACTORY.createPattern(DF.variable('a'), DF.namedNode('p'), DF.namedNode('o'));
+            const rightPattern = FACTORY.createPattern(DF.variable('x'), DF.namedNode('p2'), DF.namedNode('o2'));
+            const minusOp = FACTORY.createMinus(leftPattern, rightPattern);
+
+            expect(ActorRdfJoinMultiBind.canBindWithOperation(minusOp)).toBe(true);
+          });
+
+          it('should allow binding on a right stream with safe FILTER', () => {
+            const filter = algebraUtils.withMetadata(
+              FACTORY.createFilter(FACTORY.createNop(), FACTORY.createTermExpression(DF.literal(''))),
+            );
+            filter.metadata.isHoistedLeftJoinFilter = true;
+
+            expect(ActorRdfJoinMultiBind.canBindWithOperation(filter)).toBe(true);
+          });
+
+          it('should reject binding on a right stream with conflicting FILTER', () => {
+            const filter: any = FACTORY.createFilter(FACTORY.createNop(), FACTORY.createTermExpression(DF.literal('')));
+
+            expect(ActorRdfJoinMultiBind.canBindWithOperation(filter)).toBe(false);
+          });
+
+          it('should not reject a FILTER nested inside a FILTER EXISTS', () => {
+            const innerFilter: any =
+              FACTORY.createFilter(FACTORY.createNop(), FACTORY.createTermExpression(DF.literal('')));
+            const existsExpr = FACTORY.createExistenceExpression(false, innerFilter);
+            const outerFilter = algebraUtils.withMetadata(FACTORY.createFilter(FACTORY.createNop(), existsExpr));
+            outerFilter.metadata.isHoistedLeftJoinFilter = true;
+
+            expect(ActorRdfJoinMultiBind.canBindWithOperation(outerFilter)).toBe(true);
+          });
+        });
+
+        describe('with boundVariables', () => {
+          it('should allow binding on a right stream with safe LEFT_JOIN', () => {
+            const leftPattern = FACTORY.createPattern(DF.variable('a'), DF.namedNode('p'), DF.namedNode('o'));
+            const rightPattern = FACTORY.createPattern(DF.variable('a'), DF.namedNode('p2'), DF.variable('b'));
+            const leftJoinOp = FACTORY.createLeftJoin(leftPattern, rightPattern);
+
+            const boundVariables = [ DF.variable('a') ];
+
+            expect(ActorRdfJoinMultiBind.canBindWithOperation(leftJoinOp, boundVariables)).toBe(true);
+          });
+
+          it('should reject on a right stream with conflicting LEFT_JOIN', () => {
+            const leftPattern = FACTORY.createPattern(DF.variable('a'), DF.namedNode('p'), DF.namedNode('o'));
+            const rightPattern = FACTORY.createPattern(DF.variable('b'), DF.namedNode('p2'), DF.namedNode('o2'));
+            const leftJoinOp = FACTORY.createLeftJoin(leftPattern, rightPattern);
+
+            const boundVariables = [ DF.variable('b') ];
+
+            expect(ActorRdfJoinMultiBind.canBindWithOperation(leftJoinOp, boundVariables)).toBe(false);
+          });
+
+          it('should allow binding on a right stream with safe MINUS', () => {
+            const leftPattern = FACTORY.createPattern(DF.variable('a'), DF.namedNode('p'), DF.namedNode('o'));
+            const rightPattern = FACTORY.createPattern(DF.variable('x'), DF.namedNode('p2'), DF.namedNode('o2'));
+            const minusOp = FACTORY.createMinus(leftPattern, rightPattern);
+
+            const boundVariables = [ DF.variable('a') ];
+
+            expect(ActorRdfJoinMultiBind.canBindWithOperation(minusOp, boundVariables)).toBe(true);
+          });
+
+          it('should reject on a right stream with conflicting MINUS', () => {
+            const leftPattern = FACTORY.createPattern(DF.variable('x'), DF.namedNode('p'), DF.namedNode('o'));
+            const rightPattern = FACTORY.createPattern(DF.variable('a'), DF.namedNode('p2'), DF.namedNode('o2'));
+            const minusOp = FACTORY.createMinus(leftPattern, rightPattern);
+
+            const boundVariables = [ DF.variable('a') ];
+
+            expect(ActorRdfJoinMultiBind.canBindWithOperation(minusOp, boundVariables)).toBe(false);
+          });
+        });
+      });
+    });
 
     describe('getJoinCoefficients', () => {
       it('should handle three entries', async() => {
@@ -161,10 +267,71 @@ IQueryOperationResultBindings
             ],
           },
         )).resolves.toPassTest({
-          iterations: 80.48000000000002,
+          iterations: 4,
           persistedItems: 0,
           blockingItems: 0,
-          requestTime: 32.592000000000006,
+          requestTime: 2,
+        });
+      });
+      it('should handle three entries where one shares no variable', async() => {
+        await expect(actor.getJoinCoefficients(
+          {
+            type: 'inner',
+            entries: [
+              {
+                output: <any>{},
+                operation: FACTORY.createNop(),
+              },
+              {
+                output: <any>{},
+                operation: FACTORY.createNop(),
+              },
+              {
+                output: <any>{},
+                operation: FACTORY.createNop(),
+              },
+            ],
+            context: new ActionContext(),
+          },
+          {
+            metadatas: [
+              {
+                state: new MetadataValidationState(),
+                cardinality: { type: 'estimate', value: 3 },
+                pageSize: 100,
+                requestTime: 10,
+
+                variables: [
+                  { variable: DF.variable('a'), canBeUndef: false },
+                ],
+              },
+              {
+                state: new MetadataValidationState(),
+                cardinality: { type: 'estimate', value: 2 },
+                pageSize: 100,
+                requestTime: 20,
+
+                variables: [
+                  { variable: DF.variable('a'), canBeUndef: false },
+                ],
+              },
+              {
+                state: new MetadataValidationState(),
+                cardinality: { type: 'estimate', value: 500 },
+                pageSize: 100,
+                requestTime: 30,
+
+                variables: [
+                  { variable: DF.variable('b'), canBeUndef: false },
+                ],
+              },
+            ],
+          },
+        )).resolves.toPassTest({
+          iterations: 82.00000000000001,
+          persistedItems: 0,
+          blockingItems: 0,
+          requestTime: 33.2,
         });
       });
 
@@ -226,11 +393,100 @@ IQueryOperationResultBindings
             ],
           },
         )).resolves.toPassTest({
-          iterations: 80.48000000000002,
+          iterations: 4,
           persistedItems: 0,
           blockingItems: 0,
-          requestTime: 32.592000000000006,
+          requestTime: 2,
         });
+      });
+
+      /**
+       * Two entries of which only the given index requires operation pushdown,
+       * ordered so that the entry sorting keeps them as given.
+       */
+      function actionWithOperationRequired(requiredIndex: number) {
+        mediatorJoinEntriesSort.mediate = <any> (async(sortAction: IActionRdfJoinEntriesSort) =>
+          ({ entries: [ ...sortAction.entries ]}));
+        const cardinalities = [ Number.POSITIVE_INFINITY, 2 ];
+        const entries = cardinalities.map((value, i) => ({
+          output: <any>{ metadata: () => Promise.resolve({ cardinality: { type: 'estimate', value }}) },
+          operation: <any>{ index: i },
+          ...i === requiredIndex && { operationRequired: <const> true },
+        }));
+        const metadatas = cardinalities.map(value => ({
+          state: new MetadataValidationState(),
+          cardinality: { type: 'estimate', value },
+          pageSize: 100,
+          requestTime: 10,
+          variables: [
+            { variable: DF.variable('a'), canBeUndef: false },
+          ],
+        }));
+        return [{ type: 'inner', entries, context: new ActionContext() }, { metadatas }];
+      }
+
+      it('should move an entry with operationRequired out of the first position', async() => {
+        const [ action, sideData ] = actionWithOperationRequired(0);
+        const result = await actor.getJoinCoefficients(<any> action, <any> sideData);
+        expect(result.isPassed()).toBeTruthy();
+        // The entry that does not require pushdown is now first, so that it can bind the other
+        expect(result.getSideData().entriesSorted.map(entry => (<any> entry.operation).index)).toEqual([ 1, 0 ]);
+      });
+
+      it('should not reorder entries when the first entry does not require operationRequired', async() => {
+        const [ action, sideData ] = actionWithOperationRequired(1);
+        const result = await actor.getJoinCoefficients(<any> action, <any> sideData);
+        expect(result.isPassed()).toBeTruthy();
+        // No reordering is needed, so the sorted order is left untouched
+        expect(result.getSideData().entriesSorted.map(entry => (<any> entry.operation).index)).toEqual([ 0, 1 ]);
+      });
+
+      it('should reject when all entries have operationRequired', async() => {
+        await expect(actor.getJoinCoefficients(
+          {
+            type: 'inner',
+            entries: [
+              {
+                output: <any>{
+                  metadata: () => Promise.resolve({ cardinality: { type: 'estimate', value: 2 }}),
+                },
+                operation: <any>{},
+                operationRequired: true,
+              },
+              {
+                output: <any>{
+                  metadata: () => Promise.resolve({ cardinality: { type: 'estimate', value: 3 }}),
+                },
+                operation: <any>{},
+                operationRequired: true,
+              },
+            ],
+            context: new ActionContext(),
+          },
+          {
+            metadatas: [
+              {
+                state: new MetadataValidationState(),
+                cardinality: { type: 'estimate', value: 2 },
+                pageSize: 100,
+                requestTime: 10,
+                variables: [
+                  { variable: DF.variable('a'), canBeUndef: false },
+                ],
+              },
+              {
+                state: new MetadataValidationState(),
+                cardinality: { type: 'estimate', value: 3 },
+                pageSize: 100,
+                requestTime: 20,
+                variables: [
+                  { variable: DF.variable('a'), canBeUndef: false },
+                ],
+              },
+            ],
+          },
+        )).resolves
+          .toFailTest('Actor actor requires at least one entry of which the operation does not need to be pushed down');
       });
 
       it('should reject on a right stream of type extend', async() => {
@@ -384,7 +640,7 @@ IQueryOperationResultBindings
               },
               {
                 output: <any> {},
-                operation: <any> { type: Algebra.Types.GROUP },
+                operation: FACTORY.createGroup(FACTORY.createNop(), [], []),
               },
             ],
             context: new ActionContext(),
@@ -414,10 +670,10 @@ IQueryOperationResultBindings
             ],
           },
         )).resolves.toPassTest({
-          iterations: 48.00000000000001,
+          iterations: 2,
           persistedItems: 0,
           blockingItems: 0,
-          requestTime: 5.200000000000001,
+          requestTime: 0.6000000000000001,
         });
       });
 
@@ -634,7 +890,7 @@ IQueryOperationResultBindings
             ],
           },
         )).resolves.toPassTest({
-          iterations: 32.64,
+          iterations: 404,
           persistedItems: 0,
           blockingItems: 0,
           requestTime: 0,
@@ -1077,7 +1333,7 @@ IQueryOperationResultBindings
         ]);
         await expect(result.metadata()).resolves.toEqual({
           state: expect.any(MetadataValidationState),
-          cardinality: { type: 'estimate', value: 240 },
+          cardinality: { type: 'estimate', value: 1 },
 
           variables: [
             { variable: DF.variable('a'), canBeUndef: false },
@@ -1246,7 +1502,7 @@ IQueryOperationResultBindings
         ]);
         await expect(result.metadata()).resolves.toEqual({
           state: expect.any(MetadataValidationState),
-          cardinality: { type: 'estimate', value: 240 },
+          cardinality: { type: 'estimate', value: 1 },
 
           variables: [
             { variable: DF.variable('a'), canBeUndef: false },
@@ -1264,6 +1520,7 @@ IQueryOperationResultBindings
           bus,
           bindOrder: 'breadth-first',
           selectivityModifier: 0.1,
+          subQueryCost: 100,
           minMaxCardinalityRatio: 100,
           mediatorQueryOperation,
           mediatorJoinSelectivity,
@@ -1357,7 +1614,7 @@ IQueryOperationResultBindings
         ]);
         await expect(result.metadata()).resolves.toEqual({
           state: expect.any(MetadataValidationState),
-          cardinality: { type: 'estimate', value: 240 },
+          cardinality: { type: 'estimate', value: 1 },
 
           variables: [
             { variable: DF.variable('a'), canBeUndef: false },
@@ -1453,7 +1710,7 @@ IQueryOperationResultBindings
         ]);
         await expect(result.metadata()).resolves.toEqual({
           state: expect.any(MetadataValidationState),
-          cardinality: { type: 'estimate', value: 240 },
+          cardinality: { type: 'estimate', value: 1 },
 
           variables: [
             { variable: DF.variable('a'), canBeUndef: false },
@@ -1575,7 +1832,7 @@ IQueryOperationResultBindings
         ]);
         await expect(result.metadata()).resolves.toEqual({
           state: expect.any(MetadataValidationState),
-          cardinality: { type: 'estimate', value: 96000 },
+          cardinality: { type: 'estimate', value: 0.75 },
 
           variables: [
             { variable: DF.variable('a'), canBeUndef: false },

@@ -1,13 +1,16 @@
 import { ActorFunctionFactoryTermAddition } from '@comunica/actor-function-factory-term-addition';
-import { TermFunctionEquality } from '@comunica/actor-function-factory-term-equality/lib/TermFunctionEquality';
-import { createFuncMediator } from '@comunica/bus-function-factory/test/util';
+import { TermFunctionEquality } from '@comunica/actor-function-factory-term-equality';
 import * as Eval from '@comunica/utils-expression-evaluator';
-import { getMockEEActionContext, getMockEEFactory } from '@comunica/utils-expression-evaluator/test/util/helpers';
-import { getMockExpression } from '@comunica/utils-expression-evaluator/test/util/utils';
+import {
+  createFuncMediator,
+  getMockEEActionContext,
+  getMockEEFactory,
+  getMockExpression,
+} from '@comunica/utils-jest';
 import { TermFunctionLesserThan } from '../lib/TermFunctionLesserThan';
 
 describe('lesser than', () => {
-  describe('on sparql star tripples', () => {
+  describe('on sparql star triples', () => {
     it('allows Generalized RDF Triples', async() => {
       const op = new TermFunctionLesserThan(new TermFunctionEquality());
       const dg = new Eval.DefaultGraph();

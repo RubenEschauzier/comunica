@@ -1,8 +1,8 @@
 import { Readable } from 'node:stream';
-import { KeysQueryOperation } from '@comunica/context-entries';
+import { KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
 import type { IActionContext } from '@comunica/types';
-import { AlgebraFactory } from '@comunica/utils-algebra';
+import { AlgebraFactory, TypesComunica } from '@comunica/utils-algebra';
 import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import arrayifyStream from 'arrayify-stream';
@@ -25,12 +25,15 @@ describe('QuerySourceRdfJs', () => {
   let source: QuerySourceRdfJs;
   beforeEach(() => {
     ctx = new ActionContext({});
-    store = RdfStore.createDefault();
+    store = RdfStore.createDefault(true);
     source = new QuerySourceRdfJs(store, DF, BF);
   });
 
   describe('getSelectorShape', () => {
-    it('should return a selector shape', async() => {
+    it('should return a selector shape when indexNodes and indexDistinctTerms are false', async() => {
+      store = RdfStore.createDefault();
+      store.features.indexDistinctTerms = false;
+      source = new QuerySourceRdfJs(store, DF, BF);
       await expect(source.getSelectorShape()).resolves.toEqual({
         type: 'operation',
         operation: {
@@ -41,6 +44,40 @@ describe('QuerySourceRdfJs', () => {
           DF.variable('s'),
           DF.variable('p'),
           DF.variable('o'),
+        ],
+      });
+    });
+
+    it('should return a selector shape', async() => {
+      await expect(source.getSelectorShape()).resolves.toEqual({
+        type: 'disjunction',
+        children: [
+          {
+            type: 'operation',
+            operation: {
+              operationType: 'pattern',
+              pattern: AF.createPattern(DF.variable('s'), DF.variable('p'), DF.variable('o')),
+            },
+            variablesOptional: [
+              DF.variable('s'),
+              DF.variable('p'),
+              DF.variable('o'),
+            ],
+          },
+          {
+            type: 'operation',
+            operation: {
+              operationType: 'type',
+              type: TypesComunica.NODES,
+            },
+          },
+          {
+            type: 'operation',
+            operation: {
+              operationType: 'type',
+              type: TypesComunica.DISTINCT_TERMS,
+            },
+          },
         ],
       });
     });
@@ -91,7 +128,29 @@ describe('QuerySourceRdfJs', () => {
           state: expect.any(MetadataValidationState),
           variables: [
             { variable: DF.variable('s'), canBeUndef: false },
-            { variable: DF.variable('o'), canBeUndef: false },
+            { variable: DF.variable('o'), canBeUndef: false, distinctValues: 2 },
+          ],
+          requestTime: 0,
+        });
+    });
+
+    it('should not count distinct values of a variable that occurs multiple times', async() => {
+      store.addQuad(DF.quad(DF.namedNode('s1'), DF.namedNode('p'), DF.namedNode('s1')));
+      store.addQuad(DF.quad(DF.namedNode('s2'), DF.namedNode('p'), DF.namedNode('o2')));
+
+      const data = source.queryBindings(
+        AF.createPattern(DF.variable('s'), DF.namedNode('p'), DF.variable('s')),
+        ctx,
+      );
+      await expect(data).toEqualBindingsStream([
+        BF.fromRecord({ s: DF.namedNode('s1') }),
+      ]);
+      await expect(new Promise(resolve => data.getProperty('metadata', resolve))).resolves
+        .toEqual({
+          cardinality: { type: 'estimate', value: 2 },
+          state: expect.any(MetadataValidationState),
+          variables: [
+            { variable: DF.variable('s'), canBeUndef: false },
           ],
           requestTime: 0,
         });
@@ -190,7 +249,7 @@ describe('QuerySourceRdfJs', () => {
           state: expect.any(MetadataValidationState),
           variables: [
             { variable: DF.variable('s'), canBeUndef: false },
-            { variable: DF.variable('o'), canBeUndef: false },
+            { variable: DF.variable('o'), canBeUndef: false, distinctValues: 1 },
           ],
           requestTime: 0,
         });
@@ -452,7 +511,7 @@ describe('QuerySourceRdfJs', () => {
           state: expect.any(MetadataValidationState),
           variables: [
             { variable: DF.variable('s'), canBeUndef: false },
-            { variable: DF.variable('o'), canBeUndef: false },
+            { variable: DF.variable('o'), canBeUndef: false, distinctValues: 2 },
           ],
           requestTime: 0,
         });
@@ -573,7 +632,7 @@ describe('QuerySourceRdfJs', () => {
               state: expect.any(MetadataValidationState),
               variables: [
                 { variable: DF.variable('s'), canBeUndef: false },
-                { variable: DF.variable('o'), canBeUndef: false },
+                { variable: DF.variable('o'), canBeUndef: false, distinctValues: 3 },
               ],
               requestTime: 0,
             });
@@ -877,6 +936,230 @@ describe('QuerySourceRdfJs', () => {
             });
         });
       });
+    });
+
+    describe('for nodes operations', () => {
+      beforeEach(() => {
+        store.addQuad(DF.quad(DF.namedNode('s1'), DF.namedNode('p'), DF.namedNode('o1'), DF.defaultGraph()));
+        store.addQuad(DF.quad(DF.namedNode('s1'), DF.namedNode('p'), DF.namedNode('o2'), DF.namedNode('g2')));
+      });
+
+      it('should return nodes in the default graph', async() => {
+        const data = source.queryBindings(
+          AF.createNodes(DF.defaultGraph(), DF.variable('x')),
+          ctx,
+        );
+        await expect(data).toEqualBindingsStream([
+          BF.fromRecord({ x: DF.namedNode('s1') }),
+          BF.fromRecord({ x: DF.namedNode('o1') }),
+        ]);
+        await expect(new Promise(resolve => data.getProperty('metadata', resolve))).resolves
+          .toEqual({
+            cardinality: { type: 'exact', value: 2 },
+            state: expect.any(MetadataValidationState),
+            variables: [
+              { variable: DF.variable('x'), canBeUndef: false },
+            ],
+            requestTime: 0,
+          });
+      });
+
+      it('should return nodes in a variable graph', async() => {
+        const data = source.queryBindings(
+          AF.createNodes(DF.variable('g'), DF.variable('x')),
+          ctx,
+        );
+        await expect(data).toEqualBindingsStream([
+          BF.fromRecord({ g: DF.defaultGraph(), x: DF.namedNode('s1') }),
+          BF.fromRecord({ g: DF.defaultGraph(), x: DF.namedNode('o1') }),
+          BF.fromRecord({ g: DF.namedNode('g2'), x: DF.namedNode('s1') }),
+          BF.fromRecord({ g: DF.namedNode('g2'), x: DF.namedNode('o2') }),
+        ]);
+        await expect(new Promise(resolve => data.getProperty('metadata', resolve))).resolves
+          .toEqual({
+            cardinality: { type: 'exact', value: 4 },
+            state: expect.any(MetadataValidationState),
+            variables: [
+              { variable: DF.variable('g'), canBeUndef: false },
+              { variable: DF.variable('x'), canBeUndef: false },
+            ],
+            requestTime: 0,
+          });
+      });
+
+      it('should return nodes in the default graph when matchNodes returns a plain stream', async() => {
+        (<any> store).matchNodes = () => {
+          return Readable.from([
+            [ DF.defaultGraph(), DF.namedNode('s1') ],
+            [ DF.defaultGraph(), DF.namedNode('o1') ],
+          ]);
+        };
+        const data = source.queryBindings(
+          AF.createNodes(DF.defaultGraph(), DF.variable('x')),
+          ctx,
+        );
+        await expect(data).toEqualBindingsStream([
+          BF.fromRecord({ x: DF.namedNode('s1') }),
+          BF.fromRecord({ x: DF.namedNode('o1') }),
+        ]);
+        await expect(new Promise(resolve => data.getProperty('metadata', resolve))).resolves
+          .toEqual({
+            cardinality: { type: 'exact', value: 2 },
+            state: expect.any(MetadataValidationState),
+            variables: [
+              { variable: DF.variable('x'), canBeUndef: false },
+            ],
+            requestTime: 0,
+          });
+      });
+    });
+
+    describe('for distinctterms operations', () => {
+      beforeEach(() => {
+        store.addQuad(DF.quad(DF.namedNode('s1'), DF.namedNode('p'), DF.namedNode('o1'), DF.defaultGraph()));
+        store.addQuad(DF.quad(DF.namedNode('s1'), DF.namedNode('p'), DF.namedNode('o2'), DF.namedNode('g2')));
+      });
+
+      it('should return distinct predicates', async() => {
+        const data = source.queryBindings(
+          AF.createDistinctTerms([ DF.variable('p') ], { p: 'predicate' }),
+          ctx,
+        );
+        await expect(data).toEqualBindingsStream([
+          BF.fromRecord({ p: DF.namedNode('p') }),
+        ]);
+        await expect(new Promise(resolve => data.getProperty('metadata', resolve))).resolves
+          .toEqual({
+            cardinality: { type: 'exact', value: 1 },
+            state: expect.any(MetadataValidationState),
+            variables: [
+              { variable: DF.variable('p'), canBeUndef: false },
+            ],
+            requestTime: 0,
+          });
+      });
+
+      it('should return distinct predicates when matchDistinctTerms returns a plain stream', async() => {
+        (<any> store).matchDistinctTerms = () => {
+          return Readable.from([
+            [ DF.namedNode('p') ],
+          ]);
+        };
+        const data = source.queryBindings(
+          AF.createDistinctTerms([ DF.variable('p') ], { p: 'predicate' }),
+          ctx,
+        );
+        await expect(data).toEqualBindingsStream([
+          BF.fromRecord({ p: DF.namedNode('p') }),
+        ]);
+        await expect(new Promise(resolve => data.getProperty('metadata', resolve))).resolves
+          .toEqual({
+            cardinality: { type: 'exact', value: 1 },
+            state: expect.any(MetadataValidationState),
+            variables: [
+              { variable: DF.variable('p'), canBeUndef: false },
+            ],
+            requestTime: 0,
+          });
+      });
+    });
+  });
+
+  describe('cardinality caching', () => {
+    const pattern = AF.createPattern(DF.variable('s'), DF.namedNode('p'), DF.variable('o'));
+
+    async function cardinalityOf(data: any): Promise<number> {
+      const metadata: any = await new Promise(resolve => data.getProperty('metadata', resolve));
+      return metadata.cardinality.value;
+    }
+
+    beforeEach(() => {
+      store.addQuad(DF.quad(DF.namedNode('s1'), DF.namedNode('p'), DF.namedNode('o1')));
+      store.addQuad(DF.quad(DF.namedNode('s2'), DF.namedNode('p'), DF.namedNode('o2')));
+    });
+
+    it('should not count the same pattern twice within one query execution', async() => {
+      const countQuads = jest.spyOn(<any> store, 'countQuads');
+      const scoped = new ActionContext({ [KeysInitQuery.queryExecutionScope.name]: {}});
+
+      await expect(cardinalityOf(source.queryBindings(pattern, scoped))).resolves.toBe(2);
+      await expect(cardinalityOf(source.queryBindings(pattern, scoped))).resolves.toBe(2);
+
+      expect(countQuads).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not reuse counts across query executions', async() => {
+      const countQuads = jest.spyOn(<any> store, 'countQuads');
+
+      await expect(cardinalityOf(source.queryBindings(
+        pattern,
+        new ActionContext({ [KeysInitQuery.queryExecutionScope.name]: {}}),
+      ))).resolves.toBe(2);
+      store.addQuad(DF.quad(DF.namedNode('s3'), DF.namedNode('p'), DF.namedNode('o3')));
+      await expect(cardinalityOf(source.queryBindings(
+        pattern,
+        new ActionContext({ [KeysInitQuery.queryExecutionScope.name]: {}}),
+      ))).resolves.toBe(3);
+
+      expect(countQuads).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not cache without a query execution scope in the context', async() => {
+      const countQuads = jest.spyOn(<any> store, 'countQuads');
+
+      await expect(cardinalityOf(source.queryBindings(pattern, ctx))).resolves.toBe(2);
+      await expect(cardinalityOf(source.queryBindings(pattern, ctx))).resolves.toBe(2);
+
+      expect(countQuads).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not cache patterns that are cheap to count', async() => {
+      const countQuads = jest.spyOn(<any> store, 'countQuads');
+      const scoped = new ActionContext({ [KeysInitQuery.queryExecutionScope.name]: {}});
+      const bound = AF.createPattern(DF.namedNode('s1'), DF.namedNode('p'), DF.variable('o'));
+
+      await expect(cardinalityOf(source.queryBindings(bound, scoped))).resolves.toBe(1);
+      await expect(cardinalityOf(source.queryBindings(bound, scoped))).resolves.toBe(1);
+
+      expect(countQuads).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('isCardinalityCacheable', () => {
+    it('should be true for patterns with at least two wildcards', () => {
+      expect(QuerySourceRdfJs.isCardinalityCacheable(undefined, DF.namedNode('p'), undefined, DF.defaultGraph()))
+        .toBe(true);
+      expect(QuerySourceRdfJs.isCardinalityCacheable(undefined, undefined, undefined, undefined)).toBe(true);
+    });
+
+    it('should be false for patterns with at most one wildcard', () => {
+      expect(QuerySourceRdfJs.isCardinalityCacheable(DF.namedNode('s'), DF.namedNode('p'), undefined, DF
+        .defaultGraph())).toBe(false);
+      expect(QuerySourceRdfJs.isCardinalityCacheable(DF.namedNode('s'), DF.namedNode('p'), DF.namedNode('o'), DF
+        .defaultGraph())).toBe(false);
+    });
+  });
+
+  describe('getCardinalityCacheKey', () => {
+    it('should distinguish terms of different types and values', () => {
+      const keys = [
+        QuerySourceRdfJs.getCardinalityCacheKey(DF.namedNode('a')),
+        QuerySourceRdfJs.getCardinalityCacheKey(DF.namedNode('b')),
+        QuerySourceRdfJs.getCardinalityCacheKey(DF.blankNode('a')),
+        QuerySourceRdfJs.getCardinalityCacheKey(DF.literal('a')),
+        QuerySourceRdfJs.getCardinalityCacheKey(DF.literal('a', 'en')),
+        QuerySourceRdfJs.getCardinalityCacheKey(DF.literal('a', DF.namedNode('http://ex.org/dt'))),
+        QuerySourceRdfJs.getCardinalityCacheKey(DF.defaultGraph()),
+        QuerySourceRdfJs.getCardinalityCacheKey(DF.variable('a')),
+        QuerySourceRdfJs.getCardinalityCacheKey(undefined),
+      ];
+      expect(new Set(keys).size).toBe(keys.length);
+    });
+
+    it('should not produce a key for patterns containing quoted triples', () => {
+      expect(QuerySourceRdfJs.getCardinalityCacheKey(
+        DF.quad(DF.namedNode('s'), DF.namedNode('p'), DF.namedNode('o')),
+      )).toBeUndefined();
     });
   });
 

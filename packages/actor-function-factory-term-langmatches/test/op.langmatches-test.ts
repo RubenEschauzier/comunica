@@ -1,6 +1,8 @@
-import { runFuncTestTable } from '@comunica/bus-function-factory/test/util';
-import { bool } from '@comunica/utils-expression-evaluator/test/util/Aliases';
-import { Notation } from '@comunica/utils-expression-evaluator/test/util/TestTable';
+import {
+  runFuncTestTable,
+  bool,
+  Notation,
+} from '@comunica/utils-jest';
 import { ActorFunctionFactoryTermLangmatches } from '../lib';
 
 // TODO: Add errors for when non BCP47 strings are passed
@@ -24,6 +26,8 @@ describe('evaluation of \'langMatches\' like', () => {
        "de-X-De" "de-*-DE" = false
        "de-Deva" "de-*-DE" = false
        "de" "fr" = false
+       "" "*" = false
+       "de-Latn-de" "de-de" = false
       `,
   });
 });

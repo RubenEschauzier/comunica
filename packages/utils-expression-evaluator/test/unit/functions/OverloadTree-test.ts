@@ -1,10 +1,10 @@
-import type { ExpressionEvaluator } from '@comunica/actor-expression-evaluator-factory-default/lib/ExpressionEvaluator';
-import { TermFunctionAddition } from '@comunica/actor-function-factory-term-addition/lib/TermFunctionAddition';
-import { TermFunctionSubStr } from '@comunica/actor-function-factory-term-sub-str/lib/TermFunctionSubStr';
+import type { ExpressionEvaluator } from '@comunica/actor-expression-evaluator-factory-default';
+import { TermFunctionAddition } from '@comunica/actor-function-factory-term-addition';
+import { TermFunctionSubStr } from '@comunica/actor-function-factory-term-sub-str';
 import type { TermFunctionBase } from '@comunica/bus-function-factory';
 import { KeysExpressionEvaluator, KeysInitQuery } from '@comunica/context-entries';
 import type { FunctionArgumentsCache, ISuperTypeProvider } from '@comunica/types';
-import { getMockEEActionContext, getMockEEFactory } from '@comunica/utils-expression-evaluator/test/util/helpers';
+import { getMockEEActionContext, getMockEEFactory, getMockExpression } from '@comunica/utils-jest';
 import { TypeURL, OverloadTree } from '../../../lib';
 import type { KnownLiteralTypes } from '../../../lib';
 import {
@@ -14,7 +14,6 @@ import {
   StringLiteral,
 } from '../../../lib/expressions';
 import type { ISerializable } from '../../../lib/expressions';
-import { getMockExpression } from '../../util/utils';
 
 describe('OverloadTree', () => {
   let emptyTree: OverloadTree;

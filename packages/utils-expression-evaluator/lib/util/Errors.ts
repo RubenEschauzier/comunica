@@ -98,8 +98,8 @@ export class InError extends ExpressionError {
  * Literals were passed to an operator that doesn't support their datatypes.
  */
 export class InvalidArgumentTypes extends ExpressionError {
-  public constructor(public args: Expression[], public op: C.GeneralOperator) {
-    super(`Argument types not valid for operator: '${pp(op)}' with '${pp(args)}`);
+  public constructor(public args: Expression[], public op: C.GeneralOperator, etc = '') {
+    super(`Argument types not valid for operator: '${pp(op)}' with '${pp(args)}${etc}`);
   }
 }
 
@@ -119,14 +119,11 @@ export class InvalidTimezoneCall extends ExpressionError {
 }
 
 export class IncompatibleLanguageOperation extends ExpressionError {
-  public constructor(public arg1: E.LangStringLiteral, public arg2: E.LangStringLiteral) {
+  public constructor(
+    public arg1: E.Literal<string>,
+    public arg2: E.Literal<string>,
+  ) {
     super(`Operation on incompatible language literals '${pp(arg1)}' and '${pp(arg2)}'`);
-  }
-}
-
-export class IncompatibleDirectionalLanguageOperation extends ExpressionError {
-  public constructor(public arg1: E.DirLangStringLiteral, public arg2: E.DirLangStringLiteral) {
-    super(`Operation on incompatible directional language literals '${pp(arg1)}' and '${pp(arg2)}'`);
   }
 }
 

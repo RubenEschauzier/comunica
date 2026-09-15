@@ -85,6 +85,25 @@ export const KeysHttp = {
    */
   httpRetryStatusCodes: new ActionContextKey<number[]>('@comunica/bus-http:http-retry-status-codes'),
   /**
+   * Number of retries to make when the response body stream errors mid-read.
+   * Response bodies are buffered per attempt (unless disabled by `httpRetryBodyMaxBytes`)
+   * to avoid emitting partial data to downstream parsers.
+   */
+  httpRetryBodyCount: new ActionContextKey<number>('@comunica/bus-http:http-retry-body-count'),
+  /**
+   * The fallback retry delay in milliseconds between body retries.
+   */
+  httpRetryBodyDelayFallback: new ActionContextKey<number>('@comunica/bus-http:http-retry-body-delay-fallback'),
+  /**
+   * Allow body retries for non-idempotent methods or non-replayable request bodies.
+   */
+  httpRetryBodyAllowUnsafe: new ActionContextKey<boolean>('@comunica/bus-http:http-retry-body-allow-unsafe'),
+  /**
+   * Maximum number of bytes to buffer when retrying response body streams.
+   * When exceeded, body retries are disabled and the response will continue streaming as-is.
+   */
+  httpRetryBodyMaxBytes: new ActionContextKey<number>('@comunica/bus-http:http-retry-body-max-bytes'),
+  /**
    * An abort signal for aborting pending HTTP requests.
    */
   httpAbortSignal: new ActionContextKey<AbortSignal>('@comunica/bus-http:http-abort-controller'),
@@ -142,6 +161,20 @@ export const KeysInitQuery = {
    * If HTTP and parsing failures are ignored.
    */
   lenient: new ActionContextKey<boolean>('@comunica/actor-init-query:lenient'),
+  /**
+   * If SERVICE clauses are allowed to target local files.
+   * This is disabled by default, as queries could otherwise read arbitrary local files,
+   * which is problematic when queries originate from untrusted parties.
+   */
+  serviceAllowFileTargets: new ActionContextKey<boolean>('@comunica/actor-init-query:serviceAllowFileTargets'),
+  /**
+   * If SERVICE clauses are allowed to have a variable as target.
+   * This is disabled by default, as the targets are then determined by the queried data,
+   * which would allow queries from untrusted parties to dereference arbitrary sources.
+   */
+  serviceAllowVariableTargets: new ActionContextKey<boolean>(
+    '@comunica/actor-init-query:serviceAllowVariableTargets',
+  ),
   /**
    * By default, errors will be emitted if parsers encounter unsupported versions.
    * Setting this flag to true will silence those checks.
@@ -238,6 +271,12 @@ export const KeysInitQuery = {
    */
   invalidateCache: new ActionContextKey<boolean>('@comunica/actor-init-query:invalidateCache'),
   /**
+   * An opaque object that is unique to a single query execution.
+   * Actors can use it as a key into a `WeakMap` to hold state that may be reused within one query execution,
+   * but must never be reused across query executions, such as cached source cardinalities.
+   */
+  queryExecutionScope: new ActionContextKey<object>('@comunica/actor-init-query:queryExecutionScope'),
+  /**
    * The data factory for creating terms and quads.
    */
   dataFactory: new ActionContextKey<ComunicaDataFactory>('@comunica/actor-init-query:dataFactory'),
@@ -256,6 +295,28 @@ export const KeysExpressionEvaluator = {
     '@comunica/utils-expression-evaluator:defaultTimeZone',
   ),
   actionContext: new ActionContextKey<IActionContext>('@comunica/utils-expression-evaluator:actionContext'),
+  /**
+   * A boolean denoting the behaviour of comparators (e.g. <, >, <=, >=) when used with non-lexical literal operands.
+   * Non-lexical literal are literals whose value does not belong in the space of it's datatype,
+   * e.g. "not-a-number"^^xsd:int
+   *
+   * true: compares both operands by datatypes first and if they're equal, their string values are compared.
+   * false: throws an error (default).
+   */
+  nonLexicalComparison: new ActionContextKey<boolean>(
+    '@comunica/utils-expression-evaluator:nonLexicalComparison',
+  ),
+  /**
+   * A boolean denoting the behaviour of comparators (e.g. <, >, <=, >=) when used with non-literal and mixed operands.
+   * Such non-literals are IRIs, blank nodes, languageStrings and triple terms.
+   * Their comparison is not required by default in SPARQL.
+   *
+   * true: compares them. (follows the relative ordering of https://www.w3.org/TR/sparql12-query/#modOrderBy)
+   * false: throws an error (default).
+   */
+  fullTermComparison: new ActionContextKey<boolean>(
+    '@comunica/utils-expression-evaluator:fullTermComparison',
+  ),
 };
 
 export const KeysQueryOperation = {
@@ -279,6 +340,12 @@ export const KeysQueryOperation = {
    * Flag for indicating that only read operations are allowed, defaults to false.
    */
   readOnly: new ActionContextKey<boolean>('@comunica/bus-query-operation:readOnly'),
+  /**
+   * Flag on a query source context indicating that this source is the target of a `SERVICE SILENT` clause.
+   * Errors from such a source must be swallowed, and replaced by a single empty solution,
+   * as mandated by SPARQL 1.1 Federated Query.
+   */
+  silent: new ActionContextKey<boolean>('@comunica/bus-query-operation:silent'),
   /**
    * An internal context entry to mark that a property path with arbitrary length and a distinct key is being processed.
    */
@@ -352,6 +419,15 @@ export const KeysQuerySourceIdentify = {
    * This means that sources annotated with this flag are considered incomplete until all links have been traversed.
    */
   traverse: new ActionContextKey<boolean>('@comunica/bus-query-source-identify:traverse'),
+};
+
+export const KeysDereference = {
+  /**
+   * If local files may not be dereferenced within the current scope.
+   * This is for example set when dereferencing SERVICE targets,
+   * to avoid exposing local files to queries from untrusted parties.
+   */
+  blockFileAccess: new ActionContextKey<boolean>('@comunica/bus-dereference:blockFileAccess'),
 };
 
 export const KeysRdfUpdateQuads = {

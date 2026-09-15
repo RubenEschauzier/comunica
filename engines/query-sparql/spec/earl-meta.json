@@ -15,6 +15,14 @@
   "licenseUri": "http://opensource.org/licenses/MIT",
   "reportUri": null,
   "specificationUris": [
-    "http://www.w3.org/TR/sparql11-query/"
+    "http://www.w3.org/TR/rdf-sparql-query/",
+    "http://www.w3.org/TR/sparql11-query/",
+    "http://www.w3.org/TR/sparql11-update/",
+    "http://www.w3.org/TR/sparql11-results-csv-tsv/",
+    "http://www.w3.org/TR/sparql11-results-json/",
+    "http://www.w3.org/TR/sparql11-federated-query/",
+    "http://www.w3.org/TR/sparql11-service-description/",
+    "http://www.w3.org/TR/sparql11-protocol/",
+    "https://www.w3.org/TR/sparql12-query/"
   ]
 }

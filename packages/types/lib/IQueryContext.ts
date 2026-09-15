@@ -38,6 +38,8 @@ export interface IQueryContextCommon {
   queryTimestampHighResolution?: DOMHighResTimeStamp;
   httpProxyHandler?: IProxyHandler;
   lenient?: boolean;
+  serviceAllowFileTargets?: boolean;
+  serviceAllowVariableTargets?: boolean;
   parseUnsupportedVersions?: boolean;
   httpIncludeCredentials?: boolean;
   httpAuth?: string;
@@ -47,6 +49,10 @@ export interface IQueryContextCommon {
   httpRetryDelayFallback?: number;
   httpRetryDelayLimit?: number;
   httpRetryStatusCodes?: number[];
+  httpRetryBodyCount?: number;
+  httpRetryBodyDelayFallback?: number;
+  httpRetryBodyAllowUnsafe?: boolean;
+  httpRetryBodyMaxBytes?: number;
   httpAbortSignal?: AbortSignal;
   httpCache?: boolean;
   fetch?: typeof fetch;
@@ -58,6 +64,8 @@ export interface IQueryContextCommon {
   => ((args: RDF.Term[]) => Promise<RDF.Term>) | undefined;
   functionArgumentsCache?: FunctionArgumentsCache;
   explain?: QueryExplainMode;
+  nonLexicalComparison?: boolean;
+  fullTermComparison?: boolean;
   unionDefaultGraph?: boolean;
   traverse?: boolean;
   invalidateCache?: boolean;

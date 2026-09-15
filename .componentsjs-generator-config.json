@@ -96,7 +96,14 @@
 
     "StemsOperatorStream",
     "StemsControllerStream",
-    "AdaptiveJoinController"
+    "AdaptiveJoinController",
+    
+    "InternalEvaluator",
+    "TermFunctionAddition",
+    "TermFunctionEquality",
+    "TermFunctionLesserThan",
+    "TermFunctionSubStr",
+    "possibleOperationTypes"
   ],
   "modulePrefix": {
     "@comunica/actor-query-operation-service": "caqoser",

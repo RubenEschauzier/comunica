@@ -3,7 +3,13 @@ import { exec } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import * as OS from 'node:os';
 import * as Path from 'node:path';
-import { KeysHttp, KeysInitQuery, KeysQueryOperation, KeysRdfUpdateQuads } from '@comunica/context-entries';
+import {
+  KeysExpressionEvaluator,
+  KeysHttp,
+  KeysInitQuery,
+  KeysQueryOperation,
+  KeysRdfUpdateQuads,
+} from '@comunica/context-entries';
 import { ActionContext } from '@comunica/core';
 import { LoggerPretty } from '@comunica/logger-pretty';
 import type { IActionContext, ICliArgsHandler } from '@comunica/types';
@@ -37,7 +43,7 @@ export class CliArgsHandlerBase implements ICliArgsHandler {
   }
 
   /**
-   * Converts an URL like 'hypermedia@http://user:passwd@example.com to an IDataSource
+   * Converts an URL like 'sparql@http://user:passwd@example.com to an IDataSource
    * @param {string} sourceString An url with possibly a type and authorization.
    * @return {[id: string]: any} An IDataSource which represents the sourceString.
    */
@@ -113,6 +119,11 @@ export class CliArgsHandlerBase implements ICliArgsHandler {
           type: 'boolean',
           describe: 'If failing requests and parsing errors should be logged instead of causing a hard crash',
         },
+        serviceAllowVariableTargets: {
+          type: 'boolean',
+          describe: 'If SERVICE clauses are allowed to have a variable as target, ' +
+            'which lets the queried data determine what is dereferenced',
+        },
         parseUnsupportedVersions: {
           type: 'boolean',
           describe: 'If no error should be emitted on unsupported versions',
@@ -146,6 +157,22 @@ export class CliArgsHandlerBase implements ICliArgsHandler {
           type: 'number',
           describe: 'The upper limit in milliseconds for the delay between fetch retries',
         },
+        httpRetryBodyCount: {
+          type: 'number',
+          describe: 'The number of retries to perform when the response body stream errors',
+        },
+        httpRetryBodyDelayFallback: {
+          type: 'number',
+          describe: 'The fallback delay in milliseconds between body retries',
+        },
+        httpRetryBodyAllowUnsafe: {
+          type: 'boolean',
+          describe: 'Allow body retries for non-idempotent requests',
+        },
+        httpRetryBodyMaxBytes: {
+          type: 'number',
+          describe: 'Maximum number of bytes to buffer when retrying response body streams',
+        },
         httpCache: {
           type: 'boolean',
           describe: 'Enables HTTP-level caching',
@@ -161,6 +188,16 @@ export class CliArgsHandlerBase implements ICliArgsHandler {
         distinctConstruct: {
           type: 'boolean',
           describe: 'If the query engine should deduplicate resulting triples',
+        },
+        nonLexicalComparison: {
+          type: 'boolean',
+          describe: 'When true, compares non-lexical literals.' +
+            'Throws an expression error otherwise, which is caught by FILTER and BIND.',
+        },
+        fullTermComparison: {
+          type: 'boolean',
+          describe: 'When true, compares IRIs, blank nodes, languageStrings and triple terms.' +
+            'Throws an expression error otherwise, which is caught by FILTER and BIND.',
         },
         extensionFunctionsAlwaysPushdown: {
           type: 'boolean',
@@ -244,6 +281,11 @@ export class CliArgsHandlerBase implements ICliArgsHandler {
       context[KeysInitQuery.lenient.name] = true;
     }
 
+    // Define if SERVICE clauses may have a variable as target
+    if (args.serviceAllowVariableTargets) {
+      context[KeysInitQuery.serviceAllowVariableTargets.name] = true;
+    }
+
     // Define parseUnsupportedVersions
     if (args.parseUnsupportedVersions) {
       context[KeysInitQuery.parseUnsupportedVersions.name] = true;
@@ -283,6 +325,35 @@ export class CliArgsHandlerBase implements ICliArgsHandler {
       context[KeysHttp.httpRetryDelayLimit.name] = args.httpRetryDelayLimit;
     }
 
+    // Define HTTP body retry count
+    if (args.httpRetryBodyCount) {
+      context[KeysHttp.httpRetryBodyCount.name] = args.httpRetryBodyCount;
+    }
+
+    // Define fallback HTTP delay between body retries
+    if (args.httpRetryBodyDelayFallback) {
+      if (!args.httpRetryBodyCount) {
+        throw new Error('The --httpRetryBodyDelayFallback option requires the --httpRetryBodyCount option to be set');
+      }
+      context[KeysHttp.httpRetryBodyDelayFallback.name] = args.httpRetryBodyDelayFallback;
+    }
+
+    // Define if body retries are allowed for non-idempotent methods
+    if (args.httpRetryBodyAllowUnsafe) {
+      if (!args.httpRetryBodyCount) {
+        throw new Error('The --httpRetryBodyAllowUnsafe option requires the --httpRetryBodyCount option to be set');
+      }
+      context[KeysHttp.httpRetryBodyAllowUnsafe.name] = true;
+    }
+
+    // Define max bytes to buffer for body retries
+    if (args.httpRetryBodyMaxBytes) {
+      if (!args.httpRetryBodyCount) {
+        throw new Error('The --httpRetryBodyMaxBytes option requires the --httpRetryBodyCount option to be set');
+      }
+      context[KeysHttp.httpRetryBodyMaxBytes.name] = args.httpRetryBodyMaxBytes;
+    }
+
     // Define union default graph
     if (args.unionDefaultGraph) {
       context[KeysQueryOperation.unionDefaultGraph.name] = true;
@@ -296,6 +367,16 @@ export class CliArgsHandlerBase implements ICliArgsHandler {
     // Define if results should be deduplicated
     if (args.distinctConstruct) {
       context[KeysInitQuery.distinctConstruct.name] = true;
+    }
+
+    // Define if non -lexical literals should be compared
+    if (args.nonLexicalComparison) {
+      context[KeysExpressionEvaluator.nonLexicalComparison.name] = true;
+    }
+
+    // Define if every term should be string compared
+    if (args.fullTermComparison) {
+      context[KeysExpressionEvaluator.fullTermComparison.name] = true;
     }
 
     // Pushing down of extension functions

@@ -1,16 +1,21 @@
 import type { IActionQueryOperation, IActorQueryOperationArgs } from '@comunica/bus-query-operation';
 import { ActorQueryOperation } from '@comunica/bus-query-operation';
-import { KeysInitQuery } from '@comunica/context-entries';
+import { KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
 import type { IActorTest, TestResult } from '@comunica/core';
 import { failTest, passTest } from '@comunica/core';
 import type {
+  ComunicaDataFactory,
+  IActionContext,
   IPhysicalQueryPlanLogger,
   IQueryOperationResult,
   IQuerySourceWrapper,
 } from '@comunica/types';
 import { Algebra, algebraUtils } from '@comunica/utils-algebra';
+import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { getMetadataBindings, getMetadataQuads } from '@comunica/utils-metadata';
-import { getOperationSource } from '@comunica/utils-query-operation';
+import { doesShapeAcceptOperation, getOperationSource } from '@comunica/utils-query-operation';
+import type * as RDF from '@rdfjs/types';
+import { SilencedBindingsIterator } from './SilencedBindingsIterator';
 
 /**
  * A comunica Source Query Operation Actor.
@@ -21,8 +26,16 @@ export class ActorQueryOperationSource extends ActorQueryOperation {
   }
 
   public async test(action: IActionQueryOperation): Promise<TestResult<IActorTest>> {
-    if (!getOperationSource(action.operation)) {
+    const source = getOperationSource(action.operation);
+    if (!source) {
       return failTest(`Actor ${this.name} requires an operation with source annotation.`);
+    }
+    if (!doesShapeAcceptOperation(
+      await source.source.getSelectorShape(action.context),
+      action.operation,
+      { wildcardAcceptAllExtensionFunctions: true },
+    )) {
+      return failTest(`Actor ${this.name} does not accept the operation ${action.operation.type}.`);
     }
     return passTest({ httpRequests: 1 });
   }
@@ -87,12 +100,27 @@ export class ActorQueryOperationSource extends ActorQueryOperation {
         };
     }
 
-    const bindingsStream = sourceWrapper.source.queryBindings(action.operation, mergedContext);
+    let bindingsStream = sourceWrapper.source.queryBindings(action.operation, mergedContext);
+    // Targets of a SERVICE SILENT clause must swallow their errors, and produce a single empty solution instead.
+    if (mergedContext.get(KeysQueryOperation.silent)) {
+      bindingsStream = new SilencedBindingsIterator(
+        bindingsStream,
+        this.createEmptyBindings(action.context),
+        error => this.logWarn(action.context, `An error occurred in a SERVICE SILENT clause: ${error.message}`),
+      );
+    }
     const metadata = getMetadataBindings(bindingsStream);
     return {
       type: 'bindings',
       bindingsStream,
       metadata,
     };
+  }
+
+  protected createEmptyBindings(context: IActionContext): RDF.Bindings {
+    const dataFactory: ComunicaDataFactory = context.getSafe(KeysInitQuery.dataFactory);
+    // The empty solution carries no values, so it needs no context merge handlers.
+    // TODO: add mediatorMergeBindingsContext in next major
+    return new BindingsFactory(dataFactory).bindings();
   }
 }

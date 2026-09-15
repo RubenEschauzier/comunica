@@ -2,6 +2,7 @@ import * as Path from 'node:path';
 import { ProxyHandlerStatic } from '@comunica/actor-http-proxy';
 import type { MediatorQueryProcess } from '@comunica/bus-query-process';
 import {
+  KeysExpressionEvaluator,
   KeysHttp,
   KeysHttpMemento,
   KeysHttpProxy,
@@ -604,6 +605,22 @@ LIMIT 100
         });
       });
 
+      it('handles the --serviceAllowVariableTargets flag', async() => {
+        const stdout = await stringifyStream(<any> (await actor.run({
+          argv: [ sourceHypermedia, '-q', queryString, '--serviceAllowVariableTargets' ],
+          env: {},
+          stdin: <Readable><any> new PassThrough(),
+          context,
+        })).stdout);
+        expect(stdout).toContain(`{"a":"triple"}`);
+        expect(spyQueryOrExplain).toHaveBeenCalledWith(queryString, {
+          [KeysInitQuery.queryFormat.name]: { language: 'sparql', version: '1.1' },
+          sources: [{ value: sourceHypermedia }],
+          log: expect.any(LoggerPretty),
+          [KeysInitQuery.serviceAllowVariableTargets.name]: true,
+        });
+      });
+
       it('handles the --parseUnsupportedVersions flag', async() => {
         const stdout = await stringifyStream(<any> (await actor.run({
           argv: [ sourceHypermedia, '-q', queryString, '--parseUnsupportedVersions' ],
@@ -733,6 +750,109 @@ LIMIT 100
         expect(stderr).toContain(`The --httpRetryDelayLimit option requires the --httpRetryCount option to be set`);
       });
 
+      it('handles the --httpRetryBodyCount flag', async() => {
+        const stdout = await stringifyStream(<any> (await actor.run({
+          argv: [ sourceHypermedia, '-q', queryString, '--httpRetryBodyCount=2' ],
+          env: {},
+          stdin: <Readable><any> new PassThrough(),
+          context,
+        })).stdout);
+        expect(stdout).toContain(`{"a":"triple"}`);
+        expect(spyQueryOrExplain).toHaveBeenCalledWith(queryString, {
+          [KeysInitQuery.queryFormat.name]: { language: 'sparql', version: '1.1' },
+          sources: [{ value: sourceHypermedia }],
+          log: expect.any(LoggerPretty),
+          [KeysHttp.httpRetryBodyCount.name]: 2,
+        });
+      });
+
+      it('handles the --httpRetryBodyDelayFallback flag', async() => {
+        const stdout = await stringifyStream(<any> (await actor.run({
+          argv: [ sourceHypermedia, '-q', queryString, '--httpRetryBodyCount=2', '--httpRetryBodyDelayFallback=500' ],
+          env: {},
+          stdin: <Readable><any> new PassThrough(),
+          context,
+        })).stdout);
+        expect(stdout).toContain(`{"a":"triple"}`);
+        expect(spyQueryOrExplain).toHaveBeenCalledWith(queryString, {
+          [KeysInitQuery.queryFormat.name]: { language: 'sparql', version: '1.1' },
+          sources: [{ value: sourceHypermedia }],
+          log: expect.any(LoggerPretty),
+          [KeysHttp.httpRetryBodyCount.name]: 2,
+          [KeysHttp.httpRetryBodyDelayFallback.name]: 500,
+        });
+      });
+
+      it('handles --httpRetryBodyDelayFallback flag requiring --httpRetryBodyCount', async() => {
+        const stderr = await stringifyStream(<any> (await actor.run({
+          argv: [ sourceHypermedia, '-q', queryString, '--httpRetryBodyDelayFallback=500' ],
+          env: {},
+          stdin: <Readable><any> new PassThrough(),
+          context,
+        })).stderr);
+        expect(stderr).toContain(
+          `The --httpRetryBodyDelayFallback option requires the --httpRetryBodyCount option to be set`,
+        );
+      });
+
+      it('handles the --httpRetryBodyAllowUnsafe flag', async() => {
+        const stdout = await stringifyStream(<any> (await actor.run({
+          argv: [ sourceHypermedia, '-q', queryString, '--httpRetryBodyCount=2', '--httpRetryBodyAllowUnsafe' ],
+          env: {},
+          stdin: <Readable><any> new PassThrough(),
+          context,
+        })).stdout);
+        expect(stdout).toContain(`{"a":"triple"}`);
+        expect(spyQueryOrExplain).toHaveBeenCalledWith(queryString, {
+          [KeysInitQuery.queryFormat.name]: { language: 'sparql', version: '1.1' },
+          sources: [{ value: sourceHypermedia }],
+          log: expect.any(LoggerPretty),
+          [KeysHttp.httpRetryBodyCount.name]: 2,
+          [KeysHttp.httpRetryBodyAllowUnsafe.name]: true,
+        });
+      });
+
+      it('handles --httpRetryBodyAllowUnsafe flag requiring --httpRetryBodyCount', async() => {
+        const stderr = await stringifyStream(<any> (await actor.run({
+          argv: [ sourceHypermedia, '-q', queryString, '--httpRetryBodyAllowUnsafe' ],
+          env: {},
+          stdin: <Readable><any> new PassThrough(),
+          context,
+        })).stderr);
+        expect(stderr).toContain(
+          `The --httpRetryBodyAllowUnsafe option requires the --httpRetryBodyCount option to be set`,
+        );
+      });
+
+      it('handles the --httpRetryBodyMaxBytes flag', async() => {
+        const stdout = await stringifyStream(<any> (await actor.run({
+          argv: [ sourceHypermedia, '-q', queryString, '--httpRetryBodyCount=2', '--httpRetryBodyMaxBytes=123' ],
+          env: {},
+          stdin: <Readable><any> new PassThrough(),
+          context,
+        })).stdout);
+        expect(stdout).toContain(`{"a":"triple"}`);
+        expect(spyQueryOrExplain).toHaveBeenCalledWith(queryString, {
+          [KeysInitQuery.queryFormat.name]: { language: 'sparql', version: '1.1' },
+          sources: [{ value: sourceHypermedia }],
+          log: expect.any(LoggerPretty),
+          [KeysHttp.httpRetryBodyCount.name]: 2,
+          [KeysHttp.httpRetryBodyMaxBytes.name]: 123,
+        });
+      });
+
+      it('handles --httpRetryBodyMaxBytes flag requiring --httpRetryBodyCount', async() => {
+        const stderr = await stringifyStream(<any> (await actor.run({
+          argv: [ sourceHypermedia, '-q', queryString, '--httpRetryBodyMaxBytes=123' ],
+          env: {},
+          stdin: <Readable><any> new PassThrough(),
+          context,
+        })).stderr);
+        expect(stderr).toContain(
+          `The --httpRetryBodyMaxBytes option requires the --httpRetryBodyCount option to be set`,
+        );
+      });
+
       it('handles the --unionDefaultGraph flag', async() => {
         const stdout = await stringifyStream(<any> (await actor.run({
           argv: [ sourceHypermedia, '-q', queryString, '--unionDefaultGraph' ],
@@ -778,6 +898,38 @@ LIMIT 100
           sources: [{ value: sourceHypermedia }],
           log: expect.any(LoggerPretty),
           [KeysInitQuery.distinctConstruct.name]: true,
+        });
+      });
+
+      it('handles the --nonLexicalComparison flag', async() => {
+        const stdout = await stringifyStream(<any> (await actor.run({
+          argv: [ sourceHypermedia, '-q', queryString, '--nonLexicalComparison' ],
+          env: {},
+          stdin: <Readable><any> new PassThrough(),
+          context,
+        })).stdout);
+        expect(stdout).toContain(`{"a":"triple"}`);
+        expect(spyQueryOrExplain).toHaveBeenCalledWith(queryString, {
+          [KeysInitQuery.queryFormat.name]: { language: 'sparql', version: '1.1' },
+          sources: [{ value: sourceHypermedia }],
+          log: expect.any(LoggerPretty),
+          [KeysExpressionEvaluator.nonLexicalComparison.name]: true,
+        });
+      });
+
+      it('handles the --fullTermComparison flag', async() => {
+        const stdout = await stringifyStream(<any> (await actor.run({
+          argv: [ sourceHypermedia, '-q', queryString, '--fullTermComparison' ],
+          env: {},
+          stdin: <Readable><any> new PassThrough(),
+          context,
+        })).stdout);
+        expect(stdout).toContain(`{"a":"triple"}`);
+        expect(spyQueryOrExplain).toHaveBeenCalledWith(queryString, {
+          [KeysInitQuery.queryFormat.name]: { language: 'sparql', version: '1.1' },
+          sources: [{ value: sourceHypermedia }],
+          log: expect.any(LoggerPretty),
+          [KeysExpressionEvaluator.fullTermComparison.name]: true,
         });
       });
 

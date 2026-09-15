@@ -1,7 +1,6 @@
 import { ActorFunctionFactoryTermStrLen } from '@comunica/actor-function-factory-term-str-len';
 import { createTermCompMediator } from '@comunica/actor-term-comparator-factory-expression-evaluator/test/util';
 import type { MediatorExpressionEvaluatorFactory } from '@comunica/bus-expression-evaluator-factory';
-import { createFuncMediator } from '@comunica/bus-function-factory/test/util';
 import { ActorQueryOperation } from '@comunica/bus-query-operation';
 import type { MediatorTermComparatorFactory } from '@comunica/bus-term-comparator-factory';
 import { Bus } from '@comunica/core';
@@ -11,15 +10,15 @@ import type { Algebra } from '@comunica/utils-algebra';
 import { BindingsFactory } from '@comunica/utils-bindings-factory';
 import * as sparqlee from '@comunica/utils-expression-evaluator';
 import {
+  createFuncMediator,
   getMockEEActionContext,
   getMockMediatorExpressionEvaluatorFactory,
-} from '@comunica/utils-expression-evaluator/test/util/helpers';
+} from '@comunica/utils-jest';
 import { getSafeBindings } from '@comunica/utils-query-operation';
 import arrayifyStream from 'arrayify-stream';
 import { ArrayIterator } from 'asynciterator';
 import { DataFactory } from 'rdf-data-factory';
 import { ActorQueryOperationOrderBy } from '../lib/ActorQueryOperationOrderBy';
-import '@comunica/utils-jest';
 
 const DF = new DataFactory();
 const BF = new BindingsFactory(DF);
@@ -269,6 +268,19 @@ describe('ActorQueryOperationOrderBySparqlee', () => {
       ]);
     });
 
+    it('should only emit the first results when a sort limit was pushed down', async() => {
+      const op: any = {
+        operation: { type: 'orderby', input: {}, expressions: [ orderA ], metadata: { sortLimit: 2 }},
+        context,
+      };
+      const output = await actor.run(op, undefined);
+      const array = await arrayifyStream(getSafeBindings(output).bindingsStream);
+      expect(array).toMatchObject([
+        BF.bindings([[ DF.variable('a'), DF.literal('1') ]]),
+        BF.bindings([[ DF.variable('a'), DF.literal('22') ]]),
+      ]);
+    });
+
     it('should run with a window', async() => {
       actor = new ActorQueryOperationOrderBy({
         name: 'actor',
@@ -465,6 +477,57 @@ describe('ActorQueryOperationOrderBy with multiple comparators', () => {
           [ DF.variable('b'), DF.literal('Jos') ],
         ]),
       ]);
+    });
+
+    it('should order priority B descending and secondary A ascending', async() => {
+      const op: any = {
+        operation: { type: 'orderby', input: {}, expressions: [ descOrderB, orderA ]},
+        context,
+      };
+      const output = await actor.run(op, undefined);
+      const array = await arrayifyStream(getSafeBindings(output).bindingsStream);
+      expect(array).toMatchObject([
+        BF.bindings([
+          [ DF.variable('a'), DF.literal('Bosmans') ],
+          [ DF.variable('b'), DF.literal('Jos') ],
+        ]),
+        BF.bindings([
+          [ DF.variable('a'), DF.literal('Vermeulen') ],
+          [ DF.variable('b'), DF.literal('Jos') ],
+        ]),
+        BF.bindings([
+          [ DF.variable('a'), DF.literal('Vermeulen') ],
+          [ DF.variable('b'), DF.literal('Ben') ],
+        ]),
+      ]);
+    });
+
+    it('should only emit the first results when a sort limit was pushed down', async() => {
+      const op: any = {
+        operation: { type: 'orderby', input: {}, expressions: [ orderB, orderA ], metadata: { sortLimit: 2 }},
+        context,
+      };
+      const output = await actor.run(op, undefined);
+      const array = await arrayifyStream(getSafeBindings(output).bindingsStream);
+      expect(array).toMatchObject([
+        BF.bindings([
+          [ DF.variable('a'), DF.literal('Vermeulen') ],
+          [ DF.variable('b'), DF.literal('Ben') ],
+        ]),
+        BF.bindings([
+          [ DF.variable('a'), DF.literal('Bosmans') ],
+          [ DF.variable('b'), DF.literal('Jos') ],
+        ]),
+      ]);
+    });
+
+    it('should emit nothing for a pushed down sort limit of 0', async() => {
+      const op: any = {
+        operation: { type: 'orderby', input: {}, expressions: [ orderB, orderA ], metadata: { sortLimit: 0 }},
+        context,
+      };
+      const output = await actor.run(op, undefined);
+      await expect(arrayifyStream(getSafeBindings(output).bindingsStream)).resolves.toEqual([]);
     });
 
     it('should order priority B and secondary A, ascending', async() => {

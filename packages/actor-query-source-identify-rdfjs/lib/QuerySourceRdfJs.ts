@@ -1,19 +1,20 @@
 import { filterMatchingQuotedQuads, getVariables, quadsToBindings } from '@comunica/bus-query-source-identify';
-import { KeysQueryOperation } from '@comunica/context-entries';
+import { KeysInitQuery, KeysQueryOperation } from '@comunica/context-entries';
 import type {
-  IQuerySource,
   BindingsStream,
-  IActionContext,
-  FragmentSelectorShape,
   ComunicaDataFactory,
+  FragmentSelectorShape,
+  IActionContext,
+  IQuerySource,
+  MetadataVariable,
   QuerySourceReference,
 } from '@comunica/types';
-import { Algebra, AlgebraFactory, isKnownOperation } from '@comunica/utils-algebra';
+import { Algebra, AlgebraFactory, isKnownOperation, TypesComunica } from '@comunica/utils-algebra';
 import type { BindingsFactory } from '@comunica/utils-bindings-factory';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
 import { ArrayIterator, AsyncIterator, wrap as wrapAsyncIterator } from 'asynciterator';
-import { someTermsNested, filterTermsNested, someTerms, uniqTerms } from 'rdf-terms';
+import { filterTermsNested, QUAD_TERM_NAMES, someTerms, someTermsNested, uniqTerms } from 'rdf-terms';
 import type { IRdfJsSourceExtended } from './IRdfJsSourceExtended';
 
 export class QuerySourceRdfJs implements IQuerySource {
@@ -23,6 +24,12 @@ export class QuerySourceRdfJs implements IQuerySource {
   private readonly dataFactory: ComunicaDataFactory;
   private readonly bindingsFactory: BindingsFactory;
   private readonly dummyDefaultGraph: RDF.Variable;
+  /**
+   * Cardinalities of patterns that have already been counted during a query execution.
+   * Keyed on the query execution scope from the context, so that entries are dropped as soon as that
+   * execution is garbage-collected, and are never reused across query executions.
+   */
+  private readonly cardinalityCache = new WeakMap<object, Map<string, number>>();
 
   public constructor(
     source: RDF.Source | RDF.DatasetCore,
@@ -34,7 +41,7 @@ export class QuerySourceRdfJs implements IQuerySource {
     this.dataFactory = dataFactory;
     this.bindingsFactory = bindingsFactory;
     const AF = new AlgebraFactory(<RDF.DataFactory> this.dataFactory);
-    this.selectorShape = {
+    let selectorShape: FragmentSelectorShape = {
       type: 'operation',
       operation: {
         operationType: 'pattern',
@@ -50,6 +57,35 @@ export class QuerySourceRdfJs implements IQuerySource {
         this.dataFactory.variable('o'),
       ],
     };
+    const additionalShapes: FragmentSelectorShape[] = [];
+    if ('features' in this.source && this.source.features?.indexNodes) {
+      additionalShapes.push({
+        type: 'operation',
+        operation: {
+          operationType: 'type',
+          type: TypesComunica.NODES,
+        },
+      });
+    }
+    if ('features' in this.source && this.source.features?.indexDistinctTerms) {
+      additionalShapes.push({
+        type: 'operation',
+        operation: {
+          operationType: 'type',
+          type: TypesComunica.DISTINCT_TERMS,
+        },
+      });
+    }
+    if (additionalShapes.length > 0) {
+      selectorShape = {
+        type: 'disjunction',
+        children: [
+          selectorShape,
+          ...additionalShapes,
+        ],
+      };
+    }
+    this.selectorShape = selectorShape;
     this.dummyDefaultGraph = this.dataFactory.variable('__comunica:defaultGraph');
   }
 
@@ -74,6 +110,59 @@ export class QuerySourceRdfJs implements IQuerySource {
   }
 
   public queryBindings(operation: Algebra.Operation, context: IActionContext): BindingsStream {
+    if (isKnownOperation(operation, TypesComunica.NODES) &&
+      'matchNodes' in this.source && this.source.matchNodes) {
+      const rawStream = this.source.matchNodes(operation.graph);
+      const isGraphVariable = operation.graph.termType === 'Variable';
+      const it: AsyncIterator<[ RDF.Term, RDF.Term ]> = rawStream instanceof AsyncIterator ?
+        rawStream :
+        wrapAsyncIterator<[ RDF.Term, RDF.Term ]>(rawStream, { autoStart: false });
+      const bs = it.map<RDF.Bindings>(tuple => this.bindingsFactory.bindings([
+        ...(isGraphVariable ? [ <[RDF.Variable, RDF.Term]> [ <RDF.Variable> operation.graph, tuple[0] ] ] : []),
+        [ operation.variable, tuple[1] ],
+      ]));
+      bs.setProperty('metadata', {
+        state: new MetadataValidationState(),
+        cardinality: {
+          type: 'exact',
+          value: this.source.countNodes!(operation.graph),
+        },
+        // Force requestTime to zero, since this will be free for future calls, as we're fully indexed at this stage.
+        requestTime: 0,
+        variables: [
+          ...(isGraphVariable ? [{ variable: operation.graph, canBeUndef: false }] : []),
+          { variable: operation.variable, canBeUndef: false },
+        ],
+      });
+      return bs;
+    }
+
+    if (isKnownOperation(operation, TypesComunica.DISTINCT_TERMS) &&
+      'matchDistinctTerms' in this.source && this.source.matchDistinctTerms) {
+      // Convert the terms mapping to an array of QuadTermName in the order of variables
+      const termNames: any[] = operation.variables.map(variable => operation.terms[variable.value]);
+      const filters = operation.filters ? QUAD_TERM_NAMES.map(name => operation.filters![name]) : undefined;
+
+      const rawStream = this.source.matchDistinctTerms(termNames, filters);
+      const it: AsyncIterator<RDF.Term[]> = rawStream instanceof AsyncIterator ?
+        rawStream :
+        wrapAsyncIterator<RDF.Term[]>(rawStream, { autoStart: false });
+      const bs = it.map<RDF.Bindings>(terms => this.bindingsFactory.bindings(
+        operation.variables.map((variable, index) => [ variable, terms[index] ]),
+      ));
+      bs.setProperty('metadata', {
+        state: new MetadataValidationState(),
+        cardinality: {
+          type: 'exact',
+          value: this.source.countDistinctTerms!(termNames),
+        },
+        // Force requestTime to zero, since this will be free for future calls, as we're fully indexed at this stage.
+        requestTime: 0,
+        variables: operation.variables.map(variable => ({ variable, canBeUndef: false })),
+      });
+      return bs;
+    }
+
     if (!isKnownOperation(operation, Algebra.Types.PATTERN)) {
       throw new Error(`Attempted to pass non-pattern operation '${operation.type}' to QuerySourceRdfJs`);
     }
@@ -164,6 +253,131 @@ export class QuerySourceRdfJs implements IQuerySource {
     );
   }
 
+  /**
+   * Check whether counting the given (already nullified) quad pattern is expensive enough to be worth caching.
+   *
+   * Patterns with at most one wildcard are answered by a direct index lookup, so counting them is cheap.
+   * In bind joins those are the materialized patterns, which differ for every binding, so caching them
+   * would only add lookup and storage cost.
+   * Patterns with more wildcards require an index walk proportional to their cardinality, and are exactly
+   * the patterns that a bind join re-evaluates unchanged once per binding.
+   * @param terms The quad pattern terms, where undefined represents a wildcard.
+   */
+  public static isCardinalityCacheable(...terms: (RDF.Term | undefined)[]): boolean {
+    let wildcards = 0;
+    for (const term of terms) {
+      if (!term) {
+        wildcards++;
+        if (wildcards >= 2) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Obtain the cardinality cache for the query execution that the given context belongs to.
+   * Returns undefined if the context carries no query execution scope, in which case nothing is cached.
+   * @param context The action context.
+   */
+  protected getCardinalityCache(context: IActionContext): Map<string, number> | undefined {
+    const scope = context.get(KeysInitQuery.queryExecutionScope);
+    if (!scope) {
+      return undefined;
+    }
+    let cache = this.cardinalityCache.get(scope);
+    if (!cache) {
+      cache = new Map();
+      this.cardinalityCache.set(scope, cache);
+    }
+    return cache;
+  }
+
+  /**
+   * Determine how many distinct values the given variable of the given pattern takes.
+   * Only counted when the source can answer it with an index lookup, and left undefined otherwise.
+   * @param operation The pattern being evaluated.
+   * @param variable A variable of that pattern.
+   * @param cardinality The cardinality of that pattern.
+   * @param quotedTripleFiltering If the source supports quoted triple filtering.
+   */
+  protected getDistinctValues(
+    operation: Algebra.Pattern,
+    variable: RDF.Variable,
+    cardinality: number,
+    quotedTripleFiltering: boolean,
+  ): number | undefined {
+    // Values of a variable that occurs multiple times are constrained by all of its positions at once
+    let position: string | undefined;
+    for (const name of QUAD_TERM_NAMES) {
+      const term = operation[name];
+      if (term.termType === 'Variable' && term.value === variable.value) {
+        if (position !== undefined) {
+          return undefined;
+        }
+        position = name;
+      }
+    }
+
+    // With only one variable left, every quad of the pattern carries a different value for it
+    if (getVariables(operation).length === 1) {
+      return cardinality;
+    }
+
+    // Only objects are indexed after the graph and predicate, so counting subjects would walk the map
+    if (position !== 'object' || !('countDistinctTerms' in this.source) || !this.source.countDistinctTerms) {
+      return undefined;
+    }
+    const predicate = QuerySourceRdfJs.nullifyVariables(operation.predicate, quotedTripleFiltering);
+    const graph = QuerySourceRdfJs.nullifyVariables(operation.graph, quotedTripleFiltering);
+    if (!predicate || !graph) {
+      return undefined;
+    }
+
+    return this.source.countDistinctTerms(
+      [ 'graph', 'predicate', 'object' ],
+      [ undefined, predicate, undefined, graph ],
+    );
+  }
+
+  /**
+   * Determine a cardinality cache key for the given (already nullified) quad pattern terms.
+   * Returns undefined for patterns that must not be cached, i.e. those containing quoted triples,
+   * as those are matched structurally rather than by value.
+   * @param terms The quad pattern terms, where undefined represents a wildcard.
+   */
+  public static getCardinalityCacheKey(...terms: (RDF.Term | undefined)[]): string | undefined {
+    let key = '';
+    for (const term of terms) {
+      if (!term) {
+        key += '?|';
+        continue;
+      }
+      switch (term.termType) {
+        case 'NamedNode':
+          key += `n${term.value}|`;
+          break;
+        case 'BlankNode':
+          key += `b${term.value}|`;
+          break;
+        case 'Literal':
+          key += `l${term.language}^${term.datatype.value}^${term.value}|`;
+          break;
+        case 'DefaultGraph':
+          key += 'd|';
+          break;
+        case 'Variable':
+          key += `v${term.value}|`;
+          break;
+        default:
+          // Quoted triples are matched structurally, so patterns containing them are never cached.
+          return undefined;
+      }
+    }
+    return key;
+  }
+
   protected async setMetadata(
     it: AsyncIterator<any>,
     operation: Algebra.Pattern,
@@ -183,12 +397,25 @@ export class QuerySourceRdfJs implements IQuerySource {
     let cardinality: number;
     if ('countQuads' in this.source && this.source.countQuads) {
       // If the source provides a dedicated method for determining cardinality, use that.
-      cardinality = await this.source.countQuads(
-        QuerySourceRdfJs.nullifyVariables(operation.subject, quotedTripleFiltering),
-        QuerySourceRdfJs.nullifyVariables(operation.predicate, quotedTripleFiltering),
-        QuerySourceRdfJs.nullifyVariables(operation.object, quotedTripleFiltering),
-        QuerySourceRdfJs.nullifyVariables(operation.graph, quotedTripleFiltering),
-      );
+      // Bind joins re-evaluate the same patterns once per binding, so identical counts are reused
+      // within a query execution instead of being recomputed over the source.
+      const subject = QuerySourceRdfJs.nullifyVariables(operation.subject, quotedTripleFiltering);
+      const predicate = QuerySourceRdfJs.nullifyVariables(operation.predicate, quotedTripleFiltering);
+      const object = QuerySourceRdfJs.nullifyVariables(operation.object, quotedTripleFiltering);
+      const graph = QuerySourceRdfJs.nullifyVariables(operation.graph, quotedTripleFiltering);
+      const cache = QuerySourceRdfJs.isCardinalityCacheable(subject, predicate, object, graph) ?
+        this.getCardinalityCache(context) :
+        undefined;
+      const cacheKey = cache && QuerySourceRdfJs.getCardinalityCacheKey(subject, predicate, object, graph);
+      const cached = cacheKey === undefined ? undefined : cache!.get(cacheKey);
+      if (cached === undefined) {
+        cardinality = await this.source.countQuads(subject, predicate, object, graph);
+        if (cacheKey !== undefined) {
+          cache!.set(cacheKey, cardinality);
+        }
+      } else {
+        cardinality = cached;
+      }
     } else {
       // Otherwise, fallback to a sub-optimal alternative where we just call match again to count the quads.
       // WARNING: we can NOT reuse the original data stream here,
@@ -217,6 +444,19 @@ export class QuerySourceRdfJs implements IQuerySource {
     const wouldRequirePostFiltering = (!quotedTripleFiltering &&
         someTerms(operation, term => term.termType === 'Quad')) ||
       QuerySourceRdfJs.hasDuplicateVariables(operation);
+
+    // Annotate the variables with the number of distinct values they take, where the source can tell us
+    const variables: MetadataVariable[] | undefined = extraMetadata.variables;
+    if (variables) {
+      extraMetadata = {
+        ...extraMetadata,
+        variables: variables.map((variable) => {
+          const distinctValues = this
+            .getDistinctValues(operation, variable.variable, cardinality, quotedTripleFiltering);
+          return distinctValues === undefined ? variable : { ...variable, distinctValues };
+        }),
+      };
+    }
 
     it.setProperty('metadata', {
       state: new MetadataValidationState(),
