@@ -1,6 +1,6 @@
 {
   "name": "@comunica/actor-context-preprocess-set-stems-adaptive-join-controller",
-  "version": "5.1.3",
+  "version": "5.4.0",
   "description": "A set-adaptive-join-controller context-preprocess actor",
   "lsd:module": true,
   "main": "lib/index.js",
