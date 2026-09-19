@@ -1,3 +1,24 @@
+import type { Algebra } from '@comunica/utils-algebra';
+
+/**
+ * The snapshot series of one connected component of a join.
+ *
+ * A join is executed as one controller per connected component, and the components run side by
+ * side counting their bindings independently. A single series keyed by that count would therefore
+ * have them overwrite one another, so each component carries its own, alongside the operations it
+ * covers so that a series can be told apart from the others and matched back to the query.
+ */
+export interface IAdaptiveJoinComponentStatistics {
+  /**
+   * The join entries this component covers.
+   */
+  operations: Algebra.Operation[];
+  /**
+   * The snapshots of this component, keyed by the number of bindings processed when taken.
+   */
+  snapshots: Record<number, IAdaptivePlanStatistics>;
+}
+
 export interface IProducedTupleSummary {
   producedTuples: number[];
   producedJoinResults: number;

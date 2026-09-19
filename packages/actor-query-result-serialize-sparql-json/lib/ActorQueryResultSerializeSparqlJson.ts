@@ -123,7 +123,7 @@ export class ActorQueryResultSerializeSparqlJson extends ActorQueryResultSeriali
           .map(([ key, value ]) => [ key.value, ActorQueryResultSerializeSparqlJson.bindingToJsonBindings(value) ])))}`;
           first = false;
           return res;
-        }).append(wrap(end(() => `\n]}${this.emitMetadata ? `,\n"metadata": { "httpRequests": ${this.httpObserver.requests}, "adaptiveStats": ${JSON.stringify(this.adaptiveJoinObserver.joinStatsContainers ?? {}, null, 2)}` : ''}}\n`))),
+        }).append(wrap(end(() => `\n]}${this.emitMetadata ? `,\n"metadata": { "httpRequests": ${this.httpObserver.requests}, "adaptiveStats": ${JSON.stringify(this.adaptiveJoinObserver.joinStatsContainers ?? [], null, 2)}` : ''}}\n`))),
       );
     } else {
       data.wrap(<any> wrap((<IQueryOperationResultBoolean> action).execute().then(value => [ `"boolean":${value}\n}\n` ])));

@@ -16,6 +16,7 @@ import type {
   BindingsStream,
   ComunicaDataFactory,
   IActionContext,
+  IAdaptivePlanStatistics,
   IJoinEntry,
   IJoinEntryWithMetadata,
 } from '@comunica/types';
@@ -90,11 +91,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     const skipLog = action.context.get(KeysStatistics.skipStatisticTracking);
     const logger = ActorRdfJoinMultiStems.getContextLogger(action.context);
     
-    // TODO: This goes wrong with multiple separate connected components
-    // This is due to the adaptiveStatistics being made per query, so sub-queries also make it
-    // Logging should be prevented by the same skipStatisticsKey?
-
-    const snapShotLogger = action.context.get(KeysStatistics.adaptiveJoinStatistics);
+    const componentStatistics = action.context.get(KeysStatistics.adaptiveJoinStatistics);
     const queryString = action.context.get(KeysInitQuery.queryString);
 
     const adaptiveJoinController = action.context.get(KeysRdfJoin.adaptiveJoinController);
@@ -116,7 +113,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
 
     const eddieControllerStreams = [];
     const eddieEntriesInput: IJoinEntryWithMetadata[][] = [];
-    for (const connectedComponentEntries of connectedComponents.entries) {
+    for (const [ componentIndex, connectedComponentEntries ] of connectedComponents.entries.entries()) {
       const entriesJoinVariables: RDF.Variable[][][] = await this.getJoinVariables(connectedComponentEntries);
       let componentHasCartesian = false;
       for (const joinVariableEntry of entriesJoinVariables) {
@@ -147,10 +144,26 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
       }
       const router = this.routerFactory.createRouter();
 
+      // Every connected component runs its own controller and counts its bindings on its own, so
+      // a series shared between them would have them overwrite each other at equal counts and
+      // interleave into something unreadable where they do not. Each gets its own series, holding
+      // the operations it covers so the series can be matched back to the part of the query it
+      // describes
+      let snapshots: Record<number, IAdaptivePlanStatistics> | undefined;
+      if (componentStatistics && !skipLog) {
+        snapshots = {};
+        componentStatistics.push({
+          operations: connectedComponentEntries.map(entry => entry.operation),
+          snapshots,
+        });
+      }
+
       let logContext: Record<string, any> | undefined;
       if (logger && !skipLog) {
         logContext = {
           query: queryString,
+          component: componentIndex,
+          componentEntries: connectedComponentEntries.length,
         };
       }
 
@@ -158,7 +171,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
         stemOperators,
         router,
         this.routerUpdateFrequency,
-        snapShotLogger,
+        snapshots,
         logger,
         logContext,
       );

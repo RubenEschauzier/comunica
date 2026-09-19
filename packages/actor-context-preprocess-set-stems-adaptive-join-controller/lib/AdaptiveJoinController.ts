@@ -40,8 +40,6 @@ export class AdaptiveJoinController implements IAdaptiveJoinController {
   ): boolean {
     const matchingComponents = this.getComponentsForOperations(operations);
     if (matchingComponents.length === 0) {
-      console.log(this.getComponents())
-      console.log(`Failed to add`)
       return false;
     }
 

@@ -4,7 +4,7 @@ import type { IActionRdfJoin, IActorRdfJoinOutputInner } from '@comunica/bus-rdf
 import { KeysStatistics } from '@comunica/context-entries';
 import type { Actor, IActionObserverArgs, IActorTest } from '@comunica/core';
 import { ActionObserver } from '@comunica/core';
-import type { IAdaptivePlanStatistics } from '@comunica/types';
+import type { IAdaptiveJoinComponentStatistics } from '@comunica/types';
 
 /**
  * Observes HTTP actions, and maintains a counter of the number of requests.
@@ -12,7 +12,7 @@ import type { IAdaptivePlanStatistics } from '@comunica/types';
 export class ActionObserverAdaptiveJoin extends ActionObserver<IActionRdfJoin, IActorRdfJoinOutputInner> {
   public readonly httpInvalidator: ActorHttpInvalidateListenable;
   public readonly observedActors: string[];
-  public joinStatsContainers: Record<number, IAdaptivePlanStatistics> | undefined;
+  public joinStatsContainers: IAdaptiveJoinComponentStatistics[] | undefined;
 
   /* eslint-disable max-len */
   /**
@@ -34,7 +34,10 @@ export class ActionObserverAdaptiveJoin extends ActionObserver<IActionRdfJoin, I
     action: IActionRdfJoin,
     _output: Promise<IActorRdfJoinOutputInner>,
   ): void {
-    if (this.observedActors.includes(actor.name)) {
+    // Sub-queries carry a container of their own, and the observer keeps only the last one it was
+    // shown. Ignoring the ones that opted out of tracking keeps the statistics of the query the
+    // caller asked about, rather than of whichever sub-query a link extractor happened to run last
+    if (this.observedActors.includes(actor.name) && !action.context.get(KeysStatistics.skipStatisticTracking)) {
       this.joinStatsContainers = action.context.get(KeysStatistics.adaptiveJoinStatistics);
     }
   }

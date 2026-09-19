@@ -1,4 +1,4 @@
-import { KeysCore, KeysQuerySourceIdentify, KeysInitQuery } from '@comunica/context-entries';
+import { KeysCore, KeysQuerySourceIdentify, KeysInitQuery, KeysStatistics } from '@comunica/context-entries';
 import { ActionContext, Bus } from '@comunica/core';
 import { DataFactory } from 'rdf-data-factory';
 import { ActorContextPreprocessSetDefaults } from '../lib/ActorContextPreprocessSetDefaults';
@@ -39,6 +39,7 @@ describe('ActorContextPreprocessSetDefaults', () => {
           [KeysQuerySourceIdentify.sourceIds.name]: new Map(),
           [KeysCore.log.name]: 'L',
           [KeysInitQuery.functionArgumentsCache.name]: {},
+          [KeysStatistics.adaptiveJoinStatistics.name]: [],
           [KeysInitQuery.queryFormat.name]: { language: 'sparql', version: '1.1' },
           [KeysInitQuery.extensionFunctionsAlwaysPushdown.name]: true,
         }));
@@ -57,6 +58,7 @@ describe('ActorContextPreprocessSetDefaults', () => {
           [KeysQuerySourceIdentify.sourceIds.name]: new Map(),
           [KeysCore.log.name]: 'L',
           [KeysInitQuery.functionArgumentsCache.name]: {},
+          [KeysStatistics.adaptiveJoinStatistics.name]: [],
           [KeysInitQuery.queryFormat.name]: { language: 'graphql', version: '1.1' },
           [KeysInitQuery.graphqlSingularizeVariables.name]: {},
           [KeysInitQuery.extensionFunctions.name]: {},
@@ -76,6 +78,7 @@ describe('ActorContextPreprocessSetDefaults', () => {
           [KeysQuerySourceIdentify.sourceIds.name]: new Map(),
           [KeysCore.log.name]: 'L',
           [KeysInitQuery.functionArgumentsCache.name]: {},
+          [KeysStatistics.adaptiveJoinStatistics.name]: [],
           [KeysInitQuery.queryFormat.name]: { language: 'sparql', version: '1.1' },
           [KeysInitQuery.extensionFunctions.name]: {},
         }));

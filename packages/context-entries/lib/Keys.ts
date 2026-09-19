@@ -20,7 +20,7 @@ import type {
   IDiscoverEventData,
   PartialResult,
   ILink,
-  IAdaptivePlanStatistics,
+  IAdaptiveJoinComponentStatistics,
 } from '@comunica/types';
 import type { Algebra } from '@comunica/utils-algebra';
 import type * as RDF from '@rdfjs/types';
@@ -489,7 +489,7 @@ export const KeysStatistics = {
   /**
    * Object tracking the performance evolution of adaptive join planning approach during query execution
    */
-  adaptiveJoinStatistics: new ActionContextKey<Record<number, IAdaptivePlanStatistics>>(
-    '@Record<number, IAdaptivePlanStatistics>',
+  adaptiveJoinStatistics: new ActionContextKey<IAdaptiveJoinComponentStatistics[]>(
+    '@comunica/statistic:adaptiveJoinStatistics',
   ),
 };
