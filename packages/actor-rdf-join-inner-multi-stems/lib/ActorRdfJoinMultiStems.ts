@@ -91,6 +91,9 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     const logger = ActorRdfJoinMultiStems.getContextLogger(action.context);
     
     // TODO: This goes wrong with multiple separate connected components
+    // This is due to the adaptiveStatistics being made per query, so sub-queries also make it
+    // Logging should be prevented by the same skipStatisticsKey?
+
     const snapShotLogger = action.context.get(KeysStatistics.adaptiveJoinStatistics);
     const queryString = action.context.get(KeysInitQuery.queryString);
 
@@ -106,7 +109,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
 
     const { hashFunction } = await this.mediatorHashBindings.mediate({ context: action.context });
     const timestampGenerator = new TimestampGenerator();
-
+    
     // TODO: Treat connected components as sub queries for derived resources, so when a derived resource comes
     // in we test containment in each component, as we don't want to deal with connecting unconnected components etc
     const connectedComponents = ActorRdfJoin.findConnectedComponentsInJoinGraph(sortedEntries);

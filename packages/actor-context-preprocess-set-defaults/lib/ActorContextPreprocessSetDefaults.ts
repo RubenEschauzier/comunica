@@ -39,9 +39,11 @@ export class ActorContextPreprocessSetDefaults extends ActorContextPreprocess {
         .setDefault(KeysQuerySourceIdentify.sourceIds, new Map())
         .setDefault(KeysCore.log, this.logger)
         .setDefault(KeysInitQuery.functionArgumentsCache, this.defaultFunctionArgumentsCache)
-        .setDefault(KeysInitQuery.dataFactory, new DataFactory())
+        .setDefault(KeysInitQuery.dataFactory, new DataFactory());
         // TODO: This should be a seperate actor or with some logger to make tracking optional 
-        .setDefault(KeysStatistics.adaptiveJoinStatistics, {});
+        if (!context.get(KeysStatistics.skipStatisticTracking)){
+          context = context.setDefault(KeysStatistics.adaptiveJoinStatistics, {});
+        }
 
       // Handle default query format
       let queryFormat: RDF.QueryFormat = { language: 'sparql', version: '1.1' };

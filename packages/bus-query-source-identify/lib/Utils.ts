@@ -20,6 +20,14 @@ import {
 } from 'rdf-terms';
 
 /**
+ * A quad that carries the documents that asserted it, as attached by an aggregated store that
+ * records provenance beside its quads rather than in their graph.
+ */
+export interface IQuadWithSources extends RDF.BaseQuad {
+  sources?: string | string[];
+}
+
+/**
  * Convert an iterator of quads to an iterator of bindings.
  * @param quads The quads to convert.
  * @param pattern The pattern to get variables from to determine bindings.
@@ -84,7 +92,7 @@ export function quadsToBindings(
     });
   }
 
-  // Flyweight pool of context holders per named graph source to avoid per-quad allocations
+  // Flyweight pool of context holders per source to avoid per-quad allocations
   const contextHolders = new Map<string, IContextHolder>();
   const mergeHandlers = bindingsFactory.getContextMergeHandlers();
   const shouldAnnotateSources = Boolean(mergeHandlers && mergeHandlers[KeysMergeBindingsContext.sourcesBinding.name]);
@@ -92,17 +100,26 @@ export function quadsToBindings(
   // Wrap it in a ClosableIterator, so we can propagate destroy calls
   const it = new ClosableIterator(filteredOutput.map<RDF.Bindings>((quad) => {
     let contextHolder: IContextHolder | undefined;
-    if (shouldAnnotateSources && quad.graph.termType === 'NamedNode') {
-      const graphUrl = quad.graph.value;
-      contextHolder = contextHolders.get(graphUrl);
-      if (!contextHolder) {
-        contextHolder = {
-          contextMergeHandlers: mergeHandlers ?? {},
-          context: new ActionContext({
-            [KeysMergeBindingsContext.sourcesBinding.name]: [ graphUrl ],
-          }),
-        };
-        contextHolders.set(graphUrl, contextHolder);
+    if (shouldAnnotateSources) {
+      // A store that records the documents a triple came from beside its quads attaches them
+      // here, so that one triple asserted by several documents stays one quad. Where nothing
+      // does, the graph of the quad is the document it was read from
+      const attached = (<IQuadWithSources> quad).sources;
+      const sources = attached ?? (quad.graph.termType === 'NamedNode' ? quad.graph.value : undefined);
+      if (sources !== undefined) {
+        const cacheKey = typeof sources === 'string' ? sources : sources.join(' ');
+        contextHolder = contextHolders.get(cacheKey);
+        if (!contextHolder) {
+          contextHolder = {
+            contextMergeHandlers: mergeHandlers ?? {},
+            context: new ActionContext({
+              [KeysMergeBindingsContext.sourcesBinding.name]: typeof sources === 'string' ?
+                  [ sources ] :
+                  sources,
+            }),
+          };
+          contextHolders.set(cacheKey, contextHolder);
+        }
       }
     }
 
