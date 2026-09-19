@@ -6,7 +6,6 @@ import type * as RDF from '@rdfjs/types';
 import { BufferedIterator } from 'asynciterator';
 import type { IStemsBindingsMetadata, ITimestampGenerator } from './StemsControllerStream';
 import { stemsContextKeys } from './StemsControllerStream';
-import { AuthoritativeSourceFilter } from './filters/AuthoritativeSourceFilter';
 import { bitForIndex, mergeMasks } from './utils/BitUtils';
 import { DelegatedPatternsFilter, IDelegatedPatterns } from './filters/DelegatedPatternsFilter';
 
@@ -74,8 +73,8 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
    */
   public nSuccessReads = 0;
   /**
-   * Number of tuples dropped by the authoritative source filter, i.e. tuples whose source
-   * document a composite resource has claimed authority over (see AuthoritativeSourceFilter).
+   * Number of tuples dropped because their source document a composite resource has claimed
+   * authority over (see DelegatedPatternsFilter).
    */
   public nFilteredByAuthoritativeSource = 0;
   /**
@@ -134,11 +133,6 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   }
 
   protected readonly delegatedPatternFilters: IDelegatedPatterns[] = [];
-  // /**
-  //  * Filter functions added to the operator. Can be used to deduplicate data from
-  //  * individual triple patterns and composite sources
-  //  */
-  // protected readonly authoritativeSourceFilter: AuthoritativeSourceFilter;
 
   public constructor(
     sourceIterator: BindingsStream,

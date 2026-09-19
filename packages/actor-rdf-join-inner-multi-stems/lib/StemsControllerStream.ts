@@ -131,6 +131,8 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
     stemsOperatorStream: StemsOperatorStream,
     metadata?: Record<string, any>,
   ) {
+    console.log(`Adding cs:`)
+    console.log(metadata);
     // Add filters to the operators replaced by this composite resource that filter bindings
     // emitted by the composite resource. This requires the covered operators and domain of the resource
     if (metadata && metadata.anchorTerms && metadata.authoritativeDomain) {

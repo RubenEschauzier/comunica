@@ -29,7 +29,6 @@ import { StemsOperatorStream } from './StemsOperatorStream';
 import type { IStemsRouterFactory } from './routers/BaseRouter';
 import { AdaptiveJoinController } from '../../actor-context-preprocess-set-stems-adaptive-join-controller/lib/AdaptiveJoinController';
 import { StemsAdaptiveJoinComponent } from '@comunica/actor-context-preprocess-set-stems-adaptive-join-controller/lib/StemsAdaptiveJoinComponent';
-import { AuthoritativeSourceFilter } from './filters/AuthoritativeSourceFilter';
 import { bitForIndex } from './utils/BitUtils';
 import { computePairwiseJoinVariables } from './utils/JoinVariables';
 import { Bindings } from '@comunica/utils-bindings-factory';
