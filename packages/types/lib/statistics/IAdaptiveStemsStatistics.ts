@@ -1,5 +1,3 @@
-import type { Algebra } from '@comunica/utils-algebra';
-
 /**
  * The snapshot series of one connected component of a join.
  *
@@ -10,9 +8,10 @@ import type { Algebra } from '@comunica/utils-algebra';
  */
 export interface IAdaptiveJoinComponentStatistics {
   /**
-   * The join entries this component covers.
+   * The join entries this component covers, as SPARQL. The operations themselves are not kept, as
+   * their metadata can be circular and these statistics are serialized as JSON.
    */
-  operations: Algebra.Operation[];
+  operations: string[];
   /**
    * The snapshots of this component, keyed by the number of bindings processed when taken.
    */

@@ -22,7 +22,11 @@ import type {
 } from '@comunica/types';
 import type * as RDF from '@rdfjs/types';
 import { DataFactory } from 'rdf-data-factory';
-import { Algebra, AlgebraFactory } from '@comunica/utils-algebra';
+import { Algebra, AlgebraFactory, algebraUtils } from '@comunica/utils-algebra';
+import { toAst } from '@traqula/algebra-sparql-1-2';
+import type { Algebra as TraqulaAlgebra } from '@traqula/algebra-transformations-1-2';
+import { traqulaIndentation } from '@traqula/core';
+import { Generator } from '@traqula/generator-sparql-1-2';
 
 import { StemsControllerStream, TimestampGenerator } from './StemsControllerStream';
 import type { JoinFunction } from './StemsOperatorStream';
@@ -45,6 +49,8 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
   public readonly routerUpdateFrequency: number;
 
   private readonly DF = new DataFactory();
+  private readonly statisticsAlgebraFactory = new AlgebraFactory(this.DF);
+  private readonly sparqlGenerator = new Generator({ [traqulaIndentation]: -1, indentInc: 0 });
 
   public constructor(args: IActorRdfJoinMultiStemsArgs) {
     super(args, {
@@ -153,7 +159,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
       if (componentStatistics && !skipLog) {
         snapshots = {};
         componentStatistics.push({
-          operations: connectedComponentEntries.map(entry => entry.operation),
+          operations: connectedComponentEntries.map(entry => this.operationToSparql(entry.operation)),
           snapshots,
         });
       }
@@ -278,6 +284,25 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
       entries.map(async entry => (await entry.output.metadata()).variables.map(x => x.variable)),
     );
     return computePairwiseJoinVariables(variableSets);
+  }
+
+  /**
+   * A representation of a join entry for the statistics, which are serialized as JSON.
+   *
+   * The operation itself cannot be kept there: its metadata can refer back to itself, which makes
+   * serializing the statistics throw. Its SPARQL is what identifies it to a reader anyway. A join
+   * entry is not a query on its own, so it is projected on its variables to be translated, and an
+   * operation that cannot be translated is represented by its type.
+   */
+  protected operationToSparql(operation: Algebra.Operation): string {
+    try {
+      const query = this.statisticsAlgebraFactory.createProject(operation, algebraUtils.inScopeVariables(operation));
+      return this.sparqlGenerator.generate(toAst(<TraqulaAlgebra.Operation> <unknown> query))
+        .replaceAll(/\s+/gu, ' ')
+        .trim();
+    } catch {
+      return operation.type;
+    }
   }
 }
 
