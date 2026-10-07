@@ -131,6 +131,57 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
     stemsOperatorStream: StemsOperatorStream,
     metadata?: Record<string, any>,
   ) {
+    this.addDelegatedBlock(stemsOperatorStream, metadata);
+
+    // Composite resources record operators it covers to deduplicate results when the
+    // non-composite operators already produced a result that's also in the composite operator
+    stemsOperatorStream.coveredOperators = getSetBitIndexes(stemsOperatorStream.doneBitMask)
+      .map(index => this.stemsIterators[index]);
+
+    const opIndex = this.stemsIterators.length;
+    this.stemsIterators.push(stemsOperatorStream);
+    this.finishedReading.push(0);
+
+    // Ensure that if the other streams are ended and we get a new stream the controller
+    // stream stays open
+    this.endTuples = false;
+    if (stemsOperatorStream.readable){
+      this.readable = true;
+    }
+    stemsOperatorStream.on('readable', () => this.readable = true);
+    stemsOperatorStream.on('endRead', () => {
+      // When all eddiestreams finished creating new tuples,
+      // we only need to process the remaining tuples in buffers
+      this.finishedReading[opIndex] = 1;
+      if (this.finishedReading.every(val => val === 1)) {
+        this.endTuples = true;
+        const hasBufferedData = this.stemsIterators.some(op => op.readable && !op.ended);
+        if (!hasBufferedData) {
+          this._end();
+        }
+      }
+    });
+    const updatedTable = this.router.addOperator(
+      this.routingTable,
+      stemsOperatorStream,
+      metadata,
+    );
+
+    if (updatedTable) {
+      this.routingTable = updatedTable;
+    }
+  }
+
+  /**
+   * Hands the part of the block that a composite resource answers to that resource: the operators
+   * it replaces drop their mappings within its authoritative domain. An operator can be fed by the
+   * composite resources of several domains (one per pod answering the same operations), so this is
+   * done for every resource added to it, not only for the one it was created for.
+   */
+  public addDelegatedBlock(
+    stemsOperatorStream: StemsOperatorStream,
+    metadata?: Record<string, any>,
+  ): void {
     // Add filters to the operators replaced by this composite resource that filter bindings
     // emitted by the composite resource. This requires the covered operators and domain of the resource
     if (metadata && metadata.anchorTerms && metadata.authoritativeDomain) {
@@ -204,44 +255,6 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
           this.delegatedPatternsFilters.push(delegatedPatternsFilter)
         }
       }
-    }
-
-    // Composite resources record operators it covers to deduplicate results when the
-    // non-composite operators already produced a result that's also in the composite operator
-    stemsOperatorStream.coveredOperators = getSetBitIndexes(stemsOperatorStream.doneBitMask)
-      .map(index => this.stemsIterators[index]);
-
-    const opIndex = this.stemsIterators.length;
-    this.stemsIterators.push(stemsOperatorStream);
-    this.finishedReading.push(0);
-
-    // Ensure that if the other streams are ended and we get a new stream the controller
-    // stream stays open
-    this.endTuples = false;
-    if (stemsOperatorStream.readable){
-      this.readable = true;
-    }
-    stemsOperatorStream.on('readable', () => this.readable = true);
-    stemsOperatorStream.on('endRead', () => {
-      // When all eddiestreams finished creating new tuples,
-      // we only need to process the remaining tuples in buffers
-      this.finishedReading[opIndex] = 1;
-      if (this.finishedReading.every(val => val === 1)) {
-        this.endTuples = true;
-        const hasBufferedData = this.stemsIterators.some(op => op.readable && !op.ended);
-        if (!hasBufferedData) {
-          this._end();
-        }
-      }
-    });
-    const updatedTable = this.router.addOperator(
-      this.routingTable,
-      stemsOperatorStream,
-      metadata,
-    );
-
-    if (updatedTable) {
-      this.routingTable = updatedTable;
     }
   }
 

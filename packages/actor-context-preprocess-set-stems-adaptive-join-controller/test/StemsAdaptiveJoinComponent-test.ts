@@ -1,4 +1,5 @@
 import type { IJoinEntryWithMetadata, MetadataVariable, QueryResultCardinality } from '@comunica/types';
+import { AlgebraFactory } from '@comunica/utils-algebra';
 import { MetadataValidationState } from '@comunica/utils-metadata';
 import type * as RDF from '@rdfjs/types';
 import { ArrayIterator } from 'asynciterator';
@@ -6,6 +7,7 @@ import { DataFactory } from 'rdf-data-factory';
 import { StemsAdaptiveJoinComponent } from '../lib/StemsAdaptiveJoinComponent';
 
 const DF = new DataFactory();
+const AF = new AlgebraFactory(DF);
 
 /**
  * Builds join entries whose (synchronous) metadata exposes the given variables - the same shape
@@ -108,6 +110,63 @@ describe('StemsAdaptiveJoinComponent', () => {
       // ?a ex:p ?b . ?c ex:p ?d, disjoint from the composite resource covering the first pattern
       expect(joinVariablesFor([[ 'a', 'b' ], [ 'c', 'd' ]], [ 0 ]))
         .toEqual([]);
+    });
+  });
+
+  describe('addCompositeSource', () => {
+    let joinEntries: IJoinEntryWithMetadata[];
+    let stemsControllerStream: any;
+    let component: StemsAdaptiveJoinComponent;
+
+    beforeEach(() => {
+      joinEntries = createEntries([[ 's', 'n' ], [ 's', 'k' ]]);
+      // Distinct operations, so each composite resource below is matched to the first entry only
+      joinEntries.forEach((entry, index) => {
+        (<any> entry).operation = AF.createPattern(
+          DF.variable('s'),
+          DF.namedNode(`ex:p${index}`),
+          DF.variable(index === 0 ? 'n' : 'k'),
+          DF.defaultGraph(),
+        );
+      });
+      stemsControllerStream = {
+        numOperators: joinEntries.length,
+        addOperator: jest.fn(),
+        addDelegatedBlock: jest.fn(),
+      };
+      component = new StemsAdaptiveJoinComponent(<any> {
+        id: 'test',
+        joinEntries,
+        stemsControllerStream,
+        router: undefined,
+        timestampGenerator: undefined,
+        hashFn: undefined,
+        joinFn: undefined,
+        dataFactory: DF,
+      });
+    });
+
+    it('delegates the domain of every resource feeding the same operator', () => {
+      // One pod's resource creates the operator, another pod's resource for the same operations
+      // is read by that operator too, and must have its own domain delegated
+      const operations = [ joinEntries[0].operation ];
+      expect(component.addCompositeSource(operations, new ArrayIterator<RDF.Bindings>([]), {
+        authoritativeDomain: 'http://pod-a/',
+        anchorTerms: [ DF.variable('s') ],
+      })).toBe(true);
+      expect(component.addCompositeSource(operations, new ArrayIterator<RDF.Bindings>([]), {
+        authoritativeDomain: 'http://pod-b/',
+        anchorTerms: [ DF.variable('s') ],
+      })).toBe(true);
+
+      expect(stemsControllerStream.addOperator).toHaveBeenCalledTimes(1);
+      const [ operator, metadataA ] = stemsControllerStream.addOperator.mock.calls[0];
+      expect(metadataA).toMatchObject({ authoritativeDomain: 'http://pod-a/', operationToOperatorIndex: [ 0 ]});
+      expect(stemsControllerStream.addDelegatedBlock).toHaveBeenCalledTimes(1);
+      expect(stemsControllerStream.addDelegatedBlock).toHaveBeenCalledWith(operator, expect.objectContaining({
+        authoritativeDomain: 'http://pod-b/',
+        operationToOperatorIndex: [ 0 ],
+      }));
     });
   });
 });

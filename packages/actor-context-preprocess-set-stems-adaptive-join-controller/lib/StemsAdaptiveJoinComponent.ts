@@ -24,6 +24,10 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
   protected readonly dataFactory: RDF.DataFactory;
   protected readonly metadata?: Record<string, any>;
   protected readonly compositeSources: Map<number, AsyncReiterableArray<AsyncIterator<Bindings>>> = new Map();
+  /**
+   * The operator reading each entry of compositeSources, by the same mask.
+   */
+  protected readonly compositeOperators: Map<number, StemsOperatorStream> = new Map();
   protected finalized = false;
 
   public constructor(args: IAdaptiveJoinComponentSteMsArgs) {
@@ -93,6 +97,13 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
     const existingSource = this.compositeSources.get(setBitsMask);
     if (existingSource) {
       if (!existingSource.isEnded()) {
+        // This resource is usually authoritative for another domain than the one the operator was
+        // created for, so the operators it replaces have to drop that domain as well. Without it
+        // they keep producing what this resource also produces, duplicating results
+        this.stemsControllerStream.addDelegatedBlock(this.compositeOperators.get(setBitsMask)!, {
+          ...metadata,
+          operationToOperatorIndex,
+        });
         existingSource.push(dataStream);
         return true;
       }
@@ -131,6 +142,7 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
     // The passed metadata contains mappings from operators to their extraction variables,
     // extended with the operator indexes covered by this source so the controller does not
     // have to rediscover them from the algebra.
+    this.compositeOperators.set(setBitsMask, operator);
     this.stemsControllerStream.addOperator(operator, {
       ...metadata,
       operationToOperatorIndex,
