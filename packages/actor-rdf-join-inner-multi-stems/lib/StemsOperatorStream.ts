@@ -309,6 +309,9 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
           if (this.isCompositeResource) {
             copy.crMask = mergeMasks(copy.crMask, bitForIndex(this.operatorIndex));
             copy.lastCrIndex = this.operatorIndex;
+            if (copy.pendingCrIndex === this.operatorIndex) {
+              copy.pendingCrIndex = undefined;
+            }
           }
 
           result = result.setContextEntry(stemsContextKeys.stemsMetadata, copy);
@@ -388,8 +391,15 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
         // For each variable we can join on, we hash the item and store it in the tripleMap.
         // This allows us to quickly find matches for any intermediate result and a given
         // join variable.
+        // The hash covers only the bound values, so two join variables bound to the same value
+        // give the same hash; the item is stored once per bucket, or a probe would match it twice.
+        const insertedHashes: number[] = [];
         for (const joinVar of this.joinVariables) {
           const hash = this.funHash(item, joinVar);
+          if (insertedHashes.includes(hash)) {
+            continue;
+          }
+          insertedHashes.push(hash);
           let bucket = this.tripleMap.get(hash);
           if (bucket === undefined) {
             bucket = [];

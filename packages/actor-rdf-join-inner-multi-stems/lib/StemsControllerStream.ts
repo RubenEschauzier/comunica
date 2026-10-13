@@ -316,7 +316,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
         }
 
         // Fast-path: When only a single route exists (e.g. pure base execution without CRs)
-        if (nextRoutes.length === 1) {
+        if (nextRoutes.length === 1 && partialResultMetadata.pendingCrIndex === undefined) {
           const route = nextRoutes[0];
           if (route.length > 0) {
             const nextStep = route[0];
@@ -326,51 +326,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
             });
           }
         } else {
-          // Multi-route path (with CR alternatives): use bitmask to avoid per-read Set allocation
-          let nextRoutesSeenMask = 0;
-          const lastCr = partialResultMetadata.lastCrIndex ?? -1;
-
-          for (const route of nextRoutes) {
-            if (route.length > 0) {
-              const nextStep = route[0];
-              const targetOp = this.stemsIterators[nextStep.next];
-
-              // If forbiddenBaseMask is set due to routing to a CR-based plan,
-              // target operator must not overlap with forbidden operators covered by the CR
-              if (partialResultMetadata.forbiddenBaseMask !== undefined &&
-                  !isDisjointMask(partialResultMetadata.forbiddenBaseMask, targetOp.doneBitMask)) {
-                continue;
-              }
-
-              // CRs must be executed in ascending order to prevent symmetry causing duplicate plans
-              // (CR1 \Join CR2) is same as (CR2 \join CR1) and tuples get duplicated and routed to both
-              const stepCrIndex = nextStep.crIndex ?? (targetOp.isCompositeResource ? targetOp.operatorIndex : undefined);
-              if (stepCrIndex !== undefined && stepCrIndex <= lastCr) {
-                continue;
-              }
-
-              const targetBit = bitForIndex(nextStep.next);
-              // Enforce lazy branching on CR paths by tracking nextRouting indexes
-              if (isDisjointMask(nextRoutesSeenMask, targetBit)) {
-                let itemToPush = item;
-                // If taking a CR alternative route where the next step is an intermediate base operator,
-                // record the CR's doneBitMask in forbiddenBaseMask to prevent joining replaced base operators
-                if (nextStep.crIndex !== undefined && nextStep.next !== nextStep.crIndex) {
-                  const newMetadata: IStemsBindingsMetadata = {
-                    ...partialResultMetadata,
-                    forbiddenBaseMask: mergeMasks(partialResultMetadata.forbiddenBaseMask ?? 0, nextStep.crDoneBitMask ?? 0),
-                  };
-                  itemToPush = item.setContextEntry(stemsContextKeys.stemsMetadata, newMetadata);
-                }
-
-                this.stemsIterators[nextStep.next].push({
-                  item: itemToPush,
-                  joinVars: nextStep.joinVars,
-                });
-                nextRoutesSeenMask = mergeMasks(nextRoutesSeenMask, targetBit);
-              }
-            }
-          }
+          this.routeAlternatives(item, partialResultMetadata, nextRoutes);
         }
 
         if (this.bindingsSinceUpdate >= this.routingUpdateFrequency) {
@@ -398,6 +354,102 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
         this.readable = false;
         return null;
       }
+    }
+  }
+
+  /**
+   * Routes a tuple whose state offers alternative routes, one over the base operators and one per
+   * composite resource (CR) that can still be joined.
+   *
+   * While all routes agree on the next operator, a single copy follows them and the choice between
+   * them is deferred (lazy branching). Once they diverge, every route gets its own copy, and the
+   * copies are made to produce disjoint results by what each records about the CRs offered here:
+   * - the copy on the base route declines all of them;
+   * - the copy on the route of CR j declines those with a lower index, and is bound for j until it
+   *   joins it, keeping it from the base operators j replaces.
+   * Any two copies then differ on some CR that one joins and the other never does. The index
+   * order lets a copy bound for j still join higher-indexed CRs afterwards, so every combination
+   * of disjoint CRs is produced by exactly one copy.
+   */
+  protected routeAlternatives(
+    item: Bindings,
+    metadata: IStemsBindingsMetadata,
+    nextRoutes: IStemsRoutingEntry[][],
+  ): void {
+    const declined = metadata.declinedCrMask ?? 0;
+    const forbidden = metadata.forbiddenBaseMask ?? 0;
+    const pending = metadata.pendingCrIndex;
+
+    // Patterns of the CRs this copy may still join. A copy bound for a CR must not reach it through
+    // one of these, as it would lose the CR replacing that operator, and the copy taking that CR
+    // declined the one this copy is bound for
+    let joinableCrPatterns = 0;
+    for (const operator of this.stemsIterators) {
+      if (operator.isCompositeResource &&
+          isDisjointMask(declined, bitForIndex(operator.operatorIndex)) &&
+          isDisjointMask(metadata.done, operator.doneBitMask)) {
+        joinableCrPatterns = mergeMasks(joinableCrPatterns, operator.doneBitMask);
+      }
+    }
+
+    const steps: IStemsRoutingEntry[] = [];
+    let targetsMask = 0;
+    let multipleTargets = false;
+    let offeredCrMask = 0;
+    for (const route of nextRoutes) {
+      if (route.length === 0) {
+        continue;
+      }
+      let step = route[0];
+      if (step.crIndex !== undefined && step.next !== step.crIndex &&
+          !isDisjointMask(joinableCrPatterns, this.stemsIterators[step.next].doneBitMask)) {
+        step = route.find(entry => entry.next === step.crIndex) ?? step;
+      }
+      // A copy bound for a CR follows only that CR's route, as every other route either joins an
+      // operator the CR replaces or decides on a CR this copy was not split for
+      if (pending !== undefined && step.crIndex !== pending) {
+        continue;
+      }
+      const targetOp = this.stemsIterators[step.next];
+      if (step.next !== pending && !isDisjointMask(forbidden, targetOp.doneBitMask)) {
+        continue;
+      }
+      const stepCrIndex = step.crIndex ?? (targetOp.isCompositeResource ? targetOp.operatorIndex : undefined);
+      if (stepCrIndex !== undefined) {
+        if (!isDisjointMask(declined, bitForIndex(stepCrIndex))) {
+          continue;
+        }
+        offeredCrMask = mergeMasks(offeredCrMask, bitForIndex(stepCrIndex));
+      }
+      steps.push(step);
+      const targetBit = bitForIndex(step.next);
+      multipleTargets ||= targetsMask !== 0 && isDisjointMask(targetsMask, targetBit);
+      targetsMask = mergeMasks(targetsMask, targetBit);
+    }
+
+    if (!multipleTargets) {
+      // All routes agree on the next operator, so nothing is decided yet
+      if (steps.length > 0) {
+        this.stemsIterators[steps[0].next].push({ item, joinVars: steps[0].joinVars });
+      }
+      return;
+    }
+
+    for (const step of steps) {
+      const copy: IStemsBindingsMetadata = { ...metadata };
+      if (step.crIndex === undefined) {
+        copy.declinedCrMask = mergeMasks(declined, offeredCrMask);
+      } else {
+        copy.declinedCrMask = mergeMasks(declined, offeredCrMask & (bitForIndex(step.crIndex) - 1));
+        if (step.next !== step.crIndex) {
+          copy.forbiddenBaseMask = mergeMasks(forbidden, step.crDoneBitMask ?? 0);
+          copy.pendingCrIndex = step.crIndex;
+        }
+      }
+      this.stemsIterators[step.next].push({
+        item: item.setContextEntry(stemsContextKeys.stemsMetadata, copy),
+        joinVars: step.joinVars,
+      });
     }
   }
 
@@ -616,9 +668,17 @@ export interface IStemsBindingsMetadata {
    */
   forbiddenBaseMask?: number;
   /**
+   * Operator index of the CR this tuple is bound for, set when it branched onto that CR's route
+   * through an intermediate base operator and cleared once it joins the CR.
+   */
+  pendingCrIndex?: number;
+  /**
+   * Bits (by operator index) of the CRs this tuple declined when it branched away from their
+   * routes. It never joins them, as a copy that took their route produces those results.
+   */
+  declinedCrMask?: number;
+  /**
    * Operator index of the most recently joined Composite Resource.
-   * Used to enforce canonical plan symmetry breaking (Ascending CR Rule: next CR index > lastCrIndex),
-   * preventing duplicate symmetric plan evaluation (e.g. CR1 ⋈ CR2 vs CR2 ⋈ CR1).
    */
   lastCrIndex?: number;
 }
