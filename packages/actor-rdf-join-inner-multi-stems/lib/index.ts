@@ -8,3 +8,4 @@ export * from './routers/LotterySignatureRouter';
 export * from './utils/BitUtils';
 export * from './utils/JoinVariables';
 export * from './filters/DelegatedPatternsFilter';
+export * from './filters/DelegatedPatternsFilterIndex';

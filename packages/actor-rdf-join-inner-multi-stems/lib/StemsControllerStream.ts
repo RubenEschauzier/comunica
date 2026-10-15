@@ -13,7 +13,8 @@ import type { StemsOperatorStream, ISelectivityData } from './StemsOperatorStrea
 import type { IRouteTableOperation, IStemsRouter, IStemsRoutingEntry } from './routers/BaseRouter';
 import { bitForIndex, getSetBitIndexes, isDisjointMask, mergeMasks } from './utils/BitUtils';
 import type * as RDF from '@rdfjs/types';
-import { DelegatedPatternsFilter, IDelegatedPatterns } from './filters/DelegatedPatternsFilter';
+import { DelegatedPatternsFilter } from './filters/DelegatedPatternsFilter';
+import { DelegatedPatternsFilterIndex } from './filters/DelegatedPatternsFilterIndex';
 import { KeysMergeBindingsContext } from '@comunica/context-entries';
 
 export class StemsControllerStream extends AsyncIterator<Bindings> {
@@ -35,7 +36,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
    * All filters that filter out intermediate results based on
    * if their anchor variables are all filled
    */
-  private delegatedPatternsFilters: IDelegatedPatterns[] = [];
+  private readonly delegatedPatternsFilters = new DelegatedPatternsFilterIndex();
   /**
    * Flag indicating if the all triple patterns have no new matches.
    * If this flag is set, the iterator should finish all current intermediate
@@ -252,7 +253,7 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
         }
 
         if (!operatorCoversAllAnchors){
-          this.delegatedPatternsFilters.push(delegatedPatternsFilter)
+          this.delegatedPatternsFilters.add(delegatedPatternsFilter);
         }
       }
     }
@@ -295,18 +296,11 @@ export class StemsControllerStream extends AsyncIterator<Bindings> {
 
         // Filter before returning, as complete results could also need to
         // be filtered to prevent duplicates
-        let filtered = false;
-        for (let i = 0; i < this.delegatedPatternsFilters.length; i++) {
-          if (this.delegatedPatternsFilters[i].shouldFilter(
-            item, 
-            partialResultMetadata.done,
-            partialResultMetadata.crMask
-          )) {
-            filtered = true;
-            break;
-          }
-        }
-        if (filtered){
+        if (this.delegatedPatternsFilters.shouldFilter(
+          item,
+          partialResultMetadata.done,
+          partialResultMetadata.crMask,
+        )) {
           continue;
         }
 

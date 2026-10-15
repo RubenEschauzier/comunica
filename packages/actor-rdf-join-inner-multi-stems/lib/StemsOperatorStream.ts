@@ -7,7 +7,8 @@ import { BufferedIterator } from 'asynciterator';
 import type { IStemsBindingsMetadata, ITimestampGenerator } from './StemsControllerStream';
 import { stemsContextKeys } from './StemsControllerStream';
 import { bitForIndex, mergeMasks } from './utils/BitUtils';
-import { DelegatedPatternsFilter, IDelegatedPatterns } from './filters/DelegatedPatternsFilter';
+import { DelegatedPatternsFilter } from './filters/DelegatedPatternsFilter';
+import { DelegatedPatternsFilterIndex } from './filters/DelegatedPatternsFilterIndex';
 
 /**
  * We may want to implement AMJoin, which keeps track of a bitvector table to quickly determine join failures,
@@ -132,7 +133,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
     return this.coveredOperators !== undefined;
   }
 
-  protected readonly delegatedPatternFilters: IDelegatedPatterns[] = [];
+  protected readonly delegatedPatternFilters = new DelegatedPatternsFilterIndex();
 
   public constructor(
     sourceIterator: BindingsStream,
@@ -357,16 +358,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
       // possible join variable. And possible cartesian products
       if (joinVars === undefined) {
         const crMask = this.isCompositeResource ? bitForIndex(this.operatorIndex) : 0;
-        // The flag is needed because a `continue` inside the loop below would resume the
-        // loop over the filters rather than the read loop, leaving the tuple to be indexed
-        let filtered = false;
-        for (const filter of this.delegatedPatternFilters){
-          if (filter.shouldFilter(<Bindings> item, this.doneBitMask, crMask)){
-            filtered = true;
-            break;
-          }
-        }
-        if (filtered){
+        if (this.delegatedPatternFilters.shouldFilter(<Bindings> item, this.doneBitMask, crMask)){
           this.nFilteredByAuthoritativeSource++;
           continue;
         }
@@ -444,7 +436,7 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   public addDelegatedPatternFilter(
     delegatedPatternsFilter: DelegatedPatternsFilter,
   ){
-    this.delegatedPatternFilters.push(delegatedPatternsFilter);
+    this.delegatedPatternFilters.add(delegatedPatternsFilter);
   }
   // /**
   //  * Adds a composite resource filter for the given domain, from the terms that must reside
