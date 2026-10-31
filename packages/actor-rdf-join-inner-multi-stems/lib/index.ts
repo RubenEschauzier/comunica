@@ -7,5 +7,6 @@ export * from './routers/LotteryRouter';
 export * from './routers/LotterySignatureRouter';
 export * from './utils/BitUtils';
 export * from './utils/JoinVariables';
+export * from './utils/OperationKey';
 export * from './filters/DelegatedPatternsFilter';
 export * from './filters/DelegatedPatternsFilterIndex';

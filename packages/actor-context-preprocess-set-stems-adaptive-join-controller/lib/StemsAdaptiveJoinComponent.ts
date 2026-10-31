@@ -3,45 +3,9 @@ import { AsyncReiterableArray } from 'asyncreiterable';
 import type * as RDF from '@rdfjs/types';
 import type { Bindings, IJoinEntryWithMetadata } from '@comunica/types';
 import { Algebra, algebraUtils } from '@comunica/utils-algebra';
-import { IStemsRouter, ITimestampGenerator, JoinFunction, StemsControllerStream, StemsOperatorStream, computePairwiseJoinVariables, indexesToMask } from '@comunica/actor-rdf-join-inner-multi-stems';
+import { IStemsRouter, ITimestampGenerator, JoinFunction, StemsControllerStream, StemsOperatorStream, computePairwiseJoinVariables, indexesToMask, operationsEqual } from '@comunica/actor-rdf-join-inner-multi-stems';
 import { HashFunction } from '@comunica/bus-hash-bindings';
 import { IAdaptiveJoinComponent } from './IAdaptiveJoinController';
-
-/**
- * The canonical key of every operation compared so far. Operations are matched once per composite
- * source per component, and comparing whole algebra trees structurally every time is what made adding
- * a composite source cost hundreds of milliseconds.
- */
-const operationKeys = new WeakMap<Algebra.Operation, string>();
-
-function termKey(term: RDF.Term): string {
-  if (term.termType === 'Quad') {
-    return `<<${termKey(term.subject)} ${termKey(term.predicate)} ${termKey(term.object)} ${termKey(term.graph)}>>`;
-  }
-  const literal = <RDF.Literal> term;
-  return `${term.termType}|${term.value}|${literal.language ?? ''}|${literal.datatype?.value ?? ''}`;
-}
-
-/**
- * The structure of an operation as a string, with RDF terms compared as RDF terms and the metadata of
- * an operation left out, as it differs between copies of the same operation.
- */
-function operationKey(operation: Algebra.Operation): string {
-  let key = operationKeys.get(operation);
-  if (key === undefined) {
-    key = JSON.stringify(operation, (name, value) => {
-      if (name === 'metadata') {
-        return undefined;
-      }
-      if (value && typeof value === 'object' && typeof value.termType === 'string') {
-        return termKey(value);
-      }
-      return value;
-    });
-    operationKeys.set(operation, key);
-  }
-  return key;
-}
 
 /**
  * Wrapping class for managing stems executions and dynamically adding composite sources to
@@ -102,7 +66,7 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
    * component are not reference-identical to the ones its join entries were built from.
    */
   public operationsEqual(left: Algebra.Operation, right: Algebra.Operation): boolean {
-    return left === right || operationKey(left) === operationKey(right);
+    return operationsEqual(left, right);
   }
 
   public addCompositeSource(
