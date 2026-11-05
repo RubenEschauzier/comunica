@@ -13,6 +13,7 @@ import { ActorRdfJoinMultiStems } from '../lib/ActorRdfJoinMultiStems';
 import { RouterFixedMinimalIndex } from '../lib/routers/FixedRouter';
 import { StemsControllerStream, TimestampGenerator, stemsContextKeys, type ITimestampGenerator } from '../lib/StemsControllerStream';
 import { StemsOperatorStream, type HashFunction, type JoinFunction } from '../lib/StemsOperatorStream';
+import { computePairwiseJoinVariables } from '../lib/utils/JoinVariables';
 
 const DF = new DataFactory();
 const BF = new BindingsFactory(DF);
@@ -404,7 +405,6 @@ describe('ActorRdfJoinInnerMultiStems', () => {
           [],
           [[ DF.variable('y') ], [ DF.variable('w') ]],
           false,
-          true, // isCompositeResource
         );
 
         controller.addOperator(cr1Stream);
@@ -462,7 +462,6 @@ describe('ActorRdfJoinInnerMultiStems', () => {
           [],
           [[ DF.variable('y') ], [ DF.variable('w') ]],
           false,
-          true,
         );
 
         const cr2Stream = new StemsOperatorStream(
@@ -477,7 +476,6 @@ describe('ActorRdfJoinInnerMultiStems', () => {
           [],
           [[ DF.variable('z') ], [ DF.variable('v') ]],
           false,
-          true,
         );
 
         controller.addOperator(cr1Stream);
@@ -535,7 +533,6 @@ describe('ActorRdfJoinInnerMultiStems', () => {
           [],
           [[ DF.variable('y') ], [ DF.variable('w') ]],
           false,
-          true,
         );
 
         const cr2Stream = new StemsOperatorStream(
@@ -550,7 +547,6 @@ describe('ActorRdfJoinInnerMultiStems', () => {
           [],
           [[ DF.variable('w') ], [ DF.variable('u') ]],
           false,
-          true,
         );
 
         controller.addOperator(cr1Stream);
@@ -687,3 +683,180 @@ function createEntriesWithDifferentJoinVars(variableValues: string[][]): IJoinEn
 
   return entriesWithVariablesSet;
 }
+
+describe('STEMS join keys', () => {
+  const joinFn: JoinFunction = <JoinFunction> ActorRdfJoinMultiStems.joinBindings;
+  let hashFn: HashFunction;
+
+  beforeAll(async() => {
+    const hashActor = new ActorHashBindingsMurmur({ name: 'actor', bus: new Bus({ name: 'bus' }) });
+    hashFn = (await hashActor.run({ context: new ActionContext() })).hashFunction;
+  });
+
+  /** A bindings from a record; an undefined value leaves the variable unbound. */
+  function b(record: Record<string, string | undefined>): Bindings {
+    return BF.bindings(Object.entries(record)
+      .filter(([ , value ]) => value !== undefined)
+      .map(([ variable, value ]) => [ DF.variable(variable), DF.literal(value!) ]));
+  }
+
+  function show(bindings: RDF.Bindings[]): string[] {
+    return bindings.map(x => [ ...x ].map(([ v, t ]) => `${v.value}=${t.value}`).sort().join(' ')).sort();
+  }
+
+  /** The reference answer: SPARQL join semantics, where an unbound variable is compatible with any value. */
+  function referenceJoin(operands: Bindings[][]): string[] {
+    let result: Bindings[] = [ BF.bindings() ];
+    for (const operand of operands) {
+      result = result.flatMap(left => operand
+        .map(right => joinFn(left, right))
+        .filter((x): x is Bindings => x !== null));
+    }
+    return show(result);
+  }
+
+  /** A STEMS operator over the given tuples, with its join keys computed as the actor computes them. */
+  function operator(
+    index: number,
+    data: Bindings[],
+    allVariables: string[][],
+    timestamps: ITimestampGenerator,
+  ): StemsOperatorStream {
+    const keys = computePairwiseJoinVariables(allVariables.map(vs => vs.map(v => DF.variable(v))))[index];
+    return new StemsOperatorStream(
+      <BindingsStream> <unknown> new ArrayIterator(data),
+      timestamps,
+      hashFn,
+      joinFn,
+      index,
+      1 << index,
+      [ <any> { type: 'pattern', index }],
+      allVariables[index].map(v => DF.variable(v)),
+      [],
+      keys,
+      false,
+    );
+  }
+
+  /** Runs a STEMS controller over the operands and returns its answer. */
+  async function stems(operands: { variables: string[]; data: Bindings[] }[]): Promise<string[]> {
+    const timestamps = new TimestampGenerator();
+    const allVariables = operands.map(o => o.variables);
+    const operators = operands.map((o, i) => operator(i, o.data, allVariables, timestamps));
+    const controller = new StemsControllerStream(operators, new RouterFixedMinimalIndex(), 100);
+    return show(await controller.toArray());
+  }
+
+  /** Reads every tuple from an operator's own source, so all of them are stored in its index. */
+  function storeAll(op: StemsOperatorStream): void {
+    while (op.read() !== null) {
+      // Stored and returned; a controller would route it on.
+    }
+  }
+
+  /** Probes an operator with an intermediate result that arrives after everything it stored. */
+  function probe(op: StemsOperatorStream, item: Bindings, joinVars: string[], timestamps: ITimestampGenerator): string[] {
+    op.push({
+      item: item.setContextEntry(stemsContextKeys.stemsMetadata, {
+        done: 1 << 7,
+        timestamp: timestamps.next(),
+        order: [ 7 ],
+        crMask: 0,
+      }),
+      joinVars: joinVars.map(v => DF.variable(v)),
+    });
+    const out: Bindings[] = [];
+    let x: Bindings | null;
+    while ((x = op.read()) !== null) {
+      out.push(x);
+    }
+    return show(out);
+  }
+
+  describe('with unbound join variables', () => {
+    it('matches a stored tuple whose join variable is unbound', () => {
+      const timestamps = new TimestampGenerator();
+      const stored = [ b({ z: 'z1' }), b({ y: 'y2', z: 'z2' }) ];
+      const op = operator(1, stored, [[ 'x', 'y' ], [ 'y', 'z' ]], timestamps);
+      storeAll(op);
+      const item = b({ x: 'x1', y: 'y1' });
+      expect(probe(op, item, [ 'y' ], timestamps)).toEqual(referenceJoin([[ item ], stored ]));
+    });
+
+    it('matches every stored tuple when the probe leaves the join variable unbound', () => {
+      const timestamps = new TimestampGenerator();
+      const stored = [ b({ y: 'y1', z: 'z1' }), b({ y: 'y2', z: 'z2' }) ];
+      const op = operator(1, stored, [[ 'x', 'y' ], [ 'y', 'z' ]], timestamps);
+      storeAll(op);
+      const item = b({ x: 'x1' });
+      expect(probe(op, item, [ 'y' ], timestamps)).toEqual(referenceJoin([[ item ], stored ]));
+    });
+
+    it('matches on the bound part of a two-variable key when the stored tuple leaves one unbound', () => {
+      const timestamps = new TimestampGenerator();
+      const stored = [ b({ y: 'y1', z: 'z1' }), b({ y: 'y2', z: 'z2' }), b({ y: 'y1', w: 'w2', z: 'z3' }) ];
+      const op = operator(1, stored, [[ 'w', 'x', 'y' ], [ 'w', 'y', 'z' ]], timestamps);
+      storeAll(op);
+      const item = b({ x: 'x1', y: 'y1', w: 'w1' });
+      expect(probe(op, item, [ 'w', 'y' ], timestamps)).toEqual(referenceJoin([[ item ], stored ]));
+    });
+
+    it('matches on the bound part of a two-variable key when the probe leaves one unbound', () => {
+      const timestamps = new TimestampGenerator();
+      const stored = [ b({ y: 'y1', w: 'w1', z: 'z1' }), b({ y: 'y1', w: 'w2', z: 'z2' }), b({ y: 'y2', w: 'w1', z: 'z3' }) ];
+      const op = operator(1, stored, [[ 'w', 'x', 'y' ], [ 'w', 'y', 'z' ]], timestamps);
+      storeAll(op);
+      const item = b({ x: 'x1', y: 'y1' });
+      expect(probe(op, item, [ 'w', 'y' ], timestamps)).toEqual(referenceJoin([[ item ], stored ]));
+    });
+
+    it('matches a stored tuple when both leave the join variable unbound', () => {
+      const timestamps = new TimestampGenerator();
+      const stored = [ b({ z: 'z1' }), b({ y: 'y2', z: 'z2' }) ];
+      const op = operator(1, stored, [[ 'x', 'y' ], [ 'y', 'z' ]], timestamps);
+      storeAll(op);
+      const item = b({ x: 'x1' });
+      expect(probe(op, item, [ 'y' ], timestamps)).toEqual(referenceJoin([[ item ], stored ]));
+    });
+
+    it('joins an OPTIONAL-like operand like a SPARQL join in the controller', async() => {
+      const operands = [
+        // E.g. { ?x :p ?o OPTIONAL { ?x :q ?y } }, where ?y is unbound for x1
+        { variables: [ 'x', 'y' ], data: [ b({ x: 'x1' }), b({ x: 'x2', y: 'y2' }) ]},
+        { variables: [ 'y', 'z' ], data: [ b({ y: 'y1', z: 'z1' }), b({ y: 'y2', z: 'z2' }) ]},
+        { variables: [ 'z', 'u' ], data: [ b({ z: 'z1', u: 'u1' }), b({ z: 'z2', u: 'u2' }) ]},
+      ];
+      expect(await stems(operands)).toEqual(referenceJoin(operands.map(o => o.data)));
+    });
+
+    it('joins an OPTIONAL-like operand like a SPARQL join in the controller when it comes last', async() => {
+      const operands = [
+        { variables: [ 'y', 'z' ], data: [ b({ y: 'y1', z: 'z1' }), b({ y: 'y2', z: 'z2' }) ]},
+        { variables: [ 'z', 'u' ], data: [ b({ z: 'z1', u: 'u1' }), b({ z: 'z2', u: 'u2' }) ]},
+        { variables: [ 'x', 'y' ], data: [ b({ x: 'x1' }), b({ x: 'x2', y: 'y2' }) ]},
+      ];
+      expect(await stems(operands)).toEqual(referenceJoin(operands.map(o => o.data)));
+    });
+  });
+
+  describe('with probes on join variables that are not one indexed key', () => {
+    it('joins a cycle, where a probe shares a variable with each of two earlier operators', async() => {
+      // ?a :p ?b . ?b :q ?c . ?c :r ?a
+      const operands = [
+        { variables: [ 'a', 'b' ], data: [ b({ a: 'a1', b: 'b1' }), b({ a: 'a2', b: 'b2' }) ]},
+        { variables: [ 'b', 'c' ], data: [ b({ b: 'b1', c: 'c1' }), b({ b: 'b2', c: 'c2' }) ]},
+        { variables: [ 'c', 'a' ], data: [ b({ c: 'c1', a: 'a1' }), b({ c: 'c2', a: 'a1' }) ]},
+      ];
+      expect(await stems(operands)).toEqual(referenceJoin(operands.map(o => o.data)));
+    });
+
+    it('joins two operands sharing two variables listed in a different order', async() => {
+      // ?a :p ?b . ?b :q ?a
+      const operands = [
+        { variables: [ 'a', 'b' ], data: [ b({ a: 'a1', b: 'b1' }), b({ a: 'a2', b: 'b2' }) ]},
+        { variables: [ 'b', 'a' ], data: [ b({ b: 'b2', a: 'a2' }), b({ b: 'b1', a: 'a1' }) ]},
+      ];
+      expect(await stems(operands)).toEqual(referenceJoin(operands.map(o => o.data)));
+    });
+  });
+});

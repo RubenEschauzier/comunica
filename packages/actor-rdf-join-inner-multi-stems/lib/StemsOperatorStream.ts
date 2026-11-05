@@ -25,12 +25,21 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   /**
    * The variables that this operator can do a join on
    */
-  public joinVariables: RDF.Variable[][];
+  public readonly joinVariables: RDF.Variable[][];
   /**
-   * The join variable combination that partitions the tripleMap most finely, i.e. the one whose
-   * hash covers the most variables.
+   * One index per join variable combination, in the order of joinVariables.
    */
-  private readonly mostSelectiveJoinVariables: RDF.Variable[] | undefined;
+  private readonly keyIndexes: IKeyIndex[];
+  /**
+   * The index that partitions the produced tuples most finely, i.e. the one whose key covers the
+   * most variables.
+   */
+  private readonly mostSelectiveKeyIndex: IKeyIndex | undefined;
+  /**
+   * Per combination of join variables a probe arrives with, the indexes whose key lies within it,
+   * most selective first. A probe uses the first one whose variables it binds.
+   */
+  private readonly probeIndexes: Map<string, IKeyIndex[]> = new Map();
   /**
    * Indicating if this operator might have to perform a cartesian join
    */
@@ -94,10 +103,6 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
 
   private readonly sourceIterator: BindingsStream;
 
-  /**
-   * Internal map keeping track of the produced bindings by this operator
-   */
-  private readonly tripleMap: Map<number, Bindings[]> = new Map();
   private readonly timestampGenerator: ITimestampGenerator;
 
   private readonly funHash: HashFunction;
@@ -153,10 +158,16 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
     this.doneBitMask = doneBitMask;
     this.variables = variables;
     this.namedNodes = namedNodes;
-    this.joinVariables = StemsOperatorStream.deduplicateJoinVariables(joinVariables);
-    this.mostSelectiveJoinVariables = this.joinVariables.length === 0 ?
+    this.joinVariables = StemsOperatorStream.normalizeJoinVariables(joinVariables);
+    this.keyIndexes = this.joinVariables.map(key => ({
+      variables: key,
+      names: key.map(variable => variable.value),
+      buckets: new Map(),
+      unbound: [],
+    }));
+    this.mostSelectiveKeyIndex = this.keyIndexes.length === 0 ?
       undefined :
-      this.joinVariables.reduce((best, current) => current.length > best.length ? current : best);
+      this.keyIndexes.reduce((best, current) => current.variables.length > best.variables.length ? current : best);
     this.canBeCartesian = canBeCartesian;
 
     this.funHash = funHash;
@@ -186,27 +197,97 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   }
 
   /**
-   * Removes duplicate join variable combinations.
+   * Sorts the variables of every join variable combination and removes duplicate combinations.
    *
-   * Every combination is hashed once per produced tuple and inserted into the tripleMap, so two
-   * equal combinations hash to the same bucket and insert the same tuple twice. On probe that
-   * bucket is joined against in full, producing duplicate results with inflated cardinality.
-   *
-   * Only exactly equal sequences are collapsed: a different ordering of the same variables is a
-   * different hash key, so those are deliberately left alone.
+   * The hash of a combination depends on the order of its variables, so a combination is always
+   * hashed in one order, whichever order a probe names it in. Every combination gets an index of its
+   * own, so an equal combination twice would index every tuple twice and join it twice.
    */
-  private static deduplicateJoinVariables(joinVariables: RDF.Variable[][]): RDF.Variable[][] {
+  private static normalizeJoinVariables(joinVariables: RDF.Variable[][]): RDF.Variable[][] {
     const seen: Set<string> = new Set();
-    const deduplicated: RDF.Variable[][] = [];
+    const normalized: RDF.Variable[][] = [];
     for (const joinVariable of joinVariables) {
-      // ',' cannot occur in a SPARQL variable name, so it is a safe separator
-      const key = joinVariable.map(variable => variable.value).join(',');
+      const sorted = [ ...joinVariable ].sort((a, b) => a.value < b.value ? -1 : a.value > b.value ? 1 : 0);
+      const key = StemsOperatorStream.combinationKey(sorted.map(variable => variable.value));
       if (!seen.has(key)) {
         seen.add(key);
-        deduplicated.push(joinVariable);
+        normalized.push(sorted);
       }
     }
-    return deduplicated;
+    return normalized;
+  }
+
+  private static combinationKey(names: string[]): string {
+    // ',' cannot occur in a SPARQL variable name, so it is a safe separator
+    return names.join(',');
+  }
+
+  private static bindsAll(binding: Bindings, variables: RDF.Variable[]): boolean {
+    for (const variable of variables) {
+      if (!binding.has(variable)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Stores a produced tuple in every index: under its hash when it binds all of the index's
+   * variables, and with the index's unbound tuples otherwise, which are compatible with any value
+   * of the variables they leave unbound.
+   */
+  private storeInIndexes(item: Bindings): void {
+    for (const index of this.keyIndexes) {
+      if (!StemsOperatorStream.bindsAll(item, index.variables)) {
+        index.unbound.push(item);
+        continue;
+      }
+      const hash = this.funHash(item, index.variables);
+      let bucket = index.buckets.get(hash);
+      if (bucket === undefined) {
+        bucket = [];
+        index.buckets.set(hash, bucket);
+      }
+      bucket.push(item);
+    }
+  }
+
+  /**
+   * The stored tuples an intermediate result arriving with the given join variables can join with.
+   *
+   * The join variables a probe arrives with need not be one of this operator's indexed
+   * combinations: in a cycle they span several, and a probe may leave some of them unbound. So
+   * the probe uses the most selective index whose variables it binds, which holds every compatible
+   * tuple either under the probe's hash or with its unbound tuples. Without such an index, every
+   * stored tuple is a candidate. The join function settles compatibility on all variables.
+   */
+  private candidatesFor(item: Bindings, joinVars: RDF.Variable[]): Bindings[] {
+    for (const index of this.probeIndexesFor(joinVars)) {
+      if (StemsOperatorStream.bindsAll(item, index.variables)) {
+        const bucket = index.buckets.get(this.funHash(item, index.variables)) ?? [];
+        return index.unbound.length === 0 ? bucket : [ ...bucket, ...index.unbound ];
+      }
+    }
+    if (this.keyIndexes.length === 0) {
+      return this.canBeCartesian ? this.cartesianList : [];
+    }
+    // Every index holds every stored tuple once, under a hash or as unbound
+    const index = this.keyIndexes[0];
+    return [ ...index.buckets.values(), index.unbound ].flat();
+  }
+
+  private probeIndexesFor(joinVars: RDF.Variable[]): IKeyIndex[] {
+    const names = joinVars.map(variable => variable.value);
+    const key = StemsOperatorStream.combinationKey(names);
+    let indexes = this.probeIndexes.get(key);
+    if (indexes === undefined) {
+      const probed = new Set(names);
+      indexes = this.keyIndexes
+        .filter(index => index.names.every(name => probed.has(name)))
+        .sort((a, b) => b.variables.length - a.variables.length);
+      this.probeIndexes.set(key, indexes);
+    }
+    return indexes;
   }
 
   /**
@@ -230,10 +311,16 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
   public hasProducedBinding(binding: Bindings): boolean {
     // Without a join variable there is no hash key to look under, so fall back to the cartesian
     // bucket, which holds every produced tuple when the component has a cartesian product
-    if (this.mostSelectiveJoinVariables === undefined) {
+    if (this.mostSelectiveKeyIndex === undefined) {
       return this.canBeCartesian && this.agreesOnVariables(this.cartesianList, binding);
     }
-    const bucket = this.tripleMap.get(this.funHash(binding, this.mostSelectiveJoinVariables));
+    // Agreeing requires both to bind every variable of this operator, so neither a binding that
+    // leaves a key variable unbound nor a tuple stored as unbound can agree
+    if (!StemsOperatorStream.bindsAll(binding, this.mostSelectiveKeyIndex.variables)) {
+      return false;
+    }
+    const bucket = this.mostSelectiveKeyIndex.buckets
+      .get(this.funHash(binding, this.mostSelectiveKeyIndex.variables));
     if (bucket === undefined) {
       return false;
     }
@@ -385,19 +472,10 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
 
         item = item.setContextEntry(stemsContextKeys.stemsMetadata, itemMetadata);
 
-        // For each variable we can join on, we hash the item and store it in the tripleMap.
-        // This allows us to quickly find matches for any intermediate result and a given
-        // join variable.
-        for (const joinVar of this.joinVariables) {
-          const hash = this.funHash(item, joinVar);
-          let bucket = this.tripleMap.get(hash);
-          if (bucket === undefined) {
-            bucket = [];
-            this.tripleMap.set(hash, bucket);
-          }
-          bucket.push(item);
-        }
-        
+        // Index the item under every join variable combination, so any intermediate result can
+        // quickly find its matches
+        this.storeInIndexes(item);
+
         if (this.canBeCartesian) {
           this.cartesianList.push(item);
         }
@@ -408,10 +486,8 @@ export class StemsOperatorStream extends BufferedIterator<Bindings> {
       this.match = item;
       this.matchIdx = 0;
       if (joinVars.length > 0) {
-        // We read from the buffer and got variables to join on.
-        // So hash on the join variables.
-        const hash = this.funHash(item, joinVars);
-        this.matches = this.tripleMap.get(hash) ?? [];
+        // We read from the buffer and got variables to join on
+        this.matches = this.candidatesFor(item, joinVars);
       } else {
         this.matches = this.cartesianList;
       }
@@ -489,3 +565,22 @@ export interface ISelectivityData {
 export type HashFunction = (bindings: Bindings, variables: RDF.Variable[]) => number;
 export type HashFunctionVariablesSet = (item: Bindings) => number;
 export type JoinFunction = (...bindings: Bindings[]) => Bindings | null;
+
+/**
+ * The tuples an operator produced, indexed on one combination of join variables.
+ */
+interface IKeyIndex {
+  /**
+   * The combination, sorted by variable name.
+   */
+  variables: RDF.Variable[];
+  names: string[];
+  /**
+   * The tuples binding every variable of the combination, by their hash over it.
+   */
+  buckets: Map<number, Bindings[]>;
+  /**
+   * The tuples leaving a variable of the combination unbound.
+   */
+  unbound: Bindings[];
+}
