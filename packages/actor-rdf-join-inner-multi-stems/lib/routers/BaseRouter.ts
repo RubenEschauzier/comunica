@@ -5,7 +5,7 @@ import type * as RDF from '@rdfjs/types';
 import { stemsContextKeys } from '../StemsControllerStream';
 import type { StemsOperatorStream } from '../StemsOperatorStream';
 import { allOnesMask, bitLength, getSetBitIndexes, getUnsetBitIndexes, hasAllBits, indexesToMask, isDisjointMask } from '../utils/BitUtils';
-import equal = require('deep-equal');
+import { operationsEqual } from '../utils/OperationKey';
 
 export interface IRouteTableOperation {
   // Operations satisfied by this entry
@@ -35,7 +35,8 @@ export abstract class RouterBase implements IStemsRouter {
     if (this.routeOperations.length > 0) {
       if (
         this.routeOperations.length !== operations.length ||
-        this.routeOperations.some((op, i) => !equal(op.operations, operations[i].operations))
+        this.routeOperations.some((op, i) => op.operations.length !== operations[i].operations.length ||
+          op.operations.some((operation, j) => !operationsEqual(operation, operations[i].operations[j])))
       ) {
         throw new Error(
           'Router state error: createRouteTable was called with routeOperations that differ from already set routeOperations.',
@@ -191,7 +192,7 @@ export abstract class RouterBase implements IStemsRouter {
   protected getDerivedResourceBits(derivedOperations: Algebra.Operation[]){
     const indexes = this.routeOperations.flatMap((routeOperation, idx) =>
       derivedOperations.some(derivedOperation =>
-        routeOperation.operations.some(op => equal(derivedOperation, op))
+        routeOperation.operations.some(op => operationsEqual(derivedOperation, op))
       ) ? [idx] : []
     );
     if (indexes.length === 0){

@@ -76,7 +76,7 @@ export class DelegatedPatternsFilter implements IDelegatedPatterns {
   /**
    * Bit of the owning composite resource
    */
-  private readonly ownerBit: number;
+  public readonly ownerBit: number;
 
   /**
    * Whether the subject domain already ends on a separator, in which case a term
@@ -84,12 +84,13 @@ export class DelegatedPatternsFilter implements IDelegatedPatterns {
    */
   private readonly subjectDomainIsDelimited: boolean;
 
+  // Readable so that DelegatedPatternsFilterIndex can group filters that differ in their domain alone
   public constructor(
-    protected readonly blockMask: number,
-    protected readonly ownerOperatorIndex: number,
-    protected readonly anchorVars: string[],
-    protected readonly sourceExtractor: (binding: Bindings) => string[],
-    protected readonly subjectDomain: string,
+    public readonly blockMask: number,
+    public readonly ownerOperatorIndex: number,
+    public readonly anchorVars: string[],
+    public readonly sourceExtractor: (binding: Bindings) => string[],
+    public readonly subjectDomain: string,
   ){
     this.ownerBit = bitForIndex(ownerOperatorIndex);
     this.subjectDomainIsDelimited = isDomainDelimited(subjectDomain);

@@ -3,10 +3,9 @@ import { AsyncReiterableArray } from 'asyncreiterable';
 import type * as RDF from '@rdfjs/types';
 import type { Bindings, IJoinEntryWithMetadata } from '@comunica/types';
 import { Algebra, algebraUtils } from '@comunica/utils-algebra';
-import { IStemsRouter, ITimestampGenerator, JoinFunction, StemsControllerStream, StemsOperatorStream, computePairwiseJoinVariables, indexesToMask } from '@comunica/actor-rdf-join-inner-multi-stems';
+import { IStemsRouter, ITimestampGenerator, JoinFunction, StemsControllerStream, StemsOperatorStream, computePairwiseJoinVariables, indexesToMask, operationsEqual } from '@comunica/actor-rdf-join-inner-multi-stems';
 import { HashFunction } from '@comunica/bus-hash-bindings';
 import { IAdaptiveJoinComponent } from './IAdaptiveJoinController';
-import equal = require('deep-equal');
 
 /**
  * Wrapping class for managing stems executions and dynamically adding composite sources to
@@ -58,13 +57,16 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
 
   public canCoverOperations(operations: Algebra.Operation[]): boolean {
     return operations.every(targetOp =>
-      this.operations.some(op => equal(this.stripMetadata(op), this.stripMetadata(targetOp)))
+      this.operations.some(op => this.operationsEqual(op, targetOp))
     );
   }
 
-  public stripMetadata(operation: Algebra.Operation){
-    operation.metadata = undefined;
-    return operation
+  /**
+   * Whether two operations are the same, compared structurally: the algebra objects handed to a
+   * component are not reference-identical to the ones its join entries were built from.
+   */
+  public operationsEqual(left: Algebra.Operation, right: Algebra.Operation): boolean {
+    return operationsEqual(left, right);
   }
 
   public addCompositeSource(
@@ -81,7 +83,7 @@ export class StemsAdaptiveJoinComponent implements IAdaptiveJoinComponent {
     // structurally, as the algebra objects handed to us are not reference-identical to the
     // ones the join entries were built from.
     const operationToOperatorIndex = operations.map(targetOp =>
-      this.operations.findIndex(op => equal(this.stripMetadata(op), this.stripMetadata(targetOp))));
+      this.operations.findIndex(op => this.operationsEqual(op, targetOp)));
 
     // Calculate bitmask for the operations answered by this source
     const matchedIndexes = [ ...new Set(operationToOperatorIndex.filter(idx => idx !== -1)) ].sort();
