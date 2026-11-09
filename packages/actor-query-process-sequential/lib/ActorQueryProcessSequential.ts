@@ -13,7 +13,7 @@ import type {
 import {
   ActorQueryProcess,
 } from '@comunica/bus-query-process';
-import { KeysInitQuery } from '@comunica/context-entries';
+import { KeysInitQuery, KeysStatistics } from '@comunica/context-entries';
 import type { IActorTest, TestResult } from '@comunica/core';
 import { failTest, passTestVoid, ActionContextKey } from '@comunica/core';
 import type {
@@ -110,15 +110,18 @@ export class ActorQueryProcessSequential extends ActorQueryProcess implements IQ
     // Open a scope that is unique to this query execution, for caches that must not outlive it
     context = context.set(KeysInitQuery.queryExecutionScope, {});
 
-    // Save initial query in context
+    // Save initial query in context, and its string for statistics: the optimizers delete the query string once
+    // the query is spread over several sources, as a SPARQL source sends it instead of its own part of the query
     const originalQueryString = context.get(KeysInitQuery.queryString);
     context = context.set(KeysInitQuery.query, operation);
+    if (originalQueryString !== undefined) {
+      context = context.set(KeysStatistics.originalQueryString, originalQueryString);
+    }
 
     ({ operation, context } = await this.mediatorOptimizeQueryOperation.mediate({ context, operation }));
 
     // Save original query in context
-    context = context.set(KeysInitQuery.query, operation)
-      .set(KeysInitQuery.queryString, originalQueryString);
+    context = context.set(KeysInitQuery.query, operation);
     return { operation, context };
   }
 

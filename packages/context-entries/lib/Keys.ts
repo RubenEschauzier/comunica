@@ -492,4 +492,10 @@ export const KeysStatistics = {
   adaptiveJoinStatistics: new ActionContextKey<IAdaptiveJoinComponentStatistics[]>(
     '@comunica/statistic:adaptiveJoinStatistics',
   ),
+  /**
+   * The query string as the user gave it, for statistics that refer to the query.
+   * Unlike KeysInitQuery.queryString, this is kept when the query is spread over several sources, so it must
+   * not be sent to a source.
+   */
+  originalQueryString: new ActionContextKey<string>('@comunica/statistic:originalQueryString'),
 };

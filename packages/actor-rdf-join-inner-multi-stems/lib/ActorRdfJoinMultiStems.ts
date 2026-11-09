@@ -98,7 +98,7 @@ export class ActorRdfJoinMultiStems extends ActorRdfJoin<IActorRdfJoinMultiStems
     const logger = ActorRdfJoinMultiStems.getContextLogger(action.context);
     
     const componentStatistics = action.context.get(KeysStatistics.adaptiveJoinStatistics);
-    const queryString = action.context.get(KeysInitQuery.queryString);
+    const queryString = action.context.get(KeysStatistics.originalQueryString);
 
     const adaptiveJoinController = action.context.get(KeysRdfJoin.adaptiveJoinController);
 
